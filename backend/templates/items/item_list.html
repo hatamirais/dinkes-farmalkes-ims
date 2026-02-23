@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Daftar Barang — Healthcare IMS{% endblock %}
+{% block title %}Daftar Barang - Healthcare IMS{% endblock %}
 {% block page_title %}Daftar Barang{% endblock %}
 
 {% block content %}
@@ -12,24 +12,19 @@
         </a>
     </div>
 
-    <!-- Filters -->
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari kode/nama barang..."
-                value="{{ search }}">
+            <input type="text" name="q" class="form-control" placeholder="Cari kode/nama barang..." value="{{ search }}">
             <select name="kategori" class="form-select">
                 <option value="">Semua Kategori</option>
                 {% for cat in categories %}
-                {% with cat_id=cat.id|stringformat:"d" %}
-                <option value="{{ cat.id }}" {% if selected_kategori==cat_id %}selected{% endif %}>{{ cat.name }}
-                </option>
-                {% endwith %}
+                <option value="{{ cat.id }}" {{ cat.selected }}>{{ cat.name }}</option>
                 {% endfor %}
             </select>
             <select name="program" class="form-select">
                 <option value="">Semua Tipe</option>
-                <option value="1" {% if selected_program=="1" %}selected{% endif %}>Program [P]</option>
-                <option value="0" {% if selected_program=="0" %}selected{% endif %}>Non-Program</option>
+                <option value="1" {{ program_1_selected }}>Program [P]</option>
+                <option value="0" {{ program_0_selected }}>Non-Program</option>
             </select>
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
             {% if search or selected_kategori or selected_program %}
@@ -38,7 +33,6 @@
         </form>
     </div>
 
-    <!-- Table -->
     <div class="table-responsive">
         <table class="table">
             <thead>
@@ -68,12 +62,10 @@
                     </td>
                     <td>{{ item.minimum_stock }}</td>
                     <td class="text-end">
-                        <a href="{% url 'items:item_update' item.pk %}" class="btn btn-sm btn-outline-secondary"
-                            title="Edit">
+                        <a href="{% url 'items:item_update' item.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="{% url 'items:item_delete' item.pk %}" class="btn btn-sm btn-outline-danger"
-                            title="Hapus">
+                        <a href="{% url 'items:item_delete' item.pk %}" class="btn btn-sm btn-outline-danger" title="Hapus">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>
@@ -92,32 +84,22 @@
         </table>
     </div>
 
-    <!-- Pagination -->
     {% if items.has_other_pages %}
     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">Menampilkan {{ items.start_index }}-{{ items.end_index }} dari {{
-            items.paginator.count }}</small>
+        <small class="text-muted">{{ items.start_index }}-{{ items.end_index }} dari {{ items.paginator.count }}</small>
         <nav>
             <ul class="pagination pagination-sm mb-0">
                 {% if items.has_previous %}
-                <li class="page-item"><a class="page-link"
-                        href="?page={{ items.previous_page_number }}&q={{ search }}&kategori={{ selected_kategori|default:'' }}&program={{ selected_program|default:'' }}">&laquo;</a>
-                </li>
+                <li class="page-item"><a class="page-link" href="?page={{ items.previous_page_number }}">&laquo;</a></li>
                 {% endif %}
                 {% for num in items.paginator.page_range %}
-                {% if items.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num > items.number|add:'-3' and num < items.number|add:'3' %} <li class="page-item"><a
-                        class="page-link"
-                        href="?page={{ num }}&q={{ search }}&kategori={{ selected_kategori|default:'' }}&program={{ selected_program|default:'' }}">{{
-                        num }}</a></li>
+                    {% if items.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                     {% endif %}
-                    {% endfor %}
-                    {% if items.has_next %}
-                    <li class="page-item"><a class="page-link"
-                            href="?page={{ items.next_page_number }}&q={{ search }}&kategori={{ selected_kategori|default:'' }}&program={{ selected_program|default:'' }}">&raquo;</a>
-                    </li>
-                    {% endif %}
+                {% endfor %}
+                {% if items.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ items.next_page_number }}">&raquo;</a></li>
+                {% endif %}
             </ul>
         </nav>
     </div>

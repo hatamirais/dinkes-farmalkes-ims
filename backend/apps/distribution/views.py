@@ -36,8 +36,16 @@ def distribution_list(request):
     return render(request, 'distribution/distribution_list.html', {
         'distributions': distributions,
         'search': search,
-        'selected_status': status,
-        'selected_type': d_type,
+        'selected_status': status or '',
+        'selected_type': d_type or '',
+        'status_draft': 'selected' if status == 'DRAFT' else '',
+        'status_submitted': 'selected' if status == 'SUBMITTED' else '',
+        'status_verified': 'selected' if status == 'VERIFIED' else '',
+        'status_prepared': 'selected' if status == 'PREPARED' else '',
+        'status_distributed': 'selected' if status == 'DISTRIBUTED' else '',
+        'type_lplpo': 'selected' if d_type == 'LPLPO' else '',
+        'type_allocation': 'selected' if d_type == 'ALLOCATION' else '',
+        'type_special': 'selected' if d_type == 'SPECIAL' else '',
     })
 
 

@@ -36,12 +36,23 @@ def item_list(request):
     page = request.GET.get('page')
     items = paginator.get_page(page)
 
+    # Build category list with selected state
+    categories = []
+    for cat in Category.objects.all():
+        categories.append({
+            'id': cat.id,
+            'name': cat.name,
+            'selected': 'selected' if kategori == str(cat.id) else '',
+        })
+
     return render(request, 'items/item_list.html', {
         'items': items,
-        'categories': Category.objects.all(),
+        'categories': categories,
         'search': search,
-        'selected_kategori': kategori,
-        'selected_program': program,
+        'selected_kategori': kategori or '',
+        'selected_program': program or '',
+        'program_1_selected': 'selected' if program == '1' else '',
+        'program_0_selected': 'selected' if program == '0' else '',
     })
 
 

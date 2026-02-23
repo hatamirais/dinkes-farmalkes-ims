@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Stok Barang — Healthcare IMS{% endblock %}
+{% block title %}Stok Barang - Healthcare IMS{% endblock %}
 {% block page_title %}Stok Barang{% endblock %}
 
 {% block content %}
@@ -15,19 +15,13 @@
             <select name="location" class="form-select">
                 <option value="">Semua Lokasi</option>
                 {% for loc in locations %}
-                {% with loc_id=loc.id|stringformat:"d" %}
-                <option value="{{ loc.id }}" {% if selected_location==loc_id %}selected{% endif %}>{{
-                    loc.name }}</option>
-                {% endwith %}
+                <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
                 {% endfor %}
             </select>
             <select name="sumber_dana" class="form-select">
                 <option value="">Semua Sumber Dana</option>
                 {% for sd in funding_sources %}
-                {% with sd_id=sd.id|stringformat:"d" %}
-                <option value="{{ sd.id }}" {% if selected_sumber_dana==sd_id %}selected{% endif %}>{{
-                    sd.name }}</option>
-                {% endwith %}
+                <option value="{{ sd.id }}" {{ sd.selected }}>{{ sd.name }}</option>
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
@@ -57,15 +51,14 @@
                     <td><code>{{ stock.item.kode_barang }}</code></td>
                     <td>{{ stock.item.nama_barang }}</td>
                     <td>{{ stock.location.name }}</td>
-                    <td>{{ stock.batch_lot|default:"-" }}</td>
+                    <td>{{ stock.batch_lot }}</td>
                     <td>
-                        {% if stock.expiry_date %}
-                        <span
-                            class="{% if stock.is_near_expiry %}text-warning{% endif %}{% if stock.is_expired %}text-danger fw-bold{% endif %}">
-                            {{ stock.expiry_date|date:"d/m/Y" }}
-                        </span>
+                        {% if stock.is_expired %}
+                        <span class="text-danger fw-bold">{{ stock.expiry_date|date:"d/m/Y" }}</span>
+                        {% elif stock.is_near_expiry %}
+                        <span class="text-warning">{{ stock.expiry_date|date:"d/m/Y" }}</span>
                         {% else %}
-                        -
+                        {{ stock.expiry_date|date:"d/m/Y" }}
                         {% endif %}
                     </td>
                     <td class="text-end fw-semibold">{{ stock.quantity }}</td>
@@ -88,25 +81,20 @@
 
     {% if stocks.has_other_pages %}
     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count
-            }}</small>
+        <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count }}</small>
         <nav>
             <ul class="pagination pagination-sm mb-0">
                 {% if stocks.has_previous %}
-                <li class="page-item"><a class="page-link"
-                        href="?page={{ stocks.previous_page_number }}&q={{ search }}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ stocks.previous_page_number }}">&laquo;</a></li>
                 {% endif %}
                 {% for num in stocks.paginator.page_range %}
-                {% if stocks.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num > stocks.number|add:'-3' and num < stocks.number|add:'3' %} <li class="page-item"><a
-                        class="page-link" href="?page={{ num }}&q={{ search }}">{{ num }}</a></li>
+                    {% if stocks.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                     {% endif %}
-                    {% endfor %}
-                    {% if stocks.has_next %}
-                    <li class="page-item"><a class="page-link"
-                            href="?page={{ stocks.next_page_number }}&q={{ search }}">&raquo;</a></li>
-                    {% endif %}
+                {% endfor %}
+                {% if stocks.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ stocks.next_page_number }}">&raquo;</a></li>
+                {% endif %}
             </ul>
         </nav>
     </div>

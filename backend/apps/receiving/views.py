@@ -36,8 +36,13 @@ def receiving_list(request):
     return render(request, 'receiving/receiving_list.html', {
         'receivings': receivings,
         'search': search,
-        'selected_status': status,
-        'selected_type': r_type,
+        'selected_status': status or '',
+        'selected_type': r_type or '',
+        'status_draft': 'selected' if status == 'DRAFT' else '',
+        'status_submitted': 'selected' if status == 'SUBMITTED' else '',
+        'status_verified': 'selected' if status == 'VERIFIED' else '',
+        'type_procurement': 'selected' if r_type == 'PROCUREMENT' else '',
+        'type_grant': 'selected' if r_type == 'GRANT' else '',
     })
 
 

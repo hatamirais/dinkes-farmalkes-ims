@@ -34,13 +34,30 @@ def stock_list(request):
     paginator = Paginator(queryset, 25)
     stocks = paginator.get_page(request.GET.get('page'))
 
+    # Build filter lists with selected state
+    locations = []
+    for loc in Location.objects.filter(is_active=True):
+        locations.append({
+            'id': loc.id,
+            'name': loc.name,
+            'selected': 'selected' if location == str(loc.id) else '',
+        })
+
+    funding_sources = []
+    for sd in FundingSource.objects.filter(is_active=True):
+        funding_sources.append({
+            'id': sd.id,
+            'name': sd.name,
+            'selected': 'selected' if sumber_dana == str(sd.id) else '',
+        })
+
     return render(request, 'stock/stock_list.html', {
         'stocks': stocks,
-        'locations': Location.objects.filter(is_active=True),
-        'funding_sources': FundingSource.objects.filter(is_active=True),
+        'locations': locations,
+        'funding_sources': funding_sources,
         'search': search,
-        'selected_location': location,
-        'selected_sumber_dana': sumber_dana,
+        'selected_location': location or '',
+        'selected_sumber_dana': sumber_dana or '',
     })
 
 
@@ -70,5 +87,9 @@ def transaction_list(request):
     return render(request, 'stock/transaction_list.html', {
         'transactions': transactions,
         'search': search,
-        'selected_type': tx_type,
+        'selected_type': tx_type or '',
+        'type_in': 'selected' if tx_type == 'IN' else '',
+        'type_out': 'selected' if tx_type == 'OUT' else '',
+        'type_adjust': 'selected' if tx_type == 'ADJUST' else '',
+        'type_return': 'selected' if tx_type == 'RETURN' else '',
     })

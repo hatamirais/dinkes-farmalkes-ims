@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Kartu Stok — Healthcare IMS{% endblock %}
+{% block title %}Kartu Stok - Healthcare IMS{% endblock %}
 {% block page_title %}Kartu Stok{% endblock %}
 
 {% block content %}
@@ -11,19 +11,17 @@
 
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari barang/batch/catatan..."
-                value="{{ search }}">
+            <input type="text" name="q" class="form-control" placeholder="Cari barang/batch/catatan..." value="{{ search }}">
             <select name="type" class="form-select">
                 <option value="">Semua Tipe</option>
-                <option value="IN" {% if selected_type=="IN" %}selected{% endif %}>Masuk</option>
-                <option value="OUT" {% if selected_type=="OUT" %}selected{% endif %}>Keluar</option>
-                <option value="ADJUST" {% if selected_type=="ADJUST" %}selected{% endif %}>Penyesuaian</option>
-                <option value="RETURN" {% if selected_type=="RETURN" %}selected{% endif %}>Retur</option>
+                <option value="IN" {{ type_in }}>Masuk</option>
+                <option value="OUT" {{ type_out }}>Keluar</option>
+                <option value="ADJUST" {{ type_adjust }}>Penyesuaian</option>
+                <option value="RETURN" {{ type_return }}>Retur</option>
             </select>
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
             {% if search or selected_type %}
-            <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-danger btn-sm"><i
-                    class="bi bi-x-lg"></i></a>
+            <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
             {% endif %}
         </form>
     </div>
@@ -82,28 +80,20 @@
 
     {% if transactions.has_other_pages %}
     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">{{ transactions.start_index }}-{{ transactions.end_index }} dari {{
-            transactions.paginator.count }}</small>
+        <small class="text-muted">{{ transactions.start_index }}-{{ transactions.end_index }} dari {{ transactions.paginator.count }}</small>
         <nav>
             <ul class="pagination pagination-sm mb-0">
                 {% if transactions.has_previous %}
-                <li class="page-item"><a class="page-link"
-                        href="?page={{ transactions.previous_page_number }}&q={{ search }}&type={{ selected_type|default:'' }}">&laquo;</a>
-                </li>
+                <li class="page-item"><a class="page-link" href="?page={{ transactions.previous_page_number }}">&laquo;</a></li>
                 {% endif %}
                 {% for num in transactions.paginator.page_range %}
-                {% if transactions.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num > transactions.number|add:'-3' and num < transactions.number|add:'3' %} <li
-                    class="page-item"><a class="page-link"
-                        href="?page={{ num }}&q={{ search }}&type={{ selected_type|default:'' }}">{{ num }}</a></li>
+                    {% if transactions.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                     {% endif %}
-                    {% endfor %}
-                    {% if transactions.has_next %}
-                    <li class="page-item"><a class="page-link"
-                            href="?page={{ transactions.next_page_number }}&q={{ search }}&type={{ selected_type|default:'' }}">&raquo;</a>
-                    </li>
-                    {% endif %}
+                {% endfor %}
+                {% if transactions.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ transactions.next_page_number }}">&raquo;</a></li>
+                {% endif %}
             </ul>
         </nav>
     </div>
