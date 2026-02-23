@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Distribusi Barang — Healthcare IMS{% endblock %}
+{% block page_title %}Distribusi Barang{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <h5><i class="bi bi-send me-2"></i>Daftar Distribusi</h5>
+        <a href="{% url 'distribution:distribution_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Buat Distribusi
+        </a>
+    </div>
+
+    <div class="px-3 py-2 border-bottom bg-light">
+        <form method="get" class="filter-form">
+            <input type="text" name="q" class="form-control" placeholder="Cari no. dokumen / faskes..."
+                value="{{ search }}">
+            <select name="status" class="form-select">
+                <option value="">Semua Status</option>
+                <option value="DRAFT" {% if selected_status=="DRAFT" %}selected{% endif %}>Draft</option>
+                <option value="SUBMITTED" {% if selected_status=="SUBMITTED" %}selected{% endif %}>Submitted</option>
+                <option value="VERIFIED" {% if selected_status=="VERIFIED" %}selected{% endif %}>Verified</option>
+                <option value="PREPARED" {% if selected_status=="PREPARED" %}selected{% endif %}>Prepared</option>
+                <option value="DISTRIBUTED" {% if selected_status=="DISTRIBUTED" %}selected{% endif %}>Distributed
+                </option>
+            </select>
+            <select name="type" class="form-select">
+                <option value="">Semua Tipe</option>
+                <option value="LPLPO" {% if selected_type=="LPLPO" %}selected{% endif %}>LPLPO</option>
+                <option value="ALLOCATION" {% if selected_type=="ALLOCATION" %}selected{% endif %}>Alokasi</option>
+                <option value="SPECIAL" {% if selected_type=="SPECIAL" %}selected{% endif %}>Permintaan Khusus</option>
+            </select>
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            {% if search or selected_status or selected_type %}
+            <a href="{% url 'distribution:distribution_list' %}" class="btn btn-outline-danger btn-sm"><i
+                    class="bi bi-x-lg"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>No. Dokumen</th>
+                    <th>Tanggal</th>
+                    <th>Tipe</th>
+                    <th>Faskes Tujuan</th>
+                    <th>Status</th>
+                    <th>Dibuat oleh</th>
+                    <th class="text-end">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in distributions %}
+                <tr>
+                    <td><a href="{% url 'distribution:distribution_detail' d.pk %}"
+                            class="fw-semibold text-decoration-none">{{ d.document_number }}</a></td>
+                    <td>{{ d.request_date|date:"d/m/Y" }}</td>
+                    <td>{{ d.get_distribution_type_display }}</td>
+                    <td>{{ d.facility.name }}</td>
+                    <td>
+                        <span class="badge-status badge-{{ d.status|lower }}">{{ d.get_status_display }}</span>
+                    </td>
+                    <td>{{ d.created_by }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'distribution:distribution_detail' d.pk %}"
+                            class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="bi bi-send d-block"></i>
+                            <p>Belum ada data distribusi</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if distributions.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+        <small class="text-muted">{{ distributions.start_index }}-{{ distributions.end_index }} dari {{
+            distributions.paginator.count }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if distributions.has_previous %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ distributions.previous_page_number }}&q={{ search }}">&laquo;</a></li>
+                {% endif %}
+                {% for num in distributions.paginator.page_range %}
+                {% if distributions.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > distributions.number|add:'-3' and num < distributions.number|add:'3' %} <li
+                    class="page-item"><a class="page-link" href="?page={{ num }}&q={{ search }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if distributions.has_next %}
+                    <li class="page-item"><a class="page-link"
+                            href="?page={{ distributions.next_page_number }}&q={{ search }}">&raquo;</a></li>
+                    {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

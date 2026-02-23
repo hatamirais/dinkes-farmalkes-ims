@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Kartu Stok — Healthcare IMS{% endblock %}
+{% block page_title %}Kartu Stok{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <h5><i class="bi bi-journal-text me-2"></i>Kartu Stok (Audit Trail)</h5>
+    </div>
+
+    <div class="px-3 py-2 border-bottom bg-light">
+        <form method="get" class="filter-form">
+            <input type="text" name="q" class="form-control" placeholder="Cari barang/batch/catatan..."
+                value="{{ search }}">
+            <select name="type" class="form-select">
+                <option value="">Semua Tipe</option>
+                <option value="IN" {% if selected_type=="IN" %}selected{% endif %}>Masuk</option>
+                <option value="OUT" {% if selected_type=="OUT" %}selected{% endif %}>Keluar</option>
+                <option value="ADJUST" {% if selected_type=="ADJUST" %}selected{% endif %}>Penyesuaian</option>
+                <option value="RETURN" {% if selected_type=="RETURN" %}selected{% endif %}>Retur</option>
+            </select>
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            {% if search or selected_type %}
+            <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-danger btn-sm"><i
+                    class="bi bi-x-lg"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Tipe</th>
+                    <th>Barang</th>
+                    <th>Batch/Lot</th>
+                    <th>Lokasi</th>
+                    <th class="text-end">Qty</th>
+                    <th>Ref</th>
+                    <th>User</th>
+                    <th>Catatan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr>
+                    <td class="text-nowrap">{{ tx.created_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        {% if tx.transaction_type == 'IN' %}
+                        <span class="badge bg-success-subtle text-success">Masuk</span>
+                        {% elif tx.transaction_type == 'OUT' %}
+                        <span class="badge bg-danger-subtle text-danger">Keluar</span>
+                        {% elif tx.transaction_type == 'ADJUST' %}
+                        <span class="badge bg-warning-subtle text-warning">Adjust</span>
+                        {% else %}
+                        <span class="badge bg-info-subtle text-info">Retur</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ tx.item.nama_barang|truncatechars:30 }}</td>
+                    <td>{{ tx.batch_lot|default:"-" }}</td>
+                    <td>{{ tx.location.name|default:"-" }}</td>
+                    <td class="text-end fw-semibold">{{ tx.quantity }}</td>
+                    <td><code>{{ tx.reference_type }}-{{ tx.reference_id }}</code></td>
+                    <td>{{ tx.user }}</td>
+                    <td class="text-muted small">{{ tx.notes|truncatechars:50|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9">
+                        <div class="empty-state">
+                            <i class="bi bi-journal d-block"></i>
+                            <p>Belum ada transaksi</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if transactions.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+        <small class="text-muted">{{ transactions.start_index }}-{{ transactions.end_index }} dari {{
+            transactions.paginator.count }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if transactions.has_previous %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ transactions.previous_page_number }}&q={{ search }}&type={{ selected_type|default:'' }}">&laquo;</a>
+                </li>
+                {% endif %}
+                {% for num in transactions.paginator.page_range %}
+                {% if transactions.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > transactions.number|add:'-3' and num < transactions.number|add:'3' %} <li
+                    class="page-item"><a class="page-link"
+                        href="?page={{ num }}&q={{ search }}&type={{ selected_type|default:'' }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if transactions.has_next %}
+                    <li class="page-item"><a class="page-link"
+                            href="?page={{ transactions.next_page_number }}&q={{ search }}&type={{ selected_type|default:'' }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

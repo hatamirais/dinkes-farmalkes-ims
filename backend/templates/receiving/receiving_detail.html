@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Detail Penerimaan {{ receiving.document_number }} — Healthcare IMS{% endblock %}
+{% block page_title %}Detail Penerimaan{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card content-card">
+            <div class="card-header"><span>Info Penerimaan</span></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">No. Dokumen</dt>
+                    <dd class="col-7 fw-semibold">{{ receiving.document_number }}</dd>
+
+                    <dt class="col-5 text-muted">Tanggal</dt>
+                    <dd class="col-7">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>
+
+                    <dt class="col-5 text-muted">Tipe</dt>
+                    <dd class="col-7">{{ receiving.get_receiving_type_display }}</dd>
+
+                    <dt class="col-5 text-muted">Supplier</dt>
+                    <dd class="col-7">{{ receiving.supplier.name|default:"-" }}</dd>
+
+                    <dt class="col-5 text-muted">Sumber Dana</dt>
+                    <dd class="col-7">{{ receiving.sumber_dana.code }}</dd>
+
+                    <dt class="col-5 text-muted">Status</dt>
+                    <dd class="col-7">
+                        <span class="badge-status badge-{{ receiving.status|lower }}">{{ receiving.get_status_display
+                            }}</span>
+                    </dd>
+
+                    <dt class="col-5 text-muted">Dibuat oleh</dt>
+                    <dd class="col-7">{{ receiving.created_by }}</dd>
+
+                    {% if receiving.verified_by %}
+                    <dt class="col-5 text-muted">Diverifikasi</dt>
+                    <dd class="col-7">{{ receiving.verified_by }} <br><small class="text-muted">{{
+                            receiving.verified_at|date:"d/m/Y H:i" }}</small></dd>
+                    {% endif %}
+
+                    {% if receiving.notes %}
+                    <dt class="col-5 text-muted">Catatan</dt>
+                    <dd class="col-7">{{ receiving.notes }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card content-card">
+            <div class="card-header"><span>Daftar Item</span></div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Kode</th>
+                                <th>Nama Barang</th>
+                                <th>Satuan</th>
+                                <th>Batch/Lot</th>
+                                <th>Expiry</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Harga</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ri in items %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><code>{{ ri.item.kode_barang }}</code></td>
+                                <td>{{ ri.item.nama_barang }}</td>
+                                <td>{{ ri.item.satuan.code }}</td>
+                                <td>{{ ri.batch_lot|default:"-" }}</td>
+                                <td>{{ ri.expiry_date|date:"d/m/Y"|default:"-" }}</td>
+                                <td class="text-end">{{ ri.quantity }}</td>
+                                <td class="text-end">{{ ri.unit_price|floatformat:0 }}</td>
+                                <td class="text-end fw-semibold">{{ ri.total_price|floatformat:0 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+</div>
+{% endblock %}

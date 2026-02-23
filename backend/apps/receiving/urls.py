@@ -1,7 +1,10 @@
 from django.urls import path
+from . import views
 
 app_name = 'receiving'
 
 urlpatterns = [
-    # Receiving views will be added here
+    path('', views.receiving_list, name='receiving_list'),
+    path('create/', views.receiving_create, name='receiving_create'),
+    path('<int:pk>/', views.receiving_detail, name='receiving_detail'),
 ]

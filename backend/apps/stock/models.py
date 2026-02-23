@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 from apps.core.models import TimeStampedModel
 
 
@@ -73,6 +75,16 @@ class Stock(TimeStampedModel):
     def total_value(self):
         """Total value = quantity × unit_price."""
         return self.quantity * self.unit_price
+
+    @property
+    def is_expired(self):
+        """Whether this stock batch has expired."""
+        return self.expiry_date <= timezone.now().date()
+
+    @property
+    def is_near_expiry(self):
+        """Whether this stock batch expires within 90 days."""
+        return not self.is_expired and self.expiry_date <= timezone.now().date() + timedelta(days=90)
 
 
 class Transaction(models.Model):

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Detail Distribusi {{ distribution.document_number }} — Healthcare IMS{% endblock %}
+{% block page_title %}Detail Distribusi{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card content-card">
+            <div class="card-header"><span>Info Distribusi</span></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">No. Dokumen</dt>
+                    <dd class="col-7 fw-semibold">{{ distribution.document_number }}</dd>
+
+                    <dt class="col-5 text-muted">Tanggal</dt>
+                    <dd class="col-7">{{ distribution.request_date|date:"d/m/Y" }}</dd>
+
+                    <dt class="col-5 text-muted">Tipe</dt>
+                    <dd class="col-7">{{ distribution.get_distribution_type_display }}</dd>
+
+                    <dt class="col-5 text-muted">Faskes Tujuan</dt>
+                    <dd class="col-7">{{ distribution.facility.name }}</dd>
+
+                    <dt class="col-5 text-muted">Status</dt>
+                    <dd class="col-7">
+                        <span class="badge-status badge-{{ distribution.status|lower }}">{{
+                            distribution.get_status_display }}</span>
+                    </dd>
+
+                    <dt class="col-5 text-muted">Dibuat oleh</dt>
+                    <dd class="col-7">{{ distribution.created_by }}</dd>
+
+                    {% if distribution.verified_by %}
+                    <dt class="col-5 text-muted">Diverifikasi</dt>
+                    <dd class="col-7">{{ distribution.verified_by }}<br><small class="text-muted">{{
+                            distribution.verified_at|date:"d/m/Y H:i" }}</small></dd>
+                    {% endif %}
+
+                    {% if distribution.approved_by %}
+                    <dt class="col-5 text-muted">Disetujui</dt>
+                    <dd class="col-7">{{ distribution.approved_by }}<br><small class="text-muted">{{
+                            distribution.approved_at|date:"d/m/Y H:i" }}</small></dd>
+                    {% endif %}
+
+                    {% if distribution.notes %}
+                    <dt class="col-5 text-muted">Catatan</dt>
+                    <dd class="col-7">{{ distribution.notes }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card content-card">
+            <div class="card-header"><span>Daftar Item</span></div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Kode</th>
+                                <th>Nama Barang</th>
+                                <th>Satuan</th>
+                                <th class="text-end">Diminta</th>
+                                <th class="text-end">Disetujui</th>
+                                <th>Batch</th>
+                                <th>Catatan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for di in items %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><code>{{ di.item.kode_barang }}</code></td>
+                                <td>{{ di.item.nama_barang }}</td>
+                                <td>{{ di.item.satuan.code }}</td>
+                                <td class="text-end">{{ di.quantity_requested }}</td>
+                                <td class="text-end fw-semibold">{{ di.quantity_approved|default:"-" }}</td>
+                                <td>{{ di.stock.batch_lot|default:"-" }}</td>
+                                <td class="text-muted small">{{ di.notes|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'distribution:distribution_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+</div>
+{% endblock %}

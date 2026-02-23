@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Daftar Barang — Healthcare IMS{% endblock %}
+{% block page_title %}Daftar Barang{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <h5><i class="bi bi-box-seam me-2"></i>Daftar Barang</h5>
+        <a href="{% url 'items:item_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Barang
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="px-3 py-2 border-bottom bg-light">
+        <form method="get" class="filter-form">
+            <input type="text" name="q" class="form-control" placeholder="Cari kode/nama barang..."
+                value="{{ search }}">
+            <select name="kategori" class="form-select">
+                <option value="">Semua Kategori</option>
+                {% for cat in categories %}
+                {% with cat_id=cat.id|stringformat:"d" %}
+                <option value="{{ cat.id }}" {% if selected_kategori==cat_id %}selected{% endif %}>{{ cat.name }}
+                </option>
+                {% endwith %}
+                {% endfor %}
+            </select>
+            <select name="program" class="form-select">
+                <option value="">Semua Tipe</option>
+                <option value="1" {% if selected_program=="1" %}selected{% endif %}>Program [P]</option>
+                <option value="0" {% if selected_program=="0" %}selected{% endif %}>Non-Program</option>
+            </select>
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            {% if search or selected_kategori or selected_program %}
+            <a href="{% url 'items:item_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Kode</th>
+                    <th>Nama Barang</th>
+                    <th>Satuan</th>
+                    <th>Kategori</th>
+                    <th>Program</th>
+                    <th>Min. Stok</th>
+                    <th class="text-end">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><code>{{ item.kode_barang }}</code></td>
+                    <td>{{ item.nama_barang }}</td>
+                    <td>{{ item.satuan.code }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ item.kategori.name }}</span></td>
+                    <td>
+                        {% if item.is_program_item %}
+                        <span class="badge bg-primary-subtle text-primary">[P] {{ item.program_name }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.minimum_stock }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'items:item_update' item.pk %}" class="btn btn-sm btn-outline-secondary"
+                            title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'items:item_delete' item.pk %}" class="btn btn-sm btn-outline-danger"
+                            title="Hapus">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox d-block"></i>
+                            <p>Belum ada data barang</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if items.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+        <small class="text-muted">Menampilkan {{ items.start_index }}-{{ items.end_index }} dari {{
+            items.paginator.count }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if items.has_previous %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ items.previous_page_number }}&q={{ search }}&kategori={{ selected_kategori|default:'' }}&program={{ selected_program|default:'' }}">&laquo;</a>
+                </li>
+                {% endif %}
+                {% for num in items.paginator.page_range %}
+                {% if items.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > items.number|add:'-3' and num < items.number|add:'3' %} <li class="page-item"><a
+                        class="page-link"
+                        href="?page={{ num }}&q={{ search }}&kategori={{ selected_kategori|default:'' }}&program={{ selected_program|default:'' }}">{{
+                        num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if items.has_next %}
+                    <li class="page-item"><a class="page-link"
+                            href="?page={{ items.next_page_number }}&q={{ search }}&kategori={{ selected_kategori|default:'' }}&program={{ selected_program|default:'' }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Healthcare IMS{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="stat-icon blue"><i class="bi bi-box-seam"></i></div>
+                </div>
+                <div class="stat-value">{{ total_items }}</div>
+                <div class="stat-label">Total Jenis Barang</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="stat-icon green"><i class="bi bi-boxes"></i></div>
+                </div>
+                <div class="stat-value">{{ total_stock_entries }}</div>
+                <div class="stat-label">Total Stok Aktif</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="stat-icon orange"><i class="bi bi-exclamation-triangle"></i></div>
+                </div>
+                <div class="stat-value">{{ low_stock_count }}</div>
+                <div class="stat-label">Stok Rendah</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="stat-icon red"><i class="bi bi-calendar-x"></i></div>
+                </div>
+                <div class="stat-value">{{ expiring_soon_count }}</div>
+                <div class="stat-label">Mendekati Kedaluwarsa</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Recent Transactions -->
+    <div class="col-lg-8">
+        <div class="card content-card">
+            <div class="card-header">
+                <span><i class="bi bi-clock-history me-2"></i>Transaksi Terakhir</span>
+                <a href="{% url 'stock:transaction_list' %}" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_transactions %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Tipe</th>
+                                <th>Barang</th>
+                                <th>Qty</th>
+                                <th>User</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in recent_transactions %}
+                            <tr>
+                                <td>{{ tx.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if tx.transaction_type == 'IN' %}
+                                    <span class="badge bg-success-subtle text-success">Masuk</span>
+                                    {% elif tx.transaction_type == 'OUT' %}
+                                    <span class="badge bg-danger-subtle text-danger">Keluar</span>
+                                    {% elif tx.transaction_type == 'ADJUST' %}
+                                    <span class="badge bg-warning-subtle text-warning">Adjust</span>
+                                    {% else %}
+                                    <span class="badge bg-info-subtle text-info">Retur</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ tx.item.nama_barang|truncatechars:40 }}</td>
+                                <td>{{ tx.quantity }}</td>
+                                <td>{{ tx.user }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-journal-text d-block"></i>
+                    <p>Belum ada transaksi</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Near-Expiry Items -->
+    <div class="col-lg-4">
+        <div class="card content-card">
+            <div class="card-header">
+                <span><i class="bi bi-calendar-x me-2"></i>Mendekati ED</span>
+            </div>
+            <div class="card-body p-0">
+                {% if expiring_soon %}
+                <div class="list-group list-group-flush">
+                    {% for stock in expiring_soon %}
+                    <div class="list-group-item px-3 py-2">
+                        <div class="fw-semibold small">{{ stock.item.nama_barang|truncatechars:30 }}</div>
+                        <div class="d-flex justify-content-between text-muted small">
+                            <span>Batch: {{ stock.batch_lot }}</span>
+                            <span class="{% if stock.is_expired %}text-danger fw-bold{% else %}text-warning{% endif %}">
+                                {{ stock.expiry_date|date:"d/m/Y" }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state py-4">
+                    <i class="bi bi-check-circle d-block text-success"></i>
+                    <p class="small">Tidak ada barang mendekati kedaluwarsa</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

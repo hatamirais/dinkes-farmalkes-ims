@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Stok Barang — Healthcare IMS{% endblock %}
+{% block page_title %}Stok Barang{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <h5><i class="bi bi-boxes me-2"></i>Stok Barang</h5>
+    </div>
+
+    <div class="px-3 py-2 border-bottom bg-light">
+        <form method="get" class="filter-form">
+            <input type="text" name="q" class="form-control" placeholder="Cari barang/batch..." value="{{ search }}">
+            <select name="location" class="form-select">
+                <option value="">Semua Lokasi</option>
+                {% for loc in locations %}
+                {% with loc_id=loc.id|stringformat:"d" %}
+                <option value="{{ loc.id }}" {% if selected_location==loc_id %}selected{% endif %}>{{
+                    loc.name }}</option>
+                {% endwith %}
+                {% endfor %}
+            </select>
+            <select name="sumber_dana" class="form-select">
+                <option value="">Semua Sumber Dana</option>
+                {% for sd in funding_sources %}
+                {% with sd_id=sd.id|stringformat:"d" %}
+                <option value="{{ sd.id }}" {% if selected_sumber_dana==sd_id %}selected{% endif %}>{{
+                    sd.name }}</option>
+                {% endwith %}
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            {% if search or selected_location or selected_sumber_dana %}
+            <a href="{% url 'stock:stock_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Kode</th>
+                    <th>Nama Barang</th>
+                    <th>Lokasi</th>
+                    <th>Batch/Lot</th>
+                    <th>Expiry Date</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Reserved</th>
+                    <th>Sumber Dana</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td><code>{{ stock.item.kode_barang }}</code></td>
+                    <td>{{ stock.item.nama_barang }}</td>
+                    <td>{{ stock.location.name }}</td>
+                    <td>{{ stock.batch_lot|default:"-" }}</td>
+                    <td>
+                        {% if stock.expiry_date %}
+                        <span
+                            class="{% if stock.is_near_expiry %}text-warning{% endif %}{% if stock.is_expired %}text-danger fw-bold{% endif %}">
+                            {{ stock.expiry_date|date:"d/m/Y" }}
+                        </span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-semibold">{{ stock.quantity }}</td>
+                    <td class="text-end">{{ stock.reserved }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ stock.sumber_dana.code }}</span></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox d-block"></i>
+                            <p>Belum ada data stok</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if stocks.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+        <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count
+            }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if stocks.has_previous %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ stocks.previous_page_number }}&q={{ search }}">&laquo;</a></li>
+                {% endif %}
+                {% for num in stocks.paginator.page_range %}
+                {% if stocks.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > stocks.number|add:'-3' and num < stocks.number|add:'3' %} <li class="page-item"><a
+                        class="page-link" href="?page={{ num }}&q={{ search }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if stocks.has_next %}
+                    <li class="page-item"><a class="page-link"
+                            href="?page={{ stocks.next_page_number }}&q={{ search }}">&raquo;</a></li>
+                    {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

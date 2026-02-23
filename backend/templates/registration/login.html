@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Login — Healthcare IMS{% endblock %}
+
+{% block public_content %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <div class="login-icon">
+                <i class="bi bi-hospital"></i>
+            </div>
+            <h2 class="mb-1">Healthcare IMS</h2>
+            <p class="text-muted">Sistem Manajemen Inventaris</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="alert alert-danger py-2 px-3">
+            <small><i class="bi bi-exclamation-circle me-1"></i>Username atau password salah.</small>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="id_username" class="form-label fw-semibold">Username</label>
+                <input type="text" name="username" id="id_username" class="form-control form-control-lg"
+                    placeholder="Masukkan username" autofocus required>
+            </div>
+            <div class="mb-4">
+                <label for="id_password" class="form-label fw-semibold">Password</label>
+                <input type="password" name="password" id="id_password" class="form-control form-control-lg"
+                    placeholder="Masukkan password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Masuk
+            </button>
+            <input type="hidden" name="next" value="{{ next }}">
+        </form>
+    </div>
+</div>
+{% endblock %}

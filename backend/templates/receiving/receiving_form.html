@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Healthcare IMS{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card content-card">
+            <div class="card-header">
+                <span><i class="bi bi-inbox-fill me-2"></i>{{ title }}</span>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <div class="row g-3 mb-4">
+                        {% for field in form %}
+                        <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label
+                                }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <hr>
+                    <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Penerimaan</h6>
+
+                    {{ formset.management_form }}
+
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="itemTable">
+                            <thead>
+                                <tr>
+                                    <th>Barang</th>
+                                    <th style="width:100px;">Qty</th>
+                                    <th style="width:120px;">Batch/Lot</th>
+                                    <th style="width:140px;">Expiry Date</th>
+                                    <th style="width:120px;">Harga Satuan</th>
+                                    <th style="width:50px;">Hapus</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item_form in formset %}
+                                <tr class="formset-row">
+                                    <td>{{ item_form.item }}</td>
+                                    <td>{{ item_form.quantity }}</td>
+                                    <td>{{ item_form.batch_lot }}</td>
+                                    <td>{{ item_form.expiry_date }}</td>
+                                    <td>{{ item_form.unit_price }}</td>
+                                    <td class="text-center">
+                                        {% if item_form.instance.pk %}
+                                        {{ item_form.DELETE }}
+                                        {% endif %}
+                                    </td>
+                                    {{ item_form.id }}
+                                    {% for error in item_form.errors.values %}
+                                <tr>
+                                    <td colspan="6" class="text-danger small py-1">{{ error }}</td>
+                                </tr>
+                                {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Simpan
+                        </button>
+                        <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

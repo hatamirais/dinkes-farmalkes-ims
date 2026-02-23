@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Penerimaan Barang — Healthcare IMS{% endblock %}
+{% block page_title %}Penerimaan Barang{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <h5><i class="bi bi-inbox-fill me-2"></i>Daftar Penerimaan</h5>
+        <a href="{% url 'receiving:receiving_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Buat Penerimaan
+        </a>
+    </div>
+
+    <div class="px-3 py-2 border-bottom bg-light">
+        <form method="get" class="filter-form">
+            <input type="text" name="q" class="form-control" placeholder="Cari no. dokumen / supplier..."
+                value="{{ search }}">
+            <select name="status" class="form-select">
+                <option value="">Semua Status</option>
+                <option value="DRAFT" {% if selected_status=="DRAFT" %}selected{% endif %}>Draft</option>
+                <option value="SUBMITTED" {% if selected_status=="SUBMITTED" %}selected{% endif %}>Submitted</option>
+                <option value="VERIFIED" {% if selected_status=="VERIFIED" %}selected{% endif %}>Verified</option>
+            </select>
+            <select name="type" class="form-select">
+                <option value="">Semua Tipe</option>
+                <option value="PROCUREMENT" {% if selected_type=="PROCUREMENT" %}selected{% endif %}>Pengadaan</option>
+                <option value="GRANT" {% if selected_type=="GRANT" %}selected{% endif %}>Hibah</option>
+            </select>
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            {% if search or selected_status or selected_type %}
+            <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-danger btn-sm"><i
+                    class="bi bi-x-lg"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>No. Dokumen</th>
+                    <th>Tanggal</th>
+                    <th>Tipe</th>
+                    <th>Supplier</th>
+                    <th>Sumber Dana</th>
+                    <th>Status</th>
+                    <th>Dibuat oleh</th>
+                    <th class="text-end">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in receivings %}
+                <tr>
+                    <td><a href="{% url 'receiving:receiving_detail' r.pk %}"
+                            class="fw-semibold text-decoration-none">{{ r.document_number }}</a></td>
+                    <td>{{ r.receiving_date|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if r.receiving_type == 'PROCUREMENT' %}
+                        <span class="badge bg-primary-subtle text-primary">Pengadaan</span>
+                        {% else %}
+                        <span class="badge bg-success-subtle text-success">Hibah</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ r.supplier.name|default:"-" }}</td>
+                    <td>{{ r.sumber_dana.code }}</td>
+                    <td>
+                        <span class="badge-status badge-{{ r.status|lower }}">{{ r.get_status_display }}</span>
+                    </td>
+                    <td>{{ r.created_by }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'receiving:receiving_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox d-block"></i>
+                            <p>Belum ada data penerimaan</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if receivings.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+        <small class="text-muted">{{ receivings.start_index }}-{{ receivings.end_index }} dari {{
+            receivings.paginator.count }}</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if receivings.has_previous %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ receivings.previous_page_number }}&q={{ search }}">&laquo;</a></li>
+                {% endif %}
+                {% for num in receivings.paginator.page_range %}
+                {% if receivings.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > receivings.number|add:'-3' and num < receivings.number|add:'3' %} <li class="page-item"><a
+                        class="page-link" href="?page={{ num }}&q={{ search }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if receivings.has_next %}
+                    <li class="page-item"><a class="page-link"
+                            href="?page={{ receivings.next_page_number }}&q={{ search }}">&raquo;</a></li>
+                    {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
