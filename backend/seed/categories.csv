@@ -1,15 +1,15 @@
-code,name,is_controlled,sort_order
-TABLET,Tablet/Kaplet,0,1
-KAPSUL,Kapsul,0,2
-SIRUP,Sirup/Suspensi,0,3
-INJEKSI,Injeksi,0,4
-INFUS,Cairan Infus,0,5
-VAKSIN,Vaksin,0,6
-SALEP,Salep/Krim/Gel,0,7
-TETES,Tetes (Mata/Telinga/Hidung),0,8
-SUPPO,Suppositoria,0,9
-INHALER,Inhaler,0,10
-ALKES,Alat Kesehatan,0,11
-BMHP,Bahan Medis Habis Pakai,0,12
-NARKOTIKA,Narkotika/Psikotropika,1,13
-REAGENT,Reagen Laboratorium,0,14
+code,name,sort_order
+TABLET,Tablet/Kaplet,1
+KAPSUL,Kapsul,2
+SIRUP,Sirup/Suspensi,3
+INJEKSI,Injeksi,4
+INFUS,Cairan Infus,5
+VAKSIN,Vaksin,6
+SALEP,Salep/Krim/Gel,7
+TETES,Tetes (Mata/Telinga/Hidung),8
+SUPPO,Suppositoria,9
+INHALER,Inhaler,10
+ALKES,Alat Kesehatan,11
+BMHP,Bahan Medis Habis Pakai,12
+NARKOTIKA,Narkotika/Psikotropika,13
+REAGENT,Reagen Laboratorium,14

@@ -20,10 +20,6 @@ class Category(TimeStampedModel):
     """Item category lookup table (TABLET, INJEKSI, VAKSIN, etc.)."""
     code = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100)
-    is_controlled = models.BooleanField(
-        default=False,
-        help_text='Flag for controlled substances (e.g., NARKOTIKA)',
-    )
     sort_order = models.IntegerField(default=0)
 
     class Meta:

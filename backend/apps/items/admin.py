@@ -21,7 +21,7 @@ class UnitResource(resources.ModelResource):
 class CategoryResource(resources.ModelResource):
     class Meta:
         model = Category
-        fields = ('id', 'code', 'name', 'is_controlled', 'sort_order')
+        fields = ('id', 'code', 'name', 'sort_order')
         import_id_fields = ('code',)
         skip_unchanged = True
         report_skipped = False
@@ -100,8 +100,7 @@ class UnitAdmin(ImportExportModelAdmin):
 @admin.register(Category)
 class CategoryAdmin(ImportExportModelAdmin):
     resource_classes = [CategoryResource]
-    list_display = ('code', 'name', 'is_controlled', 'sort_order')
-    list_filter = ('is_controlled',)
+    list_display = ('code', 'name', 'sort_order')
     search_fields = ('code', 'name')
     list_editable = ('sort_order',)
 

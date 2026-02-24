@@ -36,7 +36,7 @@ Import lookup tables first, then items that reference them:
 ### units.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `code` | ✅ Yes | — | Unique, max 20 chars |
 | `name` | ✅ Yes | — | Display name |
 | `description` | ❌ No | blank | |
@@ -44,16 +44,15 @@ Import lookup tables first, then items that reference them:
 ### categories.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `code` | ✅ Yes | — | Unique, max 20 chars |
 | `name` | ✅ Yes | — | Display name |
-| `is_controlled` | ❌ No | `0` | `1` for Narkotika/Psikotropika |
 | `sort_order` | ❌ No | `0` | Controls dropdown order |
 
 ### funding_sources.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `code` | ✅ Yes | — | Unique, max 20 chars |
 | `name` | ✅ Yes | — | |
 | `description` | ❌ No | blank | |
@@ -62,7 +61,7 @@ Import lookup tables first, then items that reference them:
 ### locations.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `code` | ✅ Yes | — | Unique, max 20 chars |
 | `name` | ✅ Yes | — | |
 | `description` | ❌ No | blank | |
@@ -71,7 +70,7 @@ Import lookup tables first, then items that reference them:
 ### suppliers.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `code` | ✅ Yes | — | Unique, max 20 chars |
 | `name` | ✅ Yes | — | |
 | `address` | ❌ No | blank | |
@@ -83,7 +82,7 @@ Import lookup tables first, then items that reference them:
 ### facilities.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `code` | ✅ Yes | — | Unique, max 20 chars |
 | `name` | ✅ Yes | — | |
 | `address` | ❌ No | blank | |
@@ -94,7 +93,7 @@ Import lookup tables first, then items that reference them:
 ### items.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `kode_barang` | ✅ Yes | — | Unique item code, max 50 chars |
 | `nama_barang` | ✅ Yes | — | Item name |
 | `satuan` | ✅ Yes | — | Unit **code** (e.g. `TAB`) |
@@ -108,7 +107,7 @@ Import lookup tables first, then items that reference them:
 ### stock.csv
 
 | Column | Required | Default | Notes |
-|--------|----------|---------|-------|
+| -------- | ---------- | --------- | ------- |
 | `item` | ✅ Yes | — | Item **kode_barang** |
 | `location` | ✅ Yes | — | Location **code** |
 | `batch_lot` | ✅ Yes | — | Batch/lot number |
