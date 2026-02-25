@@ -63,7 +63,7 @@
                     </td>
                     <td class="text-end fw-semibold">{{ stock.quantity }}</td>
                     <td class="text-end">{{ stock.reserved }}</td>
-                    <td><span class="badge bg-light text-dark border">{{ stock.sumber_dana.code }}</span></td>
+                    <td><span class="badge bg-light text-dark border">{{ stock.sumber_dana.name }}</span></td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -81,16 +81,18 @@
 
     {% if stocks.has_other_pages %}
     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count }}</small>
+        <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count
+            }}</small>
         <nav>
             <ul class="pagination pagination-sm mb-0">
                 {% if stocks.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ stocks.previous_page_number }}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ stocks.previous_page_number }}">&laquo;</a>
+                </li>
                 {% endif %}
                 {% for num in stocks.paginator.page_range %}
-                    {% if stocks.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                    {% endif %}
+                {% if stocks.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% endif %}
                 {% endfor %}
                 {% if stocks.has_next %}
                 <li class="page-item"><a class="page-link" href="?page={{ stocks.next_page_number }}">&raquo;</a></li>

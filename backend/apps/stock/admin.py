@@ -1,7 +1,7 @@
 from django.contrib import admin
 from import_export import resources, fields
 from import_export.admin import ImportExportModelAdmin
-from import_export.widgets import ForeignKeyWidget
+from import_export.widgets import ForeignKeyWidget, DateWidget
 
 from .models import Stock, Transaction
 from apps.items.models import Item, Location, FundingSource
@@ -25,6 +25,11 @@ class StockResource(resources.ModelResource):
         column_name='sumber_dana_code',
         attribute='sumber_dana',
         widget=ForeignKeyWidget(FundingSource, field='code'),
+    )
+    expiry_date = fields.Field(
+        column_name='expiry_date',
+        attribute='expiry_date',
+        widget=DateWidget(format='%d/%m/%Y'),
     )
 
     class Meta:
