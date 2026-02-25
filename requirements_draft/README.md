@@ -1,131 +1,118 @@
-# CSV Import Templates
+# Seed Data & CSV Import Guide
 
-This directory contains CSV templates for importing initial data into the Healthcare IMS.
+This project uses **`django-import-export`** via the **Django Admin panel** for importing master data. Seed CSV files are located in `backend/seed/`.
 
-## Template Files
+## Seed Files
 
 ### Lookup Tables (Import First)
-1. **lookup_units.csv** - Measurement units (TAB, BTL, AMP, etc.)
-2. **lookup_categories.csv** - Item categories (TABLET, INJEKSI, VAKSIN, etc.)
-3. **lookup_funding_sources.csv** - Funding sources (DAK, DAU, APBD, etc.)
-4. **lookup_locations.csv** - Storage locations (customize with actual warehouse layout)
-5. **lookup_facilities.csv** - Puskesmas and hospitals (customize with actual facility list)
+
+1. **units.csv** — Measurement units (TAB, KAP, SYR, BTL, AMP, etc.)
+2. **categories.csv** — Item categories (TABLET, KAPSUL, INJEKSI, VAKSIN, etc.)
+3. **funding_sources.csv** — Funding sources (DAK, DAU, APBD, etc.)
+4. **locations.csv** — Storage locations (customize with actual warehouse layout)
+5. **suppliers.csv** — Vendor/supplier list
+6. **facilities.csv** — Puskesmas and hospitals (customize with actual facility list)
 
 ### Core Data (Import After Lookups)
-6. **initial_stock_import.csv** - Initial inventory with items and stock
-7. **distribution_request_import.csv** - Bulk import distribution requests (optional)
+
+1. **items.csv** — Item master data (requires units + categories)
+2. **stock.csv** — Initial inventory (requires items + locations + funding sources)
 
 ## Import Order
 
-**CRITICAL: Import in this exact order to satisfy foreign key dependencies**
+> [!IMPORTANT]
+> Import in this exact order to satisfy foreign key dependencies.
 
-```bash
-# Step 1: Lookup tables
-python manage.py import_lookup_data unit templates/lookup_units.csv
-python manage.py import_lookup_data category templates/lookup_categories.csv
-python manage.py import_lookup_data funding_source templates/lookup_funding_sources.csv
-python manage.py import_lookup_data location templates/lookup_locations.csv
-python manage.py import_lookup_data facility templates/lookup_facilities.csv
-
-# Step 2: Core data (creates Item + Stock + Transaction)
-python manage.py import_initial_stock templates/initial_stock_import.csv
-
-# Step 3: Distribution requests (optional)
-python manage.py import_distribution_requests templates/distribution_request_import.csv
+```
+1. units.csv
+2. categories.csv
+3. funding_sources.csv
+4. locations.csv
+5. suppliers.csv
+6. facilities.csv
+7. items.csv        ← requires units + categories
+8. stock.csv        ← requires items + locations + funding sources
 ```
 
-## Field Specifications
+## How to Import (Django Admin)
 
-### initial_stock_import.csv
+1. Go to **Django Admin** (`/admin/`)
+2. Select a model (e.g., **Units**)
+3. Click **Import** (top-right button)
+4. Choose the CSV file and set format to **csv**
+5. Click **Submit** → review the dry-run preview
+6. Click **Confirm Import** to commit the data
 
-| Field | Required | Format | Notes |
-|-------|----------|--------|-------|
-| kode_barang | No | String | Auto-generated if empty |
-| nama_barang | Yes | String | Item name |
-| satuan_code | Yes | String | Must exist in Unit table |
-| kategori_code | Yes | String | Must exist in Category table |
-| is_program_item | Yes | TRUE/FALSE | Case insensitive |
-| program_name | No | String | Required if is_program_item=TRUE |
-| minimum_stock | Yes | Number | Threshold for alerts |
-| location_code | Yes | String | Must exist in Location table |
-| batch_lot | Yes | String | Batch/lot number |
-| expiry_date | Yes | YYYY-MM-DD | Expiry date |
-| quantity | Yes | Number | Must be > 0 |
-| unit_price | Yes | Number | Unit price in IDR |
-| sumber_dana_code | Yes | String | Must exist in FundingSource table |
+> [!TIP]
+> See `backend/seed/README.md` for detailed column specifications for each CSV file.
 
-**Validation Rules:**
-- Same `kode_barang` + different batch = separate rows (multiple stock entries)
-- If `kode_barang` is empty, system generates: `{kategori_code}-{sequential_number}`
-- All foreign key codes must exist in their respective lookup tables
+## Column Reference (Quick Summary)
 
-### distribution_request_import.csv
+### items.csv
 
-| Field | Required | Format | Notes |
-|-------|----------|--------|-------|
-| document_number | Yes | String | Groups items into one distribution |
-| distribution_type | Yes | LPLPO / ALLOCATION / SPECIAL_REQUEST | |
-| request_date | Yes | YYYY-MM-DD | Request date |
-| facility_code | Yes | String | Must exist in Facility table |
-| program | No | String | Program name (typically for ALLOCATION) |
-| kode_barang | Yes | String | Must exist in Item table |
-| quantity_requested | Yes | Number | Must be > 0 |
-| notes | No | String | Item-specific notes |
+| Column | Required | Notes |
+|--------|----------|-------|
+| kode_barang | ✅ Yes | Unique item code, max 50 chars |
+| nama_barang | ✅ Yes | Item name |
+| satuan | ✅ Yes | Unit **code** (e.g. `TAB`) |
+| kategori | ✅ Yes | Category **code** (e.g. `TABLET`) |
+| is_program_item | ❌ No | `1` for program items, default `0` |
+| program_name | ❌ No | e.g. TB, HIV, Kusta |
+| minimum_stock | ❌ No | Low stock alert threshold, default `0` |
+| description | ❌ No | |
+| is_active | ❌ No | Default `1` |
 
-**Validation Rules:**
-- Multiple rows with same `document_number` = single Distribution with multiple items
-- Initial status = "Submitted" (requires verification workflow)
-- Does NOT allocate stock automatically (requires manual batch selection)
+### stock.csv
+
+| Column | Required | Notes |
+|--------|----------|-------|
+| item | ✅ Yes | Item **kode_barang** |
+| location | ✅ Yes | Location **code** |
+| batch_lot | ✅ Yes | Batch/lot number |
+| expiry_date | ✅ Yes | Format: `YYYY-MM-DD` |
+| quantity | ❌ No | Default `0` |
+| reserved | ❌ No | Default `0` |
+| unit_price | ❌ No | Default `0` |
+| sumber_dana | ✅ Yes | Funding source **code** |
 
 ## Customization Guide
 
 ### For Client: Update These Files
 
-1. **lookup_locations.csv**
-   - Replace placeholder locations with actual warehouse layout
-   - Use codes like: LOC-001, LOC-002, etc.
+1. **locations.csv** — Replace placeholder locations with actual warehouse layout
+2. **facilities.csv** — Add all Puskesmas and healthcare facilities
+3. **items.csv** — Replace sample data with actual item master
+4. **stock.csv** — Add actual inventory with batch/expiry data
 
-2. **lookup_facilities.csv**
-   - Add all 20+ Puskesmas and healthcare facilities
-   - Ensure codes match existing facility codes if migrating from old system
+### Mapping from Legacy Data
 
-3. **initial_stock_import.csv**
-   - Replace sample data with actual inventory from existing data.csv
-   - Map old column names to new template format:
-     - `namaBarang` → `nama_barang`
-     - `satuan` → `satuan_code` (lookup from Unit table)
-     - `kategori` → `kategori_code` (lookup from Category table)
-     - `batch` → `batch_lot`
-     - `ed` → `expiry_date` (format: YYYY-MM-DD)
-     - `qty` → `quantity`
-     - `hargaSatuan` → `unit_price`
-     - `sumberDana` → `sumber_dana_code` (lookup from FundingSource table)
+If migrating from the old `data.csv`:
+
+| Old Column | New Column | Notes |
+|-----------|-----------|-------|
+| namaBarang | nama_barang | |
+| satuan | satuan (in items.csv) | Use Unit code (e.g. `TAB`) |
+| kategori | kategori (in items.csv) | Use Category code (e.g. `TABLET`) |
+| batch | batch_lot (in stock.csv) | |
+| ed | expiry_date (in stock.csv) | Format: `YYYY-MM-DD` |
+| qty | quantity (in stock.csv) | |
+| hargaSatuan | unit_price (in stock.csv) | |
+| sumberDana | sumber_dana (in stock.csv) | Use FundingSource code |
 
 ## Error Handling
 
 If import fails:
+
 1. Check error message for specific row/field
 2. Verify foreign key references exist (Unit, Category, Location, etc.)
-3. Validate date formats (YYYY-MM-DD)
+3. Validate date formats (`YYYY-MM-DD`)
 4. Ensure numeric fields don't have commas or currency symbols
-5. Check boolean fields use TRUE/FALSE (not Yes/No or 1/0)
-
-## Rollback
-
-If you need to undo an import:
-```bash
-# Delete all data (DESTRUCTIVE - use only in development)
-python manage.py flush
-
-# Then re-run migrations and imports
-python manage.py migrate
-# ... run import commands again
-```
+5. CSV files must be **UTF-8** encoded
 
 ## Notes
 
-- CSV files must be UTF-8 encoded
-- Excel can create CSVs but watch for encoding issues
 - Test imports on development environment first
 - Keep backup of original CSV files
-- Import creates audit trail in Transaction table
+- Excel can create CSVs but watch for encoding issues
+- `django-import-export` supports dry-run preview before committing
+- The `skip_unchanged` option is enabled — re-importing the same CSV is safe

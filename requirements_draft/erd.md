@@ -18,7 +18,6 @@ erDiagram
         int id PK
         string code UK "TABLET, INJEKSI, VAKSIN"
         string name "Display name"
-        boolean is_controlled "Flag for NARKOTIKA"
         int sort_order
         timestamp created_at
         timestamp updated_at
@@ -143,6 +142,7 @@ erDiagram
         int created_by_id FK
         int verified_by_id FK NULL
         timestamp verified_at NULL
+        text notes NULL
         timestamp created_at
         timestamp updated_at
     }
@@ -239,37 +239,43 @@ erDiagram
 ### Lookup Tables (Master Data)
 
 #### 1. Unit
+
 - **Purpose:** Standardized measurement units
 - **Indexes:** `code` (unique)
 - **Initial Data:** TAB, BTL, AMP, VIAL, STRIP, BOX, KG, LITER, etc.
 
 #### 2. Category
+
 - **Purpose:** Item classification for reporting and access control
 - **Indexes:** `code` (unique), `sort_order`
-- **Initial Data:** TABLET, INJEKSI, NARKOTIKA, SALEP, SIRUP, VAKSIN, BHP, LAB, GIGI
-- **Special:** `is_controlled` flag for substances requiring special handling
+- **Initial Data:** TABLET, KAPSUL, SIRUP, INJEKSI, INFUS, VAKSIN, SALEP, TETES, SUPPO, INHALER, ALKES, BMHP, NARKOTIKA, REAGENT
 
 #### 3. FundingSource
+
 - **Purpose:** Track budget allocation and accounting
 - **Indexes:** `code` (unique)
 - **Initial Data:** DAK, DAU, APBD, HIBAH, DONASI, etc.
 - **Note:** Different batches of same item can have different funding sources
 
 #### 4. Location
+
 - **Purpose:** Physical storage locations within warehouse
 - **Indexes:** `code` (unique)
 - **Note:** To be provided by client
 
 #### 5. Supplier
+
 - **Purpose:** Vendor management for procurement tracking
 - **Indexes:** `code` (unique)
 
 #### 6. Facility
+
 - **Purpose:** Distribution destinations (Puskesmas, hospitals, clinics)
 - **Indexes:** `code` (unique)
 - **Note:** 20+ facilities in the system
 
 #### 7. User
+
 - **Purpose:** System authentication and authorization
 - **Indexes:** `username` (unique), `email` (unique)
 - **Roles:** Admin, Kepala Instalasi, Admin Umum, Petugas Gudang, Petugas Keuangan
@@ -279,8 +285,9 @@ erDiagram
 ### Core Tables
 
 #### 8. Item (Master Barang)
+
 - **Purpose:** Central item registry
-- **Indexes:** 
+- **Indexes:**
   - `kode_barang` (unique)
   - `(kategori_id, is_program_item)` for filtering
   - Full-text search on `nama_barang`
@@ -289,6 +296,7 @@ erDiagram
   - `minimum_stock`: Threshold for low stock alerts
 
 #### 9. Stock (Persediaan)
+
 - **Purpose:** Real-time inventory tracking by batch/location
 - **Indexes:**
   - `(item_id, location_id, expiry_date)` for FEFO queries
@@ -306,6 +314,7 @@ erDiagram
 - **Unique Constraint:** `(item_id, location_id, batch_lot, sumber_dana_id)` prevents duplicate stock entries
 
 #### 10. Transaction
+
 - **Purpose:** Immutable audit trail of all stock movements
 - **Indexes:**
   - `(item_id, created_at DESC)` for stock cards
@@ -323,6 +332,7 @@ erDiagram
 ### Receiving Module
 
 #### 11. Receiving
+
 - **Purpose:** Document incoming stock (procurement or grants)
 - **Indexes:**
   - `document_number` (unique)
@@ -335,6 +345,7 @@ erDiagram
 - **Verification:** Requires `verified_by_id` + `verified_at` timestamp
 
 #### 12. ReceivingItem
+
 - **Purpose:** Line items for each receiving document
 - **Key Fields:**
   - `batch_lot` + `expiry_date`: Recorded at receiving time
@@ -342,6 +353,7 @@ erDiagram
 - **Note:** When verified, creates `Stock` entries and `Transaction` records
 
 #### 13. ReceivingDocument
+
 - **Purpose:** Store supporting documents (eKatalog files, grant letters)
 - **Storage:** Local filesystem under `/media/receiving/{receiving_id}/`
 - **File Types:** PDF, images, Excel
@@ -351,6 +363,7 @@ erDiagram
 ### Distribution Module
 
 #### 14. Distribution
+
 - **Purpose:** Outbound stock requests and allocations
 - **Indexes:**
   - `document_number` (unique)
@@ -360,12 +373,13 @@ erDiagram
   - `LPLPO`: Standard request from Puskesmas
   - `ALLOCATION`: Planned distribution (routine/special)
   - `SPECIAL_REQUEST`: Ad-hoc requests requiring approval
-- **Status Workflow:** 
+- **Status Workflow:**
   - LPLPO/Special: Submitted → Verified → Prepared → Distributed
   - Allocation: Draft → Approved → Distributed
 - **OCR Field:** For Special Request proof document text extraction
 
 #### 15. DistributionItem
+
 - **Purpose:** Line items for distribution requests
 - **Key Fields:**
   - `quantity_requested`: What facility asked for
@@ -382,14 +396,18 @@ erDiagram
 ## Key Design Decisions
 
 ### 1. Why Sumber Dana in Stock, not Item?
+
 Same item can come from different funding sources:
+
 - Paracetamol Batch A (DAK): 1000 tablets
 - Paracetamol Batch B (APBD): 500 tablets
 
 Financial reports must track: "How much DAK money in current inventory?"
 
 ### 2. Stock Reservation Pattern
+
 `reserved` field prevents double allocation:
+
 ```
 Available for new distributions = quantity - reserved
 ```
@@ -397,13 +415,17 @@ Available for new distributions = quantity - reserved
 When distribution status = "Prepared", stock is reserved but not yet deducted.
 
 ### 3. Transaction as Audit Trail
+
 Immutable log of all movements. Never delete, only add. Stock card = query transactions by item.
 
 ### 4. Polymorphic Reference
+
 `reference_type` + `reference_id` allows transactions to link to Receiving, Distribution, or manual Adjustments without complex foreign keys.
 
 ### 5. FEFO Implementation
+
 Query for distribution:
+
 ```sql
 SELECT * FROM stock 
 WHERE item_id = ? 
@@ -414,7 +436,9 @@ LIMIT ?
 ```
 
 ### 6. Expiry Alert Logic
+
 First day of expiry month = expired. Celery task runs daily:
+
 ```python
 # Alert if expiring within 3 months
 alert_date = today + timedelta(days=90)
@@ -429,6 +453,7 @@ expiring = Stock.objects.filter(
 ## Database Constraints & Indexes
 
 ### Critical Indexes
+
 ```sql
 -- Stock table (most queried)
 CREATE INDEX idx_stock_fefo ON stock(item_id, location_id, expiry_date) 
@@ -452,6 +477,7 @@ CREATE INDEX idx_dist_facility ON distribution(facility_id, request_date);
 ```
 
 ### Check Constraints
+
 ```sql
 -- Stock non-negative
 ALTER TABLE stock ADD CONSTRAINT chk_stock_quantity 
@@ -465,6 +491,7 @@ ALTER TABLE transaction ADD CONSTRAINT chk_trans_quantity
 ```
 
 ### Unique Constraints
+
 ```sql
 -- Prevent duplicate stock entries
 ALTER TABLE stock ADD CONSTRAINT uq_stock_batch 
@@ -482,6 +509,7 @@ ALTER TABLE distribution ADD CONSTRAINT uq_dist_doc
 ## Migration Strategy
 
 ### Phase 1: Lookup Tables
+
 ```python
 # Create and populate lookup tables
 1. Unit (seed data from constants)
@@ -494,6 +522,7 @@ ALTER TABLE distribution ADD CONSTRAINT uq_dist_doc
 ```
 
 ### Phase 2: Core Tables
+
 ```python
 8. Item (import from CSV - 414 items)
 9. Stock (import from CSV with batch/expiry)
@@ -501,12 +530,14 @@ ALTER TABLE distribution ADD CONSTRAINT uq_dist_doc
 ```
 
 ### Phase 3: Module Tables
+
 ```python
 11-13. Receiving tables (empty, ready for use)
 14-15. Distribution tables (empty, ready for use)
 ```
 
 ### CSV Import Logic
+
 ```python
 # data.csv → Item + Stock
 for row in csv:
@@ -559,10 +590,10 @@ for row in csv:
 ## Next Steps
 
 1. ✅ ERD completed
-2. ⬜ Review and approve ERD
-3. ⬜ Create Django models from ERD
-4. ⬜ Write initial migrations
-5. ⬜ Seed lookup table data
-6. ⬜ Create CSV import management command
-7. ⬜ Define DRF serializers
-8. ⬜ Build API endpoints
+2. ✅ ERD reviewed and approved
+3. ✅ Django models created from ERD
+4. ✅ Initial migrations written and applied
+5. ✅ Seed lookup table data (via `django-import-export` in Django Admin)
+6. ✅ CSV import via Django Admin (`django-import-export`)
+7. ⬜ Define DRF serializers (if/when REST API is needed)
+8. ⬜ Build API endpoints (if/when REST API is needed)

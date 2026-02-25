@@ -2,17 +2,40 @@
 
 ## Overview
 
-The infrastructure is designed for high reliability, ease of deployment, and seamless scalability on **Proxmox VMs (Ubuntu Server)**. We use **Docker Compose** to orchestrate all services, ensuring consistency between Development and Production environments.
+The infrastructure is designed for high reliability, ease of deployment, and seamless scalability on **Proxmox VMs (Ubuntu Server)**. We use **Docker Compose** to orchestrate services, ensuring consistency between Development and Production environments.
 
-## Architecture Diagram
+## Current Development Setup
+
+The project is currently in **active development** with a simplified setup:
+
+- **Backend**: Django 6.0.2 running natively via `python manage.py runserver` (not containerized)
+- **Database**: PostgreSQL 16 via Docker Compose
+- **Cache/Queue**: Redis 7 via Docker Compose (available but not actively used yet)
+- **Frontend**: Django templates with Bootstrap5 (crispy-bootstrap5) — no separate frontend service
+- **Celery**: Not yet running (planned for alerts/notifications)
+
+```mermaid
+graph TD
+    Client[Client Browser] -->|HTTP| Django[Django Dev Server\nmanage.py runserver\nPort 8000]
+
+    subgraph Docker Compose
+        DB[(PostgreSQL 16\nPort 5432)]
+        Redis[(Redis 7\nPort 6379)]
+    end
+
+    Django -->|Read/Write| DB
+    Django -.->|Planned| Redis
+```
+
+## Target Production Architecture
 
 ```mermaid
 graph TD
     Client[Client Browser/Mobile] -->|HTTPS| Nginx[Nginx Reverse Proxy]
-    
+
     subgraph Docker Network
-        Nginx -->|/api| API[Django Backend(Gunicorn)]
-        Nginx -->|/*| FE[React Frontend(Static Files)]
+        Nginx -->|/api| API[Django Backend\nGunicorn]
+        Nginx -->|/*| FE[React Frontend\nStatic Files]
 
         API -->|Read/Write| DB[(PostgreSQL 16)]
         API -->|Cache/Queue| Redis[(Redis 7)]
@@ -20,13 +43,16 @@ graph TD
         Celery --> Redis
         Celery -.->|Update| DB
     end
-    
+
     subgraph Storage
         DB --> VolDB[Postgres Volume]
         API --> VolMedia[Media Volume]
         Nginx --> VolMedia
     end
 ```
+
+> [!NOTE]
+> The React frontend is **planned but not yet started**. The current UI is built with Django templates + Bootstrap5. When the React frontend is implemented, the architecture will transition to the target diagram above.
 
 ## Core Components
 
@@ -39,28 +65,19 @@ graph TD
 
 ### 2. Container Orchestration (Docker Compose)
 
-We use a base `docker-compose.yml` file extended by environment-specific overrides.
+#### Current `docker-compose.yml` (Development)
 
-#### Base Services (`docker-compose.yml`)
+Currently only infrastructure services are containerized:
 
 - **PostgreSQL**: Database service (Port 5432)
 - **Redis**: Caching and message broker (Port 6379)
-- **Celery**: Background task worker (e.g., expiry alerts)
 
-#### Development Override (`docker-compose.dev.yml`)
+#### Planned: Production Override (`docker-compose.prod.yml`)
 
-- **Backend**: Runs with `python manage.py runserver 0.0.0.0:8000` (auto-reload).
-- **Frontend**: Runs with `npm run dev` (Vite dev server, auto-reload).
-- **Volume Mounts**: Source code mounted into containers for live editing.
-
-#### Production Override (`docker-compose.prod.yml`)
-
-- **Backend**: Runs with **Gunicorn** (`gunicorn config.wsgi:application`).
-- **Frontend**: Built static files served by **Nginx**.
-- **Nginx**: Acts as the web server and reverse proxy.
-  - Serves static frontend assets.
-  - Proxies `/api/` requests to the Django backend.
-  - Serves media files (uploaded documents).
+- **Backend**: Django via **Gunicorn** (`gunicorn config.wsgi:application`).
+- **Frontend**: Built static files served by **Nginx** (when React is implemented).
+- **Nginx**: Reverse proxy — serves static assets, proxies `/api/` to Django, serves media files.
+- **Celery**: Background task worker (expiry alerts, low stock notifications).
 - **Restart Policy**: `restart: always` for high availability.
 
 ### 3. Networking & Security

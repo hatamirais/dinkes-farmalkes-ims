@@ -12,36 +12,43 @@
 
 ### Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React + Vite + TypeScript + Tailwind CSS + shadcn/ui |
-| **Backend** | Django 5.1 + Django REST Framework |
-| **Database** | PostgreSQL 16 |
-| **Auth** | Django built-in + djangorestframework-simplejwt |
-| **Storage** | Local filesystem (media files) |
-| **Deployment** | Docker + Docker Compose |
-| **Infrastructure** | Proxmox VMs (Ubuntu Server) - Dev & Prod |
+| Layer | Technology | Status |
+|-------|------------|--------|
+| **Frontend** | Django Templates + crispy-bootstrap5 | ✅ Active |
+| **Frontend (Planned)** | React + Vite + TypeScript + Tailwind CSS + shadcn/ui | ⬜ Planned |
+| **Backend** | Django 6.0.2 + Django Templates | ✅ Active |
+| **Database** | PostgreSQL 16 | ✅ Active |
+| **Auth** | Django built-in (session-based) | ✅ Active |
+| **CSV Import** | django-import-export (via Django Admin) | ✅ Active |
+| **Storage** | Local filesystem (media files) | ✅ Active |
+| **Deployment** | Docker Compose (PostgreSQL + Redis only) | ✅ Partial |
+| **Infrastructure** | Proxmox VMs (Ubuntu Server) - Dev & Prod | ⬜ Planned |
+
+> [!NOTE]
+> The project currently uses **Django server-side rendering** with Bootstrap5 for the UI. A React frontend is planned as a future enhancement but has not been started. There is no DRF/REST API layer yet.
 
 ### Infrastructure Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PROXMOX HOST                                 │
+│                  CURRENT DEVELOPMENT SETUP                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ┌─────────────────────────┐    ┌─────────────────────────────┐ │
-│  │      DEV VM (Ubuntu)    │    │       PROD VM (Ubuntu)      │ │
-│  │                         │    │                             │ │
-│  │  ┌───────────────────┐  │    │  ┌───────────────────────┐  │ │
-│  │  │  Docker Compose   │  │    │  │   Docker Compose      │  │ │
-│  │  │  ├─ frontend      │  │    │  │   ├─ frontend         │  │ │
-│  │  │  ├─ backend       │  │    │  │   ├─ backend          │  │ │
-│  │  │  ├─ postgres      │  │    │  │   ├─ postgres         │  │ │
-│  │  │  └─ redis         │  │    │  │   └─ redis            │  │ │
-│  │  └───────────────────┘  │    │  └───────────────────────┘  │ │
-│  │                         │    │                             │ │
-│  │  .env.development       │    │  .env.production            │ │
-│  └─────────────────────────┘    └─────────────────────────────┘ │
+│  Local Machine / Dev VM                                          │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Django Dev Server (manage.py runserver)                   │  │
+│  │  ├─ apps/items      (Item Master, Lookup Tables)          │  │
+│  │  ├─ apps/stock      (Stock, Transactions)                 │  │
+│  │  ├─ apps/receiving  (Penerimaan)                          │  │
+│  │  ├─ apps/distribution (Distribusi)                        │  │
+│  │  └─ apps/reports    (Laporan - placeholder)               │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                          │                                       │
+│  ┌───────────────────────┴───────────────────────────────────┐  │
+│  │              Docker Compose                                │  │
+│  │  ├─ postgres (PostgreSQL 16)                               │  │
+│  │  └─ redis    (Redis 7, available but not yet used)         │  │
+│  └───────────────────────────────────────────────────────────┘  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -54,21 +61,20 @@ flowchart LR
         D1[Local Dev] --> D2[Git Push]
         D2 --> D3[Dev VM<br/>docker compose up]
     end
-    
+
     subgraph PROD["Production"]
         P1[Git Pull on Prod] --> P2[docker compose<br/>-f docker-compose.prod.yml up]
     end
-    
+
     D3 -->|"Test & Verify"| P1
 ```
 
 **Seamless Transition Features:**
 
-- **Environment files:** `.env.development` vs `.env.production`
-- **Compose profiles:** `docker-compose.yml` (base) + `docker-compose.prod.yml` (overrides)
+- **Environment files:** `.env` with environment-specific values
+- **Compose profiles:** `docker-compose.yml` (base) + `docker-compose.prod.yml` (overrides, planned)
 - **Database migrations:** Django migrations for version-controlled schema changes
-- **Same Docker images:** Build once, deploy anywhere
-- **CORS configuration:** corsheaders for dev/prod origins
+- **CORS configuration:** To be configured when REST API / React frontend is added
 
 ---
 
@@ -80,26 +86,26 @@ flowchart TB
         P[Procurement<br/>via eKatalog]
         G[Grants/Hibah<br/>Province/Ministry]
     end
-    
+
     subgraph STORAGE["📦 STORAGE (Penyimpanan)"]
         S[Stock Management<br/>Multi-Location]
         B[Batch & FEFO<br/>Tracking]
         E[Expiry<br/>Monitoring]
     end
-    
+
     subgraph DISTRIBUTION["📤 DISTRIBUTION (Distribusi)"]
         R[Request<br/>LPLPO from Puskesmas]
         A[Allocation<br/>Planned Distribution]
         SR[Special Request<br/>Program Items]
     end
-    
+
     subgraph REPORTING["📊 REPORTING"]
         Q[Quarterly Report]
         SE[Semester Report]
         Y[Yearly Report]
         EX[Data Export]
     end
-    
+
     P --> S
     G --> S
     S --> B --> E
@@ -124,6 +130,7 @@ flowchart TB
 | Items | Array | Item, Qty, Batch, ED, Price |
 | Dokumen Pendukung | Files | Upload from eKatalog |
 | Status | Enum | Draft, Submitted, Verified |
+| Notes | Text | Optional notes |
 
 #### 3.1.2 Grants (Hibah)
 
@@ -137,6 +144,7 @@ flowchart TB
 | Items | Array | Item, Qty, Batch, ED, Price |
 | Dokumen Pendukung | Files | |
 | Status | Enum | Draft, Submitted, Verified |
+| Notes | Text | Optional notes |
 
 ---
 
@@ -158,17 +166,16 @@ flowchart TB
 
 | Field | Type | Notes |
 |-------|------|-------|
-| Code | String | TAB, BTL, AMP, VIAL, etc. |
-| Name | String | Tablet, Botol, Ampul, Vial, etc. |
+| Code | String | TAB, KAP, SYR, BTL, AMP, VIA, etc. |
+| Name | String | Tablet, Kapsul, Sirup, Botol, etc. |
 | Description | Optional | Additional info |
 
 #### Category (Kategori) - Lookup Table
 
 | Field | Type | Notes |
 |-------|------|-------|
-| Code | String | TABLET, INJEKSI, VAKSIN, etc. |
+| Code | String | TABLET, KAPSUL, INJEKSI, VAKSIN, etc. |
 | Name | String | Display name |
-| Is Controlled | Boolean | Flag for NARKOTIKA, etc. |
 | Sort Order | Integer | For display ordering |
 
 #### Stock (Persediaan)
@@ -284,21 +291,21 @@ flowchart TB
 
 ## 6. System Features
 
-### Core Django Packages
+### Installed Packages
 
 ```python
-# requirements.txt (key packages)
-Django==5.1
-djangorestframework==3.14
-djangorestframework-simplejwt==5.3
-django-cors-headers==4.3
-django-filter==23.5
-django-import-export==3.3  # CSV import/export
-django-auditlog==2.3       # Auto transaction logging
-psycopg2-binary==2.9
-redis==5.0
-celery==5.3                # Background tasks
-gunicorn==21.2             # Production server
+# requirements.txt (actual installed packages)
+Django==6.0.2
+django-crispy-forms==2.5
+crispy-bootstrap5==2025.6
+django-filter==25.1
+django-import-export==4.4.0
+psycopg2-binary==2.9.11
+python-dotenv==1.2.1
+redis==7.2.0
+celery==5.6.2
+gunicorn==25.1.0
+tablib==3.9.0
 ```
 
 ### Core Features
@@ -309,236 +316,145 @@ gunicorn==21.2             # Production server
 - [x] Funding source (Sumber Dana) tracking
 - [x] Program item [P] designation
 - [x] Document upload/attachment
-- [x] Audit trail (who changed what, when)
+- [x] Audit trail via Transaction model (immutable stock movement log)
+- [x] CSV import/export via Django Admin (`django-import-export`)
+- [x] Dashboard with stock overview, near-expiry items, recent transactions
+- [x] Item CRUD (list, create, update, soft delete)
+- [x] Stock list with search and filters
+- [x] Transaction history viewer
+- [x] Receiving module (list, create, detail)
+- [x] Distribution module (list, create, detail)
 
 ### Alerts & Notifications
 
-- [ ] Low stock alerts (below minimum) - Celery periodic task
-- [ ] Expiry alerts (first day of expiry month = expired) - Celery periodic task
-- [ ] Pending approval notifications - Real-time via Django signals
+- [ ] Low stock alerts (below minimum) — Celery periodic task
+- [ ] Expiry alerts (first day of expiry month = expired) — Celery periodic task
+- [ ] Pending approval notifications — Real-time via Django signals
 
 ### Dashboard
 
-**React Frontend Dashboard:**
-- Stock overview by category
-- Near expiry items summary
-- Recent transactions
-- Pending requests/approvals
+**Django Templates Dashboard (Current):**
+
+- Stock overview (total items, total stock entries)
+- Low stock items count
+- Near expiry items summary (top 10, with expired flag)
+- Recent transactions (top 10)
 
 **Django Admin Panel:**
+
 - Quick CRUD for all models
-- Batch imports/exports
-- User management
-- Audit log viewer
-- Custom actions (approve, verify, etc.)
+- Batch CSV imports/exports (`django-import-export`)
+- User management with role-based access
+- Custom admin actions
+- Immutable transaction log (read-only)
 
 ---
 
 ## 7. Data Migration
 
-Import initial data from [data.csv](file:///d:/projects/Inventory%20Management%20System/data.csv):
+Import initial data via **Django Admin** using `django-import-export`:
 
-- 414 item records
-- Fields: namaBarang, satuan, kategori, batch, ed, hargaSatuan, sumberDana, qty, nominal
+- Seed CSV files are in `backend/seed/`
+- Import order: units → categories → funding_sources → locations → suppliers → facilities → items → stock
 
-Migration approach:
-
-1. Create Django management command: `manage.py import_initial_stock`
-2. Parse and validate CSV data using django-import-export
-3. Create item master records (bulk_create for performance)
-4. Create initial stock entries with batch/expiry
-5. Link to appropriate sumber dana
-6. Generate audit trail using django-auditlog
-
-**Management Command:**
-```python
-# apps/stock/management/commands/import_initial_stock.py
-from django.core.management.base import BaseCommand
-from tablib import Dataset
-from apps.stock.resources import StockResource
-
-class Command(BaseCommand):
-    def handle(self, *args, **options):
-        # Import logic here
-        pass
-```
+See [README.md](./README.md) and [seed/README.md](../backend/seed/README.md) for detailed import instructions.
 
 ---
 
 ## 8. Project Structure
 
 ```
-inventory-system/
-├── docker-compose.yml          # Base compose (shared services)
-├── docker-compose.dev.yml      # Dev overrides (hot reload, debug)
-├── docker-compose.prod.yml     # Prod overrides (optimized)
+DJANGO-IMS/
+├── docker-compose.yml          # PostgreSQL + Redis services
+├── .env                        # Environment variables
 ├── .env.example                # Template env file
 │
-├── frontend/
-│   ├── Dockerfile
-│   ├── Dockerfile.dev
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── src/
-│       ├── components/         # shadcn/ui components
-│       ├── pages/              # Page components
-│       ├── hooks/              # Custom hooks
-│       ├── lib/                # API client, utils
-│       └── types/              # TypeScript types
-│
 ├── backend/
-│   ├── Dockerfile
-│   ├── Dockerfile.dev
-│   ├── requirements.txt
-│   ├── manage.py              # Django management
-│   ├── config/                # Django project settings
-│   │   ├── settings/
-│   │   │   ├── base.py
-│   │   │   ├── development.py
-│   │   │   └── production.py
+│   ├── manage.py               # Django management
+│   ├── requirements.txt        # Python dependencies
+│   ├── config/                 # Django project settings
+│   │   ├── settings.py         # Single settings file (env-driven)
 │   │   ├── urls.py
-│   │   └── wsgi.py
-│   ├── apps/                  # Django apps
-│   │   ├── core/              # Base models, mixins
-│   │   ├── items/             # Item master
-│   │   ├── stock/             # Stock management
-│   │   ├── receiving/         # Penerimaan module
-│   │   ├── distribution/      # Distribusi module
-│   │   ├── reports/           # Reporting module
-│   │   └── users/             # User & permissions
-│   └── tests/
+│   │   ├── wsgi.py
+│   │   └── asgi.py
+│   ├── apps/                   # Django apps
+│   │   ├── core/               # Base models (TimeStampedModel), dashboard view
+│   │   ├── items/              # Item master + lookup tables (Unit, Category, etc.)
+│   │   ├── stock/              # Stock management + Transaction audit trail
+│   │   ├── receiving/          # Penerimaan module
+│   │   ├── distribution/       # Distribusi module
+│   │   ├── reports/            # Reporting module (placeholder)
+│   │   └── users/              # Custom User model with roles
+│   ├── seed/                   # CSV seed data files
+│   ├── templates/              # Django HTML templates
+│   │   ├── base.html           # Base layout (Bootstrap5)
+│   │   ├── dashboard.html
+│   │   ├── items/
+│   │   ├── stock/
+│   │   ├── receiving/
+│   │   ├── distribution/
+│   │   ├── reports/
+│   │   └── registration/
+│   └── static/                 # Static assets
 │
-└── docs/                       # Documentation
+└── requirements_draft/         # Design documents
+    ├── erd.md
+    ├── system_design_renew.md
+    ├── infrastructure_plan.md
+    └── README.md
 ```
 
 ### Docker Compose Configuration
 
-**Base (`docker-compose.yml`):**
+**Current (`docker-compose.yml`):**
 
 ```yaml
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: ims_postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=healthcare_ims
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    container_name: ims_redis
     volumes:
       - redis_data:/data
     ports:
       - "6379:6379"
-
-  backend:
-    build:
-      context: ./backend
-    depends_on:
-      - postgres
-      - redis
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.development
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
-      - REDIS_URL=redis://redis:6379/0
-    volumes:
-      - media_files:/app/media
-    ports:
-      - "8000:8000"
-
-  frontend:
-    build:
-      context: ./frontend
-    depends_on:
-      - backend
-    ports:
-      - "5173:5173"
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
-  media_files:
 ```
 
-**Dev Override (`docker-compose.dev.yml`):**
-
-```yaml
-services:
-  backend:
-    build:
-      dockerfile: Dockerfile.dev
-    volumes:
-      - ./backend:/app          # Hot reload
-    command: python manage.py runserver 0.0.0.0:8000
-    environment:
-      - DEBUG=True
-
-  frontend:
-    build:
-      dockerfile: Dockerfile.dev
-    volumes:
-      - ./frontend:/app         # Hot reload
-      - /app/node_modules       # Prevent overwrite
-    command: npm run dev -- --host 0.0.0.0
-```
-
-**Prod Override (`docker-compose.prod.yml`):**
-
-```yaml
-services:
-  backend:
-    restart: always
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.production
-      - DEBUG=False
-
-  frontend:
-    restart: always
-    build:
-      target: production
-    # Nginx serves built static files + proxies API to backend
-
-  nginx:
-    image: nginx:alpine
-    restart: always
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - frontend_build:/usr/share/nginx/html
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-      - frontend
-
-volumes:
-  frontend_build:
-```
-
-### Deployment Commands
+### Development Commands
 
 ```bash
-# Development (on Dev VM)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Start infrastructure services
+docker compose up -d
 
-# Production (on Prod VM)
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Run Django dev server
+cd backend
+python manage.py runserver
 
 # Run migrations
-docker compose exec backend python manage.py migrate
+python manage.py migrate
 
 # Create superuser
-docker compose exec backend python manage.py createsuperuser
+python manage.py createsuperuser
 
-# Collect static files (production)
-docker compose exec backend python manage.py collectstatic --noinput
-
-# Import initial CSV data
-docker compose exec backend python manage.py import_initial_stock data.csv
+# Access Django Admin for CSV imports
+# Navigate to http://localhost:8000/admin/
 ```
 
 ---
@@ -554,22 +470,29 @@ docker compose exec backend python manage.py import_initial_stock data.csv
 | Controlled Substances | ✅ No special tracking (external ministry app) |
 | Offline Access | ✅ Not needed (infra network) |
 | OCR Feature | ✅ For Special Request proof documents |
+| Frontend Approach | ✅ Django Templates + Bootstrap5 for now; React planned |
+| CSV Import Method | ✅ `django-import-export` via Django Admin |
 
 ---
 
 ## 10. Next Steps
 
-1. ✅ Requirements gathering - DONE
-2. ✅ Tech stack finalized (Django + DRF + PostgreSQL + Docker)
+1. ✅ Requirements gathering — DONE
+2. ✅ Tech stack finalized (Django + PostgreSQL + Docker)
 3. ✅ System design approved
-4. ✅ ERD created - see [erd.md](file:///C:/Users/User/.gemini/antigravity/brain/3a2b6b86-b71c-4543-a72e-84234289f10c/erd.md)
-5. ⬜ Review & approve ERD
-6. ⬜ Define API specifications (DRF ViewSets)
-7. ⬜ Project setup & scaffolding
-8. ⬜ Django models + migrations
-9. ⬜ Django Admin customization
-10. ⬜ DRF serializers + viewsets
-11. ⬜ React frontend implementation
-12. ⬜ CSV import management command
-13. ⬜ Celery tasks for alerts
-14. ⬜ Testing & deployment
+4. ✅ ERD created — see [erd.md](./erd.md)
+5. ✅ ERD reviewed and approved
+6. ✅ Django models + migrations
+7. ✅ Django Admin customization (with `django-import-export`)
+8. ✅ Seed data CSV templates created
+9. ✅ Django template-based UI (dashboard, items, stock, receiving, distribution)
+10. ⬜ Reports module implementation (currently placeholder)
+11. ⬜ Celery tasks for expiry/low-stock alerts
+12. ⬜ Role-based permission enforcement (middleware/decorators)
+13. ⬜ Receiving verification workflow (status transitions + stock creation)
+14. ⬜ Distribution workflow (FEFO batch selection, stock reservation)
+15. ⬜ Excel/PDF export for reports
+16. ⬜ React frontend (if/when decided)
+17. ⬜ DRF REST API (if/when React frontend is started)
+18. ⬜ Production Docker Compose setup
+19. ⬜ Testing & deployment
