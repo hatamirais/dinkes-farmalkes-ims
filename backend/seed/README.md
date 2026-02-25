@@ -108,11 +108,11 @@ Import lookup tables first, then items that reference them:
 
 | Column | Required | Default | Notes |
 | -------- | ---------- | --------- | ------- |
-| `item` | ✅ Yes | — | Item **kode_barang** |
-| `location` | ✅ Yes | — | Location **code** |
+| `item_code` | ✅ Yes | — | Item **kode_barang** from items table |
+| `location_code` | ✅ Yes | — | Location **code** from locations table |
 | `batch_lot` | ✅ Yes | — | Batch/lot number |
 | `expiry_date` | ✅ Yes | — | Format: `YYYY-MM-DD` |
 | `quantity` | ❌ No | `0` | |
-| `reserved` | ❌ No | `0` | |
+| `reserved` | ❌ No | `0` | Allocated for pending distributions |
 | `unit_price` | ❌ No | `0` | |
-| `sumber_dana` | ✅ Yes | — | Funding source **code** |
+| `sumber_dana_code` | ✅ Yes | — | Funding source **code** from funding_sources table |

@@ -1,1 +1,1 @@
-item,location,batch_lot,expiry_date,quantity,reserved,unit_price,sumber_dana
+id,item_code,location_code,batch_lot,expiry_date,quantity,reserved,unit_price,sumber_dana_code

@@ -12,17 +12,17 @@ from apps.items.models import Item, Location, FundingSource
 
 class StockResource(resources.ModelResource):
     item = fields.Field(
-        column_name='item',
+        column_name='item_code',
         attribute='item',
         widget=ForeignKeyWidget(Item, field='kode_barang'),
     )
     location = fields.Field(
-        column_name='location',
+        column_name='location_code',
         attribute='location',
         widget=ForeignKeyWidget(Location, field='code'),
     )
     sumber_dana = fields.Field(
-        column_name='sumber_dana',
+        column_name='sumber_dana_code',
         attribute='sumber_dana',
         widget=ForeignKeyWidget(FundingSource, field='code'),
     )

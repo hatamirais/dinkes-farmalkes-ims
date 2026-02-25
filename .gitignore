@@ -35,3 +35,7 @@ desktop.ini
 
 # Project-specific
 requirements_draft/Book1.xlsx
+
+# Excel temp files
+~$*.xlsx
+~$*.xls
