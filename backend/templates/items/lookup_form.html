@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Healthcare IMS{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card content-card">
+            <div class="card-header">
+                <span><i class="bi bi-plus-square me-2"></i>{{ title }}</span>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% if next_url %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    {% endif %}
+
+                    {% for field in form %}
+                    <div class="mb-3 {% if field.name == 'is_active' %}form-check form-switch{% endif %}">
+                        {% if field.name == 'is_active' %}
+                        {{ field }}
+                        <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
+                        {% else %}
+                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Simpan
+                        </button>
+                        {% if next_url %}
+                        <a href="{{ next_url }}" class="btn btn-outline-secondary">Kembali</a>
+                        {% else %}
+                        <a href="{% url 'items:item_create' %}" class="btn btn-outline-secondary">Kembali</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

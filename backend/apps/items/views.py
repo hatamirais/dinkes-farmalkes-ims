@@ -5,8 +5,15 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 from apps.core.decorators import role_required
-from .models import Item, Unit, Category, FundingSource, Location, Supplier, Facility
-from .forms import ItemForm
+from .models import Item, Unit, Category, FundingSource, Location, Supplier, Facility, Program
+from .forms import ItemForm, UnitForm, CategoryForm, ProgramForm
+
+
+def _redirect_next_or_default(request, fallback_url_name):
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url:
+        return redirect(next_url)
+    return redirect(fallback_url_name)
 
 
 @login_required
@@ -99,3 +106,60 @@ def item_delete(request, pk):
         messages.success(request, f'Barang "{item.nama_barang}" berhasil dihapus.')
         return redirect('items:item_list')
     return render(request, 'items/item_confirm_delete.html', {'item': item})
+
+
+@login_required
+@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+def unit_create(request):
+    if request.method == 'POST':
+        form = UnitForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Satuan berhasil ditambahkan.')
+            return _redirect_next_or_default(request, 'items:item_create')
+    else:
+        form = UnitForm()
+
+    return render(request, 'items/lookup_form.html', {
+        'form': form,
+        'title': 'Tambah Satuan',
+        'next_url': request.GET.get('next', ''),
+    })
+
+
+@login_required
+@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+def category_create(request):
+    if request.method == 'POST':
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Kategori berhasil ditambahkan.')
+            return _redirect_next_or_default(request, 'items:item_create')
+    else:
+        form = CategoryForm()
+
+    return render(request, 'items/lookup_form.html', {
+        'form': form,
+        'title': 'Tambah Kategori',
+        'next_url': request.GET.get('next', ''),
+    })
+
+
+@login_required
+@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+def program_create(request):
+    if request.method == 'POST':
+        form = ProgramForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Program berhasil ditambahkan.')
+            return _redirect_next_or_default(request, 'items:item_create')
+    else:
+        form = ProgramForm()
+
+    return render(request, 'items/lookup_form.html', {
+        'form': form,
+        'title': 'Tambah Program',
+        'next_url': request.GET.get('next', ''),
+    })

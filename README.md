@@ -85,6 +85,20 @@ python manage.py runserver
 
 Visit `http://localhost:8000` for the app and `http://localhost:8000/admin/` for the admin panel.
 
+### Running tests safely (Windows)
+
+From repository root, use helper script:
+
+```powershell
+.\scripts\run-django-test.ps1 -Target apps.items
+```
+
+Notes:
+
+- Script auto-activates `venv` (if available)
+- Script always runs tests from `backend/` (prevents wrong cwd errors)
+- Script checks `crispy_forms` dependency first and prints install hint if missing
+
 ### 7. Import seed data (optional)
 
 CSV seed files are provided in `backend/seed/`. Import them via the Django Admin panel using the **Import** button (powered by `django-import-export`).

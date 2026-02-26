@@ -1,5 +1,22 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from apps.core.models import TimeStampedModel
+
+
+def _normalize_spaces(value: str) -> str:
+    return ' '.join(value.split())
+
+
+def _validate_case_insensitive_name_uniqueness(instance, model_class, field_name='name'):
+    value = getattr(instance, field_name, '')
+    if not value:
+        return
+
+    queryset = model_class.objects.filter(**{f'{field_name}__iexact': value})
+    if instance.pk:
+        queryset = queryset.exclude(pk=instance.pk)
+    if queryset.exists():
+        raise ValidationError({field_name: 'Nama sudah digunakan. Gunakan nama lain.'})
 
 
 class Unit(TimeStampedModel):
@@ -15,6 +32,12 @@ class Unit(TimeStampedModel):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+    def save(self, *args, **kwargs):
+        self.code = (self.code or '').strip().upper()
+        self.name = _normalize_spaces((self.name or '').strip())
+        _validate_case_insensitive_name_uniqueness(self, Unit)
+        super().save(*args, **kwargs)
+
 
 class Category(TimeStampedModel):
     """Item category lookup table (TABLET, INJEKSI, VAKSIN, etc.)."""
@@ -29,6 +52,12 @@ class Category(TimeStampedModel):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        self.code = (self.code or '').strip().upper()
+        self.name = _normalize_spaces((self.name or '').strip())
+        _validate_case_insensitive_name_uniqueness(self, Category)
+        super().save(*args, **kwargs)
 
 
 class FundingSource(TimeStampedModel):
@@ -59,6 +88,12 @@ class Program(TimeStampedModel):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        self.code = (self.code or '').strip().upper()
+        self.name = _normalize_spaces((self.name or '').strip())
+        _validate_case_insensitive_name_uniqueness(self, Program)
+        super().save(*args, **kwargs)
 
 
 class Location(TimeStampedModel):

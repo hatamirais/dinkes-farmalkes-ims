@@ -1,7 +1,12 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ title }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'vendor/tom-select/tom-select.bootstrap5.min.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -20,7 +25,22 @@
                         {{ field }}
                         <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
                         {% else %}
-                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0">{{ field.label }}</label>
+                            {% if field.name == 'satuan' %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'items:unit_create' %}?next={{ request.get_full_path|urlencode }}">
+                                <i class="bi bi-plus-lg me-1"></i>Tambah Satuan
+                            </a>
+                            {% elif field.name == 'kategori' %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'items:category_create' %}?next={{ request.get_full_path|urlencode }}">
+                                <i class="bi bi-plus-lg me-1"></i>Tambah Kategori
+                            </a>
+                            {% elif field.name == 'program' %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'items:program_create' %}?next={{ request.get_full_path|urlencode }}">
+                                <i class="bi bi-plus-lg me-1"></i>Tambah Program
+                            </a>
+                            {% endif %}
+                        </div>
                         {{ field }}
                         {% endif %}
                         {% if field.help_text %}
@@ -46,17 +66,56 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'vendor/tom-select/tom-select.complete.min.js' %}"></script>
 <script>
-    // Toggle program visibility based on is_program_item checkbox
     document.addEventListener('DOMContentLoaded', () => {
         const checkbox = document.getElementById('id_is_program_item');
+        const programSelect = document.getElementById('id_program');
         const programField = document.getElementById('id_program')?.closest('.mb-3');
+
+        function initTomSelect(selectId, placeholder, isRequired = false) {
+            const select = document.getElementById(selectId);
+            if (!select || typeof TomSelect === 'undefined') return null;
+
+            if (isRequired) {
+                select.selectedIndex = -1;
+            }
+
+            return new TomSelect(select, {
+                create: false,
+                allowEmptyOption: !isRequired,
+                maxOptions: 500,
+                placeholder: placeholder,
+                searchField: ['text'],
+                sortField: [
+                    { field: '$score' },
+                    { field: 'text' }
+                ],
+            });
+        }
 
         function toggleProgramField() {
             if (programField) {
                 programField.style.display = checkbox?.checked ? 'block' : 'none';
             }
+
+            if (programSelect) {
+                if (checkbox?.checked) {
+                    programSelect.required = true;
+                } else {
+                    programSelect.required = false;
+                    if (programTom) {
+                        programTom.clear(true);
+                    } else {
+                        programSelect.value = '';
+                    }
+                }
+            }
         }
+
+        initTomSelect('id_satuan', 'Pilih atau cari satuan...', true);
+        initTomSelect('id_kategori', 'Pilih atau cari kategori...', true);
+        const programTom = initTomSelect('id_program', 'Pilih atau cari program...');
 
         if (checkbox) {
             checkbox.addEventListener('change', toggleProgramField);
