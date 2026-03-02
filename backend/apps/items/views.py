@@ -5,12 +5,21 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 from apps.core.decorators import role_required
-from .models import Item, Unit, Category, FundingSource, Location, Supplier, Facility, Program
+from .models import (
+    Item,
+    Unit,
+    Category,
+    FundingSource,
+    Location,
+    Supplier,
+    Facility,
+    Program,
+)
 from .forms import ItemForm, UnitForm, CategoryForm, ProgramForm
 
 
 def _redirect_next_or_default(request, fallback_url_name):
-    next_url = request.POST.get('next') or request.GET.get('next')
+    next_url = request.POST.get("next") or request.GET.get("next")
     if next_url:
         return redirect(next_url)
     return redirect(fallback_url_name)
@@ -18,148 +27,183 @@ def _redirect_next_or_default(request, fallback_url_name):
 
 @login_required
 def item_list(request):
-    queryset = Item.objects.select_related('satuan', 'kategori').filter(is_active=True)
+    # include program in select_related to avoid N+1 queries when rendering program name
+    queryset = Item.objects.select_related("satuan", "kategori", "program").filter(
+        is_active=True
+    )
 
     # Search
-    search = request.GET.get('q', '').strip()
+    search = request.GET.get("q", "").strip()
     if search:
         queryset = queryset.filter(
-            Q(kode_barang__icontains=search) |
-            Q(nama_barang__icontains=search) |
-            Q(program__name__icontains=search) |
-            Q(program__code__icontains=search)
+            Q(kode_barang__icontains=search)
+            | Q(nama_barang__icontains=search)
+            | Q(program__name__icontains=search)
+            | Q(program__code__icontains=search)
         )
 
     # Filters
-    kategori = request.GET.get('kategori')
+    kategori = request.GET.get("kategori")
     if kategori:
         queryset = queryset.filter(kategori_id=kategori)
 
-    program = request.GET.get('program')
-    if program == '1':
+    program = request.GET.get("program")
+    if program == "1":
         queryset = queryset.filter(is_program_item=True)
-    elif program == '0':
+    elif program == "0":
         queryset = queryset.filter(is_program_item=False)
 
     paginator = Paginator(queryset, 25)
-    page = request.GET.get('page')
+    page = request.GET.get("page")
     items = paginator.get_page(page)
 
     # Build category list with selected state
     categories = []
     for cat in Category.objects.all():
-        categories.append({
-            'id': cat.id,
-            'name': cat.name,
-            'selected': 'selected' if kategori == str(cat.id) else '',
-        })
+        categories.append(
+            {
+                "id": cat.id,
+                "name": cat.name,
+                "selected": "selected" if kategori == str(cat.id) else "",
+            }
+        )
 
-    return render(request, 'items/item_list.html', {
-        'items': items,
-        'categories': categories,
-        'search': search,
-        'selected_kategori': kategori or '',
-        'selected_program': program or '',
-        'program_1_selected': 'selected' if program == '1' else '',
-        'program_0_selected': 'selected' if program == '0' else '',
-    })
+    # Try to locate a DEFAULT program record to use as fallback display
+    default_program = (
+        Program.objects.filter(code__iexact="DEFAULT").first()
+        or Program.objects.filter(name__iexact="DEFAULT").first()
+        or None
+    )
+
+    return render(
+        request,
+        "items/item_list.html",
+        {
+            "items": items,
+            "categories": categories,
+            "search": search,
+            "selected_kategori": kategori or "",
+            "selected_program": program or "",
+            "program_1_selected": "selected" if program == "1" else "",
+            "program_0_selected": "selected" if program == "0" else "",
+            "default_program": default_program,
+        },
+    )
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required("ADMIN", "ADMIN_UMUM", "KEPALA")
 def item_create(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = ItemForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Barang berhasil ditambahkan.')
-            return redirect('items:item_list')
+            messages.success(request, "Barang berhasil ditambahkan.")
+            return redirect("items:item_list")
     else:
         form = ItemForm()
 
-    return render(request, 'items/item_form.html', {'form': form, 'title': 'Tambah Barang'})
+    return render(
+        request, "items/item_form.html", {"form": form, "title": "Tambah Barang"}
+    )
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required("ADMIN", "ADMIN_UMUM", "KEPALA")
 def item_update(request, pk):
     item = get_object_or_404(Item, pk=pk)
-    if request.method == 'POST':
+    if request.method == "POST":
         form = ItemForm(request.POST, instance=item)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Barang berhasil diperbarui.')
-            return redirect('items:item_list')
+            messages.success(request, "Barang berhasil diperbarui.")
+            return redirect("items:item_list")
     else:
         form = ItemForm(instance=item)
 
-    return render(request, 'items/item_form.html', {'form': form, 'title': 'Edit Barang', 'item': item})
+    return render(
+        request,
+        "items/item_form.html",
+        {"form": form, "title": "Edit Barang", "item": item},
+    )
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required("ADMIN", "ADMIN_UMUM", "KEPALA")
 def item_delete(request, pk):
     item = get_object_or_404(Item, pk=pk)
-    if request.method == 'POST':
+    if request.method == "POST":
         item.is_active = False
         item.save()
         messages.success(request, f'Barang "{item.nama_barang}" berhasil dihapus.')
-        return redirect('items:item_list')
-    return render(request, 'items/item_confirm_delete.html', {'item': item})
+        return redirect("items:item_list")
+    return render(request, "items/item_confirm_delete.html", {"item": item})
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required("ADMIN", "ADMIN_UMUM", "KEPALA")
 def unit_create(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = UnitForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Satuan berhasil ditambahkan.')
-            return _redirect_next_or_default(request, 'items:item_create')
+            messages.success(request, "Satuan berhasil ditambahkan.")
+            return _redirect_next_or_default(request, "items:item_create")
     else:
         form = UnitForm()
 
-    return render(request, 'items/lookup_form.html', {
-        'form': form,
-        'title': 'Tambah Satuan',
-        'next_url': request.GET.get('next', ''),
-    })
+    return render(
+        request,
+        "items/lookup_form.html",
+        {
+            "form": form,
+            "title": "Tambah Satuan",
+            "next_url": request.GET.get("next", ""),
+        },
+    )
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required("ADMIN", "ADMIN_UMUM", "KEPALA")
 def category_create(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = CategoryForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Kategori berhasil ditambahkan.')
-            return _redirect_next_or_default(request, 'items:item_create')
+            messages.success(request, "Kategori berhasil ditambahkan.")
+            return _redirect_next_or_default(request, "items:item_create")
     else:
         form = CategoryForm()
 
-    return render(request, 'items/lookup_form.html', {
-        'form': form,
-        'title': 'Tambah Kategori',
-        'next_url': request.GET.get('next', ''),
-    })
+    return render(
+        request,
+        "items/lookup_form.html",
+        {
+            "form": form,
+            "title": "Tambah Kategori",
+            "next_url": request.GET.get("next", ""),
+        },
+    )
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required("ADMIN", "ADMIN_UMUM", "KEPALA")
 def program_create(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = ProgramForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Program berhasil ditambahkan.')
-            return _redirect_next_or_default(request, 'items:item_create')
+            messages.success(request, "Program berhasil ditambahkan.")
+            return _redirect_next_or_default(request, "items:item_create")
     else:
         form = ProgramForm()
 
-    return render(request, 'items/lookup_form.html', {
-        'form': form,
-        'title': 'Tambah Program',
-        'next_url': request.GET.get('next', ''),
-    })
+    return render(
+        request,
+        "items/lookup_form.html",
+        {
+            "form": form,
+            "title": "Tambah Program",
+            "next_url": request.GET.get("next", ""),
+        },
+    )

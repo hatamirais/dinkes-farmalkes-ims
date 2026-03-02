@@ -12,12 +12,15 @@ Import lookup tables first, then items that reference them:
 1. `units.csv`
 2. `categories.csv`
 3. `funding_sources.csv`
-4. `programs.csv` ← NEW: health programs (TB, HIV, etc.)
+4. `programs.csv` ← health programs (TB, HIV, etc.)
 5. `locations.csv`
 6. `suppliers.csv`
 7. `facilities.csv`
 8. `items.csv` ← requires units + categories + programs to exist first
-9. `stock.csv` ← requires items + locations + funding sources to exist first
+9. `receiving.csv` ← creates receiving + stock + transactions (via Admin → Receivings → Import CSV)
+
+> **Note:** For initial stock seeding, use `receiving.csv` instead of `stock.csv`.
+> This creates proper audit trail (transactions + kartu stok) from day one.
 
 ## How to Import
 

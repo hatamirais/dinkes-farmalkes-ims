@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+<li>
+    <a href="import-csv/" class="addlink">
+        Import CSV Penerimaan
+    </a>
+</li>
+{{ block.super }}
+{% endblock %}

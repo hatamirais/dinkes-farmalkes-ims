@@ -77,7 +77,8 @@
             const select = document.getElementById(selectId);
             if (!select || typeof TomSelect === 'undefined') return null;
 
-            if (isRequired) {
+            // Only clear selection for required selects when there is no current value
+            if (isRequired && !select.value) {
                 select.selectedIndex = -1;
             }
 

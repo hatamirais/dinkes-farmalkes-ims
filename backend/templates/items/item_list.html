@@ -56,9 +56,17 @@
                     <td><span class="badge bg-light text-dark border">{{ item.kategori.name }}</span></td>
                     <td>
                         {% if item.is_program_item %}
-                        <span class="badge bg-primary-subtle text-primary">[P] {{ item.program.name }}</span>
+                            {% if item.program %}
+                                <span class="badge bg-primary-subtle text-primary">[P] {{ item.program.code }} — {{ item.program.name }}</span>
+                            {% else %}
+                                {% if default_program %}
+                                    <span class="badge bg-primary-subtle text-primary">[P] {{ default_program.code }} — {{ default_program.name }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary">[P] DEFAULT</span>
+                                {% endif %}
+                            {% endif %}
                         {% else %}
-                        <span class="text-muted">-</span>
+                            <span class="text-muted">-</span>
                         {% endif %}
                     </td>
                     <td>{{ item.minimum_stock }}</td>

@@ -1,0 +1,102 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px; margin: 20px auto;">
+    <h2>{{ title }}</h2>
+
+    <div
+        style="background: #1a2733; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #2a3a4a;">
+        <h4 style="margin-top: 0;">📋 Format CSV</h4>
+        <p style="font-size: 13px;">Setiap baris = 1 item penerimaan. Baris dengan <code>document_number</code> yang
+            sama akan dikelompokkan menjadi 1 dokumen penerimaan.</p>
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid #3a4a5a;">
+                    <th style="text-align: left; padding: 4px;">Kolom</th>
+                    <th style="text-align: left; padding: 4px;">Wajib</th>
+                    <th style="text-align: left; padding: 4px;">Keterangan</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 3px;"><code>document_number</code></td>
+                    <td>✅</td>
+                    <td>Nomor dokumen (contoh: SALDO-DAK-2026)</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>receiving_type</code></td>
+                    <td>❌</td>
+                    <td>PROCUREMENT / GRANT (default: GRANT)</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>receiving_date</code></td>
+                    <td>✅</td>
+                    <td>Format: DD/MM/YYYY</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>supplier_code</code></td>
+                    <td>❌</td>
+                    <td>Kode supplier (jika ada)</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>sumber_dana_code</code></td>
+                    <td>✅</td>
+                    <td>Kode sumber dana</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>location_code</code></td>
+                    <td>✅</td>
+                    <td>Kode lokasi gudang</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>item_code</code></td>
+                    <td>✅</td>
+                    <td>Kode barang (kode_barang)</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>quantity</code></td>
+                    <td>✅</td>
+                    <td>Jumlah</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>batch_lot</code></td>
+                    <td>✅</td>
+                    <td>Nomor batch/lot</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>expiry_date</code></td>
+                    <td>✅</td>
+                    <td>Format: DD/MM/YYYY</td>
+                </tr>
+                <tr>
+                    <td style="padding: 3px;"><code>unit_price</code></td>
+                    <td>❌</td>
+                    <td>Harga satuan (default: 0)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div style="margin-bottom: 15px;">
+            <label for="id_csv_file" style="font-weight: bold; display: block; margin-bottom: 5px;">
+                {{ form.csv_file.label }}
+            </label>
+            {{ form.csv_file }}
+            {% if form.csv_file.errors %}
+            <p style="color: #e74c3c;">{{ form.csv_file.errors }}</p>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="default" style="padding: 8px 20px; cursor: pointer;">
+            🚀 Import
+        </button>
+        <a href=".." style="margin-left: 10px;">Batal</a>
+    </form>
+</div>
+{% endblock %}
