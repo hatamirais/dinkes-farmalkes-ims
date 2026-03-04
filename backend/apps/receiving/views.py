@@ -51,7 +51,7 @@ def receiving_list(request):
 
 
 @login_required
-@role_required('ADMIN', 'GUDANG', 'KEPALA')
+@role_required('ADMIN', 'GUDANG', 'KEPALA', 'ADMIN_UMUM')
 def receiving_create(request):
     if request.method == 'POST':
         form = ReceivingForm(request.POST)

@@ -311,7 +311,7 @@ flowchart TB
 | **Kepala Instalasi** | Approve allocations, view all reports, dashboard |
 | **Admin Umum** | Manage receiving, create distributions, basic reports |
 | **Petugas Gudang** | Stock updates, receiving verification, distribution preparation |
-| **Petugas Keuangan** | Financial reports, stock valuation, accounting exports |
+| **Auditor** | Financial reports, stock valuation, accounting exports, audit |
 
 ---
 

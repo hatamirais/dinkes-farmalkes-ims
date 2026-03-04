@@ -15,9 +15,11 @@
                             <dt class="col-5">No. Dokumen</dt>
                             <dd class="col-7 fw-semibold">{{ opname.document_number }}</dd>
                             <dt class="col-5">Tipe Periode</dt>
-                            <dd class="col-7"><span class="badge bg-info text-dark">{{ opname.get_period_type_display }}</span></dd>
+                            <dd class="col-7"><span class="badge bg-info text-dark">{{ opname.get_period_type_display
+                                    }}</span></dd>
                             <dt class="col-5">Periode</dt>
-                            <dd class="col-7">{{ opname.period_start|date:'d/m/Y' }} — {{ opname.period_end|date:'d/m/Y' }}</dd>
+                            <dd class="col-7">{{ opname.period_start|date:'d/m/Y' }} — {{ opname.period_end|date:'d/m/Y'
+                                }}</dd>
                             <dt class="col-5">Status</dt>
                             <dd class="col-7">
                                 {% if opname.status == 'DRAFT' %}
@@ -27,6 +29,14 @@
                                 {% else %}
                                 <span class="badge bg-success">Selesai</span>
                                 {% endif %}
+                            </dd>
+                            <dt class="col-5">Kategori</dt>
+                            <dd class="col-7">
+                                {% for cat in opname.categories.all %}
+                                <span class="badge bg-primary me-1">{{ cat.name }}</span>
+                                {% empty %}
+                                <span class="text-muted">Semua kategori</span>
+                                {% endfor %}
                             </dd>
                         </dl>
                     </div>
@@ -44,6 +54,14 @@
                             <dt class="col-5">Catatan</dt>
                             <dd class="col-7">{{ opname.notes }}</dd>
                             {% endif %}
+                            <dt class="col-5">Ditugaskan Kepada</dt>
+                            <dd class="col-7">
+                                {% for user in opname.assigned_to.all %}
+                                <span class="badge bg-secondary me-1">{{ user.full_name|default:user.username }}</span>
+                                {% empty %}
+                                <span class="text-muted">—</span>
+                                {% endfor %}
+                            </dd>
                         </dl>
                     </div>
                 </div>
@@ -53,7 +71,8 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
                         {% if opname.status != 'DRAFT' %}
-                        <span class="me-3"><strong>{{ counted_items }}</strong> / {{ total_items }} item dihitung ({{ progress }}%)</span>
+                        <span class="me-3"><strong>{{ counted_items }}</strong> / {{ total_items }} item dihitung ({{
+                            progress }}%)</span>
                         <span class="text-danger"><strong>{{ discrepancy_count }}</strong> selisih</span>
                         {% endif %}
                     </div>
@@ -61,7 +80,8 @@
                         {% if opname.status == 'DRAFT' %}
                         <form method="post" action="{% url 'stock_opname:opname_start' opname.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Mulai stock opname? Semua stok saat ini akan di-snapshot.')">
+                            <button type="submit" class="btn btn-success btn-sm"
+                                onclick="return confirm('Mulai stock opname? Semua stok saat ini akan di-snapshot.')">
                                 <i class="bi bi-play-fill me-1"></i>Mulai Opname
                             </button>
                         </form>
@@ -71,13 +91,15 @@
                         </a>
                         <form method="post" action="{% url 'stock_opname:opname_complete' opname.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Selesaikan stock opname ini?')">
+                            <button type="submit" class="btn btn-success btn-sm"
+                                onclick="return confirm('Selesaikan stock opname ini?')">
                                 <i class="bi bi-check-circle me-1"></i>Selesaikan
                             </button>
                         </form>
                         {% endif %}
                         {% if opname.status != 'DRAFT' and discrepancy_count > 0 %}
-                        <a href="{% url 'stock_opname:opname_print' opname.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                        <a href="{% url 'stock_opname:opname_print' opname.pk %}"
+                            class="btn btn-outline-secondary btn-sm" target="_blank">
                             <i class="bi bi-printer me-1"></i>Cetak Selisih
                         </a>
                         {% endif %}
@@ -93,8 +115,10 @@
         {% for loc_data in locations %}
         <div class="card content-card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-geo-alt me-1"></i>{{ loc_data.location.code }} — {{ loc_data.location.name }}</span>
-                <span class="text-muted small">{{ loc_data.counted }} / {{ loc_data.total }} dihitung | {{ loc_data.discrepancies }} selisih</span>
+                <span><i class="bi bi-geo-alt me-1"></i>{{ loc_data.location.code }} — {{ loc_data.location.name
+                    }}</span>
+                <span class="text-muted small">{{ loc_data.counted }} / {{ loc_data.total }} dihitung | {{
+                    loc_data.discrepancies }} selisih</span>
             </div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle mb-0">
@@ -127,7 +151,8 @@
                             </td>
                             <td class="text-end">
                                 {% if item.difference is not None %}
-                                <span class="{% if item.has_discrepancy %}fw-bold text-danger{% endif %}">{{ item.difference }}</span>
+                                <span class="{% if item.has_discrepancy %}fw-bold text-danger{% endif %}">{{
+                                    item.difference }}</span>
                                 {% else %}
                                 <span class="text-muted">—</span>
                                 {% endif %}

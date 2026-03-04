@@ -15,7 +15,9 @@ from .forms import StockOpnameForm
 
 @login_required
 def opname_list(request):
-    queryset = StockOpname.objects.select_related('created_by').all()
+    queryset = StockOpname.objects.select_related('created_by').prefetch_related(
+        'categories', 'assigned_to',
+    ).all()
 
     # Filters
     status = request.GET.get('status')
@@ -45,7 +47,7 @@ def opname_list(request):
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required('ADMIN', 'KEPALA')
 def opname_create(request):
     if request.method == 'POST':
         form = StockOpnameForm(request.POST)
@@ -53,6 +55,7 @@ def opname_create(request):
             opname = form.save(commit=False)
             opname.created_by = request.user
             opname.save()
+            form.save_m2m()
             messages.success(request, f'Stock Opname {opname.document_number} berhasil dibuat.')
             return redirect('stock_opname:opname_detail', pk=opname.pk)
     else:
@@ -61,6 +64,29 @@ def opname_create(request):
     return render(request, 'stock_opname/opname_form.html', {
         'form': form,
         'title': 'Buat Stock Opname Baru',
+    })
+
+
+@login_required
+@role_required('ADMIN', 'KEPALA')
+def opname_edit(request, pk):
+    opname = get_object_or_404(StockOpname, pk=pk)
+    if opname.status == StockOpname.Status.COMPLETED:
+        messages.error(request, 'Stock Opname yang sudah selesai tidak dapat diedit.')
+        return redirect('stock_opname:opname_detail', pk=opname.pk)
+
+    if request.method == 'POST':
+        form = StockOpnameForm(request.POST, instance=opname)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Stock Opname {opname.document_number} berhasil diperbarui.')
+            return redirect('stock_opname:opname_detail', pk=opname.pk)
+    else:
+        form = StockOpnameForm(instance=opname)
+
+    return render(request, 'stock_opname/opname_form.html', {
+        'form': form,
+        'title': f'Edit Stock Opname — {opname.document_number}',
     })
 
 
@@ -109,15 +135,20 @@ def opname_detail(request, pk):
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required('ADMIN', 'KEPALA')
 def opname_start(request, pk):
-    """Transition DRAFT → IN_PROGRESS and snapshot all stock quantities."""
+    """Transition DRAFT → IN_PROGRESS and snapshot stock quantities filtered by categories."""
     opname = get_object_or_404(StockOpname, pk=pk, status=StockOpname.Status.DRAFT)
 
     if request.method == 'POST':
         stocks = Stock.objects.filter(quantity__gt=0).select_related(
             'item', 'location', 'sumber_dana',
         )
+
+        # Filter by assigned categories
+        selected_categories = opname.categories.all()
+        if selected_categories.exists():
+            stocks = stocks.filter(item__kategori__in=selected_categories)
 
         with transaction.atomic():
             opname_items = []
@@ -142,7 +173,7 @@ def opname_start(request, pk):
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA', 'GUDANG')
 def opname_input(request, pk):
     """Input actual quantities for a stock opname session."""
     opname = get_object_or_404(
@@ -204,7 +235,7 @@ def opname_input(request, pk):
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required('ADMIN', 'KEPALA')
 def opname_complete(request, pk):
     """Finalize a stock opname session."""
     opname = get_object_or_404(
@@ -260,7 +291,7 @@ def opname_print(request, pk):
 
 
 @login_required
-@role_required('ADMIN', 'ADMIN_UMUM', 'KEPALA')
+@role_required('ADMIN', 'KEPALA')
 def opname_delete(request, pk):
     """Delete a stock opname session (only DRAFT or IN_PROGRESS)."""
     opname = get_object_or_404(

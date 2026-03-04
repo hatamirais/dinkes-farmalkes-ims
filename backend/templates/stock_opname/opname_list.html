@@ -17,13 +17,15 @@
                 <!-- Filters -->
                 <form method="get" class="row g-2 mb-3">
                     <div class="col-md-3">
-                        <input type="text" name="q" class="form-control form-control-sm" placeholder="Cari nomor dokumen..." value="{{ search }}">
+                        <input type="text" name="q" class="form-control form-control-sm"
+                            placeholder="Cari nomor dokumen..." value="{{ search }}">
                     </div>
                     <div class="col-md-2">
                         <select name="status" class="form-select form-select-sm">
                             <option value="">Semua Status</option>
                             {% for val, label in status_choices %}
-                            <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ val }}" {% if selected_status==val %}selected{% endif %}>{{ label }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -31,14 +33,17 @@
                         <select name="period" class="form-select form-select-sm">
                             <option value="">Semua Periode</option>
                             {% for val, label in period_choices %}
-                            <option value="{{ val }}" {% if selected_period == val %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ val }}" {% if selected_period==val %}selected{% endif %}>{{ label }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-auto">
-                        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
+                        <button type="submit" class="btn btn-outline-primary btn-sm"><i
+                                class="bi bi-search"></i></button>
                         {% if search or selected_status or selected_period %}
-                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-danger btn-sm"><i
+                                class="bi bi-x-lg"></i></a>
                         {% endif %}
                     </div>
                 </form>
@@ -52,6 +57,7 @@
                                 <th>Tanggal</th>
                                 <th>Status</th>
                                 <th>Dibuat Oleh</th>
+                                <th>Ditugaskan Kepada</th>
                                 <th>Tanggal Dibuat</th>
                                 <th class="text-center">Aksi</th>
                             </tr>
@@ -59,7 +65,8 @@
                         <tbody>
                             {% for o in opnames %}
                             <tr>
-                                <td><a href="{% url 'stock_opname:opname_detail' o.pk %}" class="fw-semibold text-decoration-none">{{ o.document_number }}</a></td>
+                                <td><a href="{% url 'stock_opname:opname_detail' o.pk %}"
+                                        class="fw-semibold text-decoration-none">{{ o.document_number }}</a></td>
                                 <td><span class="badge bg-info text-dark">{{ o.get_period_type_display }}</span></td>
                                 <td>{{ o.period_start|date:'d/m/Y' }} — {{ o.period_end|date:'d/m/Y' }}</td>
                                 <td>
@@ -72,10 +79,22 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ o.created_by.full_name|default:o.created_by.username }}</td>
+                                <td>
+                                    {% for user in o.assigned_to.all %}
+                                    <span class="badge bg-secondary">{{ user.full_name|default:user.username }}</span>
+                                    {% empty %}
+                                    <span class="text-muted">—</span>
+                                    {% endfor %}
+                                </td>
                                 <td>{{ o.created_at|date:'d/m/Y H:i' }}</td>
                                 <td class="text-center">
                                     {% if o.status != 'COMPLETED' %}
-                                    <a href="{% url 'stock_opname:opname_delete' o.pk %}" class="btn btn-outline-danger btn-sm" title="Hapus">
+                                    <a href="{% url 'stock_opname:opname_edit' o.pk %}"
+                                        class="btn btn-outline-warning btn-sm me-1" title="Edit">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    <a href="{% url 'stock_opname:opname_delete' o.pk %}"
+                                        class="btn btn-outline-danger btn-sm" title="Hapus">
                                         <i class="bi bi-trash"></i>
                                     </a>
                                     {% endif %}
@@ -83,7 +102,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="8" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                     <p>Belum ada data stock opname</p>
                                 </td>
@@ -98,7 +117,8 @@
                 <nav>
                     <ul class="pagination pagination-sm justify-content-center">
                         {% if opnames.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?page={{ opnames.previous_page_number }}">&laquo;</a></li>
+                        <li class="page-item"><a class="page-link"
+                                href="?page={{ opnames.previous_page_number }}">&laquo;</a></li>
                         {% endif %}
                         {% for num in opnames.paginator.page_range %}
                         <li class="page-item {% if opnames.number == num %}active{% endif %}">
@@ -106,7 +126,8 @@
                         </li>
                         {% endfor %}
                         {% if opnames.has_next %}
-                        <li class="page-item"><a class="page-link" href="?page={{ opnames.next_page_number }}">&raquo;</a></li>
+                        <li class="page-item"><a class="page-link"
+                                href="?page={{ opnames.next_page_number }}">&raquo;</a></li>
                         {% endif %}
                     </ul>
                 </nav>

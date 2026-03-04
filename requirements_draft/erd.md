@@ -84,7 +84,7 @@ erDiagram
         string email UK
         string password_hash
         string full_name
-        string role "Admin, Kepala, Admin Umum, Petugas Gudang, Petugas Keuangan"
+        string role "Admin, Kepala, Admin Umum, Petugas Gudang, Auditor"
         boolean is_active
         timestamp last_login NULL
         timestamp created_at
@@ -359,7 +359,7 @@ erDiagram
 
 - **Purpose:** System authentication and authorization
 - **Indexes:** `username` (unique), `email` (unique)
-- **Roles:** Admin, Kepala Instalasi, Admin Umum, Petugas Gudang, Petugas Keuangan
+- **Roles:** Admin, Kepala Instalasi, Admin Umum, Petugas Gudang, Auditor
 
 ---
 

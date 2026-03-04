@@ -102,7 +102,7 @@ The system uses a custom `@role_required` decorator for RBAC. Five roles:
 | **Kepala Instalasi** | Approvals, all reports, dashboard        |
 | **Admin Umum**       | Receiving, distribution, basic reports   |
 | **Petugas Gudang**   | Stock operations, receiving verification |
-| **Petugas Keuangan** | Financial reports, stock valuation       |
+| **Auditor**          | Financial reports, stock valuation, audit |
 
 ## Key Architectural Patterns
 

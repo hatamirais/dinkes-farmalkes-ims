@@ -42,6 +42,17 @@ class StockOpname(TimeStampedModel):
         related_name='created_stock_opnames',
     )
     completed_at = models.DateTimeField(null=True, blank=True)
+    categories = models.ManyToManyField(
+        'items.Category',
+        related_name='stock_opnames',
+        help_text='Kategori barang yang akan dihitung',
+    )
+    assigned_to = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='assigned_stock_opnames',
+        help_text='Petugas yang ditugaskan untuk menghitung',
+    )
 
     class Meta:
         db_table = 'stock_opnames'

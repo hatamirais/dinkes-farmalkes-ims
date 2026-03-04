@@ -155,7 +155,7 @@ DJANGO-IMS/
 | **Kepala Instalasi** | Approvals, all reports, dashboard        |
 | **Admin Umum**       | Receiving, distribution, basic reports   |
 | **Petugas Gudang**   | Stock operations, receiving verification |
-| **Petugas Keuangan** | Financial reports, stock valuation       |
+| **Auditor**          | Financial reports, stock valuation, audit |
 
 ## 🔄 Workflow Snapshot
 

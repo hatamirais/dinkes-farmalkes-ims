@@ -51,7 +51,7 @@ def distribution_list(request):
 
 
 @login_required
-@role_required('ADMIN', 'GUDANG', 'KEPALA')
+@role_required('ADMIN', 'GUDANG', 'KEPALA', 'ADMIN_UMUM')
 def distribution_create(request):
     if request.method == 'POST':
         form = DistributionForm(request.POST)

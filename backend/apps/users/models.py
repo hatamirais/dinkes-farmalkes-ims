@@ -10,7 +10,7 @@ class User(AbstractUser):
         KEPALA = 'KEPALA', 'Kepala Instalasi'
         ADMIN_UMUM = 'ADMIN_UMUM', 'Admin Umum'
         GUDANG = 'GUDANG', 'Petugas Gudang'
-        KEUANGAN = 'KEUANGAN', 'Petugas Keuangan'
+        AUDITOR = 'AUDITOR', 'Auditor'
 
     role = models.CharField(
         max_length=20,
