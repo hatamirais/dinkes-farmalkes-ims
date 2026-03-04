@@ -113,6 +113,7 @@
                         <tr>
                             <th>Kode</th>
                             <th>Nama Barang</th>
+                            <th>Expiry</th>
                             <th>Batch/Lot</th>
                             <th>Satuan</th>
                             <th class="text-end">Stok Sistem</th>
@@ -126,6 +127,13 @@
                         <tr class="{% if item.has_discrepancy %}table-warning{% endif %}">
                             <td><code>{{ item.stock.item.kode_barang }}</code></td>
                             <td>{{ item.stock.item.nama_barang }}</td>
+                            <td>
+                                {% if item.stock.is_expired or item.stock.is_near_expiry %}
+                                <span class="badge bg-danger">{{ item.stock.expiry_date|date:"d/m/Y" }}</span>
+                                {% else %}
+                                {{ item.stock.expiry_date|date:"d/m/Y" }}
+                                {% endif %}
+                            </td>
                             <td>{{ item.stock.batch_lot }}</td>
                             <td>{{ item.stock.item.satuan.name|default:"-" }}</td>
                             <td class="text-end">{{ item.system_quantity }}</td>

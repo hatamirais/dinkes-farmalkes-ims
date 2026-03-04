@@ -58,6 +58,7 @@
                 <th style="width:30px;" class="text-center"><span class="checkbox"></span></th>
                 <th>Kode Barang</th>
                 <th>Nama Barang</th>
+                <th>Expiry</th>
                 <th>Batch/Lot</th>
                 <th>Satuan</th>
                 <th class="text-end">Stok Sistem</th>
@@ -72,6 +73,7 @@
                 <td class="text-center"><span class="checkbox"></span></td>
                 <td>{{ item.stock.item.kode_barang }}</td>
                 <td>{{ item.stock.item.nama_barang }}</td>
+                <td>{{ item.stock.expiry_date|date:'d/m/Y' }}</td>
                 <td>{{ item.stock.batch_lot }}</td>
                 <td>{{ item.stock.item.satuan.name|default:'-' }}</td>
                 <td class="text-end">{{ item.system_quantity }}</td>
