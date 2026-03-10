@@ -11,7 +11,7 @@ class Expired(TimeStampedModel):
         DRAFT = 'DRAFT', 'Draft'
         SUBMITTED = 'SUBMITTED', 'Diajukan'
         VERIFIED = 'VERIFIED', 'Terverifikasi'
-        DISPOSED = 'DISPOSED', 'Dimusnahkan'
+        DISPOSED = 'DISPOSED', 'Keluar dari Stock'
 
     document_number = models.CharField(
         max_length=100,
@@ -38,6 +38,14 @@ class Expired(TimeStampedModel):
         related_name='verified_expired_docs',
     )
     verified_at = models.DateTimeField(null=True, blank=True)
+    disposed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='disposed_expired_docs',
+    )
+    disposed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:

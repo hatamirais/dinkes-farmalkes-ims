@@ -4,79 +4,125 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="{% if is_edit %}row justify-content-center{% endif %}">
-    <div class="{% if is_edit %}col-lg-10{% endif %}">
-        <div class="card content-card table-container form-page-card">
-            <div class="card-header">
-                <span><i class="bi bi-trash me-2"></i>{{ title }}</span>
-            </div>
-            <div class="card-body">
-                <form method="post" novalidate>
-                    {% csrf_token %}
+<div class="card content-card table-container form-page-card">
+    <div class="card-header">
+        <span><i class="bi bi-trash me-2"></i>{{ title }}</span>
+    </div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
 
-                    <div class="row g-3 mb-4">
-                        {% for field in form %}
-                        <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
-                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                            {{ field }}
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger py-2">
+                {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row g-3 mb-4">
+                {% for field in form %}
+                <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-4{% endif %}">
+                    <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <hr>
+            <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Kedaluwarsa</h6>
+
+            {{ formset.management_form }}
+
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="expired-items">
+                        <i class="bi bi-trash me-1"></i>Hapus Semua
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="expired-items">
+                        <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive" data-formset="expired-items" data-formset-prefix="{{ formset.prefix }}">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Barang</th>
+                            <th>Batch Stok</th>
+                            <th style="width:120px;">Qty</th>
+                            <th>Keterangan</th>
+                            <th style="width:50px;">Hapus</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item_form in formset %}
+                        <tr class="formset-row">
+                            <td>{{ item_form.item }}</td>
+                            <td>{{ item_form.stock }}</td>
+                            <td>{{ item_form.quantity }}</td>
+                            <td>{{ item_form.notes }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <div class="d-none">{{ item_form.DELETE }}</div>
+                            </td>
+                            {{ item_form.id }}
+                        </tr>
+                        {% if item_form.non_field_errors %}
+                        <tr>
+                            <td colspan="5" class="text-danger small py-1">
+                                {% for error in item_form.non_field_errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% for field in item_form %}
                             {% for error in field.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            <tr>
+                                <td colspan="5" class="text-danger small py-1">
+                                    {{ field.label }}: {{ error }}
+                                </td>
+                            </tr>
                             {% endfor %}
-                        </div>
                         {% endfor %}
-                    </div>
-
-                    <hr>
-                    <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Kedaluwarsa</h6>
-
-                    {{ formset.management_form }}
-
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Barang</th>
-                                    <th>Batch Stok</th>
-                                    <th style="width:120px;">Qty</th>
-                                    <th>Keterangan</th>
-                                    <th style="width:50px;">Hapus</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item_form in formset %}
-                                <tr>
-                                    <td>{{ item_form.item }}</td>
-                                    <td>{{ item_form.stock }}</td>
-                                    <td>{{ item_form.quantity }}</td>
-                                    <td>{{ item_form.notes }}</td>
-                                    <td class="text-center">
-                                        {% if item_form.instance.pk %}
-                                        {{ item_form.DELETE }}
-                                        {% endif %}
-                                    </td>
-                                    {{ item_form.id }}
-                                </tr>
-                                {% for error in item_form.errors.values %}
-                                <tr>
-                                    <td colspan="5" class="text-danger small py-1">{{ error }}</td>
-                                </tr>
-                                {% endfor %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="mb-2 small text-muted">Tip: Pastikan kuantitas yang dilaporkan sesuai stok fisik; buat catatan lokasi untuk audit.</div>
-
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg me-1"></i>Simpan
-                        </button>
-                        <a href="{% if is_edit %}{% url 'expired:expired_detail' expired_doc.pk %}{% else %}{% url 'expired:expired_list' %}{% endif %}" class="btn btn-outline-secondary">Batal</a>
-                    </div>
-                </form>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        </div>
+
+            <template id="expired-items-empty">
+                <tr class="formset-row">
+                    <td>{{ formset.empty_form.item }}</td>
+                    <td>{{ formset.empty_form.stock }}</td>
+                    <td>{{ formset.empty_form.quantity }}</td>
+                    <td>{{ formset.empty_form.notes }}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        <div class="d-none">{{ formset.empty_form.DELETE }}</div>
+                    </td>
+                    {{ formset.empty_form.id }}
+                </tr>
+            </template>
+
+            <div class="mb-2 small text-muted">Tip: Pilih batch stok yang sudah kedaluwarsa untuk memastikan catatan pemusnahan akurat.</div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+                <a href="{% if is_edit %}{% url 'expired:expired_detail' expired_doc.pk %}{% else %}{% url 'expired:expired_list' %}{% endif %}" class="btn btn-outline-secondary">Batal</a>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}

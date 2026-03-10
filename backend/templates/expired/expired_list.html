@@ -20,7 +20,7 @@
                 <option value="DRAFT" {{ status_draft }}>Draft</option>
                 <option value="SUBMITTED" {{ status_submitted }}>Diajukan</option>
                 <option value="VERIFIED" {{ status_verified }}>Terverifikasi</option>
-                <option value="DISPOSED" {{ status_disposed }}>Dimusnahkan</option>
+                <option value="DISPOSED" {{ status_disposed }}>Keluar dari Stock</option>
             </select>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
@@ -34,7 +34,7 @@
             <span class="badge-status badge-draft">Draft</span>
             <span class="badge-status badge-submitted">Diajukan</span>
             <span class="badge-status badge-verified">Terverifikasi</span>
-            <span class="badge-status badge-disposed">Dimusnahkan</span>
+            <span class="badge-status badge-disposed">Keluar dari Stock</span>
         </div>
     </div>
 
@@ -46,13 +46,12 @@
                     <th>Tanggal</th>
                     <th>Status</th>
                     <th>Dibuat oleh</th>
-                    <!-- <th class="text-end">Aksi</th> -->
                 </tr>
             </thead>
             <tbody>
                 {% for e in expired_items %}
                 <tr>
-                        <td><a href="{% url 'expired:expired_detail' e.pk %}" class="fw-semibold text-decoration-none">{{ e.document_number|default:"[Draft]" }}</a></td>
+                    <td><a href="{% url 'expired:expired_detail' e.pk %}" class="fw-semibold text-decoration-none">{{ e.document_number|default:"[Draft]" }}</a></td>
                     <td>{{ e.report_date|date:"d/m/Y" }}</td>
                     <td>
                         <span class="badge-status badge-{{ e.status|lower }}">{{ e.get_status_display }}</span>
@@ -72,5 +71,27 @@
             </tbody>
         </table>
     </div>
+
+    {% if expired_items.has_other_pages %}
+    <nav class="d-flex justify-content-center py-3">
+        <ul class="pagination pagination-sm mb-0">
+            {% if expired_items.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ expired_items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&laquo;</a>
+            </li>
+            {% endif %}
+            {% for num in expired_items.paginator.page_range %}
+            <li class="page-item {% if expired_items.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            {% if expired_items.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ expired_items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

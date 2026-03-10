@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.expired.models import Expired, ExpiredItem
 from apps.items.models import Category, FundingSource, Item, Location, Unit
@@ -9,12 +10,13 @@ from apps.stock.models import Stock, Transaction
 from apps.users.models import User
 
 
-class ExpiredVerifyWorkflowTest(TestCase):
+class ExpiredWorkflowTest(TestCase):
+    """Tests for the expired module workflow transitions, stock posting, and edge cases."""
+
     def setUp(self):
-        self.user = User.objects.create_user(
+        self.user = User.objects.create_superuser(
             username='gudang_expired',
-            password='secret123',
-            role=User.Role.GUDANG,
+            password='secret12345',
         )
 
         self.unit = Unit.objects.create(code='BOT', name='Botol')
@@ -39,23 +41,68 @@ class ExpiredVerifyWorkflowTest(TestCase):
             sumber_dana=self.funding_source,
         )
 
-    def test_verify_expired_deducts_stock_and_creates_transaction(self):
-        expired_doc = Expired.objects.create(
-            report_date='2026-02-27',
-            status=Expired.Status.SUBMITTED,
-            created_by=self.user,
-        )
-        ExpiredItem.objects.create(
-            expired=expired_doc,
-            item=self.item,
-            stock=self.stock,
-            quantity=Decimal('5'),
-            notes='Melewati tanggal ED',
-        )
-
         self.client.force_login(self.user)
-        response = self.client.post(reverse('expired:expired_verify', args=[expired_doc.pk]))
 
+    def _create_expired(self, status=Expired.Status.DRAFT, with_items=True, document_number=''):
+        """Helper to create an expired document with optional items."""
+        kwargs = {
+            'report_date': '2026-03-10',
+            'status': status,
+            'created_by': self.user,
+        }
+        if document_number:
+            kwargs['document_number'] = document_number
+        expired_doc = Expired.objects.create(**kwargs)
+        if with_items:
+            ExpiredItem.objects.create(
+                expired=expired_doc,
+                item=self.item,
+                stock=self.stock,
+                quantity=Decimal('5'),
+                notes='Melewati tanggal ED',
+            )
+        return expired_doc
+
+    # --- Auto-generated document number ---
+
+    def test_auto_generated_document_number(self):
+        expired_doc = self._create_expired()
+        self.assertTrue(expired_doc.document_number.startswith('EXP-'))
+        now_prefix = timezone.now().strftime('%Y%m')
+        self.assertIn(now_prefix, expired_doc.document_number)
+
+    def test_custom_document_number_preserved(self):
+        expired_doc = self._create_expired(document_number='CUSTOM-EXP-001')
+        self.assertEqual(expired_doc.document_number, 'CUSTOM-EXP-001')
+
+    # --- Submit workflow ---
+
+    def test_submit_draft_to_submitted(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT)
+        response = self.client.post(reverse('expired:expired_submit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.SUBMITTED)
+
+    def test_submit_requires_items(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT, with_items=False)
+        response = self.client.post(reverse('expired:expired_submit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.DRAFT)  # unchanged
+
+    def test_submit_only_from_draft(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        response = self.client.post(reverse('expired:expired_submit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.SUBMITTED)  # unchanged
+
+    # --- Verify workflow (stock deduction + transaction) ---
+
+    def test_verify_deducts_stock_and_creates_transaction(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        response = self.client.post(reverse('expired:expired_verify', args=[expired_doc.pk]))
         self.assertEqual(response.status_code, 302)
 
         expired_doc.refresh_from_db()
@@ -63,23 +110,90 @@ class ExpiredVerifyWorkflowTest(TestCase):
 
         self.assertEqual(expired_doc.status, Expired.Status.VERIFIED)
         self.assertEqual(expired_doc.verified_by, self.user)
-        self.assertEqual(self.stock.quantity, Decimal('45'))
+        self.assertIsNotNone(expired_doc.verified_at)
+        self.assertEqual(self.stock.quantity, Decimal('45'))  # 50 - 5
 
-        transaction = Transaction.objects.get(reference_type=Transaction.ReferenceType.EXPIRED, reference_id=expired_doc.id)
-        self.assertEqual(transaction.transaction_type, Transaction.TransactionType.OUT)
-        self.assertEqual(transaction.quantity, Decimal('5'))
-
-    def test_dispose_expired_after_verified(self):
-        expired_doc = Expired.objects.create(
-            report_date='2026-02-27',
-            status=Expired.Status.VERIFIED,
-            created_by=self.user,
-            verified_by=self.user,
+        txn = Transaction.objects.get(
+            reference_type=Transaction.ReferenceType.EXPIRED,
+            reference_id=expired_doc.id,
         )
+        self.assertEqual(txn.transaction_type, Transaction.TransactionType.OUT)
+        self.assertEqual(txn.quantity, Decimal('5'))
+        self.assertEqual(txn.item, self.item)
 
-        self.client.force_login(self.user)
+    def test_verify_insufficient_stock_fails(self):
+        self.stock.quantity = Decimal('3')
+        self.stock.save()
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        response = self.client.post(reverse('expired:expired_verify', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.SUBMITTED)  # unchanged
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal('3'))  # unchanged
+
+    def test_verify_only_from_submitted(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT)
+        response = self.client.post(reverse('expired:expired_verify', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.DRAFT)  # unchanged
+
+    # --- Dispose workflow ---
+
+    def test_dispose_verified_to_disposed(self):
+        expired_doc = self._create_expired(status=Expired.Status.VERIFIED)
+        expired_doc.verified_by = self.user
+        expired_doc.verified_at = timezone.now()
+        expired_doc.save()
+
         response = self.client.post(reverse('expired:expired_dispose', args=[expired_doc.pk]))
-
         self.assertEqual(response.status_code, 302)
         expired_doc.refresh_from_db()
         self.assertEqual(expired_doc.status, Expired.Status.DISPOSED)
+        self.assertEqual(expired_doc.disposed_by, self.user)
+        self.assertIsNotNone(expired_doc.disposed_at)
+
+    def test_dispose_only_from_verified(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        response = self.client.post(reverse('expired:expired_dispose', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.SUBMITTED)  # unchanged
+
+    # --- Edit access ---
+
+    def test_edit_allowed_for_draft(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT)
+        response = self.client.get(reverse('expired:expired_edit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_edit_allowed_for_submitted(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        response = self.client.get(reverse('expired:expired_edit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_edit_blocked_for_verified(self):
+        expired_doc = self._create_expired(status=Expired.Status.VERIFIED)
+        response = self.client.get(reverse('expired:expired_edit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)  # redirect with error
+
+    def test_edit_blocked_for_disposed(self):
+        expired_doc = self._create_expired(status=Expired.Status.DISPOSED)
+        response = self.client.get(reverse('expired:expired_edit', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)  # redirect with error
+
+    # --- Delete ---
+
+    def test_delete_draft_expired(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT)
+        pk = expired_doc.pk
+        response = self.client.post(reverse('expired:expired_delete', args=[pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Expired.objects.filter(pk=pk).exists())
+
+    def test_delete_blocked_for_submitted(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        response = self.client.post(reverse('expired:expired_delete', args=[expired_doc.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Expired.objects.filter(pk=expired_doc.pk).exists())  # still exists

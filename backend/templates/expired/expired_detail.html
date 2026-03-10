@@ -27,6 +27,11 @@
                     <dd class="col-7">{{ expired_doc.verified_by }} <br><small class="text-muted">{{ expired_doc.verified_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
+                    {% if expired_doc.disposed_by %}
+                    <dt class="col-5 text-muted">Dimusnahkan</dt>
+                    <dd class="col-7">{{ expired_doc.disposed_by }} <br><small class="text-muted">{{ expired_doc.disposed_at|date:"d/m/Y H:i" }}</small></dd>
+                    {% endif %}
+
                     {% if expired_doc.notes %}
                     <dt class="col-5 text-muted">Catatan</dt>
                     <dd class="col-7">{{ expired_doc.notes }}</dd>
@@ -42,8 +47,14 @@
             </a>
             <form method="post" action="{% url 'expired:expired_submit' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm">
+                <button type="submit" class="btn btn-primary btn-sm" data-confirm="Ajukan dokumen ini?">
                     <i class="bi bi-send me-1"></i>Ajukan
+                </button>
+            </form>
+            <form method="post" action="{% url 'expired:expired_delete' expired_doc.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm" data-confirm="Hapus dokumen draft ini? Tindakan ini tidak dapat dibatalkan.">
+                    <i class="bi bi-trash me-1"></i>Hapus
                 </button>
             </form>
             {% elif expired_doc.status == 'SUBMITTED' %}
@@ -52,14 +63,14 @@
             </a>
             <form method="post" action="{% url 'expired:expired_verify' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm">
+                <button type="submit" class="btn btn-success btn-sm" data-confirm="Verifikasi dokumen ini? Stok akan dikurangi sesuai item yang dilaporkan.">
                     <i class="bi bi-patch-check me-1"></i>Verifikasi
                 </button>
             </form>
             {% elif expired_doc.status == 'VERIFIED' %}
             <form method="post" action="{% url 'expired:expired_dispose' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm">
+                <button type="submit" class="btn btn-success btn-sm" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">
                     <i class="bi bi-check2-circle me-1"></i>Tandai Dimusnahkan
                 </button>
             </form>

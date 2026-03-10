@@ -73,8 +73,8 @@ def expired_create(request):
 @perm_required('expired.change_expired')
 def expired_edit(request, pk):
     expired_doc = get_object_or_404(Expired, pk=pk)
-    if expired_doc.status == Expired.Status.VERIFIED:
-        messages.error(request, 'Dokumen terverifikasi tidak dapat diubah.')
+    if expired_doc.status not in (Expired.Status.DRAFT, Expired.Status.SUBMITTED):
+        messages.error(request, 'Hanya dokumen Draft/Diajukan yang dapat diubah.')
         return redirect('expired:expired_detail', pk=expired_doc.pk)
 
     if request.method == 'POST':
@@ -102,7 +102,7 @@ def expired_edit(request, pk):
 @login_required
 def expired_detail(request, pk):
     expired_doc = get_object_or_404(
-        Expired.objects.select_related('created_by', 'verified_by'),
+        Expired.objects.select_related('created_by', 'verified_by', 'disposed_by'),
         pk=pk,
     )
     items = expired_doc.items.select_related(
@@ -212,6 +212,25 @@ def expired_dispose(request, pk):
         return redirect('expired:expired_detail', pk=pk)
 
     expired_doc.status = Expired.Status.DISPOSED
-    expired_doc.save(update_fields=['status', 'updated_at'])
+    expired_doc.disposed_by = request.user
+    expired_doc.disposed_at = timezone.now()
+    expired_doc.save(update_fields=['status', 'disposed_by', 'disposed_at', 'updated_at'])
     messages.success(request, f'Dokumen {expired_doc.document_number} ditandai dimusnahkan.')
     return redirect('expired:expired_detail', pk=pk)
+
+
+@login_required
+@perm_required('expired.delete_expired')
+def expired_delete(request, pk):
+    expired_doc = get_object_or_404(Expired, pk=pk)
+    if request.method != 'POST':
+        return redirect('expired:expired_detail', pk=pk)
+
+    if expired_doc.status != Expired.Status.DRAFT:
+        messages.error(request, 'Hanya dokumen Draft yang dapat dihapus.')
+        return redirect('expired:expired_detail', pk=pk)
+
+    doc_number = expired_doc.document_number
+    expired_doc.delete()
+    messages.success(request, f'Dokumen {doc_number} berhasil dihapus.')
+    return redirect('expired:expired_list')
