@@ -4,9 +4,9 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card content-card">
+<div class="{% if is_edit %}row justify-content-center{% endif %}">
+    <div class="{% if is_edit %}col-lg-10{% endif %}">
+        <div class="card content-card table-container form-page-card">
             <div class="card-header">
                 <span><i class="bi bi-arrow-return-left me-2"></i>{{ title }}</span>
             </div>

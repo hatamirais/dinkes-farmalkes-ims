@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from apps.core.models import TimeStampedModel
 
 
@@ -20,7 +21,12 @@ class Distribution(TimeStampedModel):
         REJECTED = 'REJECTED', 'Ditolak'
 
     distribution_type = models.CharField(max_length=20, choices=DistributionType.choices)
-    document_number = models.CharField(max_length=100, unique=True)
+    document_number = models.CharField(
+        max_length=100,
+        unique=True,
+        blank=True,
+        help_text='Leave blank to auto-generate (e.g., DIST-YYYYMM-XXXXX)',
+    )
     request_date = models.DateField()
     facility = models.ForeignKey(
         'items.Facility',
@@ -31,7 +37,7 @@ class Distribution(TimeStampedModel):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.SUBMITTED,
+        default=Status.DRAFT,
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -71,6 +77,22 @@ class Distribution(TimeStampedModel):
 
     def __str__(self):
         return f"{self.document_number} → {self.facility}"
+
+    def save(self, *args, **kwargs):
+        if not self.document_number:
+            prefix = f"DIST-{timezone.now().strftime('%Y%m')}-"
+            last = (
+                Distribution.objects.filter(document_number__startswith=prefix)
+                .order_by('-document_number')
+                .first()
+            )
+            if last:
+                last_number = int(last.document_number.split('-')[-1])
+                new_number = last_number + 1
+            else:
+                new_number = 1
+            self.document_number = f"{prefix}{str(new_number).zfill(5)}"
+        super().save(*args, **kwargs)
 
 
 class DistributionItem(models.Model):

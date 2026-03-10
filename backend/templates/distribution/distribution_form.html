@@ -4,15 +4,21 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card content-card">
+<div class="card content-card table-container form-page-card">
             <div class="card-header">
                 <span><i class="bi bi-send me-2"></i>{{ title }}</span>
             </div>
             <div class="card-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2">
+                        {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
 
                     <div class="row g-3 mb-4">
                         {% for field in form %}
@@ -32,7 +38,19 @@
 
                     {{ formset.management_form }}
 
-                    <div class="table-responsive">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="distribution-items">
+                                <i class="bi bi-trash me-1"></i>Hapus Semua
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="distribution-items">
+                                <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" data-formset="distribution-items" data-formset-prefix="{{ formset.prefix }}">
                         <table class="table table-sm">
                             <thead>
                                 <tr>
@@ -46,23 +64,59 @@
                             </thead>
                             <tbody>
                                 {% for item_form in formset %}
-                                <tr>
+                                <tr class="formset-row">
                                     <td>{{ item_form.item }}</td>
                                     <td>{{ item_form.quantity_requested }}</td>
                                     <td>{{ item_form.quantity_approved }}</td>
                                     <td>{{ item_form.stock }}</td>
                                     <td>{{ item_form.notes }}</td>
                                     <td class="text-center">
-                                        {% if item_form.instance.pk %}
-                                        {{ item_form.DELETE }}
-                                        {% endif %}
+                                        <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        <div class="d-none">{{ item_form.DELETE }}</div>
                                     </td>
                                     {{ item_form.id }}
                                 </tr>
+                                {% if item_form.non_field_errors %}
+                                <tr>
+                                    <td colspan="6" class="text-danger small py-1">
+                                        {% for error in item_form.non_field_errors %}
+                                        <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% for field in item_form %}
+                                    {% for error in field.errors %}
+                                    <tr>
+                                        <td colspan="6" class="text-danger small py-1">
+                                            {{ field.label }}: {{ error }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endfor %}
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
+
+                    <template id="distribution-items-empty">
+                        <tr class="formset-row">
+                            <td>{{ formset.empty_form.item }}</td>
+                            <td>{{ formset.empty_form.quantity_requested }}</td>
+                            <td>{{ formset.empty_form.quantity_approved }}</td>
+                            <td>{{ formset.empty_form.stock }}</td>
+                            <td>{{ formset.empty_form.notes }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <div class="d-none">{{ formset.empty_form.DELETE }}</div>
+                            </td>
+                            {{ formset.empty_form.id }}
+                        </tr>
+                    </template>
 
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">
@@ -72,7 +126,5 @@
                     </div>
                 </form>
             </div>
-        </div>
-    </div>
 </div>
 {% endblock %}

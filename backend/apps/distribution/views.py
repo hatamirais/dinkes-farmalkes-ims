@@ -1,12 +1,16 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from apps.core.decorators import perm_required
-from .models import Distribution, DistributionItem
+from apps.stock.models import Stock, Transaction
+
 from .forms import DistributionForm, DistributionItemFormSet
+from .models import Distribution, DistributionItem
 
 
 @login_required
@@ -39,14 +43,8 @@ def distribution_list(request):
         'search': search,
         'selected_status': status or '',
         'selected_type': d_type or '',
-        'status_draft': 'selected' if status == 'DRAFT' else '',
-        'status_submitted': 'selected' if status == 'SUBMITTED' else '',
-        'status_verified': 'selected' if status == 'VERIFIED' else '',
-        'status_prepared': 'selected' if status == 'PREPARED' else '',
-        'status_distributed': 'selected' if status == 'DISTRIBUTED' else '',
-        'type_lplpo': 'selected' if d_type == 'LPLPO' else '',
-        'type_allocation': 'selected' if d_type == 'ALLOCATION' else '',
-        'type_special': 'selected' if d_type == 'SPECIAL' else '',
+        'status_choices': Distribution.Status.choices,
+        'type_choices': Distribution.DistributionType.choices,
     })
 
 
@@ -58,15 +56,16 @@ def distribution_create(request):
         formset = DistributionItemFormSet(request.POST, prefix='items')
 
         if form.is_valid() and formset.is_valid():
-            distribution = form.save(commit=False)
-            distribution.created_by = request.user
-            distribution.save()
+            dist = form.save(commit=False)
+            dist.created_by = request.user
+            dist.status = Distribution.Status.DRAFT
+            dist.save()
 
-            formset.instance = distribution
+            formset.instance = dist
             formset.save()
 
-            messages.success(request, f'Distribusi {distribution.document_number} berhasil dibuat.')
-            return redirect('distribution:distribution_list')
+            messages.success(request, f'Distribusi {dist.document_number} berhasil dibuat.')
+            return redirect('distribution:distribution_detail', pk=dist.pk)
     else:
         form = DistributionForm()
         formset = DistributionItemFormSet(prefix='items')
@@ -75,18 +74,225 @@ def distribution_create(request):
         'form': form,
         'formset': formset,
         'title': 'Buat Distribusi Baru',
+        'is_edit': False,
+    })
+
+
+@login_required
+@perm_required('distribution.change_distribution')
+def distribution_edit(request, pk):
+    dist = get_object_or_404(Distribution, pk=pk)
+    if dist.status not in (Distribution.Status.DRAFT, Distribution.Status.SUBMITTED):
+        messages.error(request, 'Hanya distribusi Draft/Diajukan yang dapat diubah.')
+        return redirect('distribution:distribution_detail', pk=dist.pk)
+
+    if request.method == 'POST':
+        form = DistributionForm(request.POST, instance=dist)
+        formset = DistributionItemFormSet(request.POST, instance=dist, prefix='items')
+
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            messages.success(request, f'Distribusi {dist.document_number} berhasil diperbarui.')
+            return redirect('distribution:distribution_detail', pk=dist.pk)
+    else:
+        form = DistributionForm(instance=dist)
+        formset = DistributionItemFormSet(instance=dist, prefix='items')
+
+    return render(request, 'distribution/distribution_form.html', {
+        'form': form,
+        'formset': formset,
+        'title': f'Edit Distribusi {dist.document_number}',
+        'is_edit': True,
+        'distribution': dist,
     })
 
 
 @login_required
 def distribution_detail(request, pk):
-    distribution = get_object_or_404(
+    dist = get_object_or_404(
         Distribution.objects.select_related('facility', 'created_by', 'verified_by', 'approved_by'),
         pk=pk,
     )
-    items = distribution.items.select_related('item', 'item__satuan', 'stock')
+    items = dist.items.select_related('item', 'item__satuan', 'stock')
 
     return render(request, 'distribution/distribution_detail.html', {
-        'distribution': distribution,
+        'distribution': dist,
         'items': items,
     })
+
+
+# ---------- Workflow transitions ----------
+
+
+@login_required
+@perm_required('distribution.change_distribution')
+def distribution_submit(request, pk):
+    dist = get_object_or_404(Distribution, pk=pk)
+    if request.method != 'POST':
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    if dist.status != Distribution.Status.DRAFT:
+        messages.error(request, 'Hanya distribusi Draft yang dapat diajukan.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    if not dist.items.exists():
+        messages.error(request, 'Tambahkan minimal 1 item sebelum mengajukan distribusi.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    dist.status = Distribution.Status.SUBMITTED
+    dist.save(update_fields=['status', 'updated_at'])
+    messages.success(request, f'Distribusi {dist.document_number} berhasil diajukan.')
+    return redirect('distribution:distribution_detail', pk=pk)
+
+
+@login_required
+@perm_required('distribution.change_distribution')
+def distribution_verify(request, pk):
+    dist = get_object_or_404(Distribution, pk=pk)
+    if request.method != 'POST':
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    if dist.status != Distribution.Status.SUBMITTED:
+        messages.error(request, 'Hanya distribusi berstatus Diajukan yang dapat diverifikasi.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    dist_items = list(dist.items.select_related('item', 'stock'))
+    if not dist_items:
+        messages.error(request, 'Distribusi tidak memiliki item untuk diverifikasi.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    # Validate every item has quantity_approved and stock assigned
+    for di in dist_items:
+        if di.quantity_approved is None or di.quantity_approved <= 0:
+            messages.error(
+                request,
+                f'Item {di.item.nama_barang}: jumlah disetujui harus diisi dan lebih dari 0.',
+            )
+            return redirect('distribution:distribution_detail', pk=pk)
+        if di.stock is None:
+            messages.error(
+                request,
+                f'Item {di.item.nama_barang}: batch stok harus dipilih sebelum verifikasi.',
+            )
+            return redirect('distribution:distribution_detail', pk=pk)
+        # Check stock availability (no deduction yet)
+        if di.quantity_approved > di.stock.available_quantity:
+            messages.error(
+                request,
+                f'Stok tidak cukup untuk {di.item.nama_barang}. '
+                f'Tersedia {di.stock.available_quantity}, disetujui {di.quantity_approved}.',
+            )
+            return redirect('distribution:distribution_detail', pk=pk)
+
+    dist.status = Distribution.Status.VERIFIED
+    dist.verified_by = request.user
+    dist.verified_at = timezone.now()
+    dist.save(update_fields=['status', 'verified_by', 'verified_at', 'updated_at'])
+    messages.success(request, f'Distribusi {dist.document_number} berhasil diverifikasi.')
+    return redirect('distribution:distribution_detail', pk=pk)
+
+
+@login_required
+@perm_required('distribution.change_distribution')
+def distribution_prepare(request, pk):
+    dist = get_object_or_404(Distribution, pk=pk)
+    if request.method != 'POST':
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    if dist.status != Distribution.Status.VERIFIED:
+        messages.error(request, 'Hanya distribusi terverifikasi yang dapat disiapkan.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    dist.status = Distribution.Status.PREPARED
+    dist.save(update_fields=['status', 'updated_at'])
+    messages.success(request, f'Distribusi {dist.document_number} ditandai disiapkan.')
+    return redirect('distribution:distribution_detail', pk=pk)
+
+
+@login_required
+@perm_required('distribution.change_distribution')
+def distribution_distribute(request, pk):
+    """Final step: deduct stock and create Transaction(OUT) records."""
+    dist = get_object_or_404(Distribution, pk=pk)
+    if request.method != 'POST':
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    if dist.status != Distribution.Status.PREPARED:
+        messages.error(request, 'Hanya distribusi berstatus Disiapkan yang dapat didistribusikan.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    dist_items = list(dist.items.select_related('item', 'stock'))
+    if not dist_items:
+        messages.error(request, 'Distribusi tidak memiliki item untuk didistribusikan.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    try:
+        with transaction.atomic():
+            for di in dist_items:
+                stock = Stock.objects.select_for_update().get(pk=di.stock_id)
+
+                if stock.item_id != di.item_id:
+                    raise ValueError(
+                        f'Batch stok tidak sesuai untuk item {di.item.nama_barang}.'
+                    )
+
+                qty = di.quantity_approved
+                if qty > stock.available_quantity:
+                    raise ValueError(
+                        f'Stok tidak cukup untuk {di.item.nama_barang}. '
+                        f'Tersedia {stock.available_quantity}, disetujui {qty}.'
+                    )
+
+                stock.quantity = stock.quantity - qty
+                stock.save(update_fields=['quantity', 'updated_at'])
+
+                Transaction.objects.create(
+                    transaction_type=Transaction.TransactionType.OUT,
+                    item=di.item,
+                    location=stock.location,
+                    batch_lot=stock.batch_lot,
+                    quantity=qty,
+                    unit_price=stock.unit_price,
+                    sumber_dana=stock.sumber_dana,
+                    reference_type=Transaction.ReferenceType.DISTRIBUTION,
+                    reference_id=dist.id,
+                    user=request.user,
+                    notes=f'Distribusi {dist.document_number} ke {dist.facility}: {di.notes}'.strip(),
+                )
+
+            dist.status = Distribution.Status.DISTRIBUTED
+            dist.approved_by = request.user
+            dist.approved_at = timezone.now()
+            dist.distributed_date = timezone.now().date()
+            dist.save(update_fields=[
+                'status', 'approved_by', 'approved_at',
+                'distributed_date', 'updated_at',
+            ])
+
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    messages.success(
+        request,
+        f'Distribusi {dist.document_number} berhasil didistribusikan dan stok diperbarui.',
+    )
+    return redirect('distribution:distribution_detail', pk=pk)
+
+
+@login_required
+@perm_required('distribution.change_distribution')
+def distribution_reject(request, pk):
+    dist = get_object_or_404(Distribution, pk=pk)
+    if request.method != 'POST':
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    if dist.status != Distribution.Status.SUBMITTED:
+        messages.error(request, 'Hanya distribusi berstatus Diajukan yang dapat ditolak.')
+        return redirect('distribution:distribution_detail', pk=pk)
+
+    dist.status = Distribution.Status.REJECTED
+    dist.save(update_fields=['status', 'updated_at'])
+    messages.success(request, f'Distribusi {dist.document_number} ditolak.')
+    return redirect('distribution:distribution_detail', pk=pk)

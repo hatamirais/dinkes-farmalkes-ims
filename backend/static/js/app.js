@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDeleteConfirmation();
     initRowKeyboardFocus();
     initTypeaheadSelects();
+    initStockByItemFilter();
     initFormsetControls();
 });
 
@@ -116,6 +117,7 @@ function initTypeaheadSelects() {
                 item.addEventListener('click', () => {
                     select.value = opt.value;
                     input.value = opt.text;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
                     dropdown.classList.remove('show');
                 });
                 dropdown.appendChild(item);
@@ -219,6 +221,7 @@ function initFormsetControls() {
                 tableBody.appendChild(row);
                 totalInput.value = index + 1;
                 initTypeaheadSelects();
+                initStockByItemFilter();
             });
         });
 
@@ -279,6 +282,68 @@ function initFormsetControls() {
             });
         });
     });
+}
+
+/** Filter stock(batch) options by selected item in the same row */
+function initStockByItemFilter() {
+    const bindRow = (row) => {
+        if (!row || row.dataset.stockFilterInitialized === 'true') return;
+        const itemSelect = row.querySelector('select.js-item-select');
+        const stockSelect = row.querySelector('select.js-stock-select');
+        if (!itemSelect || !stockSelect) return;
+
+        row.dataset.stockFilterInitialized = 'true';
+
+        const stockOptionsSnapshot = Array.from(stockSelect.options).map((opt) => ({
+            value: opt.value,
+            text: opt.text,
+            itemId: opt.getAttribute('data-item-id') || '',
+            selected: opt.selected,
+            disabled: opt.disabled,
+        }));
+
+        const applyFilter = () => {
+            const selectedItemId = itemSelect.value;
+            const currentValue = stockSelect.value;
+            const placeholder = stockOptionsSnapshot.find((opt) => opt.value === '');
+
+            stockSelect.innerHTML = '';
+
+            if (placeholder) {
+                const placeholderOpt = new Option(placeholder.text, '', false, false);
+                placeholderOpt.disabled = placeholder.disabled;
+                stockSelect.appendChild(placeholderOpt);
+            }
+
+            if (!selectedItemId) {
+                stockSelect.value = '';
+                stockSelect.disabled = true;
+                return;
+            }
+
+            const matched = stockOptionsSnapshot.filter(
+                (opt) => opt.value && opt.itemId === selectedItemId
+            );
+
+            matched.forEach((opt) => {
+                const optionEl = new Option(opt.text, opt.value, false, opt.value === currentValue);
+                optionEl.disabled = opt.disabled;
+                optionEl.setAttribute('data-item-id', opt.itemId);
+                stockSelect.appendChild(optionEl);
+            });
+
+            if (!matched.some((opt) => opt.value === currentValue)) {
+                stockSelect.value = '';
+            }
+
+            stockSelect.disabled = false;
+        };
+
+        itemSelect.addEventListener('change', applyFilter);
+        applyFilter();
+    };
+
+    document.querySelectorAll('tr.formset-row').forEach(bindRow);
 }
 
 /** Sidebar collapse toggle for desktop */

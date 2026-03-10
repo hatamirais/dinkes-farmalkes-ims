@@ -1,0 +1,23 @@
+Creating test database for alias 'default' ('test_healthcare_ims')...
+
+test_auto_generated_document_number (tests.DistributionWorkflowTest.test_auto_generated_document_number) ... ok
+test_distribute_deducts_stock_and_creates_transaction (tests.DistributionWorkflowTest.test_distribute_deducts_stock_and_creates_transaction) ... ok
+test_distribute_insufficient_stock_fails (tests.DistributionWorkflowTest.test_distribute_insufficient_stock_fails) ... ok
+test_edit_allowed_for_draft (tests.DistributionWorkflowTest.test_edit_allowed_for_draft) ... ok
+test_edit_blocked_for_verified (tests.DistributionWorkflowTest.test_edit_blocked_for_verified) ... ok
+test_prepare_verified_to_prepared (tests.DistributionWorkflowTest.test_prepare_verified_to_prepared) ... ok
+test_reject_only_from_submitted (tests.DistributionWorkflowTest.test_reject_only_from_submitted) ... ok
+test_reject_submitted_to_rejected (tests.DistributionWorkflowTest.test_reject_submitted_to_rejected) ... ok
+test_submit_draft_to_submitted (tests.DistributionWorkflowTest.test_submit_draft_to_submitted) ... ok
+test_submit_only_from_draft (tests.DistributionWorkflowTest.test_submit_only_from_draft) ... ok
+test_submit_requires_items (tests.DistributionWorkflowTest.test_submit_requires_items) ... ok
+test_verify_requires_approved_qty (tests.DistributionWorkflowTest.test_verify_requires_approved_qty) ... ok
+test_verify_requires_stock_batch (tests.DistributionWorkflowTest.test_verify_requires_stock_batch) ... ok
+test_verify_submitted_to_verified (tests.DistributionWorkflowTest.test_verify_submitted_to_verified) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 9.497s
+
+OK
+Destroying test database for alias 'default' ('test_healthcare_ims')...
+

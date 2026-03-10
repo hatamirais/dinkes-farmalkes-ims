@@ -128,13 +128,38 @@
             <!-- Top Navbar -->
             <nav class="navbar navbar-expand-lg navbar-top">
                 <div class="container-fluid">
-                    <button class="btn btn-link sidebar-toggle d-lg-none" id="sidebarToggleMobile">
-                        <i class="bi bi-list fs-4"></i>
-                    </button>
-                    <button class="btn btn-link sidebar-collapse-btn d-none d-lg-flex" id="sidebarCollapseBtn" title="Toggle sidebar">
-                        <i class="bi bi-layout-sidebar"></i>
-                    </button>
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex align-items-center gap-2 navbar-left-tools">
+                        <button class="btn btn-link sidebar-toggle d-lg-none" id="sidebarToggleMobile">
+                            <i class="bi bi-list fs-4"></i>
+                        </button>
+                        <button class="btn btn-link sidebar-collapse-btn d-none d-lg-flex" id="sidebarCollapseBtn" title="Toggle sidebar">
+                            <i class="bi bi-layout-sidebar"></i>
+                        </button>
+
+                        {% if request.resolver_match.app_name == 'distribution' and request.resolver_match.url_name != 'distribution_list' %}
+                        <a href="{% url 'distribution:distribution_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Distribusi">
+                            <i class="bi bi-arrow-left me-1"></i>Distribusi
+                        </a>
+                        {% elif request.resolver_match.app_name == 'recall' and request.resolver_match.url_name != 'recall_list' %}
+                        <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Recall / Retur">
+                            <i class="bi bi-arrow-left me-1"></i>Recall / Retur
+                        </a>
+                        {% elif request.resolver_match.app_name == 'expired' and request.resolver_match.url_name != 'expired_list' %}
+                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Kadaluarsa">
+                            <i class="bi bi-arrow-left me-1"></i>Kadaluarsa
+                        </a>
+                        {% elif request.resolver_match.app_name == 'receiving' and 'receiving_plan_' in request.resolver_match.url_name and request.resolver_match.url_name != 'receiving_plan_list' %}
+                        <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Rencana Penerimaan">
+                            <i class="bi bi-arrow-left me-1"></i>Rencana Penerimaan
+                        </a>
+                        {% elif request.resolver_match.app_name == 'receiving' and request.resolver_match.url_name != 'receiving_list' %}
+                        <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Buat Penerimaan">
+                            <i class="bi bi-arrow-left me-1"></i>Buat Penerimaan
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="navbar-title-center">
                         <h5 class="mb-0 page-title">{% block page_title %}Dashboard{% endblock %}</h5>
                     </div>
                     <div class="d-flex align-items-center gap-3">

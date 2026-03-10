@@ -20,5 +20,5 @@ class DistributionAdmin(admin.ModelAdmin):
     date_hierarchy = 'request_date'
     inlines = [DistributionItemInline]
     raw_id_fields = ('facility', 'created_by', 'verified_by', 'approved_by')
-    readonly_fields = ('verified_at', 'approved_at')
+    readonly_fields = ('document_number', 'verified_at', 'approved_at')
     list_per_page = 25

@@ -17,17 +17,15 @@
             <input type="text" name="q" class="form-control" placeholder="Cari no. dokumen / faskes..." value="{{ search }}">
             <select name="status" class="form-select">
                 <option value="">Semua Status</option>
-                <option value="DRAFT" {{ status_draft }}>Draft</option>
-                <option value="SUBMITTED" {{ status_submitted }}>Submitted</option>
-                <option value="VERIFIED" {{ status_verified }}>Verified</option>
-                <option value="PREPARED" {{ status_prepared }}>Prepared</option>
-                <option value="DISTRIBUTED" {{ status_distributed }}>Distributed</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
             </select>
             <select name="type" class="form-select">
                 <option value="">Semua Tipe</option>
-                <option value="LPLPO" {{ type_lplpo }}>LPLPO</option>
-                <option value="ALLOCATION" {{ type_allocation }}>Alokasi</option>
-                <option value="SPECIAL" {{ type_special }}>Permintaan Khusus</option>
+                {% for value, label in type_choices %}
+                <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
             </select>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
@@ -43,6 +41,7 @@
             <span class="badge-status badge-verified">Verified</span>
             <span class="badge-status badge-prepared">Prepared</span>
             <span class="badge-status badge-distributed">Distributed</span>
+            <span class="badge-status badge-rejected">Rejected</span>
         </div>
     </div>
 
