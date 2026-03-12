@@ -117,13 +117,14 @@
     <div class="table-container shadow-none border-0">
     <!-- Filters -->
     <div class="px-3 py-3 border-bottom bg-light print-hide">
-        <form method="get" class="filter-form d-flex gap-2 flex-wrap align-items-center">
+        <form method="get" class="filter-form d-flex gap-2 flex-wrap align-items-center" data-date-validate="dmy">
             <div class="input-group input-group-sm" style="width: auto;">
                 <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
-                <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                <input type="text" name="date_from" class="form-control js-date-mask" value="{{ date_from }}" placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" maxlength="10" inputmode="numeric">
                 <span class="input-group-text">s/d</span>
-                <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                <input type="text" name="date_to" class="form-control js-date-mask" value="{{ date_to }}" placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" maxlength="10" inputmode="numeric">
             </div>
+            <div class="small text-danger d-none" id="dateRangeFeedback"></div>
             <select name="location" class="form-select form-select-sm" style="width: auto; min-width: 150px;">
                 <option value="">Semua Lokasi</option>
                 {% for loc in locations %}

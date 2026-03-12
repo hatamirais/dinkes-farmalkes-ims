@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initStockCardSearch();
     initStockTransferTable();
     initTooltips();
+    initDateMaskInputs();
+    initDmyDateValidation();
 });
 
 /** Sidebar toggle for mobile */
@@ -668,4 +670,98 @@ function initStockTransferTable() {
     });
 
     fetchRows();
+}
+
+/** Simple dd/mm/yyyy mask for date text inputs */
+function initDateMaskInputs() {
+    const maskValue = (raw) => {
+        const digits = (raw || '').replace(/\D/g, '').slice(0, 8);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+        return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    };
+
+    document.querySelectorAll('input.js-date-mask').forEach((input) => {
+        if (input.dataset.maskInitialized === 'true') return;
+        input.dataset.maskInitialized = 'true';
+
+        input.addEventListener('input', () => {
+            input.value = maskValue(input.value);
+        });
+
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            input.value = maskValue(text);
+        });
+    });
+}
+
+/** Inline validation for dd/mm/yyyy date range filters */
+function initDmyDateValidation() {
+    document.querySelectorAll('form[data-date-validate="dmy"]').forEach((form) => {
+        const fromInput = form.querySelector('input[name="date_from"]');
+        const toInput = form.querySelector('input[name="date_to"]');
+        const feedback = form.querySelector('#dateRangeFeedback');
+        if (!fromInput || !toInput || !feedback) return;
+
+        const parseDmy = (value) => {
+            const v = (value || '').trim();
+            if (!v) return null;
+            const match = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (!match) return { valid: false };
+            const day = Number(match[1]);
+            const month = Number(match[2]);
+            const year = Number(match[3]);
+            const dt = new Date(year, month - 1, day);
+            const isValid =
+                dt.getFullYear() === year &&
+                dt.getMonth() === month - 1 &&
+                dt.getDate() === day;
+            return isValid ? { valid: true, date: dt } : { valid: false };
+        };
+
+        const setError = (message) => {
+            feedback.textContent = message;
+            feedback.classList.remove('d-none');
+            fromInput.classList.add('is-invalid');
+            toInput.classList.add('is-invalid');
+        };
+
+        const clearError = () => {
+            feedback.textContent = '';
+            feedback.classList.add('d-none');
+            fromInput.classList.remove('is-invalid');
+            toInput.classList.remove('is-invalid');
+        };
+
+        const validate = () => {
+            const from = parseDmy(fromInput.value);
+            const to = parseDmy(toInput.value);
+
+            if (from && from.valid === false) {
+                setError('Format Tanggal Dari harus DD/MM/YYYY yang valid.');
+                return false;
+            }
+            if (to && to.valid === false) {
+                setError('Format Tanggal Sampai harus DD/MM/YYYY yang valid.');
+                return false;
+            }
+            if (from && to && from.valid && to.valid && from.date > to.date) {
+                setError('Tanggal Dari tidak boleh lebih besar dari Tanggal Sampai.');
+                return false;
+            }
+
+            clearError();
+            return true;
+        };
+
+        fromInput.addEventListener('input', validate);
+        toInput.addEventListener('input', validate);
+        form.addEventListener('submit', (e) => {
+            if (!validate()) {
+                e.preventDefault();
+            }
+        });
+    });
 }

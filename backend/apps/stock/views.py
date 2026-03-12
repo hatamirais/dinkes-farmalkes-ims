@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime
 
 from django.contrib import messages
 from django.db import transaction as db_transaction
@@ -160,8 +161,21 @@ def stock_card_detail(request, item_id):
     if location_id:
         queryset = queryset.filter(location_id=location_id)
 
-    date_from = request.GET.get("date_from")
-    date_to = request.GET.get("date_to")
+    date_from_raw = request.GET.get("date_from", "").strip()
+    date_to_raw = request.GET.get("date_to", "").strip()
+
+    def _parse_filter_date(value):
+        if not value:
+            return None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    date_from = _parse_filter_date(date_from_raw)
+    date_to = _parse_filter_date(date_to_raw)
 
     # Optional date filters
     if date_from:
@@ -342,8 +356,10 @@ def stock_card_detail(request, item_id):
         else "TOTAL MASUK/KELUAR EKSTERNAL (Mutasi internal dikecualikan)",
         "funding_display": funding_display,
         "budget_year": timezone.now().year,
-        "date_from": date_from or "",
-        "date_to": date_to or "",
+        "date_from": date_from.strftime("%d/%m/%Y")
+        if date_from
+        else (date_from_raw or ""),
+        "date_to": date_to.strftime("%d/%m/%Y") if date_to else (date_to_raw or ""),
         "locations": locations,
         "selected_location": location_id or "",
     }
