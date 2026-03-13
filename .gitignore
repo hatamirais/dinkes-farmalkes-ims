@@ -43,6 +43,7 @@ requirements_draft/obat-progran.txt
 security-audit/
 requirements_draft/*.csv
 .error/
+.dev/
 
 
 # Excel temp files
