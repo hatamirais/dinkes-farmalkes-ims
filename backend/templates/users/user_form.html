@@ -14,6 +14,42 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
 
+                    {% if effective_scopes %}
+                    <div class="mb-4">
+                        <h6 class="mb-2">Akses Efektif Saat Ini</h6>
+                        <div class="table-responsive border rounded">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Modul</th>
+                                        <th>Scope</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in effective_scopes %}
+                                    <tr>
+                                        <td>{{ row.module }}</td>
+                                        <td>
+                                            {% if row.scope_value == 4 %}
+                                            <span class="badge bg-danger-subtle text-danger">{{ row.scope_label }}</span>
+                                            {% elif row.scope_value == 3 %}
+                                            <span class="badge bg-warning-subtle text-warning">{{ row.scope_label }}</span>
+                                            {% elif row.scope_value == 2 %}
+                                            <span class="badge bg-primary-subtle text-primary">{{ row.scope_label }}</span>
+                                            {% elif row.scope_value == 1 %}
+                                            <span class="badge bg-info-subtle text-info">{{ row.scope_label }}</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary">{{ row.scope_label }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger">
                         {% for err in form.non_field_errors %}
@@ -23,6 +59,10 @@
                     {% endif %}
 
                     {% for field in form %}
+                    {% if field.name == 'module_scope__users' %}
+                    <hr class="my-4">
+                    <h6 class="mb-3">Akses Modul (UAC)</h6>
+                    {% endif %}
                     <div class="mb-3 {% if field.name == 'is_active' %}form-check form-switch{% endif %}">
                         {% if field.name == 'is_active' %}
                         {{ field }}

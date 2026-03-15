@@ -1,7 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.users.models import User
+from apps.users.access import ensure_default_module_access
+from apps.users.models import ModuleAccess, User
 
 
 class UserManagementViewsTest(TestCase):
@@ -21,6 +22,12 @@ class UserManagementViewsTest(TestCase):
             is_active=True,
         )
         self.client.force_login(self.admin)
+
+    def _module_scope_payload(self, scope=ModuleAccess.Scope.NONE):
+        payload = {}
+        for module_code, _ in ModuleAccess.Module.choices:
+            payload[f"module_scope__{module_code}"] = str(scope)
+        return payload
 
     def test_admin_umum_cannot_access_user_management(self):
         admin_umum = User.objects.create_user(
@@ -59,10 +66,23 @@ class UserManagementViewsTest(TestCase):
         self.target.refresh_from_db()
         self.assertNotEqual(self.target.full_name, "Tidak Boleh")
 
+    def test_kepala_cannot_access_admin_panel(self):
+        kepala = User.objects.create_user(
+            username="kepala_2",
+            password="secret12345",
+            email="kepala2@example.com",
+            role=User.Role.KEPALA,
+            is_staff=True,
+        )
+        ensure_default_module_access(kepala, overwrite=True)
+        self.client.force_login(kepala)
+        response = self.client.get("/admin/")
+        self.assertEqual(response.status_code, 403)
+
     def test_user_list_loads(self):
         response = self.client.get(reverse("users:user_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Manajemen User")
+        self.assertContains(response, "Manajemen Pengguna")
         self.assertContains(response, self.target.username)
 
     def test_user_list_filter_by_role(self):
@@ -82,6 +102,7 @@ class UserManagementViewsTest(TestCase):
             "password1": "VeryStrongPass123!",
             "password2": "VeryStrongPass123!",
         }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
         response = self.client.post(reverse("users:user_create"), payload)
         self.assertEqual(response.status_code, 302)
         created = User.objects.get(username="auditor01")
@@ -96,6 +117,7 @@ class UserManagementViewsTest(TestCase):
             "role": User.Role.ADMIN_UMUM,
             "is_active": "on",
         }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
         response = self.client.post(
             reverse("users:user_update", args=[self.target.pk]), payload
         )

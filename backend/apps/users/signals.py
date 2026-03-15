@@ -9,18 +9,20 @@ from django.contrib.auth.models import Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from .access import ensure_default_module_access
+
 
 # Maps User.role values → Django Group names
 ROLE_GROUP_MAP = {
-    'ADMIN': 'ADMIN',
-    'KEPALA': 'KEPALA INSTALASI',
-    'ADMIN_UMUM': 'ADMIN UMUM',
-    'GUDANG': 'GUDANG',
-    'AUDITOR': 'AUDITOR',
+    "ADMIN": "ADMIN",
+    "KEPALA": "KEPALA INSTALASI",
+    "ADMIN_UMUM": "ADMIN UMUM",
+    "GUDANG": "GUDANG",
+    "AUDITOR": "AUDITOR",
 }
 
 
-@receiver(post_save, sender='users.User')
+@receiver(post_save, sender="users.User")
 def sync_user_group(sender, instance, **kwargs):
     """
     When a User is saved, automatically assign them to the Django Group
@@ -42,3 +44,6 @@ def sync_user_group(sender, instance, **kwargs):
     # Add to the correct group (create if it doesn't exist yet)
     group, _ = Group.objects.get_or_create(name=group_name)
     instance.groups.add(group)
+
+    # Ensure module access defaults are seeded for this user
+    ensure_default_module_access(instance)

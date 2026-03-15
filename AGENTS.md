@@ -111,6 +111,19 @@ The system uses `@perm_required` decorator for permission-based access control v
 - **User Management** page access is **Admin + Kepala Instalasi**.
 - User-management write actions (create, edit, activate/deactivate, delete) are **Admin only**.
 
+### Role-as-Title + Module Role UAC (Latest)
+
+- `User.role` is treated as **job title** for identity/organizational context.
+- Effective authorization follows **module role access** (`ModuleAccess`) with scopes:
+  - `NONE`, `VIEW`, `OPERATE`, `APPROVE`, `MANAGE`
+- Default module scopes are seeded by role title but can be adjusted per user.
+- Current baseline:
+  - **Admin**: manage all modules + admin panel
+  - **Kepala Instalasi**: user management view-only, approve all transaction modules, no admin panel
+  - **Admin Umum**: receiving/distribution operate, selected view modules
+  - **Gudang**: stock + transaction modules operate, selected view modules
+  - **Auditor**: report manage, other modules mostly view
+
 ## Key Architectural Patterns
 
 ### Document Workflows

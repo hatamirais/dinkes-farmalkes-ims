@@ -3,21 +3,47 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
+from .access import get_user_module_scope, has_module_scope
 from .forms import UserCreateForm, UserUpdateForm
-from .models import User
+from .models import ModuleAccess, User
 
 
 def _can_view_users(user):
-    return user.role in {User.Role.ADMIN, User.Role.KEPALA}
+    return has_module_scope(user, ModuleAccess.Module.USERS, ModuleAccess.Scope.VIEW)
 
 
 def _can_manage_users(user):
-    return user.role == User.Role.ADMIN
+    return has_module_scope(user, ModuleAccess.Module.USERS, ModuleAccess.Scope.MANAGE)
 
 
 def _forbidden_manage_user(request, message):
     messages.error(request, message)
     return redirect("dashboard")
+
+
+def _effective_scope_rows(user_obj):
+    scope_labels = {
+        ModuleAccess.Scope.NONE: "Tidak Ada",
+        ModuleAccess.Scope.VIEW: "Lihat",
+        ModuleAccess.Scope.OPERATE: "Operasional",
+        ModuleAccess.Scope.APPROVE: "Persetujuan",
+        ModuleAccess.Scope.MANAGE: "Kelola",
+    }
+    rows = []
+    for module_code, module_label in ModuleAccess.Module.choices:
+        if not module_code:
+            continue
+        scope_value = get_user_module_scope(user_obj, module_code)
+        rows.append(
+            {
+                "module": module_label,
+                "scope_value": scope_value,
+                "scope_label": scope_labels.get(
+                    ModuleAccess.Scope(scope_value), "Tidak Ada"
+                ),
+            }
+        )
+    return rows
 
 
 @login_required
@@ -120,6 +146,7 @@ def user_update(request, pk):
             "form": form,
             "title": f"Edit User {target_user.username}",
             "target_user": target_user,
+            "effective_scopes": _effective_scope_rows(target_user),
         },
     )
 

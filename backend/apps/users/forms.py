@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 
+from .access import default_scope_for_role
+from .models import ModuleAccess
 from .models import User
 
 
@@ -26,6 +28,23 @@ class UserCreateForm(forms.ModelForm):
             "role": forms.Select(attrs={"class": "form-select"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._add_module_scope_fields()
+
+    def _add_module_scope_fields(self):
+        role = self.data.get("role") or self.initial.get("role") or User.Role.ADMIN_UMUM
+        for module_code, module_label in ModuleAccess.Module.choices:
+            field_name = f"module_scope__{module_code}"
+            default_scope = default_scope_for_role(role, module_code)
+            self.fields[field_name] = forms.ChoiceField(
+                label=f"Akses {module_label}",
+                choices=ModuleAccess.Scope.choices,
+                initial=default_scope,
+                required=True,
+                widget=forms.Select(attrs={"class": "form-select"}),
+            )
 
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
@@ -54,7 +73,18 @@ class UserCreateForm(forms.ModelForm):
         user.set_password(self.cleaned_data["password1"])
         if commit:
             user.save()
+            self._save_module_scopes(user)
         return user
+
+    def _save_module_scopes(self, user):
+        for module_code, _ in ModuleAccess.Module.choices:
+            field_name = f"module_scope__{module_code}"
+            scope = int(self.cleaned_data.get(field_name, ModuleAccess.Scope.NONE))
+            ModuleAccess.objects.update_or_create(
+                user=user,
+                module=module_code,
+                defaults={"scope": scope},
+            )
 
 
 class UserUpdateForm(forms.ModelForm):
@@ -69,6 +99,29 @@ class UserUpdateForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._add_module_scope_fields()
+
+    def _add_module_scope_fields(self):
+        role = self.data.get("role") or self.initial.get("role") or self.instance.role
+        existing_map = {
+            ma.module: ma.scope for ma in self.instance.module_accesses.all()
+        }
+        for module_code, module_label in ModuleAccess.Module.choices:
+            field_name = f"module_scope__{module_code}"
+            initial_scope = existing_map.get(
+                module_code,
+                default_scope_for_role(role, module_code),
+            )
+            self.fields[field_name] = forms.ChoiceField(
+                label=f"Akses {module_label}",
+                choices=ModuleAccess.Scope.choices,
+                initial=initial_scope,
+                required=True,
+                widget=forms.Select(attrs={"class": "form-select"}),
+            )
+
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
         qs = User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk)
@@ -82,3 +135,16 @@ class UserUpdateForm(forms.ModelForm):
         if email and qs.exists():
             raise forms.ValidationError("Email sudah digunakan.")
         return email
+
+    def save(self, commit=True):
+        user = super().save(commit=commit)
+        if commit:
+            for module_code, _ in ModuleAccess.Module.choices:
+                field_name = f"module_scope__{module_code}"
+                scope = int(self.cleaned_data.get(field_name, ModuleAccess.Scope.NONE))
+                ModuleAccess.objects.update_or_create(
+                    user=user,
+                    module=module_code,
+                    defaults={"scope": scope},
+                )
+        return user

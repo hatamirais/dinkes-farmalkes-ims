@@ -20,6 +20,8 @@ from functools import wraps
 from django.http import HttpResponseForbidden
 from django.shortcuts import render
 
+from apps.users.access import has_module_permission
+
 
 def perm_required(*perms):
     """
@@ -35,6 +37,7 @@ def perm_required(*perms):
     Args:
         *perms: One or more permission strings (e.g., 'receiving.add_receiving').
     """
+
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
@@ -46,11 +49,17 @@ def perm_required(*perms):
             if any(request.user.has_perm(p) for p in perms):
                 return view_func(request, *args, **kwargs)
 
+            # Fallback to module-role access model
+            if any(has_module_permission(request.user, p) for p in perms):
+                return view_func(request, *args, **kwargs)
+
             return HttpResponseForbidden(
-                '<h1>403 Forbidden</h1>'
-                '<p>Anda tidak memiliki izin untuk mengakses halaman ini.</p>'
+                "<h1>403 Forbidden</h1>"
+                "<p>Anda tidak memiliki izin untuk mengakses halaman ini.</p>"
             )
+
         return _wrapped_view
+
     return decorator
 
 
@@ -61,6 +70,7 @@ def role_required(*allowed_roles):
     This decorator checks the user.role field directly. New views should use
     @perm_required which checks Django group permissions manageable from Admin.
     """
+
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
@@ -69,8 +79,10 @@ def role_required(*allowed_roles):
             if request.user.role in allowed_roles:
                 return view_func(request, *args, **kwargs)
             return HttpResponseForbidden(
-                '<h1>403 Forbidden</h1>'
-                '<p>Anda tidak memiliki izin untuk mengakses halaman ini.</p>'
+                "<h1>403 Forbidden</h1>"
+                "<p>Anda tidak memiliki izin untuk mengakses halaman ini.</p>"
             )
+
         return _wrapped_view
+
     return decorator
