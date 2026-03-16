@@ -1,6 +1,27 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from apps.core.models import TimeStampedModel
+
+
+class ReceivingTypeOption(TimeStampedModel):
+    """Custom receiving type options managed from form quick-create."""
+
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "receiving_type_options"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        self.code = (self.code or "").strip().upper()
+        self.name = (self.name or "").strip()
+        super().save(*args, **kwargs)
 
 
 class Receiving(TimeStampedModel):
@@ -20,7 +41,7 @@ class Receiving(TimeStampedModel):
         VERIFIED = "VERIFIED", "Terverifikasi"
 
     receiving_type = models.CharField(max_length=20, choices=ReceivingType.choices)
-    document_number = models.CharField(max_length=100, unique=True)
+    document_number = models.CharField(max_length=100, unique=True, blank=True)
     receiving_date = models.DateField()
     is_planned = models.BooleanField(default=False)
     supplier = models.ForeignKey(
@@ -90,6 +111,43 @@ class Receiving(TimeStampedModel):
 
     def __str__(self):
         return f"{self.document_number} ({self.get_receiving_type_display()})"
+
+    @property
+    def receiving_type_label(self):
+        builtin_map = dict(self.ReceivingType.choices)
+        if self.receiving_type in builtin_map:
+            return builtin_map[self.receiving_type]
+
+        custom_label = (
+            ReceivingTypeOption.objects.filter(code=self.receiving_type, is_active=True)
+            .values_list("name", flat=True)
+            .first()
+        )
+        return custom_label or self.receiving_type
+
+    @staticmethod
+    def generate_document_number():
+        year = timezone.now().year
+        prefix = f"RCV-{year}-"
+        last = (
+            Receiving.objects.filter(document_number__startswith=prefix)
+            .order_by("-document_number")
+            .values_list("document_number", flat=True)
+            .first()
+        )
+        if last:
+            try:
+                num = int(last.split("-")[-1]) + 1
+            except (ValueError, IndexError):
+                num = 1
+        else:
+            num = 1
+        return f"{prefix}{num:05d}"
+
+    def save(self, *args, **kwargs):
+        if not self.document_number:
+            self.document_number = self.generate_document_number()
+        super().save(*args, **kwargs)
 
 
 class ReceivingItem(models.Model):

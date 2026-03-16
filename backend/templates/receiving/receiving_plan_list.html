@@ -66,7 +66,7 @@
                 <tr>
                     <td><a href="{% url 'receiving:receiving_plan_detail' r.pk %}" class="fw-semibold text-decoration-none">{{ r.document_number }}</a></td>
                     <td>{{ r.receiving_date|date:"d/m/Y" }}</td>
-                    <td>{{ r.get_receiving_type_display }}</td>
+                    <td>{{ r.receiving_type_label }}</td>
                     <td>{{ r.supplier.name|default:"-" }}</td>
                     <td>{{ r.sumber_dana.code }}</td>
                     <td>

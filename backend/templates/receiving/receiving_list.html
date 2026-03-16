@@ -63,8 +63,10 @@
                     <td>
                         {% if r.receiving_type == 'PROCUREMENT' %}
                         <span class="badge bg-primary-subtle text-primary">Pengadaan</span>
-                        {% else %}
+                        {% elif r.receiving_type == 'GRANT' %}
                         <span class="badge bg-success-subtle text-success">Hibah</span>
+                        {% else %}
+                        <span class="badge bg-info-subtle text-info">{{ r.receiving_type_label }}</span>
                         {% endif %}
                     </td>
                     <td>{{ r.supplier.name|default:"-" }}</td>

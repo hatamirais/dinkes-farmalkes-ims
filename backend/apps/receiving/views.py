@@ -6,12 +6,13 @@ from django.db.models import Q, F
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from apps.core.decorators import perm_required
 from apps.items.models import Supplier, FundingSource
 from apps.stock.models import Stock, Transaction
-from .models import Receiving, ReceivingItem, ReceivingOrderItem
+from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 from .forms import (
     ReceivingForm,
     ReceivingItemFormSet,
@@ -126,17 +127,67 @@ def receiving_create(request):
         formset = ReceivingItemFormSet(request.POST, prefix="items")
 
         if form.is_valid() and formset.is_valid():
-            receiving = form.save(commit=False)
-            receiving.created_by = request.user
-            receiving.save()
+            try:
+                with transaction.atomic():
+                    receiving = form.save(commit=False)
+                    receiving.created_by = request.user
+                    receiving.status = Receiving.Status.VERIFIED
+                    receiving.verified_by = request.user
+                    receiving.verified_at = timezone.now()
+                    receiving.save()
 
-            formset.instance = receiving
-            formset.save()
+                    formset.instance = receiving
+                    receipt_items = formset.save(commit=False)
+                    if not receipt_items:
+                        raise ValueError("Tambahkan minimal 1 item penerimaan.")
 
-            messages.success(
-                request, f"Penerimaan {receiving.document_number} berhasil dibuat."
-            )
-            return redirect("receiving:receiving_list")
+                    for item in receipt_items:
+                        item.receiving = receiving
+                        item.received_by = request.user
+                        item.received_at = timezone.now()
+                        item.save()
+
+                        stock, created = Stock.objects.get_or_create(
+                            item=item.item,
+                            location=item.location,
+                            batch_lot=item.batch_lot,
+                            sumber_dana=receiving.sumber_dana,
+                            defaults={
+                                "expiry_date": item.expiry_date,
+                                "quantity": item.quantity,
+                                "unit_price": item.unit_price,
+                                "receiving_ref": receiving,
+                            },
+                        )
+                        if not created:
+                            stock.quantity += item.quantity
+                            stock.save(update_fields=["quantity", "updated_at"])
+
+                        Transaction.objects.create(
+                            transaction_type=Transaction.TransactionType.IN,
+                            item=item.item,
+                            location=item.location,
+                            batch_lot=item.batch_lot,
+                            quantity=item.quantity,
+                            unit_price=item.unit_price,
+                            sumber_dana=receiving.sumber_dana,
+                            reference_type=Transaction.ReferenceType.RECEIVING,
+                            reference_id=receiving.pk,
+                            user=request.user,
+                            notes=f"Penerimaan reguler {receiving.document_number}",
+                        )
+
+                    for deleted_form in formset.deleted_forms:
+                        if deleted_form.instance.pk:
+                            deleted_form.instance.delete()
+
+            except (ValueError, ProtectedError) as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(
+                    request, f"Penerimaan {receiving.document_number} berhasil dibuat."
+                )
+                return redirect("receiving:receiving_detail", pk=receiving.pk)
     else:
         form = ReceivingForm()
         formset = ReceivingItemFormSet(prefix="items")
@@ -311,6 +362,18 @@ def receiving_plan_close_items(request, pk):
         )
         if formset.is_valid():
             formset.save()
+            unresolved = (
+                receiving.order_items.filter(is_cancelled=False)
+                .exclude(planned_quantity__lte=F("received_quantity"))
+                .exists()
+            )
+            if unresolved:
+                messages.error(
+                    request,
+                    "Masih ada item bersisa yang belum dibatalkan. Tandai item tersebut untuk menutup rencana.",
+                )
+                return redirect("receiving:receiving_plan_close_items", pk=pk)
+
             receiving.status = Receiving.Status.CLOSED
             receiving.closed_by = request.user
             receiving.closed_at = timezone.now()
@@ -366,6 +429,7 @@ def receiving_plan_receive(request, pk):
             return redirect("receiving:receiving_plan_receive", pk=pk)
 
         totals = {}
+        has_receipt_row = False
         for form in formset.forms:
             if not form.cleaned_data or form.cleaned_data.get("DELETE"):
                 continue
@@ -373,7 +437,12 @@ def receiving_plan_receive(request, pk):
             quantity = form.cleaned_data.get("quantity")
             if not order_item or quantity is None:
                 continue
+            has_receipt_row = True
             totals[order_item.pk] = totals.get(order_item.pk, 0) + quantity
+
+        if not has_receipt_row:
+            messages.error(request, "Tambahkan minimal 1 item penerimaan.")
+            return redirect("receiving:receiving_plan_receive", pk=pk)
 
         if totals:
             order_items = ReceivingOrderItem.objects.filter(pk__in=totals.keys())
@@ -524,3 +593,29 @@ def quick_create_funding_source(request):
         description=request.POST.get("description", "").strip(),
     )
     return JsonResponse({"id": source.pk, "text": str(source)})
+
+
+@login_required
+@require_POST
+def quick_create_receiving_type(request):
+    """AJAX endpoint to create a new custom receiving type."""
+    code = request.POST.get("code", "").strip().upper()
+    name = request.POST.get("name", "").strip()
+
+    if not code or not name:
+        return JsonResponse({"error": "Kode dan Nama wajib diisi."}, status=400)
+
+    reserved = {choice[0] for choice in Receiving.ReceivingType.choices}
+    if code in reserved:
+        return JsonResponse(
+            {"error": f'Kode "{code}" sudah digunakan tipe bawaan sistem.'},
+            status=400,
+        )
+
+    if ReceivingTypeOption.objects.filter(code=code).exists():
+        return JsonResponse(
+            {"error": f'Tipe penerimaan dengan kode "{code}" sudah ada.'}, status=400
+        )
+
+    option = ReceivingTypeOption.objects.create(code=code, name=name)
+    return JsonResponse({"id": option.code, "text": option.name})

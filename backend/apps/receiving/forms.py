@@ -1,9 +1,19 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Receiving, ReceivingItem, ReceivingOrderItem
+from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 
 
 class ReceivingForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        builtin_choices = list(Receiving.ReceivingType.choices)
+        custom_choices = list(
+            ReceivingTypeOption.objects.filter(is_active=True)
+            .order_by("name")
+            .values_list("code", "name")
+        )
+        self.fields["receiving_type"].choices = builtin_choices + custom_choices
+
     class Meta:
         model = Receiving
         fields = [
@@ -27,6 +37,16 @@ class ReceivingForm(forms.ModelForm):
 
 
 class PlannedReceivingForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        builtin_choices = list(Receiving.ReceivingType.choices)
+        custom_choices = list(
+            ReceivingTypeOption.objects.filter(is_active=True)
+            .order_by("name")
+            .values_list("code", "name")
+        )
+        self.fields["receiving_type"].choices = builtin_choices + custom_choices
+
     class Meta:
         model = Receiving
         fields = [
@@ -50,9 +70,20 @@ class PlannedReceivingForm(forms.ModelForm):
 
 
 class ReceivingItemForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["location"].required = True
+
     class Meta:
         model = ReceivingItem
-        fields = ["item", "quantity", "batch_lot", "expiry_date", "unit_price"]
+        fields = [
+            "item",
+            "quantity",
+            "batch_lot",
+            "expiry_date",
+            "unit_price",
+            "location",
+        ]
         widgets = {
             "item": forms.Select(
                 attrs={"class": "form-select form-select-sm js-typeahead-select"}
@@ -73,7 +104,14 @@ class ReceivingItemForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
+            "location": forms.Select(attrs={"class": "form-select form-select-sm"}),
         }
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data.get("quantity")
+        if quantity is not None and quantity <= 0:
+            raise forms.ValidationError("Jumlah harus lebih dari 0.")
+        return quantity
 
 
 ReceivingItemFormSet = inlineformset_factory(
@@ -105,6 +143,12 @@ class ReceivingOrderItemForm(forms.ModelForm):
             ),
             "notes": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
         }
+
+    def clean_planned_quantity(self):
+        quantity = self.cleaned_data.get("planned_quantity")
+        if quantity is not None and quantity <= 0:
+            raise forms.ValidationError("Jumlah rencana harus lebih dari 0.")
+        return quantity
 
 
 ReceivingOrderItemFormSet = inlineformset_factory(
@@ -158,6 +202,7 @@ class ReceivingReceiptItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         receiving = kwargs.pop("receiving", None)
         super().__init__(*args, **kwargs)
+        self.fields["location"].required = True
         if receiving is not None:
             self.fields["order_item"].queryset = ReceivingOrderItem.objects.filter(
                 receiving=receiving,
@@ -173,6 +218,11 @@ class ReceivingReceiptItemForm(forms.ModelForm):
         quantity = cleaned.get("quantity")
         if not order_item or quantity is None:
             return cleaned
+        location = cleaned.get("location")
+        if location is None:
+            self.add_error("location", "Lokasi wajib dipilih.")
+        if quantity <= 0:
+            self.add_error("quantity", "Jumlah harus lebih dari 0.")
         if order_item.is_cancelled:
             self.add_error("order_item", "Item pesanan ini sudah dibatalkan.")
         if order_item.remaining_quantity < quantity:
@@ -215,6 +265,16 @@ class ReceivingOrderCloseItemForm(forms.ModelForm):
                 attrs={"class": "form-control form-control-sm"}
             ),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        is_cancelled = cleaned.get("is_cancelled")
+        cancel_reason = (cleaned.get("cancel_reason") or "").strip()
+        if is_cancelled and self.instance.remaining_quantity > 0 and not cancel_reason:
+            self.add_error("cancel_reason", "Alasan pembatalan wajib diisi.")
+        if not is_cancelled:
+            cleaned["cancel_reason"] = ""
+        return cleaned
 
 
 ReceivingOrderCloseItemFormSet = inlineformset_factory(

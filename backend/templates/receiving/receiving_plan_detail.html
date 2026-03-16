@@ -17,7 +17,7 @@
                     <dd class="col-7">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>
 
                     <dt class="col-5 text-muted">Tipe</dt>
-                    <dd class="col-7">{{ receiving.get_receiving_type_display }}</dd>
+                    <dd class="col-7">{{ receiving.receiving_type_label }}</dd>
 
                     <dt class="col-5 text-muted">Supplier</dt>
                     <dd class="col-7">{{ receiving.supplier.name|default:"-" }}</dd>

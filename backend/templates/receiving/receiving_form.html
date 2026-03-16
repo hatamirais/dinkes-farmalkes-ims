@@ -15,7 +15,7 @@
                         {% for field in form %}
                         <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
                             <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                            {% if field.name == 'supplier' or field.name == 'sumber_dana' %}
+                            {% if field.name == 'supplier' or field.name == 'sumber_dana' or field.name == 'receiving_type' %}
                             <div class="input-group">
                                 {{ field }}
                                 <button type="button" class="btn btn-outline-success btn-sm" title="Tambah Baru" data-bs-toggle="modal" data-bs-target="#modal-{{ field.name }}">
@@ -56,6 +56,7 @@
                                     <th style="width:120px;">Batch/Lot</th>
                                     <th style="width:140px;">Tanggal Kedaluwarsa</th>
                                     <th style="width:120px;">Harga Satuan</th>
+                                    <th style="width:180px;">Lokasi</th>
                                     <th style="width:50px;">Hapus</th>
                                 </tr>
                             </thead>
@@ -67,6 +68,7 @@
                                     <td>{{ item_form.batch_lot }}</td>
                                     <td>{{ item_form.expiry_date }}</td>
                                     <td>{{ item_form.unit_price }}</td>
+                                    <td>{{ item_form.location }}</td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                             <i class="bi bi-trash"></i>
@@ -75,7 +77,7 @@
                                     </td>
                                     {{ item_form.id }}
                                     {% for error in item_form.errors.values %}
-                                    <tr><td colspan="6" class="text-danger small py-1">{{ error }}</td></tr>
+                                    <tr><td colspan="7" class="text-danger small py-1">{{ error }}</td></tr>
                                     {% endfor %}
                                 </tr>
                                 {% endfor %}
@@ -89,6 +91,7 @@
                             <td>{{ formset.empty_form.batch_lot }}</td>
                             <td>{{ formset.empty_form.expiry_date }}</td>
                             <td>{{ formset.empty_form.unit_price }}</td>
+                            <td>{{ formset.empty_form.location }}</td>
                             <td class="text-center">
                                 <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
@@ -190,6 +193,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Tambah Tipe Penerimaan -->
+<div class="modal fade" id="modal-receiving_type" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Tipe Penerimaan Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="receiving-type-code" class="form-control form-control-sm" placeholder="MUTASI" maxlength="20">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="receiving-type-name" class="form-control form-control-sm" placeholder="Mutasi Internal">
+                    </div>
+                </div>
+                <div id="receiving-type-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-receiving-type">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -243,6 +277,28 @@ document.getElementById('btn-save-sumber-dana').addEventListener('click', functi
         select.add(opt);
         ['code', 'name', 'description'].forEach(f => document.getElementById('sumber-dana-' + f).value = '');
         bootstrap.Modal.getInstance(document.getElementById('modal-sumber_dana')).hide();
+    });
+});
+
+document.getElementById('btn-save-receiving-type').addEventListener('click', function() {
+    const errorEl = document.getElementById('receiving-type-error');
+    errorEl.classList.add('d-none');
+    const code = document.getElementById('receiving-type-code').value.trim().toUpperCase();
+    const name = document.getElementById('receiving-type-name').value.trim();
+    const body = 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
+    fetch('{% url "receiving:quick_create_receiving_type" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
+        body: body,
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
+    .then(function(result) {
+        if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
+        const select = document.getElementById('id_receiving_type');
+        const opt = new Option(result.data.text, result.data.id, true, true);
+        select.add(opt);
+        ['code', 'name'].forEach(f => document.getElementById('receiving-type-' + f).value = '');
+        bootstrap.Modal.getInstance(document.getElementById('modal-receiving_type')).hide();
     });
 });
 </script>

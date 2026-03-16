@@ -12,7 +12,13 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from .models import Receiving, ReceivingItem, ReceivingDocument, ReceivingOrderItem
+from .models import (
+    Receiving,
+    ReceivingItem,
+    ReceivingDocument,
+    ReceivingOrderItem,
+    ReceivingTypeOption,
+)
 from apps.items.models import Item, FundingSource, Location, Supplier
 from apps.stock.models import Stock, Transaction
 
@@ -45,6 +51,14 @@ class ReceivingDocumentInline(admin.TabularInline):
     model = ReceivingDocument
     extra = 0
     fields = ("file", "file_name", "file_type")
+
+
+@admin.register(ReceivingTypeOption)
+class ReceivingTypeOptionAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("code", "name")
+    ordering = ("name",)
 
 
 # ── CSV Import Form ────────────────────────────────────────

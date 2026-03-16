@@ -43,4 +43,9 @@ urlpatterns = [
         views.quick_create_funding_source,
         name="quick_create_funding_source",
     ),
+    path(
+        "api/quick-create-receiving-type/",
+        views.quick_create_receiving_type,
+        name="quick_create_receiving_type",
+    ),
 ]
