@@ -15,7 +15,16 @@
                         {% for field in form %}
                         <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
                             <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                            {% if field.name == 'supplier' or field.name == 'sumber_dana' or field.name == 'receiving_type' %}
+                            <div class="input-group">
+                                {{ field }}
+                                <button type="button" class="btn btn-outline-success btn-sm" title="Tambah Baru" data-bs-toggle="modal" data-bs-target="#modal-{{ field.name }}">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                            {% else %}
                             {{ field }}
+                            {% endif %}
                             {% for error in field.errors %}
                             <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
@@ -97,4 +106,177 @@
                 </form>
             </div>
 </div>
+
+<!-- Modal: Tambah Supplier -->
+<div class="modal fade" id="modal-supplier" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Supplier Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-code" class="form-control form-control-sm" placeholder="SUP-NEW">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-name" class="form-control form-control-sm" placeholder="Nama Supplier">
+                    </div>
+                </div>
+                <div id="supplier-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-supplier">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Tambah Sumber Dana -->
+<div class="modal fade" id="modal-sumber_dana" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Sumber Dana Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-code" class="form-control form-control-sm" placeholder="DAK-N">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-name" class="form-control form-control-sm" placeholder="Nama Sumber Dana">
+                    </div>
+                </div>
+                <div id="sumber-dana-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-sumber-dana">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Tambah Tipe Penerimaan -->
+<div class="modal fade" id="modal-receiving_type" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Tipe Penerimaan Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="receiving-type-code" class="form-control form-control-sm" placeholder="MUTASI" maxlength="20">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="receiving-type-name" class="form-control form-control-sm" placeholder="Mutasi Internal">
+                    </div>
+                </div>
+                <div id="receiving-type-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-receiving-type">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+document.getElementById('btn-save-supplier').addEventListener('click', function() {
+    const errorEl = document.getElementById('supplier-error');
+    errorEl.classList.add('d-none');
+    const code = document.getElementById('supplier-code').value.trim();
+    const name = document.getElementById('supplier-name').value.trim();
+    const body = 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
+    fetch('{% url "receiving:quick_create_supplier" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
+        body: body,
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
+    .then(function(result) {
+        if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
+        const select = document.getElementById('id_supplier');
+        const opt = new Option(result.data.text, result.data.id, true, true);
+        select.add(opt);
+        document.getElementById('supplier-code').value = '';
+        document.getElementById('supplier-name').value = '';
+        bootstrap.Modal.getInstance(document.getElementById('modal-supplier')).hide();
+    });
+});
+
+document.getElementById('btn-save-sumber-dana').addEventListener('click', function() {
+    const errorEl = document.getElementById('sumber-dana-error');
+    errorEl.classList.add('d-none');
+    const code = document.getElementById('sumber-dana-code').value.trim();
+    const name = document.getElementById('sumber-dana-name').value.trim();
+    const body = 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
+    fetch('{% url "receiving:quick_create_funding_source" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
+        body: body,
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
+    .then(function(result) {
+        if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
+        const select = document.getElementById('id_sumber_dana');
+        const opt = new Option(result.data.text, result.data.id, true, true);
+        select.add(opt);
+        document.getElementById('sumber-dana-code').value = '';
+        document.getElementById('sumber-dana-name').value = '';
+        bootstrap.Modal.getInstance(document.getElementById('modal-sumber_dana')).hide();
+    });
+});
+
+document.getElementById('btn-save-receiving-type').addEventListener('click', function() {
+    const errorEl = document.getElementById('receiving-type-error');
+    errorEl.classList.add('d-none');
+    const code = document.getElementById('receiving-type-code').value.trim().toUpperCase();
+    const name = document.getElementById('receiving-type-name').value.trim();
+    const body = 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
+    fetch('{% url "receiving:quick_create_receiving_type" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
+        body: body,
+    })
+    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
+    .then(function(result) {
+        if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
+        const select = document.getElementById('id_receiving_type');
+        const opt = new Option(result.data.text, result.data.id, true, true);
+        select.add(opt);
+        document.getElementById('receiving-type-code').value = '';
+        document.getElementById('receiving-type-name').value = '';
+        bootstrap.Modal.getInstance(document.getElementById('modal-receiving_type')).hide();
+    });
+});
+</script>
 {% endblock %}
