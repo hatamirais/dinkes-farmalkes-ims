@@ -1,18 +1,26 @@
 from django import forms
 from django.forms import inlineformset_factory
+from django.db.utils import OperationalError, ProgrammingError
 from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 
 
-class ReceivingForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        builtin_choices = list(Receiving.ReceivingType.choices)
+def _get_receiving_type_choices():
+    builtin_choices = list(Receiving.ReceivingType.choices)
+    try:
         custom_choices = list(
             ReceivingTypeOption.objects.filter(is_active=True)
             .order_by("name")
             .values_list("code", "name")
         )
-        self.fields["receiving_type"].choices = builtin_choices + custom_choices
+    except (ProgrammingError, OperationalError):
+        custom_choices = []
+    return builtin_choices + custom_choices
+
+
+class ReceivingForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["receiving_type"].choices = _get_receiving_type_choices()
 
     class Meta:
         model = Receiving
@@ -39,13 +47,7 @@ class ReceivingForm(forms.ModelForm):
 class PlannedReceivingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        builtin_choices = list(Receiving.ReceivingType.choices)
-        custom_choices = list(
-            ReceivingTypeOption.objects.filter(is_active=True)
-            .order_by("name")
-            .values_list("code", "name")
-        )
-        self.fields["receiving_type"].choices = builtin_choices + custom_choices
+        self.fields["receiving_type"].choices = _get_receiving_type_choices()
 
     class Meta:
         model = Receiving
