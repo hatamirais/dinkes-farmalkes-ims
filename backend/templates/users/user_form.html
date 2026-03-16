@@ -40,7 +40,17 @@
                     {% endfor %}
 
                     <hr class="my-4">
-                    <h6 class="mb-2">Akses Modul (UAC)</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Akses Modul (UAC)</h6>
+                        <button
+                            type="button"
+                            class="btn btn-outline-info btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#scopeInfoModal"
+                        >
+                            <i class="bi bi-info-circle me-1"></i>Info Scope
+                        </button>
+                    </div>
                     <p class="text-muted small mb-3">Atur scope langsung per modul tanpa perlu scroll ke bagian lain.</p>
 
                     <div class="table-responsive border rounded">
@@ -70,7 +80,13 @@
                                                     value="{{ value }}"
                                                     {% if field.value|stringformat:'s' == value|stringformat:'s' %}checked{% endif %}
                                                 >
-                                                <label class="btn btn-outline-secondary btn-sm" for="{{ field.id_for_label }}_{{ value }}">{{ label }}</label>
+                                                <label
+                                                    class="btn btn-outline-secondary btn-sm"
+                                                    for="{{ field.id_for_label }}_{{ value }}"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    data-bs-title="{% if value|stringformat:'s' == '0' %}Tidak dapat melihat atau menjalankan fitur modul{% elif value|stringformat:'s' == '1' %}Hanya dapat melihat data modul{% elif value|stringformat:'s' == '2' %}Dapat melakukan proses operasional modul{% elif value|stringformat:'s' == '3' %}Dapat melakukan proses persetujuan modul{% else %}Akses penuh termasuk aksi sensitif{% endif %}"
+                                                >{{ label }}</label>
                                             </div>
                                             {% endfor %}
                                         </div>
@@ -96,4 +112,62 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="scopeInfoModal" tabindex="-1" aria-labelledby="scopeInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scopeInfoModalLabel">Panduan Scope UAC</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 140px;">Scope</th>
+                                <th>Deskripsi Singkat</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge bg-secondary-subtle text-secondary">Tidak Ada</span></td>
+                                <td>Tidak dapat melihat atau menjalankan fitur pada modul tersebut.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-info-subtle text-info">Lihat</span></td>
+                                <td>Hanya dapat membuka daftar/detail data tanpa melakukan perubahan.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-primary-subtle text-primary">Operasional</span></td>
+                                <td>Dapat membuat dan memperbarui transaksi operasional sehari-hari.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-warning-subtle text-warning">Persetujuan</span></td>
+                                <td>Dapat melakukan proses verifikasi/approval pada alur dokumen.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-danger-subtle text-danger">Kelola</span></td>
+                                <td>Akses tertinggi: konfigurasi penuh, termasuk aksi sensitif modul.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small text-muted mb-0">Catatan: untuk modul Manajemen User, perubahan data user memerlukan scope <strong>Kelola</strong>.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(function (el) {
+        new bootstrap.Tooltip(el);
+    });
+});
+</script>
 {% endblock %}
