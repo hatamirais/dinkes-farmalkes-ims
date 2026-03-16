@@ -64,9 +64,11 @@ def user_list(request):
             | queryset.filter(email__icontains=search)
         )
 
-    role = request.GET.get("role", "")
-    if role:
-        queryset = queryset.filter(role=role)
+    jabatan = request.GET.get("jabatan", "").strip()
+    if not jabatan:
+        jabatan = request.GET.get("role", "").strip()
+    if jabatan:
+        queryset = queryset.filter(role=jabatan)
 
     active = request.GET.get("active", "")
     if active == "1":
@@ -83,9 +85,9 @@ def user_list(request):
         {
             "users": users,
             "search": search,
-            "selected_role": role,
+            "selected_jabatan": jabatan,
             "selected_active": active,
-            "role_choices": User.Role.choices,
+            "jabatan_choices": User.Role.choices,
             "can_add_user": _can_manage_users(request.user),
             "can_change_user": _can_manage_users(request.user),
             "can_delete_user": _can_manage_users(request.user),

@@ -87,6 +87,13 @@ class UserManagementViewsTest(TestCase):
 
     def test_user_list_filter_by_role(self):
         response = self.client.get(
+            reverse("users:user_list"), {"jabatan": User.Role.GUDANG}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.target.username)
+
+    def test_user_list_filter_by_legacy_role_param_still_supported(self):
+        response = self.client.get(
             reverse("users:user_list"), {"role": User.Role.GUDANG}
         )
         self.assertEqual(response.status_code, 200)

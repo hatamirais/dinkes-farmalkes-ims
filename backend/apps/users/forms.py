@@ -21,6 +21,9 @@ class UserCreateForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ["username", "full_name", "email", "role", "is_active"]
+        labels = {
+            "role": "Jabatan",
+        }
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "full_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -91,6 +94,9 @@ class UserUpdateForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ["username", "full_name", "email", "role", "is_active"]
+        labels = {
+            "role": "Jabatan",
+        }
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "full_name": forms.TextInput(attrs={"class": "form-control"}),

@@ -16,6 +16,7 @@ class User(AbstractUser):
         max_length=20,
         choices=Role.choices,
         default=Role.ADMIN_UMUM,
+        verbose_name="Jabatan",
     )
     full_name = models.CharField(max_length=255, blank=True)
 

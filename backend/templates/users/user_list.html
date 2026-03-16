@@ -20,10 +20,10 @@
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
             <input type="text" name="q" class="form-control" placeholder="Cari nama pengguna/nama/email..." value="{{ search }}">
-            <select name="role" class="form-select">
-                <option value="">Semua Peran</option>
-                {% for code, label in role_choices %}
-                <option value="{{ code }}" {% if selected_role == code %}selected{% endif %}>{{ label }}</option>
+            <select name="jabatan" class="form-select">
+                <option value="">Semua Jabatan</option>
+                {% for code, label in jabatan_choices %}
+                <option value="{{ code }}" {% if selected_jabatan == code %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
             <select name="active" class="form-select">
@@ -32,7 +32,7 @@
                 <option value="0" {% if selected_active == '0' %}selected{% endif %}>Nonaktif</option>
             </select>
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
-            {% if search or selected_role or selected_active %}
+            {% if search or selected_jabatan or selected_active %}
             <a href="{% url 'users:user_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
             {% endif %}
         </form>
@@ -45,7 +45,7 @@
                     <th>Nama Pengguna</th>
                     <th>Nama Lengkap</th>
                     <th>Email</th>
-                    <th>Peran</th>
+                    <th>Jabatan</th>
                     <th>Status</th>
                     <th class="text-end">Aksi</th>
                 </tr>
