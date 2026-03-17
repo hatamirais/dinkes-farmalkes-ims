@@ -116,6 +116,40 @@ class UserManagementViewsTest(TestCase):
         self.assertEqual(created.role, User.Role.AUDITOR)
         self.assertTrue(created.check_password("VeryStrongPass123!"))
 
+    def test_dashboard_blocks_admin_role_creation(self):
+        """ADMIN role cannot be created from the Dashboard — only via CLI."""
+        payload = {
+            "username": "sneaky_admin",
+            "full_name": "Sneaky Admin",
+            "email": "sneaky@example.com",
+            "role": User.Role.ADMIN,
+            "is_active": "on",
+            "password1": "VeryStrongPass123!",
+            "password2": "VeryStrongPass123!",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.MANAGE))
+        response = self.client.post(reverse("users:user_create"), payload)
+        # Should re-render the form with an error, not redirect
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="sneaky_admin").exists())
+
+    def test_dashboard_blocks_promoting_user_to_admin(self):
+        """Existing user cannot be promoted to ADMIN via the Dashboard."""
+        payload = {
+            "username": self.target.username,
+            "full_name": self.target.full_name,
+            "email": self.target.email,
+            "role": User.Role.ADMIN,
+            "is_active": "on",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.MANAGE))
+        response = self.client.post(
+            reverse("users:user_update", args=[self.target.pk]), payload
+        )
+        self.assertEqual(response.status_code, 200)
+        self.target.refresh_from_db()
+        self.assertNotEqual(self.target.role, User.Role.ADMIN)
+
     def test_user_update_success(self):
         payload = {
             "username": self.target.username,

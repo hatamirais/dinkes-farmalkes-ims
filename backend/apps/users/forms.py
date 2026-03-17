@@ -5,6 +5,11 @@ from .access import default_scope_for_role
 from .models import ModuleAccess
 from .models import User
 
+# ADMIN role can only be created via CLI (createsuperuser / management command)
+UI_ROLE_CHOICES = [
+    (value, label) for value, label in User.Role.choices if value != User.Role.ADMIN
+]
+
 
 class UserCreateForm(forms.ModelForm):
     password1 = forms.CharField(
@@ -34,6 +39,7 @@ class UserCreateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["role"].choices = UI_ROLE_CHOICES
         self._add_module_scope_fields()
 
     def _add_module_scope_fields(self):
@@ -60,6 +66,14 @@ class UserCreateForm(forms.ModelForm):
         if email and User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("Email sudah digunakan.")
         return email
+
+    def clean_role(self):
+        role = self.cleaned_data.get("role")
+        if role == User.Role.ADMIN:
+            raise forms.ValidationError(
+                "Role Admin hanya dapat dibuat melalui CLI server."
+            )
+        return role
 
     def clean(self):
         cleaned_data = super().clean()
@@ -107,6 +121,11 @@ class UserUpdateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Only restrict role choices if the user is NOT already an ADMIN.
+        # Existing ADMIN users can still be edited, but role cannot be
+        # changed TO or FROM ADMIN via the Dashboard.
+        if not (self.instance and self.instance.pk and self.instance.role == User.Role.ADMIN):
+            self.fields["role"].choices = UI_ROLE_CHOICES
         self._add_module_scope_fields()
 
     def _add_module_scope_fields(self):
@@ -134,6 +153,17 @@ class UserUpdateForm(forms.ModelForm):
         if qs.exists():
             raise forms.ValidationError("Username sudah digunakan.")
         return username
+
+    def clean_role(self):
+        role = self.cleaned_data.get("role")
+        # Block changing a non-ADMIN user TO ADMIN via Dashboard
+        if role == User.Role.ADMIN and (
+            not self.instance.pk or self.instance.role != User.Role.ADMIN
+        ):
+            raise forms.ValidationError(
+                "Role Admin hanya dapat dibuat melalui CLI server."
+            )
+        return role
 
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()
