@@ -166,3 +166,82 @@ class UserManagementViewsTest(TestCase):
         response = self.client.post(reverse("users:user_delete", args=[self.target.pk]))
         self.assertEqual(response.status_code, 302)
         self.assertTrue(User.objects.filter(pk=self.target.pk).exists())
+
+
+class StaffFlagSyncTest(TestCase):
+    """Verify that is_staff is synced correctly based on role via the post_save signal."""
+
+    def test_admin_role_gets_is_staff_true(self):
+        """Dashboard-created ADMIN user must have is_staff=True for Admin panel access."""
+        user = User.objects.create_user(
+            username="new_admin",
+            password="VeryStrongPass123!",
+            role=User.Role.ADMIN,
+        )
+        user.refresh_from_db()
+        self.assertTrue(user.is_staff, "ADMIN role user should have is_staff=True")
+
+    def test_non_admin_role_does_not_get_is_staff(self):
+        """Non-ADMIN roles should never get is_staff=True through the signal."""
+        for role in [User.Role.KEPALA, User.Role.ADMIN_UMUM, User.Role.GUDANG, User.Role.AUDITOR]:
+            with self.subTest(role=role):
+                user = User.objects.create_user(
+                    username=f"user_{role.lower()}",
+                    password="VeryStrongPass123!",
+                    role=role,
+                )
+                user.refresh_from_db()
+                self.assertFalse(
+                    user.is_staff,
+                    f"Role {role} should NOT have is_staff=True",
+                )
+
+    def test_changing_role_to_admin_grants_is_staff(self):
+        """Promoting an existing user to ADMIN should flip is_staff to True."""
+        user = User.objects.create_user(
+            username="promoted_user",
+            password="VeryStrongPass123!",
+            role=User.Role.GUDANG,
+        )
+        user.refresh_from_db()
+        self.assertFalse(user.is_staff)
+
+        # Promote to ADMIN
+        user.role = User.Role.ADMIN
+        user.save(update_fields=["role"])
+        user.refresh_from_db()
+        self.assertTrue(user.is_staff, "Promoted ADMIN user should have is_staff=True")
+
+    def test_demoting_admin_removes_is_staff(self):
+        """Demoting an ADMIN to another role should flip is_staff back to False."""
+        user = User.objects.create_user(
+            username="demoted_admin",
+            password="VeryStrongPass123!",
+            role=User.Role.ADMIN,
+        )
+        user.refresh_from_db()
+        self.assertTrue(user.is_staff)
+
+        # Demote to GUDANG
+        user.role = User.Role.GUDANG
+        user.save(update_fields=["role"])
+        user.refresh_from_db()
+        self.assertFalse(user.is_staff, "Demoted user should lose is_staff")
+
+    def test_admin_panel_save_seeds_module_access(self):
+        """
+        Users saved via Admin panel (simulated by direct create) must have
+        ModuleAccess rows so Dashboard feature-gating works correctly.
+        """
+        user = User.objects.create_user(
+            username="admin_panel_user",
+            password="VeryStrongPass123!",
+            role=User.Role.GUDANG,
+        )
+        # Signal should have seeded ModuleAccess rows
+        modules_with_access = ModuleAccess.objects.filter(user=user)
+        self.assertGreater(
+            modules_with_access.count(),
+            0,
+            "ModuleAccess rows should be seeded after user creation",
+        )
