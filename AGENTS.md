@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-A web-based healthcare inventory management system for tracking medicines and medical equipment at the Dinas Kesehatan (government health department) level. Built with **Django 6.0.2**, **PostgreSQL 16**, **Bootstrap 5**, and **Redis 7**. It replaces Excel-based workflows with role-based stock tracking, FEFO management, and a full audit trail.
+A web-based healthcare inventory management system for tracking medicines and medical equipment at the Dinas Kesehatan (government health department) level. Built with **Django 6.0.2**, **PostgreSQL 16**, **Bootstrap 5**, and **Redis 7**. It replaces Excel-based workflows with role-based stock tracking, FEFO management, and a full audit trail. The user want to converse in English even though the project will be use by Indonesian speaker.
 
 ## Quick Reference
 
