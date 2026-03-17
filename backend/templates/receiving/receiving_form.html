@@ -228,78 +228,91 @@
 
 {% block extra_js %}
 <script>
-function getCookie(name) {
-    let val = null;
-    document.cookie.split(';').forEach(c => {
-        c = c.trim();
-        if (c.startsWith(name + '=')) val = decodeURIComponent(c.substring(name.length + 1));
-    });
-    return val;
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) return meta.content;
+    const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    return input ? input.value : '';
 }
 
-document.getElementById('btn-save-supplier').addEventListener('click', function() {
+async function postFormJson(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: body,
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Server mengembalikan respons tidak valid (${response.status}). ${text.slice(0, 120)}`);
+    }
+
+    const data = await response.json();
+    return { ok: response.ok, status: response.status, data };
+}
+
+document.getElementById('btn-save-supplier').addEventListener('click', async function() {
     const errorEl = document.getElementById('supplier-error');
     errorEl.classList.add('d-none');
     const fields = ['code', 'name', 'address', 'phone', 'email', 'notes'];
     const body = fields.map(f => f + '=' + encodeURIComponent(document.getElementById('supplier-' + f).value.trim())).join('&');
-    fetch('{% url "receiving:quick_create_supplier" %}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
-        body: body,
-    })
-    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
-    .then(function(result) {
+    try {
+        const result = await postFormJson('{% url "receiving:quick_create_supplier" %}', body);
         if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
         const select = document.getElementById('id_supplier');
         const opt = new Option(result.data.text, result.data.id, true, true);
         select.add(opt);
         fields.forEach(f => document.getElementById('supplier-' + f).value = '');
         bootstrap.Modal.getInstance(document.getElementById('modal-supplier')).hide();
-    });
+    } catch (err) {
+        errorEl.textContent = err.message || 'Gagal menyimpan supplier.';
+        errorEl.classList.remove('d-none');
+    }
 });
 
-document.getElementById('btn-save-sumber-dana').addEventListener('click', function() {
+document.getElementById('btn-save-sumber-dana').addEventListener('click', async function() {
     const errorEl = document.getElementById('sumber-dana-error');
     errorEl.classList.add('d-none');
     const body = 'code=' + encodeURIComponent(document.getElementById('sumber-dana-code').value.trim())
         + '&name=' + encodeURIComponent(document.getElementById('sumber-dana-name').value.trim())
         + '&description=' + encodeURIComponent(document.getElementById('sumber-dana-description').value.trim());
-    fetch('{% url "receiving:quick_create_funding_source" %}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
-        body: body,
-    })
-    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
-    .then(function(result) {
+    try {
+        const result = await postFormJson('{% url "receiving:quick_create_funding_source" %}', body);
         if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
         const select = document.getElementById('id_sumber_dana');
         const opt = new Option(result.data.text, result.data.id, true, true);
         select.add(opt);
         ['code', 'name', 'description'].forEach(f => document.getElementById('sumber-dana-' + f).value = '');
         bootstrap.Modal.getInstance(document.getElementById('modal-sumber_dana')).hide();
-    });
+    } catch (err) {
+        errorEl.textContent = err.message || 'Gagal menyimpan sumber dana.';
+        errorEl.classList.remove('d-none');
+    }
 });
 
-document.getElementById('btn-save-receiving-type').addEventListener('click', function() {
+document.getElementById('btn-save-receiving-type').addEventListener('click', async function() {
     const errorEl = document.getElementById('receiving-type-error');
     errorEl.classList.add('d-none');
     const code = document.getElementById('receiving-type-code').value.trim().toUpperCase();
     const name = document.getElementById('receiving-type-name').value.trim();
     const body = 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
-    fetch('{% url "receiving:quick_create_receiving_type" %}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
-        body: body,
-    })
-    .then(r => r.json().then(data => ({ok: r.ok, data: data})))
-    .then(function(result) {
+    try {
+        const result = await postFormJson('{% url "receiving:quick_create_receiving_type" %}', body);
         if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
         const select = document.getElementById('id_receiving_type');
         const opt = new Option(result.data.text, result.data.id, true, true);
         select.add(opt);
         ['code', 'name'].forEach(f => document.getElementById('receiving-type-' + f).value = '');
         bootstrap.Modal.getInstance(document.getElementById('modal-receiving_type')).hide();
-    });
+    } catch (err) {
+        errorEl.textContent = err.message || 'Gagal menyimpan tipe penerimaan.';
+        errorEl.classList.remove('d-none');
+    }
 });
 </script>
 {% endblock %}
