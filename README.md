@@ -182,6 +182,7 @@ Details: `backend/seed/README.md` and `requirements_draft/README.md`.
 ## Documentation Index
 
 - `AGENTS.md`: coding-agent orientation and conventions
+- `CHANGELOG.md`: release notes and version history
 - `SYSTEM_MODEL.md`: canonical schema and workflow model map
 - `backend/seed/README.md`: CSV seed column specification
 - `requirements_draft/system_design_renew.md`: functional and architecture design narrative
