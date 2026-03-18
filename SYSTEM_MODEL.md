@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-03-17
+Last verified: 2026-03-18
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`
 
 ## 1) Domain Overview
@@ -225,6 +225,7 @@ Operational mutation points (from app behavior and admin import logic):
 From `backend/config/settings.py`:
 
 - `AUTH_USER_MODEL = "users.User"`
+- `APP_VERSION` is loaded from root `VERSION` (semantic version `MAJOR.MINOR.PATCH`)
 - `SECRET_KEY` loaded from environment and required (`os.environ[...]`)
 - `AUTHENTICATION_BACKENDS` order:
   1. `axes.backends.AxesStandaloneBackend`

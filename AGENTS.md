@@ -47,6 +47,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 - Route truth: `backend/config/urls.py` + `backend/apps/*/urls.py`
 - Auth/permission truth: `backend/apps/core/decorators.py`, `backend/apps/users/access.py`
 - Security/config truth: `backend/config/settings.py`
+- App version truth: root `VERSION` and `backend/apps/core/versioning.py`
 - Operational script truth: `scripts/`
 - CSV import behavior truth: `backend/apps/*/admin.py` and resource classes
 
@@ -120,6 +121,7 @@ docker compose up -d
 cd backend
 python manage.py migrate
 python manage.py runserver
+python manage.py app_version
 ```
 
 Windows test helper:

@@ -176,3 +176,4 @@ Any PR that changes models, routes, settings, import behavior, or scripts must i
 1. Add migration-aware release note template for schema/permission changes.
 2. Add a compact route catalog appendix generated from URLconfs.
 3. Add periodic verification checklist automation (CI doc lint against known claims).
+4. Keep `VERSION` and semantic-version bump workflow (`python manage.py app_version --major|--minor|--patch`) in release docs.

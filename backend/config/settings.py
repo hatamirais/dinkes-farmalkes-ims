@@ -7,8 +7,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+from apps.core.versioning import get_version_file, read_version
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent
 
 # Load environment variables from .env file
 load_dotenv(BASE_DIR.parent / ".env")
@@ -18,6 +21,8 @@ load_dotenv(BASE_DIR.parent / ".env")
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 DEBUG = os.getenv("DEBUG", "True") == "True"
+
+APP_VERSION = str(read_version(get_version_file(PROJECT_ROOT)))
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
@@ -80,6 +85,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.app_version",
                 "apps.users.context_processors.access_flags",
             ],
         },
