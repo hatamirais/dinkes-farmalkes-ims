@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import DecimalField, Exists, ExpressionWrapper, F, OuterRef, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from datetime import timedelta
@@ -120,7 +120,6 @@ def expired_alerts(request):
         )
         .filter(quantity__gt=F("reserved"))
         .filter(expiry_date__lte=threshold)
-        .order_by("expiry_date", "item__nama_barang", "batch_lot")
     )
 
     processed_subquery = ExpiredItem.objects.filter(
@@ -131,7 +130,13 @@ def expired_alerts(request):
             Expired.Status.DISPOSED,
         ],
     )
-    queryset = queryset.annotate(is_processed=Exists(processed_subquery))
+    queryset = queryset.annotate(
+        is_processed=Exists(processed_subquery),
+        available_qty=ExpressionWrapper(
+            F("quantity") - F("reserved"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        ),
+    )
 
     search = request.GET.get("q", "").strip()
     if search:
@@ -155,6 +160,26 @@ def expired_alerts(request):
     pending_only = request.GET.get("pending", "1") == "1"
     if pending_only:
         queryset = queryset.filter(is_processed=False)
+
+    sort = request.GET.get("sort", "expiry").strip()
+    direction = request.GET.get("dir", "asc").strip().lower()
+    sort_map = {
+        "code": "item__kode_barang",
+        "name": "item__nama_barang",
+        "category": "item__kategori__name",
+        "batch": "batch_lot",
+        "location": "location__name",
+        "expiry": "expiry_date",
+        "available": "available_qty",
+        "processed": "is_processed",
+    }
+    sort_field = sort_map.get(sort, "expiry_date")
+    if direction == "desc":
+        sort_field = f"-{sort_field}"
+
+    queryset = queryset.order_by(
+        sort_field, "expiry_date", "item__nama_barang", "batch_lot"
+    )
 
     rows = []
     for stock in queryset:
@@ -197,6 +222,8 @@ def expired_alerts(request):
             "selected_location": location,
             "selected_level": level,
             "pending_only": pending_only,
+            "selected_sort": sort,
+            "selected_dir": direction,
             "today": today,
         },
     )

@@ -3,6 +3,73 @@
 {% block title %}Stok Mendekati/Kedaluwarsa - Healthcare IMS{% endblock %}
 {% block page_title %}Stok Mendekati/Kedaluwarsa{% endblock %}
 
+{% block extra_css %}
+<style>
+.expired-alert-filter {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(130px, .8fr) auto auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.expired-alert-filter .form-control,
+.expired-alert-filter .form-select {
+    width: 100%;
+    min-width: 0;
+}
+
+.filter-check-inline {
+    height: 36px;
+    border: 1px solid #dbe3ef;
+    border-radius: 8px;
+    padding: 0 10px;
+    background: #fff;
+    margin: 0;
+    white-space: nowrap;
+}
+.filter-check-inline .form-check-input {
+    margin-top: 0;
+    margin-right: 0;
+    float: none;
+    position: relative;
+    top: 0;
+}
+.filter-check-inline .form-check-label {
+    margin: 0;
+    line-height: 1;
+}
+.sort-link {
+    color: inherit;
+    text-decoration: none;
+}
+.sort-link:hover {
+    text-decoration: underline;
+}
+
+.expired-alert-filter .filter-actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 1400px) {
+    .expired-alert-filter {
+        grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(160px, 1fr));
+    }
+}
+
+@media (max-width: 992px) {
+    .expired-alert-filter {
+        grid-template-columns: 1fr;
+    }
+
+    .expired-alert-filter .filter-actions {
+        justify-content: flex-start;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="table-container">
     <div class="table-header">
@@ -18,7 +85,7 @@
     </div>
 
     <div class="px-3 py-2 border-bottom bg-light">
-        <form method="get" class="filter-form">
+        <form method="get" class="filter-form expired-alert-filter">
             <input type="text" name="q" class="form-control" placeholder="Cari kode / nama / kategori / batch..." value="{{ search }}">
             <select name="location" class="form-select">
                 <option value="">Semua Lokasi</option>
@@ -31,13 +98,18 @@
                 <option value="expired" {% if selected_level == 'expired' %}selected{% endif %}>Sudah Kedaluwarsa</option>
                 <option value="near" {% if selected_level == 'near' %}selected{% endif %}>Mendekati Kedaluwarsa (<= 90 hari)</option>
             </select>
-            <div class="form-check d-flex align-items-center px-2">
-                <input class="form-check-input me-2" type="checkbox" name="pending" value="1" id="pendingOnly" {% if pending_only %}checked{% endif %}>
+
+            <input type="hidden" name="sort" value="{{ selected_sort }}">
+            <input type="hidden" name="dir" value="{{ selected_dir }}">
+            <input type="hidden" name="pending" value="0">
+
+            <div class="form-check d-flex align-items-center gap-2 filter-check-inline">
+                <input class="form-check-input" type="checkbox" name="pending" value="1" id="pendingOnly" {% if pending_only %}checked{% endif %}>
                 <label class="form-check-label small" for="pendingOnly">Hanya yang belum diproses</label>
             </div>
-            <div class="d-flex gap-2">
+            <div class="filter-actions">
                 <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
-                {% if search or selected_location or selected_level != 'all' or not pending_only %}
+                {% if search or selected_location or selected_level != 'all' or selected_sort != 'expiry' or selected_dir != 'asc' or not pending_only %}
                 <a href="{% url 'expired:expired_alerts' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
@@ -49,15 +121,15 @@
             <thead>
                 <tr>
                     <th style="width: 40px;"><input type="checkbox" id="selectAllExpiredRows"></th>
-                    <th>Kode</th>
-                    <th>Nama Barang</th>
-                    <th>Kategori</th>
-                    <th>Batch/Lot</th>
-                    <th>Lokasi</th>
-                    <th>Tanggal Kedaluwarsa</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="code">Kode</a>{% if selected_sort == 'code' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="name">Nama Barang</a>{% if selected_sort == 'name' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="category">Kategori</a>{% if selected_sort == 'category' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="batch">Batch/Lot</a>{% if selected_sort == 'batch' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="location">Lokasi</a>{% if selected_sort == 'location' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="expiry">Tanggal Kedaluwarsa</a>{% if selected_sort == 'expiry' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
                     <th>Sisa Hari</th>
-                    <th class="text-end">Tersedia</th>
-                    <th>Status Proses</th>
+                    <th class="text-end"><a href="#" class="sort-link js-sort-link" data-sort="available">Tersedia</a>{% if selected_sort == 'available' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
+                    <th><a href="#" class="sort-link js-sort-link" data-sort="processed">Status Proses</a>{% if selected_sort == 'processed' %} <small>{% if selected_dir == 'asc' %}↑{% else %}↓{% endif %}</small>{% endif %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -117,17 +189,17 @@
         <ul class="pagination pagination-sm mb-0">
             {% if items.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if pending_only %}&pending=1{% endif %}">&laquo;</a>
+                <a class="page-link" href="?page={{ items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">&laquo;</a>
             </li>
             {% endif %}
             {% for num in items.paginator.page_range %}
             <li class="page-item {% if items.number == num %}active{% endif %}">
-                <a class="page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if pending_only %}&pending=1{% endif %}">{{ num }}</a>
+                <a class="page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">{{ num }}</a>
             </li>
             {% endfor %}
             {% if items.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}{% if pending_only %}&pending=1{% endif %}">&raquo;</a>
+                <a class="page-link" href="?page={{ items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">&raquo;</a>
             </li>
             {% endif %}
         </ul>
@@ -139,6 +211,11 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.querySelector('.filter-form');
+    const sortInput = filterForm ? filterForm.querySelector('input[name="sort"]') : null;
+    const dirInput = filterForm ? filterForm.querySelector('input[name="dir"]') : null;
+    const pendingOnly = document.getElementById('pendingOnly');
+
     const selectAll = document.getElementById('selectAllExpiredRows');
     const rowChecks = () => Array.from(document.querySelectorAll('.expired-stock-check'));
     const createBtn = document.getElementById('createExpiredFromSelected');
@@ -165,6 +242,27 @@ document.addEventListener('DOMContentLoaded', function () {
             window.location.href = `{% url 'expired:expired_create' %}?stocks=${encodeURIComponent(selected)}`;
         });
     }
+
+    if (pendingOnly && filterForm) {
+        pendingOnly.addEventListener('change', () => {
+            filterForm.submit();
+        });
+    }
+
+    document.querySelectorAll('.js-sort-link').forEach((link) => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (!filterForm || !sortInput || !dirInput) return;
+            const clickedSort = this.dataset.sort;
+            if (sortInput.value === clickedSort) {
+                dirInput.value = dirInput.value === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortInput.value = clickedSort;
+                dirInput.value = 'asc';
+            }
+            filterForm.submit();
+        });
+    });
 });
 </script>
 {% endblock %}
