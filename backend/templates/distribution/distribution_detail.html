@@ -97,7 +97,7 @@
                 </button>
             </form>
             {% endif %}
-            {% if distribution.status not in ['DRAFT', 'DISTRIBUTED'] %}
+            {% if distribution.status != 'DRAFT' and distribution.status != 'DISTRIBUTED' %}
             <form method="post" action="{% url 'distribution:distribution_reset_to_draft' distribution.pk %}" onsubmit="return confirm('Kembalikan status distribusi ke Draft?')">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-warning btn-sm">
