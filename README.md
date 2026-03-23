@@ -164,6 +164,15 @@ This repository now uses semantic versioning with `MAJOR.MINOR.PATCH` in the roo
 
 The active app version is loaded from `VERSION` at startup and shown in the authenticated UI header.
 
+### Automatic release on version bump
+
+When `VERSION` changes on `main`, GitHub Actions runs `.github/workflows/release-on-version-change.yml` to:
+
+- verify `python manage.py app_version` matches the `VERSION` file,
+- run `python manage.py test apps.core`,
+- create git tag `v<version>` (if it does not already exist),
+- create a GitHub Release for that tag.
+
 ## Seed and Import
 
 - Seed templates live in `backend/seed/`

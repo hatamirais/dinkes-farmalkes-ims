@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.0.3] - 2026-03-23
+
+### Added
+
+- GitHub Actions workflow `.github/workflows/release-on-version-change.yml` to automatically verify versioning, create tag `v<version>`, and publish a GitHub Release when `VERSION` changes on `main`.
+- Pull request template checklist item requiring `VERSION` and `CHANGELOG.md` updates for release-impacting changes.
+
+### Changed
+
+- Updated `README.md` with automatic release behavior for `VERSION` bumps.
+- Updated `.gitignore` to allow tracking `.github/` workflow files.
+
 ## [1.0.2] - 2026-03-18
 
 ### Added
