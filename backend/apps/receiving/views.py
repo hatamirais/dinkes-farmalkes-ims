@@ -9,9 +9,10 @@ from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
-from apps.core.decorators import perm_required
+from apps.core.decorators import module_scope_required, perm_required
 from apps.items.models import Supplier, FundingSource
 from apps.stock.models import Stock, Transaction
+from apps.users.models import ModuleAccess
 from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 from .forms import (
     ReceivingForm,
@@ -309,6 +310,7 @@ def receiving_plan_submit(request, pk):
 
 @login_required
 @perm_required("receiving.change_receiving")
+@module_scope_required(ModuleAccess.Module.RECEIVING, ModuleAccess.Scope.APPROVE)
 def receiving_plan_approve(request, pk):
     receiving = get_object_or_404(Receiving, pk=pk, is_planned=True)
     if request.method != "POST":

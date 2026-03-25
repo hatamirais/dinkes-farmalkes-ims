@@ -15,6 +15,7 @@ from apps.receiving.models import (
     ReceivingTypeOption,
 )
 from apps.stock.models import Stock, Transaction
+from apps.users.access import ensure_default_module_access
 from apps.users.models import User
 
 
@@ -334,3 +335,26 @@ class ReceivingWorkflowCleanupTest(TestCase):
         receiving.refresh_from_db()
         self.assertEqual(receiving.status, Receiving.Status.APPROVED)
         self.assertEqual(ReceivingItem.objects.filter(receiving=receiving).count(), 0)
+
+    def test_gudang_cannot_approve_receiving_plan(self):
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-99995",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.SUBMITTED,
+            is_planned=True,
+            created_by=self.user,
+        )
+        gudang = User.objects.create_user(
+            username="gudang_only_rcv",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.post(
+            reverse("receiving:receiving_plan_approve", args=[receiving.pk])
+        )
+        self.assertEqual(response.status_code, 403)

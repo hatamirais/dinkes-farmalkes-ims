@@ -1,7 +1,11 @@
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.users.access import ensure_default_module_access
+from apps.users.access import (
+    ROLE_DEFAULT_SCOPES,
+    ensure_default_module_access,
+    has_module_permission,
+)
 from apps.users.models import ModuleAccess, User
 
 
@@ -217,7 +221,12 @@ class StaffFlagSyncTest(TestCase):
 
     def test_non_admin_role_does_not_get_is_staff(self):
         """Non-ADMIN roles should never get is_staff=True through the signal."""
-        for role in [User.Role.KEPALA, User.Role.ADMIN_UMUM, User.Role.GUDANG, User.Role.AUDITOR]:
+        for role in [
+            User.Role.KEPALA,
+            User.Role.ADMIN_UMUM,
+            User.Role.GUDANG,
+            User.Role.AUDITOR,
+        ]:
             with self.subTest(role=role):
                 user = User.objects.create_user(
                     username=f"user_{role.lower()}",
@@ -279,3 +288,74 @@ class StaffFlagSyncTest(TestCase):
             0,
             "ModuleAccess rows should be seeded after user creation",
         )
+
+
+class UACRoleMatrixTest(TestCase):
+    def _create_user_with_defaults(self, username: str, role: str) -> User:
+        user = User.objects.create_user(
+            username=username,
+            password="VeryStrongPass123!",
+            role=role,
+        )
+        ensure_default_module_access(user, overwrite=True)
+        return user
+
+    def test_default_module_access_seed_matches_role_matrix(self):
+        for role, module_scopes in ROLE_DEFAULT_SCOPES.items():
+            user = self._create_user_with_defaults(f"matrix_{role.lower()}", role)
+            for module, expected_scope in module_scopes.items():
+                with self.subTest(role=role, module=module):
+                    assignment = ModuleAccess.objects.get(user=user, module=module)
+                    self.assertEqual(assignment.scope, expected_scope)
+
+    def test_petugas_gudang_operational_only_for_change_permissions(self):
+        user = self._create_user_with_defaults("gudang_matrix", User.Role.GUDANG)
+
+        self.assertTrue(has_module_permission(user, "receiving.change_receiving"))
+        self.assertTrue(has_module_permission(user, "distribution.change_distribution"))
+        self.assertTrue(has_module_permission(user, "recall.change_recall"))
+        self.assertTrue(has_module_permission(user, "expired.change_expired"))
+        self.assertTrue(has_module_permission(user, "stock_opname.change_stockopname"))
+
+        self.assertFalse(
+            ModuleAccess.objects.get(
+                user=user, module=ModuleAccess.Module.RECEIVING
+            ).scope
+            >= ModuleAccess.Scope.APPROVE
+        )
+        self.assertFalse(
+            ModuleAccess.objects.get(
+                user=user, module=ModuleAccess.Module.DISTRIBUTION
+            ).scope
+            >= ModuleAccess.Scope.APPROVE
+        )
+        self.assertFalse(
+            ModuleAccess.objects.get(user=user, module=ModuleAccess.Module.RECALL).scope
+            >= ModuleAccess.Scope.APPROVE
+        )
+        self.assertFalse(
+            ModuleAccess.objects.get(
+                user=user, module=ModuleAccess.Module.EXPIRED
+            ).scope
+            >= ModuleAccess.Scope.APPROVE
+        )
+        self.assertFalse(
+            ModuleAccess.objects.get(
+                user=user, module=ModuleAccess.Module.STOCK_OPNAME
+            ).scope
+            >= ModuleAccess.Scope.APPROVE
+        )
+
+    def test_kepala_has_approval_scope_for_workflow_modules(self):
+        user = self._create_user_with_defaults("kepala_matrix", User.Role.KEPALA)
+
+        for module in [
+            ModuleAccess.Module.RECEIVING,
+            ModuleAccess.Module.DISTRIBUTION,
+            ModuleAccess.Module.RECALL,
+            ModuleAccess.Module.EXPIRED,
+            ModuleAccess.Module.STOCK_OPNAME,
+        ]:
+            with self.subTest(module=module):
+                scope = ModuleAccess.objects.get(user=user, module=module).scope
+                self.assertGreaterEqual(scope, ModuleAccess.Scope.APPROVE)

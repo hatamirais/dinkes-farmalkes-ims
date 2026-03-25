@@ -6,8 +6,9 @@ from django.db import transaction
 from django.db.models import Q, F
 from django.utils import timezone
 
-from apps.core.decorators import perm_required
+from apps.core.decorators import module_scope_required, perm_required
 from apps.stock.models import Stock
+from apps.users.models import ModuleAccess
 
 from .models import StockOpname, StockOpnameItem
 from .forms import StockOpnameForm
@@ -273,6 +274,7 @@ def opname_input(request, pk):
 
 @login_required
 @perm_required("stock_opname.change_stockopname")
+@module_scope_required(ModuleAccess.Module.STOCK_OPNAME, ModuleAccess.Scope.APPROVE)
 def opname_complete(request, pk):
     """Finalize a stock opname session."""
     opname = get_object_or_404(

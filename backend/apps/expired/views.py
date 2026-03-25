@@ -7,9 +7,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from datetime import timedelta
 
-from apps.core.decorators import perm_required
+from apps.core.decorators import module_scope_required, perm_required
 from apps.stock.models import Stock, Transaction
 from apps.items.models import Location
+from apps.users.models import ModuleAccess
 
 from .forms import ExpiredForm, ExpiredItemFormSet
 from .models import Expired, ExpiredItem
@@ -338,6 +339,7 @@ def expired_submit(request, pk):
 
 @login_required
 @perm_required("expired.change_expired")
+@module_scope_required(ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.APPROVE)
 def expired_verify(request, pk):
     expired_doc = get_object_or_404(Expired, pk=pk)
     if request.method != "POST":
@@ -407,6 +409,7 @@ def expired_verify(request, pk):
 
 @login_required
 @perm_required("expired.change_expired")
+@module_scope_required(ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.APPROVE)
 def expired_dispose(request, pk):
     expired_doc = get_object_or_404(Expired, pk=pk)
     if request.method != "POST":

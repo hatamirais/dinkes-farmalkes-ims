@@ -8,8 +8,9 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.core.decorators import perm_required
+from apps.core.decorators import module_scope_required, perm_required
 from apps.stock.models import Stock, Transaction
+from apps.users.models import ModuleAccess
 
 from .forms import DistributionForm, DistributionItemFormSet
 from .models import Distribution, DistributionItem
@@ -203,6 +204,7 @@ def distribution_submit(request, pk):
 
 @login_required
 @perm_required("distribution.change_distribution")
+@module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.APPROVE)
 def distribution_verify(request, pk):
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
@@ -349,6 +351,7 @@ def distribution_distribute(request, pk):
 
 @login_required
 @perm_required("distribution.change_distribution")
+@module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.APPROVE)
 def distribution_reject(request, pk):
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":

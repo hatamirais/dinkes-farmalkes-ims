@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
+from apps.users.access import ensure_default_module_access
 from apps.users.models import User
 
 
@@ -290,3 +291,18 @@ class DistributionWorkflowTest(TestCase):
             reverse("distribution:distribution_edit", args=[dist.pk])
         )
         self.assertEqual(response.status_code, 302)  # redirect with error
+
+    def test_gudang_cannot_verify_distribution(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        gudang = User.objects.create_user(
+            username="gudang_only_dist",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.post(
+            reverse("distribution:distribution_verify", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 403)

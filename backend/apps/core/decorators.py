@@ -20,7 +20,7 @@ from functools import wraps
 from django.http import HttpResponseForbidden
 from django.shortcuts import render
 
-from apps.users.access import has_module_permission
+from apps.users.access import has_module_permission, has_module_scope
 
 
 def perm_required(*perms):
@@ -81,6 +81,28 @@ def role_required(*allowed_roles):
             return HttpResponseForbidden(
                 "<h1>403 Forbidden</h1>"
                 "<p>Anda tidak memiliki izin untuk mengakses halaman ini.</p>"
+            )
+
+        return _wrapped_view
+
+    return decorator
+
+
+def module_scope_required(module: str, min_scope: int):
+    """Restrict access to users with minimum scope in a module."""
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+
+            if has_module_scope(request.user, module, min_scope):
+                return view_func(request, *args, **kwargs)
+
+            return HttpResponseForbidden(
+                "<h1>403 Forbidden</h1>"
+                "<p>Anda tidak memiliki level akses modul yang diperlukan.</p>"
             )
 
         return _wrapped_view
