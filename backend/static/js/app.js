@@ -89,6 +89,11 @@ function initTypeaheadSelects() {
 
         select.style.display = 'none';
 
+        const syncInputFromSelect = () => {
+            const selectedOption = select.selectedOptions?.[0] || select.options[select.selectedIndex] || null;
+            input.value = selectedOption && selectedOption.value ? selectedOption.text : '';
+        };
+
         const renderOptions = (query) => {
             const q = (query || '').trim().toLowerCase();
             dropdown.innerHTML = '';
@@ -122,7 +127,6 @@ function initTypeaheadSelects() {
                 item.disabled = opt.disabled;
                 item.addEventListener('click', () => {
                     select.value = opt.value;
-                    input.value = opt.text;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                     dropdown.classList.remove('show');
                 });
@@ -198,9 +202,11 @@ function initTypeaheadSelects() {
 
         // If select changes programmatically, reflect in input
         select.addEventListener('change', () => {
-            const selected = optionsSnapshot.find((opt) => opt.value === select.value);
-            input.value = selected ? selected.text : '';
+            syncInputFromSelect();
         });
+
+        syncInputFromSelect();
+        window.setTimeout(syncInputFromSelect, 0);
     });
 }
 
