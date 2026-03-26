@@ -153,6 +153,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Type: `LPLPO`, `ALLOCATION`, `SPECIAL_REQUEST`
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
   - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED`)
+  - Submit requires at least one assigned Petugas
   - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
   - FKs: `facility`, `created_by`, `verified_by` (nullable), `approved_by` (nullable)
   - Indexes: `idx_dist_status_date`, `idx_dist_facility_date`
@@ -160,6 +161,11 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `distribution.DistributionItem` (`distribution_items`):
   - FKs: `distribution`, `item`, `stock` (nullable)
   - Fields: `quantity_requested`, `quantity_approved` (nullable), `notes`, `created_at`
+
+- `distribution.DistributionStaffAssignment` (`distribution_staff_assignments`):
+  - FKs: `distribution`, `user`
+  - Purpose: stores staff involved in a distribution document and surfaces them in detail/print output
+  - Constraint: unique pair per (`distribution`, `user`)
 
 ### 4.7 Recall
 

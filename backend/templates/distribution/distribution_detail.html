@@ -128,6 +128,17 @@
                             <dt class="col-5 text-muted">Catatan</dt>
                             <dd class="col-7">{{ distribution.notes }}</dd>
                             {% endif %}
+
+                            <dt class="col-5 text-muted">Petugas</dt>
+                            <dd class="col-7">
+                                {% if assigned_staff %}
+                                    {% for staff in assigned_staff %}
+                                        <span class="badge text-bg-light border me-1 mb-1">{{ staff }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Belum ditentukan</span>
+                                {% endif %}
+                            </dd>
                         </dl>
                     </div>
                     <div class="col-12 col-xl-4">
@@ -264,6 +275,7 @@
         <div><span class="label">Nomor Dokumen</span>: {{ distribution.document_number }}</div>
         <div><span class="label">Unit Penerima</span>: {{ distribution.facility.name|upper }}</div>
         <div><span class="label">Bulan</span>: {{ distribution.request_date|date:"F Y"|upper }}</div>
+        <div><span class="label">Petugas</span>: {% if assigned_staff %}{% for staff in assigned_staff %}{{ staff }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}-{% endif %}</div>
     </div>
 
     <table class="table table-bordered sbbk-print-table mb-0">

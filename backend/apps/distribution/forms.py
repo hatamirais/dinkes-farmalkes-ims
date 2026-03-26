@@ -1,6 +1,8 @@
 from django import forms
 from django.db.models import F
 from django.forms import inlineformset_factory
+from apps.users.models import User
+
 from .models import Distribution, DistributionItem
 from apps.stock.models import Stock
 
@@ -19,6 +21,14 @@ class StockByItemSelect(forms.Select):
 
 
 class DistributionForm(forms.ModelForm):
+    assigned_staff = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(is_active=True).order_by("full_name", "username"),
+        required=False,
+        label="Petugas",
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Pilih petugas yang terlibat dalam proses distribusi ini.",
+    )
+
     class Meta:
         model = Distribution
         fields = [
@@ -29,7 +39,12 @@ class DistributionForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "document_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "Kosongkan untuk auto-generate"}),
+            "document_number": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Kosongkan untuk auto-generate",
+                }
+            ),
             "distribution_type": forms.Select(attrs={"class": "form-select"}),
             "request_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
@@ -37,6 +52,15 @@ class DistributionForm(forms.ModelForm):
             "facility": forms.Select(attrs={"class": "form-select"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields[
+                "assigned_staff"
+            ].initial = self.instance.staff_assignments.values_list(
+                "user_id", flat=True
+            )
 
 
 class DistributionItemForm(forms.ModelForm):
@@ -78,15 +102,17 @@ class DistributionItemForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        item = cleaned_data.get('item')
-        stock = cleaned_data.get('stock')
-        quantity = cleaned_data.get('quantity_requested')
+        item = cleaned_data.get("item")
+        stock = cleaned_data.get("stock")
+        quantity = cleaned_data.get("quantity_requested")
 
         if stock and item and stock.item_id != item.id:
-            self.add_error('stock', 'Batch stok harus sesuai dengan barang yang dipilih.')
+            self.add_error(
+                "stock", "Batch stok harus sesuai dengan barang yang dipilih."
+            )
 
         if quantity is not None and quantity <= 0:
-            self.add_error('quantity_requested', 'Jumlah harus lebih dari 0.')
+            self.add_error("quantity_requested", "Jumlah harus lebih dari 0.")
 
         return cleaned_data
 

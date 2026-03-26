@@ -3,6 +3,109 @@
 {% block title %}{{ title }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .staff-picker {
+        background: #fbfdff;
+        border-color: #dbe5f0 !important;
+    }
+
+    .staff-picker-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #dbe5f0;
+    }
+
+    .staff-picker-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .staff-picker-title h6 {
+        margin: 0;
+        font-size: 0.98rem;
+        color: #0f172a;
+    }
+
+    .staff-picker-summary {
+        color: #64748b;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .staff-picker-toggle {
+        color: #475569;
+        border-color: #cbd5e1;
+        flex-shrink: 0;
+    }
+
+    .staff-picker-toggle i {
+        transition: transform 0.2s ease;
+    }
+
+    .staff-picker-toggle[aria-expanded="true"] i {
+        transform: rotate(180deg);
+    }
+
+    .staff-picker-body {
+        padding: 16px;
+    }
+
+    .staff-picker-list {
+        display: grid;
+        gap: 10px;
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    .staff-picker-item {
+        display: block;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        background: #fff;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    .staff-picker-item:hover {
+        border-color: #93c5fd;
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.08);
+    }
+
+    .staff-picker-item .form-check {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+    }
+
+    .staff-picker-item .form-check-input {
+        margin: 0;
+        float: none;
+    }
+
+    .staff-picker-item .form-check-label {
+        flex: 1;
+        cursor: pointer;
+    }
+
+    .staff-picker-item.is-selected {
+        border-color: #60a5fa;
+        background: #eff6ff;
+        box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card content-card table-container form-page-card">
             <div class="card-header">
@@ -22,9 +125,61 @@
 
                     <div class="row g-3 mb-4">
                         {% for field in form %}
-                        <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="{% if field.name == 'notes' or field.name == 'assigned_staff' %}col-12{% else %}col-md-6{% endif %}">
+                            {% if field.name == 'assigned_staff' %}
+                            <div class="staff-picker border rounded-3 p-3">
+                                <div class="staff-picker-header">
+                                    <div class="staff-picker-title">
+                                        <div>
+                                            <h6>Petugas</h6>
+                                            <div class="staff-picker-summary js-staff-summary">Belum ada petugas dipilih</div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        class="btn btn-sm btn-outline-secondary staff-picker-toggle"
+                                        type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#distribution-staff-picker-body"
+                                        aria-expanded="false"
+                                        aria-controls="distribution-staff-picker-body"
+                                        title="Tampilkan/sembunyikan daftar petugas"
+                                    >
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                </div>
+                                <div class="collapse staff-picker-body" id="distribution-staff-picker-body">
+                                    <div class="staff-picker-toolbar mb-3">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                            <input
+                                                type="text"
+                                                class="form-control js-staff-filter"
+                                                data-staff-filter-target="distribution-staff-list"
+                                                placeholder="Cari petugas..."
+                                                autocomplete="off"
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="staff-picker-list" id="distribution-staff-list">
+                                        {% for checkbox in field %}
+                                        <label class="staff-picker-item" data-staff-label="{{ checkbox.choice_label|lower }}">
+                                            <span class="form-check">
+                                                {{ checkbox.tag }}
+                                                <span class="form-check-label">{{ checkbox.choice_label }}</span>
+                                            </span>
+                                        </label>
+                                        {% endfor %}
+                                        <div class="staff-picker-empty text-muted small d-none">Tidak ada petugas yang cocok.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
                             <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
                             {{ field }}
+                            {% endif %}
+                            {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
                             {% for error in field.errors %}
                             <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
@@ -127,4 +282,86 @@
                 </form>
             </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const updateStaffSummary = () => {
+            document.querySelectorAll('.staff-picker').forEach((picker) => {
+                const summary = picker.querySelector('.js-staff-summary');
+                if (!summary) return;
+
+                const checked = Array.from(picker.querySelectorAll('input[type="checkbox"]:checked'));
+                if (checked.length === 0) {
+                    summary.textContent = 'Belum ada petugas dipilih';
+                    return;
+                }
+
+                const names = checked
+                    .map((input) => {
+                        const label = input.closest('.staff-picker-item')?.querySelector('.form-check-label');
+                        return label ? label.textContent.trim() : '';
+                    })
+                    .filter(Boolean);
+
+                summary.textContent = `${checked.length} dipilih: ${names.join(', ')}`;
+            });
+        };
+
+        document.querySelectorAll('.staff-picker-item').forEach((item) => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            if (!checkbox) return;
+
+            const syncState = () => {
+                item.classList.toggle('is-selected', checkbox.checked);
+                updateStaffSummary();
+            };
+
+            syncState();
+            checkbox.addEventListener('change', syncState);
+        });
+
+        document.querySelectorAll('.staff-picker-toggle').forEach((button) => {
+            const targetSelector = button.getAttribute('data-bs-target');
+            const target = targetSelector ? document.querySelector(targetSelector) : null;
+            if (!target) return;
+
+            target.addEventListener('shown.bs.collapse', () => {
+                button.setAttribute('aria-expanded', 'true');
+            });
+
+            target.addEventListener('hidden.bs.collapse', () => {
+                button.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        document.querySelectorAll('.js-staff-filter').forEach((input) => {
+            const targetId = input.getAttribute('data-staff-filter-target');
+            const container = targetId ? document.getElementById(targetId) : null;
+            if (!container) return;
+
+            const items = Array.from(container.querySelectorAll('.staff-picker-item'));
+            const emptyState = container.querySelector('.staff-picker-empty');
+
+            input.addEventListener('input', () => {
+                const query = input.value.trim().toLowerCase();
+                let visibleCount = 0;
+
+                items.forEach((item) => {
+                    const label = item.getAttribute('data-staff-label') || '';
+                    const match = !query || label.includes(query);
+                    item.classList.toggle('d-none', !match);
+                    if (match) visibleCount += 1;
+                });
+
+                if (emptyState) {
+                    emptyState.classList.toggle('d-none', visibleCount > 0);
+                }
+            });
+        });
+
+        updateStaffSummary();
+    });
+</script>
 {% endblock %}

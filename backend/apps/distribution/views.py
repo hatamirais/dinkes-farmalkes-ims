@@ -13,7 +13,28 @@ from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess
 
 from .forms import DistributionForm, DistributionItemFormSet
-from .models import Distribution, DistributionItem
+from .models import Distribution, DistributionItem, DistributionStaffAssignment
+
+
+def sync_distribution_staff_assignments(distribution, staff_users):
+    selected_users = list(staff_users)
+    selected_ids = {user.id for user in selected_users}
+
+    distribution.staff_assignments.exclude(user_id__in=selected_ids).delete()
+
+    existing_ids = set(
+        distribution.staff_assignments.filter(user_id__in=selected_ids).values_list(
+            "user_id", flat=True
+        )
+    )
+
+    DistributionStaffAssignment.objects.bulk_create(
+        [
+            DistributionStaffAssignment(distribution=distribution, user=user)
+            for user in selected_users
+            if user.id not in existing_ids
+        ]
+    )
 
 
 @login_required
@@ -65,6 +86,9 @@ def distribution_create(request):
             dist.created_by = request.user
             dist.status = Distribution.Status.DRAFT
             dist.save()
+            sync_distribution_staff_assignments(
+                dist, form.cleaned_data.get("assigned_staff", [])
+            )
 
             formset.instance = dist
             formset.save()
@@ -103,6 +127,9 @@ def distribution_edit(request, pk):
 
         if form.is_valid() and formset.is_valid():
             form.save()
+            sync_distribution_staff_assignments(
+                dist, form.cleaned_data.get("assigned_staff", [])
+            )
             formset.save()
             messages.success(
                 request, f"Distribusi {dist.document_number} berhasil diperbarui."
@@ -130,10 +157,11 @@ def distribution_detail(request, pk):
     dist = get_object_or_404(
         Distribution.objects.select_related(
             "facility", "created_by", "verified_by", "approved_by"
-        ),
+        ).prefetch_related("staff_assignments__user"),
         pk=pk,
     )
     items = dist.items.select_related("item", "item__satuan", "stock")
+    assigned_staff = [assignment.user for assignment in dist.staff_assignments.all()]
 
     printable_items = []
     total_quantity = Decimal("0")
@@ -172,6 +200,7 @@ def distribution_detail(request, pk):
             "printable_items": printable_items,
             "total_quantity": total_quantity,
             "grand_total": grand_total,
+            "assigned_staff": assigned_staff,
         },
     )
 
@@ -193,6 +222,12 @@ def distribution_submit(request, pk):
     if not dist.items.exists():
         messages.error(
             request, "Tambahkan minimal 1 item sebelum mengajukan distribusi."
+        )
+        return redirect("distribution:distribution_detail", pk=pk)
+
+    if not dist.staff_assignments.exists():
+        messages.error(
+            request, "Pilih minimal 1 staf terlibat sebelum mengajukan distribusi."
         )
         return redirect("distribution:distribution_detail", pk=pk)
 

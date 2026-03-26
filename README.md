@@ -31,7 +31,7 @@ Web-based inventory management for medicines and medical equipment at the Dinas 
 - `items`: item/lookup CRUD + list filtering + AJAX quick-create lookup endpoints
 - `stock`: stock list, transaction list, stock card, and stock transfer flow
 - `receiving`: regular receiving and planned receiving workflow
-- `distribution`: request/verification/preparation/distribution workflow
+- `distribution`: request/verification/preparation/distribution workflow with assigned involved staff per document
 - `recall`: draft to complete supplier return flow
 - `expired`: draft to disposed expired-item flow + expiry alerts page
 - `stock_opname`: physical count workflow and discrepancy report printing
@@ -45,7 +45,7 @@ Web-based inventory management for medicines and medical equipment at the Dinas 
 
 - Receiving (planned): `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`
 - Receiving (regular/imported): commonly persisted as `VERIFIED` after posting
-- Distribution: `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED` (or `REJECTED`, and non-distributed docs can be reset to `DRAFT`)
+- Distribution: `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED` (or `REJECTED`, and non-distributed docs can be reset to `DRAFT`; submit requires assigned Petugas)
 - Recall: `DRAFT -> SUBMITTED -> VERIFIED -> COMPLETED`
 - Expired: `DRAFT -> SUBMITTED -> VERIFIED -> DISPOSED`
 - Stock transfer: `DRAFT -> COMPLETED`
@@ -56,6 +56,7 @@ Web-based inventory management for medicines and medical equipment at the Dinas 
 - Core inventory tables: `items`, `stock`, `transactions`
 - Document headers: `receivings`, `distributions`, `recalls`, `expired_docs`, `stock_transfers`, `stock_opnames`
 - Document lines: `receiving_items`, `receiving_order_items`, `distribution_items`, `recall_items`, `expired_items`, `stock_transfer_items`, `stock_opname_items`
+- Distribution staffing: `distribution_staff_assignments`
 - Authorization tables: `users`, `user_module_accesses`
 
 For canonical schema details, see `SYSTEM_MODEL.md`.

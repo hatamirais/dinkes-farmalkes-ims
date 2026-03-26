@@ -79,6 +79,7 @@ class DistributionWorkflowTest(TestCase):
 
     def test_submit_draft_to_submitted(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        dist.staff_assignments.create(user=self.user)
         response = self.client.post(
             reverse("distribution:distribution_submit", args=[dist.pk])
         )
@@ -99,6 +100,26 @@ class DistributionWorkflowTest(TestCase):
 
     def test_submit_only_from_draft(self):
         dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        response = self.client.post(
+            reverse("distribution:distribution_submit", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+
+    def test_submit_requires_assigned_staff(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        response = self.client.post(
+            reverse("distribution:distribution_submit", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+
+    def test_submit_with_assigned_staff_moves_to_submitted(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        dist.staff_assignments.create(user=self.user)
+
         response = self.client.post(
             reverse("distribution:distribution_submit", args=[dist.pk])
         )
@@ -338,6 +359,94 @@ class DistributionWorkflowTest(TestCase):
             reverse("distribution:distribution_edit", args=[dist.pk])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_create_distribution_saves_assigned_staff(self):
+        staff = User.objects.create_user(
+            username="petugas_bantu",
+            password="secret12345",
+            full_name="Petugas Bantu",
+        )
+        response = self.client.post(
+            reverse("distribution:distribution_create"),
+            {
+                "document_number": "",
+                "distribution_type": Distribution.DistributionType.LPLPO,
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "",
+                "assigned_staff": [self.user.pk, staff.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "50",
+                "items-0-quantity_approved": "40",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        dist = Distribution.objects.latest("id")
+        assigned_usernames = list(
+            dist.staff_assignments.order_by("user__username").values_list(
+                "user__username", flat=True
+            )
+        )
+        self.assertEqual(assigned_usernames, ["gudang_dist", "petugas_bantu"])
+
+    def test_edit_distribution_updates_assigned_staff(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        dist.staff_assignments.create(user=self.user)
+        staff = User.objects.create_user(
+            username="petugas_ganti",
+            password="secret12345",
+            full_name="Petugas Ganti",
+        )
+        item_line = dist.items.first()
+
+        response = self.client.post(
+            reverse("distribution:distribution_edit", args=[dist.pk]),
+            {
+                "document_number": dist.document_number,
+                "distribution_type": dist.distribution_type,
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "Direvisi",
+                "assigned_staff": [staff.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "1",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-id": item_line.pk,
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "50",
+                "items-0-quantity_approved": "40",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        dist.refresh_from_db()
+        assigned_usernames = list(
+            dist.staff_assignments.order_by("user__username").values_list(
+                "user__username", flat=True
+            )
+        )
+        self.assertEqual(assigned_usernames, ["petugas_ganti"])
+
+    def test_detail_shows_assigned_staff(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        dist.staff_assignments.create(user=self.user)
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Petugas")
+        self.assertContains(response, str(self.user))
 
     def test_edit_blocked_for_verified(self):
         dist = self._create_distribution(status=Distribution.Status.VERIFIED)
