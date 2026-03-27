@@ -1,10 +1,10 @@
-# Sistem Manajemen Inventaris Kesehatan
+# Sistem Manajemen Inventaris Farmasi dan Alat Kesehatan
 
-Sistem inventaris berbasis web untuk pengelolaan obat dan alat kesehatan di tingkat Dinas Kesehatan. Aplikasi ini dirancang untuk membantu tim bekerja lebih rapi, lebih cepat ditelusuri, dan lebih siap diaudit dibanding alur spreadsheet yang tersebar.
+Platform inventaris berbasis web untuk pengelolaan obat dan alat kesehatan di lingkungan Dinas Kesehatan, khususnya pada bidang atau UPT Instalasi Farmasi. Aplikasi ini dirancang untuk menghadirkan pencatatan yang lebih tertib, proses yang lebih terkendali, dan jejak audit yang lebih mudah ditelusuri.
 
 ## Gambaran Singkat
 
-Healthcare IMS membangun proses inventaris yang lebih tertib melalui alur dokumen yang terstruktur, kontrol akses berbasis peran, dan jejak mutasi stok yang tidak dapat diubah. Platform ini cocok untuk operasional gudang kesehatan yang membutuhkan akurasi batch, keterlacakan sumber dana, dan disiplin administrasi.
+Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur dokumen yang terstruktur, kontrol akses berbasis peran, dan jejak mutasi stok yang tidak dapat diubah. Platform ini relevan untuk operasional gudang kesehatan yang membutuhkan akurasi batch, keterlacakan sumber dana, dan disiplin administrasi.
 
 ## Teknologi Inti
 
@@ -77,14 +77,18 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - `SYSTEM_MODEL.md`: referensi skema data dan peta workflow.
 - `CHANGELOG.md`: riwayat perubahan dan rilis.
 - `backend/seed/README.md`: spesifikasi template CSV seed.
-- `requirements_draft/README.md`: catatan workflow import dan migrasi.
-- `requirements_draft/system_design_renew.md`: narasi desain fungsional dan arsitektur.
-- `requirements_draft/erd.md`: referensi ERD.
-- `requirements_draft/infrastructure_plan.md`: rencana infrastruktur dan deployment.
+- `docs/README.md`: catatan workflow import dan migrasi.
+- `docs/system_design_renew.md`: narasi desain fungsional dan arsitektur.
+- `docs/erd.md`: referensi ERD.
+- `docs/infrastructure_plan.md`: rencana infrastruktur dan deployment.
 
 ## Panduan Developer
 
 Instruksi setup environment, migrasi database, pengujian, versioning, dan proses import dipindahkan ke `docs/developer_guide.md` agar README tetap fokus sebagai gambaran produk dan titik masuk utama repositori.
+
+## Bantuan dan Kustomisasi
+
+Untuk kebutuhan implementasi, konsultasi, atau penyesuaian sistem sesuai kebutuhan institusi Anda, silakan hubungi `hatamirais@proton.me`. Dukungan pengembangan dan kustomisasi proyek tersedia sesuai ruang lingkup kebutuhan.
 
 ## Lisensi
 
