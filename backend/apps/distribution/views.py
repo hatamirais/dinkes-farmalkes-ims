@@ -162,6 +162,14 @@ def distribution_detail(request, pk):
     )
     items = dist.items.select_related("item", "item__satuan", "stock")
     assigned_staff = [assignment.user for assignment in dist.staff_assignments.all()]
+    kepala_instalasi = (
+        ModuleAccess.user.field.model.objects.filter(
+            role=ModuleAccess.user.field.model.Role.KEPALA,
+            is_active=True,
+        )
+        .order_by("full_name", "username")
+        .first()
+    )
 
     printable_items = []
     total_quantity = Decimal("0")
@@ -201,6 +209,7 @@ def distribution_detail(request, pk):
             "total_quantity": total_quantity,
             "grand_total": grand_total,
             "assigned_staff": assigned_staff,
+            "kepala_instalasi": kepala_instalasi,
         },
     )
 

@@ -40,7 +40,7 @@
     .sbbk-signatures {
         margin-top: 24px;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, 1fr);
         gap: 28px;
     }
 
@@ -297,6 +297,8 @@
                 <th class="text-center" style="width: 56px;">No</th>
                 <th>Nama Obat/Barang</th>
                 <th class="text-center" style="width: 130px;">Jumlah Distribusi</th>
+                <th class="text-center" style="width: 130px;">Batch</th>
+                <th class="text-center" style="width: 130px;">Kedaluwarsa</th>
                 <th class="text-center" style="width: 150px;">Harga (Rp)</th>
                 <th class="text-center" style="width: 170px;">Jumlah (Rp)</th>
             </tr>
@@ -307,6 +309,8 @@
                 <td class="text-center">{{ forloop.counter }}</td>
                 <td>{{ row.line.item.nama_barang }}</td>
                 <td class="text-end">{{ row.quantity|id_decimal:2 }}</td>
+                <td class="text-center">{{ row.line.stock.batch_lot|default:"-" }}</td>
+                <td class="text-center">{% if row.line.stock and row.line.stock.expiry_date %}{{ row.line.stock.expiry_date|date:"d/m/Y" }}{% else %}-{% endif %}</td>
                 <td class="text-end">{% if row.unit_price is not None %}{{ row.unit_price|id_decimal:2 }}{% else %}-{% endif %}</td>
                 <td class="text-end">{% if row.line_total is not None %}{{ row.line_total|id_decimal:2 }}{% else %}-{% endif %}</td>
             </tr>
@@ -314,6 +318,8 @@
             <tr>
                 <td colspan="2" class="text-end fw-semibold">Total</td>
                 <td class="text-end fw-semibold">{{ total_quantity|id_decimal:2 }}</td>
+                <td></td>
+                <td></td>
                 <td></td>
                 <td class="text-end fw-semibold">{{ grand_total|id_decimal:2 }}</td>
             </tr>
@@ -325,6 +331,11 @@
             Petugas Gudang
             <div class="sbbk-sign-space"></div>
             <strong>{{ distribution.approved_by|default:distribution.created_by }}</strong>
+        </div>
+        <div class="sbbk-sign-box">
+            Mengetahui,<br>Kepala Instalasi Farmasi
+            <div class="sbbk-sign-space"></div>
+            <strong>{{ kepala_instalasi|default:"(................................)" }}</strong>
         </div>
         <div class="sbbk-sign-box">
             Penerima ({{ distribution.facility.name }})
