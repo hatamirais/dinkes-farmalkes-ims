@@ -1,232 +1,91 @@
-# Healthcare Inventory Management System
+# Sistem Manajemen Inventaris Kesehatan
 
-Web-based inventory management for medicines and medical equipment at the Dinas Kesehatan level. The system replaces spreadsheet workflows with structured document flows, role-aware access control, and an immutable stock movement audit trail.
+Sistem inventaris berbasis web untuk pengelolaan obat dan alat kesehatan di tingkat Dinas Kesehatan. Aplikasi ini dirancang untuk membantu tim bekerja lebih rapi, lebih cepat ditelusuri, dan lebih siap diaudit dibanding alur spreadsheet yang tersebar.
 
-## Tech Stack
+## Gambaran Singkat
 
-| Layer | Technology |
+Healthcare IMS membangun proses inventaris yang lebih tertib melalui alur dokumen yang terstruktur, kontrol akses berbasis peran, dan jejak mutasi stok yang tidak dapat diubah. Platform ini cocok untuk operasional gudang kesehatan yang membutuhkan akurasi batch, keterlacakan sumber dana, dan disiplin administrasi.
+
+## Teknologi Inti
+
+| Lapisan | Teknologi |
 | --- | --- |
-| Language | Python 3.13+ |
+| Bahasa | Python 3.13+ |
 | Framework | Django 6.0.2 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis 7 |
-| UI | Django Templates + Bootstrap 5 |
-| Forms | django-crispy-forms + crispy-bootstrap5 |
-| Data Import | django-import-export |
-| Security | django-axes |
+| Antarmuka | Django Templates + Bootstrap 5 |
+| Form | django-crispy-forms + crispy-bootstrap5 |
+| Import Data | django-import-export |
+| Keamanan | django-axes |
 
-## Key Capabilities
+## Kapabilitas Utama
 
-- Item master and lookup management (`Unit`, `Category`, `Program`, `FundingSource`, `Location`, `Supplier`, `Facility`)
-- Batch-level stock with FEFO support and funding-source traceability
-- End-to-end workflows for receiving, distribution, recall, expired disposal, stock transfer, and stock opname
-- Immutable `Transaction` log for all stock movement (`IN`, `OUT`, `ADJUST`, `RETURN`)
-- User access control via Django permissions and per-user `ModuleAccess` scopes
-- CSV import support via Django Admin, including dedicated Receiving CSV import endpoint
+- Pengelolaan master barang dan data referensi seperti satuan, kategori, program, sumber dana, lokasi, supplier, dan fasilitas.
+- Pencatatan stok per batch dengan pendekatan FEFO agar distribusi lebih terkendali dan masa kedaluwarsa lebih mudah dipantau.
+- Alur kerja end-to-end untuk penerimaan, distribusi, recall, barang kedaluwarsa, transfer stok, dan stock opname.
+- Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
+- Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
+- Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang.
 
-## Current Modules
+## Modul Saat Ini
 
-### Implemented and active
+### Modul aktif
 
-- `items`: item/lookup CRUD + list filtering + AJAX quick-create lookup endpoints
-- `stock`: stock list, transaction list, stock card, and stock transfer flow
-- `receiving`: regular receiving and planned receiving workflow
-- `distribution`: request/verification/preparation/distribution workflow with assigned involved staff per document
-- `recall`: draft to complete supplier return flow
-- `expired`: draft to disposed expired-item flow + expiry alerts page
-- `stock_opname`: physical count workflow and discrepancy report printing
-- `users`: user management and module-scope assignment
+- `items`: CRUD master barang dan lookup, filter daftar, serta endpoint AJAX untuk pembuatan referensi cepat.
+- `stock`: daftar stok, daftar transaksi, kartu stok, dan alur transfer stok.
+- `receiving`: alur penerimaan reguler dan rencana penerimaan.
+- `distribution`: alur permintaan, verifikasi, persiapan, hingga distribusi dengan penugasan petugas per dokumen.
+- `recall`: alur retur ke supplier dari draft sampai selesai.
+- `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
+- `stock_opname`: proses hitung fisik dan cetak laporan selisih.
+- `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 
-### Placeholder
+### Modul pengembangan lanjutan
 
-- `reports`: index route is available, model layer is still placeholder (`backend/apps/reports/models.py`)
+- `reports`: rute indeks sudah tersedia, tetapi lapisan model masih berupa placeholder.
 
-## Workflow Snapshot
+## Ringkasan Workflow
 
-- Receiving (planned): `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`
-- Receiving (regular/imported): commonly persisted as `VERIFIED` after posting
-- Distribution: `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED` (or `REJECTED`, and non-distributed docs can be reset to `DRAFT`; submit requires assigned Petugas)
+- Receiving terencana: `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`
+- Receiving reguler atau hasil import: umumnya tercatat sebagai `VERIFIED` setelah posting.
+- Distribution: `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED`, dapat berakhir `REJECTED`, dan dokumen yang belum terdistribusi dapat dikembalikan ke `DRAFT`.
 - Recall: `DRAFT -> SUBMITTED -> VERIFIED -> COMPLETED`
 - Expired: `DRAFT -> SUBMITTED -> VERIFIED -> DISPOSED`
 - Stock transfer: `DRAFT -> COMPLETED`
 - Stock opname: `DRAFT -> IN_PROGRESS -> COMPLETED`
 
-## Data Model (At a Glance)
+## Model Data Singkat
 
-- Core inventory tables: `items`, `stock`, `transactions`
-- Document headers: `receivings`, `distributions`, `recalls`, `expired_docs`, `stock_transfers`, `stock_opnames`
-- Document lines: `receiving_items`, `receiving_order_items`, `distribution_items`, `recall_items`, `expired_items`, `stock_transfer_items`, `stock_opname_items`
-- Distribution staffing: `distribution_staff_assignments`
-- Authorization tables: `users`, `user_module_accesses`
+- Tabel inti inventaris: `items`, `stock`, `transactions`
+- Header dokumen: `receivings`, `distributions`, `recalls`, `expired_docs`, `stock_transfers`, `stock_opnames`
+- Baris dokumen: `receiving_items`, `receiving_order_items`, `distribution_items`, `recall_items`, `expired_items`, `stock_transfer_items`, `stock_opname_items`
+- Penugasan petugas distribusi: `distribution_staff_assignments`
+- Tabel otorisasi: `users`, `user_module_accesses`
 
-For canonical schema details, see `SYSTEM_MODEL.md`.
+Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 
-## Repository Layout
+## Keamanan
 
-```text
-Healthcare-Inventory-Management-System/
-|- README.md
-|- AGENTS.md
-|- SYSTEM_MODEL.md
-|- docker-compose.yml
-|- .env.example
-|- backend/
-|  |- manage.py
-|  |- requirements.txt
-|  |- config/
-|  |- apps/
-|  |- templates/
-|  |- static/
-|  |- seed/
-|  `- tests/
-|- requirements_draft/
-`- scripts/
-```
+- Perlindungan brute-force login menggunakan `django-axes`.
+- Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
+- Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.
 
-## Getting Started
+## Dokumentasi
 
-### 1) Clone
+- `docs/developer_guide.md`: panduan developer untuk setup lokal, testing, versioning, seed, import, dan tata kelola dokumentasi.
+- `SYSTEM_MODEL.md`: referensi skema data dan peta workflow.
+- `CHANGELOG.md`: riwayat perubahan dan rilis.
+- `backend/seed/README.md`: spesifikasi template CSV seed.
+- `requirements_draft/README.md`: catatan workflow import dan migrasi.
+- `requirements_draft/system_design_renew.md`: narasi desain fungsional dan arsitektur.
+- `requirements_draft/erd.md`: referensi ERD.
+- `requirements_draft/infrastructure_plan.md`: rencana infrastruktur dan deployment.
 
-```bash
-git clone git@github.com:ahliweb/Healthcare-Inventory-Management-System.git
-cd Healthcare-Inventory-Management-System
-```
+## Panduan Developer
 
-### 2) Configure environment
+Instruksi setup environment, migrasi database, pengujian, versioning, dan proses import dipindahkan ke `docs/developer_guide.md` agar README tetap fokus sebagai gambaran produk dan titik masuk utama repositori.
 
-```bash
-cp .env.example .env
-```
+## Lisensi
 
-Set at least:
-
-- `DJANGO_SECRET_KEY`
-- `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
-- `ALLOWED_HOSTS`
-
-### 3) Start infrastructure
-
-```bash
-docker compose up -d
-```
-
-### 4) Install Python dependencies
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-pip install -r backend/requirements.txt
-```
-
-On Windows PowerShell:
-
-```powershell
-venv\Scripts\activate
-pip install -r backend/requirements.txt
-```
-
-### 5) Run migrations and create admin user
-
-```bash
-cd backend
-python manage.py migrate
-python manage.py createsuperuser
-```
-
-### 6) Run development server
-
-```bash
-python manage.py runserver
-```
-
-App URL: `http://localhost:8000`
-Admin URL: `http://localhost:8000/admin/`
-
-## Testing
-
-- Recommended on Windows: `scripts/run-django-test.ps1`
-- Example:
-
-```powershell
-.\scripts\run-django-test.ps1 -Target apps.items
-```
-
-The script changes into `backend/`, optionally activates `venv`, and checks `crispy_forms` before running tests.
-
-## Versioning
-
-This repository now uses semantic versioning with `MAJOR.MINOR.PATCH` in the root `VERSION` file.
-
-- Show current version: `python manage.py app_version`
-- Bump patch version: `python manage.py app_version --patch`
-- Bump minor version: `python manage.py app_version --minor`
-- Bump major version: `python manage.py app_version --major`
-- Set explicit version: `python manage.py app_version --set 2.0.0`
-
-The active app version is loaded from `VERSION` at startup and shown in the authenticated UI header.
-
-### Automatic release on version bump
-
-When `VERSION` changes on `main`, GitHub Actions runs `.github/workflows/release-on-version-change.yml` to:
-
-- verify `python manage.py app_version` matches the `VERSION` file,
-- run `python manage.py test apps.core`,
-- create git tag `v<version>` (if it does not already exist),
-- create a GitHub Release for that tag.
-
-## Seed and Import
-
-- Seed templates live in `backend/seed/`
-- Import sequence: `units -> categories -> funding_sources -> programs -> locations -> suppliers -> facilities -> items -> receiving`
-- For initial stock, prefer `receiving.csv` via the custom Receiving Admin import (`/admin/receiving/receiving/import-csv/`) so stock and `Transaction(IN)` records are created together.
-
-Details: `backend/seed/README.md` and `requirements_draft/README.md`.
-
-## Security Notes
-
-- Brute-force lockout with `django-axes` (`AXES_FAILURE_LIMIT=5`, `AXES_COOLOFF_TIME=0.5`)
-- `axes.backends.AxesStandaloneBackend` is configured before Django `ModelBackend`
-- Session and CSRF cookies use `HttpOnly` and `SameSite=Lax`
-- Production hardening is enabled when `DEBUG=False` (HSTS, secure cookies, frame deny, referrer policy)
-
-## Documentation Index
-
-- `AGENTS.md`: coding-agent orientation and conventions
-- `CHANGELOG.md`: release notes and version history
-- `SYSTEM_MODEL.md`: canonical schema and workflow model map
-- `backend/seed/README.md`: CSV seed column specification
-- `requirements_draft/system_design_renew.md`: functional and architecture design narrative
-- `requirements_draft/erd.md`: ERD reference
-- `requirements_draft/infrastructure_plan.md`: infrastructure and deployment plan
-- `requirements_draft/README.md`: import workflow and migration notes
-
-## Documentation Governance Plan
-
-Use this cycle to keep all docs aligned with code and best practices.
-
-1. Inventory all documentation files in repository root, `requirements_draft/`, and `backend/seed/`.
-2. Map each statement in docs to source-of-truth files:
-   - models -> `backend/apps/*/models.py`
-   - routes -> `backend/config/urls.py` and `backend/apps/*/urls.py`
-   - security/settings -> `backend/config/settings.py`
-   - scripts -> `scripts/`
-3. Validate third-party guidance against Context7 primary references:
-   - `/django/django`
-   - `/websites/django-import-export_readthedocs_io_en`
-   - `/jazzband/django-axes`
-4. Flag drift by severity:
-   - Critical: wrong schema, workflow, auth, or security behavior
-   - Major: outdated commands/routes/env vars
-   - Minor: wording/format/terminology inconsistency
-5. Update canonical docs first (`SYSTEM_MODEL.md`, `README.md`, `AGENTS.md`), then dependent drafts.
-6. Add or update "Last verified" metadata and include verification source paths.
-7. Run doc QA checklist before merge:
-   - no route mismatch
-   - no model/table mismatch
-   - all commands executable as written
-   - all environment keys exist
-8. Enforce ongoing maintenance by requiring doc updates in PRs that change models, routes, settings, or scripts.
-
-## License
-
-MIT. See `LICENSE`.
+MIT. Lihat `LICENSE`.
