@@ -14,6 +14,16 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Distribution reset-to-draft status check now includes `DISTRIBUTED` in `distribution_detail` flow conditions.
 
+## [1.1.1] - 2026-03-23
+
+### Added
+
+- Distribution print view: include stock batch, expiry date columns and "Kepala Instalasi Farmasi" signature field.
+
+### Changed
+
+- Print layout updated to support three signature columns and display assigned staff and kepala instalasi.
+
 ## [1.0.3] - 2026-03-23
 
 ### Added
