@@ -20,6 +20,7 @@ ROLE_GROUP_MAP = {
     "ADMIN_UMUM": "ADMIN UMUM",
     "GUDANG": "GUDANG",
     "AUDITOR": "AUDITOR",
+    "PUSKESMAS": "OPERATOR PUSKESMAS",
 }
 
 # Roles that should have Django Admin panel access (is_staff=True)
