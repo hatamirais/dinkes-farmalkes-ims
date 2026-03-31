@@ -25,6 +25,9 @@ from .models import LPLPO, LPLPOItem, get_penerimaan_for_facility_period, get_pr
 @login_required
 def lplpo_list(request):
     """All LPLPOs — for Instalasi Farmasi staff."""
+    if getattr(request.user, "role", "") == "PUSKESMAS":
+        return redirect("lplpo:lplpo_my_list")
+
     queryset = LPLPO.objects.select_related("facility", "created_by").order_by(
         "-tahun", "-bulan"
     )
@@ -113,11 +116,14 @@ def lplpo_create(request):
             # Determine facility
             facility = request.user.facility
             if not facility:
+                facility = form.cleaned_data.get("facility")
+
+            if not facility:
                 messages.error(
                     request,
-                    "Akun Anda belum terhubung ke fasilitas. Hubungi administrator.",
+                    "Pilih fasilitas puskesmas atau hubungi administrator untuk menghubungkan akun Anda.",
                 )
-                return redirect("lplpo:lplpo_my_list")
+                return render(request, "lplpo/lplpo_create.html", {"form": form})
 
             # Check uniqueness
             if LPLPO.objects.filter(

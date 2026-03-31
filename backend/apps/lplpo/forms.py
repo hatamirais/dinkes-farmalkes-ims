@@ -21,11 +21,25 @@ class LPLPOCreateForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control"}),
         label="Tahun",
     )
+    facility = forms.ModelChoiceField(
+        queryset=None,  # Populated in __init__
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Fasilitas (Puskesmas)",
+        help_text="Pilih puskesmas jika Anda bertindak mewakili puskesmas."
+    )
     notes = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         label="Catatan",
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.items.models import Facility
+        self.fields["facility"].queryset = Facility.objects.filter(
+            facility_type="PUSKESMAS", is_active=True
+        )
 
 
 class LPLPOItemPuskesmasForm(forms.ModelForm):

@@ -29,6 +29,17 @@
                             <div class="text-danger small">{{ form.tahun.errors }}</div>
                             {% endif %}
                         </div>
+
+                        {% if not request.user.facility %}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Fasilitas <span class="text-danger">*</span></label>
+                            {{ form.facility }}
+                            {% if form.facility.errors %}
+                            <div class="text-danger small">{{ form.facility.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">{{ form.facility.help_text }}</div>
+                        </div>
+                        {% endif %}
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Catatan</label>
                             {{ form.notes }}
