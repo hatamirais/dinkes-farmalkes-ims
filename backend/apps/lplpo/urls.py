@@ -12,5 +12,6 @@ urlpatterns = [
     path("<int:pk>/submit/", views.lplpo_submit, name="lplpo_submit"),
     path("<int:pk>/review/", views.lplpo_review, name="lplpo_review"),
     path("<int:pk>/finalize/", views.lplpo_finalize, name="lplpo_finalize"),
+    path("<int:pk>/delete/", views.lplpo_delete, name="lplpo_delete"),
     path("<int:pk>/print/", views.lplpo_print, name="lplpo_print"),
 ]

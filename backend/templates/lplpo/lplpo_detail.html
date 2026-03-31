@@ -158,6 +158,13 @@
                             <i class="bi bi-send me-1"></i>Ajukan
                         </button>
                     </form>
+                    <form method="post" action="{% url 'lplpo:lplpo_delete' lplpo.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger w-100" id="delete-btn"
+                            onclick="return confirm('Hapus LPLPO ini? Tindakan ini tidak dapat dibatalkan.')">
+                            <i class="bi bi-trash me-1"></i>Hapus
+                        </button>
+                    </form>
 
                     {% elif lplpo.status == 'SUBMITTED' %}
                     <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}" class="btn btn-info w-100 text-white" id="review-btn">

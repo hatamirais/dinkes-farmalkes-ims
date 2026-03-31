@@ -550,3 +550,34 @@ def lplpo_print(request, pk):
             "grouped_items": grouped_items,
         },
     )
+
+
+# ══════════════════════════ Delete ══════════════════════════
+
+
+@login_required
+@perm_required("lplpo.delete_lplpo")
+def lplpo_delete(request, pk):
+    """Delete a DRAFT LPLPO document."""
+    lplpo_obj = get_object_or_404(LPLPO, pk=pk)
+
+    if request.method != "POST":
+        return redirect("lplpo:lplpo_detail", pk=pk)
+
+    # Enforce facility scope
+    denied = _check_facility_access(request, lplpo_obj)
+    if denied:
+        return denied
+
+    if lplpo_obj.status != LPLPO.Status.DRAFT:
+        messages.error(request, "Hanya LPLPO berstatus Draft yang dapat dihapus.")
+        return redirect("lplpo:lplpo_detail", pk=pk)
+
+    doc_number = lplpo_obj.document_number
+    lplpo_obj.delete()
+    messages.success(request, f"LPLPO {doc_number} berhasil dihapus.")
+
+    if request.user.role == "PUSKESMAS":
+        return redirect("lplpo:lplpo_my_list")
+    return redirect("lplpo:lplpo_list")
+
