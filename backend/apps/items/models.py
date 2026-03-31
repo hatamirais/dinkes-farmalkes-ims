@@ -145,6 +145,7 @@ class Facility(TimeStampedModel):
         PUSKESMAS = "PUSKESMAS", "Puskesmas"
         RS = "RS", "Rumah Sakit"
         CLINIC = "CLINIC", "Klinik"
+        LABORATORIUM = "LABORATORIUM", "Laboratorium"
 
     code = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=255)
