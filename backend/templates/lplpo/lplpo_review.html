@@ -6,6 +6,7 @@
 {% block extra_css %}
 <style>
     .lplpo-table input { min-width: 80px; }
+    .lplpo-table textarea { min-width: 220px; min-height: 72px; }
     .computed-cell { background: var(--bs-tertiary-bg); }
     .category-header { background: var(--bs-primary-bg-subtle); }
     .stock-info { font-size: 0.75rem; color: var(--bs-secondary); }
@@ -41,14 +42,14 @@
                                 <th class="text-end computed-cell" style="width:75px">Sisa Stok</th>
                                 <th class="text-end computed-cell" style="width:75px">Kebutuhan</th>
                                 <th class="text-end" style="width:75px">Diminta</th>
-                                <th class="text-end" style="width:75px">Alasan Minta</th>
+                                <th class="text-end" style="width:240px; min-width:240px;">Alasan Minta</th>
                                 <th class="text-center" style="width:85px">
                                     <span class="text-success"><i class="bi bi-box-seam me-1"></i>Stok Gudang IF</span>
                                 </th>
                                 <th class="text-center" style="width:100px">
                                     <span class="text-primary fw-bold">Pemberian</span>
                                 </th>
-                                <th style="width:120px">Alasan Pemberian</th>
+                                <th style="width:260px; min-width:260px;">Alasan Pemberian</th>
                             </tr>
                         </thead>
                         <tbody>
