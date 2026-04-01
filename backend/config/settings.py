@@ -161,6 +161,12 @@ EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 
+# LPLPO and similar wide table forms can submit thousands of fields in one POST.
+# Raise Django's default field-count limit so bulk monthly forms can be saved.
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
+    os.getenv("DATA_UPLOAD_MAX_NUMBER_FIELDS", "10000")
+)
+
 # ─── Session Security ────────────────────────────────────────────────
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_SAVE_EVERY_REQUEST = True  # Sliding expiry (resets on activity)
