@@ -250,6 +250,17 @@
                     </div>
                     <div class="d-flex align-items-center gap-3">
                         <span class="badge text-bg-light border">v{{ app_version }}</span>
+                        {% if user.is_authenticated and user.role != 'PUSKESMAS' %}
+                        <a href="{% url 'dashboard' %}#notification-center" class="btn btn-link position-relative p-1" title="Notifikasi dokumen tertunda" aria-label="Notifikasi">
+                            <i class="bi bi-bell fs-5"></i>
+                            {% if nav_notification_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;">
+                                {{ nav_notification_count }}
+                                <span class="visually-hidden">dokumen tertunda</span>
+                            </span>
+                            {% endif %}
+                        </a>
+                        {% endif %}
                         <div class="dropdown">
                             <button class="btn btn-link dropdown-toggle user-dropdown" type="button"
                                 data-bs-toggle="dropdown">

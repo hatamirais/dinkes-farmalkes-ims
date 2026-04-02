@@ -5,6 +5,71 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<!-- Notification Center -->
+<div class="row g-3 mb-4" id="notification-center">
+    <div class="col-12">
+        <div class="card content-card">
+            <div class="card-header">
+                <span>
+                    <i class="bi bi-bell me-2"></i>Pusat Notifikasi
+                </span>
+                {% if total_pending > 0 %}
+                <span class="badge bg-danger rounded-pill">{{ total_pending }} tertunda</span>
+                {% else %}
+                <span class="badge bg-success-subtle text-success rounded-pill">Semua selesai</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if active_notification_modules %}
+                <div class="row g-3">
+                    {% for module in notification_modules %}
+                    {% if module.count > 0 %}
+                    <div class="col-md-6 col-xl-4">
+                        <div class="border rounded-3 p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi {{ module.icon }} text-{{ module.color }}"></i>
+                                    <span class="fw-semibold small">{{ module.label }}</span>
+                                </div>
+                                <span class="badge bg-danger rounded-pill">{{ module.count }}</span>
+                            </div>
+                            {% for item in module.recent %}
+                            <a href="{{ item.url }}" class="d-flex justify-content-between align-items-start text-decoration-none py-2 border-top gap-2">
+                                <div class="min-w-0">
+                                    <div class="fw-semibold small text-dark text-truncate">{{ item.doc_number }}</div>
+                                    <div class="text-muted" style="font-size:0.75rem;">{{ item.status_display }}</div>
+                                </div>
+                                <div class="text-muted text-nowrap" style="font-size:0.75rem;">{{ item.created_at|date:"d/m/Y" }}</div>
+                            </a>
+                            {% endfor %}
+                            {% if module.count > 3 %}
+                            <a href="{{ module.list_url }}" class="d-block text-center small text-primary pt-2 border-top">
+                                +{{ module.count|add:"-3" }} dokumen lainnya &rarr;
+                            </a>
+                            {% else %}
+                            <a href="{{ module.list_url }}" class="d-block text-center small text-muted pt-2 border-top">
+                                Lihat semua &rarr;
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="d-flex align-items-center gap-3 py-2">
+                    <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                    <div>
+                        <div class="fw-semibold">Tidak ada dokumen yang menunggu tindakan</div>
+                        <div class="text-muted small">Semua alur kerja sudah up-to-date.</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Stats Row -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">

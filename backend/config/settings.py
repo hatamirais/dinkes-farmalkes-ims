@@ -89,6 +89,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.core.context_processors.app_version",
                 "apps.users.context_processors.access_flags",
+                "apps.core.context_processors.nav_notifications",
             ],
         },
     },
