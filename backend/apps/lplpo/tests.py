@@ -260,6 +260,51 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 		self.assertEqual(response.status_code, 403)
 
+	def test_puskesmas_list_uses_operator_friendly_status_labels(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.DISTRIBUTED)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.get(reverse("lplpo:lplpo_my_list"))
+
+		self.assertContains(response, "Dokumen Distribusi Dibuat")
+		self.assertNotContains(
+			response,
+			'<span class="badge text-bg-primary">Didistribusikan</span>',
+			html=True,
+		)
+
+	def test_puskesmas_detail_uses_operator_friendly_status_labels(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.REVIEWED)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertContains(response, "Disetujui / Menunggu Proses Distribusi")
+		self.assertNotContains(response, "<strong>Ditinjau</strong>", html=True)
+
+	def test_puskesmas_detail_hides_distribution_navigation(self):
+		distribution = Distribution.objects.create(
+			distribution_type=Distribution.DistributionType.LPLPO,
+			facility=self.facility,
+			request_date=date(2026, 2, 1),
+			status=Distribution.Status.DRAFT,
+			created_by=self.staff_user,
+		)
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.DISTRIBUTED,
+			distribution=distribution,
+		)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertContains(response, distribution.document_number)
+		self.assertNotContains(response, 'id="view-dist-btn"')
+		self.assertNotContains(
+			response,
+			reverse("distribution:distribution_detail", args=[distribution.pk]),
+		)
+
 	def test_finalize_creates_distribution(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.REVIEWED, created_by=self.staff_user)
 		LPLPOItem.objects.create(

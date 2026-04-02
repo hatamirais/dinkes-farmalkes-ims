@@ -35,7 +35,23 @@
                     <select name="status" class="form-select form-select-sm" id="status-filter">
                         <option value="">Semua Status</option>
                         {% for val, label in status_choices %}
-                        <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>{{ label }}</option>
+                        <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>
+                            {% if request.user.role == 'PUSKESMAS' %}
+                                {% if val == 'SUBMITTED' %}
+                                Menunggu Tinjauan
+                                {% elif val == 'REVIEWED' %}
+                                Disetujui / Menunggu Proses Distribusi
+                                {% elif val == 'DISTRIBUTED' %}
+                                Dokumen Distribusi Dibuat
+                                {% elif val == 'CLOSED' %}
+                                Sudah Didistribusikan
+                                {% else %}
+                                {{ label }}
+                                {% endif %}
+                            {% else %}
+                            {{ label }}
+                            {% endif %}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -91,13 +107,13 @@
                                 {% if lp.status == 'DRAFT' %}
                                 <span class="badge text-bg-secondary">Draft</span>
                                 {% elif lp.status == 'SUBMITTED' %}
-                                <span class="badge text-bg-warning">Diajukan</span>
+                                <span class="badge text-bg-warning">{% if request.user.role == 'PUSKESMAS' %}Menunggu Tinjauan{% else %}Diajukan{% endif %}</span>
                                 {% elif lp.status == 'REVIEWED' %}
-                                <span class="badge text-bg-info">Ditinjau</span>
+                                <span class="badge text-bg-info">{% if request.user.role == 'PUSKESMAS' %}Disetujui / Menunggu Proses Distribusi{% else %}Ditinjau{% endif %}</span>
                                 {% elif lp.status == 'DISTRIBUTED' %}
-                                <span class="badge text-bg-primary">Didistribusikan</span>
+                                <span class="badge text-bg-primary">{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Dibuat{% else %}Didistribusikan{% endif %}</span>
                                 {% elif lp.status == 'CLOSED' %}
-                                <span class="badge text-bg-success">Ditutup</span>
+                                <span class="badge text-bg-success">{% if request.user.role == 'PUSKESMAS' %}Sudah Didistribusikan{% else %}Ditutup{% endif %}</span>
                                 {% endif %}
                             </td>
                             <td class="text-muted small">{{ lp.created_by }}</td>

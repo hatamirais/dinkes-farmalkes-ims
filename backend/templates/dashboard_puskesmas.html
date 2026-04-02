@@ -58,7 +58,19 @@
                     <div class="text-muted small mb-1">Periode Terakhir</div>
                     {% if latest_lplpo %}
                     <div class="h5 mb-1">{{ latest_lplpo.period_display }}</div>
-                    <div class="stat-label">{{ latest_lplpo.get_status_display }}</div>
+                    <div class="stat-label">
+                        {% if latest_lplpo.status == 'DRAFT' %}
+                        Draft
+                        {% elif latest_lplpo.status == 'SUBMITTED' %}
+                        Menunggu Tinjauan
+                        {% elif latest_lplpo.status == 'REVIEWED' %}
+                        Disetujui / Menunggu Proses Distribusi
+                        {% elif latest_lplpo.status == 'DISTRIBUTED' %}
+                        Dokumen Distribusi Dibuat
+                        {% elif latest_lplpo.status == 'CLOSED' %}
+                        Sudah Didistribusikan
+                        {% endif %}
+                    </div>
                     {% else %}
                     <div class="h5 mb-1">Belum Ada</div>
                     <div class="stat-label">LPLPO belum dibuat</div>
@@ -85,7 +97,19 @@
                                     <div class="fw-semibold">{{ lplpo.document_number }}</div>
                                     <div class="text-muted small">{{ lplpo.period_display }}</div>
                                 </div>
-                                <span class="badge text-bg-light border">{{ lplpo.get_status_display }}</span>
+                                <span class="badge text-bg-light border">
+                                    {% if lplpo.status == 'DRAFT' %}
+                                    Draft
+                                    {% elif lplpo.status == 'SUBMITTED' %}
+                                    Menunggu Tinjauan
+                                    {% elif lplpo.status == 'REVIEWED' %}
+                                    Disetujui / Menunggu Proses Distribusi
+                                    {% elif lplpo.status == 'DISTRIBUTED' %}
+                                    Dokumen Distribusi Dibuat
+                                    {% elif lplpo.status == 'CLOSED' %}
+                                    Sudah Didistribusikan
+                                    {% endif %}
+                                </span>
                             </div>
                         </a>
                         {% endfor %}
