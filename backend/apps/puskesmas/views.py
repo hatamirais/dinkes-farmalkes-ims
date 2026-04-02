@@ -67,7 +67,7 @@ def request_list(request):
 @perm_required("puskesmas.add_puskesmasrequest")
 def request_create(request):
     if request.method == "POST":
-        form = PuskesmasRequestForm(request.POST)
+        form = PuskesmasRequestForm(request.POST, user=request.user)
         formset = PuskesmasRequestItemFormSet(request.POST, prefix="items")
 
         if form.is_valid() and formset.is_valid():
@@ -85,7 +85,7 @@ def request_create(request):
             )
             return redirect("puskesmas:request_detail", pk=req.pk)
     else:
-        form = PuskesmasRequestForm()
+        form = PuskesmasRequestForm(user=request.user)
         formset = PuskesmasRequestItemFormSet(prefix="items")
 
     return render(
@@ -145,7 +145,7 @@ def request_edit(request, pk):
         return redirect("puskesmas:request_detail", pk=req.pk)
 
     if request.method == "POST":
-        form = PuskesmasRequestForm(request.POST, instance=req)
+        form = PuskesmasRequestForm(request.POST, instance=req, user=request.user)
         formset = PuskesmasRequestItemFormSet(request.POST, instance=req, prefix="items")
 
         if form.is_valid() and formset.is_valid():
@@ -156,7 +156,7 @@ def request_edit(request, pk):
             )
             return redirect("puskesmas:request_detail", pk=req.pk)
     else:
-        form = PuskesmasRequestForm(instance=req)
+        form = PuskesmasRequestForm(instance=req, user=request.user)
         formset = PuskesmasRequestItemFormSet(instance=req, prefix="items")
 
     return render(

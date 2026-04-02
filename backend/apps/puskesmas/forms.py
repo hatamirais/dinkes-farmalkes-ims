@@ -1,6 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
 from apps.items.models import Facility, Item
+from apps.users.models import User
 
 from .models import PuskesmasRequest, PuskesmasRequestItem
 
@@ -25,6 +26,7 @@ class PuskesmasRequestForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["document_number"].required = False
         self.fields["program"].required = False
@@ -33,6 +35,20 @@ class PuskesmasRequestForm(forms.ModelForm):
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type=Facility.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
+        if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            self.fields["facility"].widget = forms.HiddenInput()
+            self.fields["facility"].required = False
+            if self.user.facility_id:
+                self.fields["facility"].initial = self.user.facility_id
+
+    def clean_facility(self):
+        if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            if not self.user.facility_id:
+                raise forms.ValidationError(
+                    "Akun operator belum terhubung ke fasilitas puskesmas."
+                )
+            return self.user.facility
+        return self.cleaned_data.get("facility")
 
 
 class PuskesmasRequestItemForm(forms.ModelForm):
@@ -62,9 +78,7 @@ class PuskesmasRequestItemForm(forms.ModelForm):
             .filter(is_active=True)
             .order_by("-is_program_item", "kode_barang")
         )
-        self.fields["item"].label_from_instance = lambda obj: (
-            f"{'[P] ' if obj.is_program_item else ''}{obj.kode_barang} – {obj.nama_barang} ({obj.satuan.code})"
-        )
+        self.fields["item"].label_from_instance = lambda obj: obj.nama_barang
 
     def clean_quantity_requested(self):
         qty = self.cleaned_data.get("quantity_requested")

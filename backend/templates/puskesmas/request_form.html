@@ -38,7 +38,12 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold">Puskesmas <span class="text-danger">*</span></label>
+                                {% if request.user.role == 'PUSKESMAS' %}
                                 {{ form.facility }}
+                                <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" readonly>
+                                {% else %}
+                                {{ form.facility }}
+                                {% endif %}
                                 {% if form.facility.errors %}
                                 <div class="text-danger small">{{ form.facility.errors }}</div>
                                 {% endif %}

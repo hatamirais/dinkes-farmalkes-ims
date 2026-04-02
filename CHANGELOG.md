@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.4.7] - 2026-04-02
+
+### Changed
+
+- Version bumped before starting Permintaan Khusus module changes.
+
 ## [1.4.5] - 2026-04-01
 
 ### Added
