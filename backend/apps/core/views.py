@@ -7,11 +7,64 @@ from decimal import Decimal
 from django.db.models import Sum, Q, F, DecimalField, ExpressionWrapper
 
 from apps.items.models import Item
+from apps.lplpo.models import LPLPO
+from apps.puskesmas.models import PuskesmasRequest
 from apps.stock.models import Stock, Transaction
+from apps.users.models import User
 
 
 @login_required
 def dashboard(request):
+    if request.user.role == User.Role.PUSKESMAS:
+        facility = request.user.facility
+        if not facility:
+            return render(
+                request,
+                "dashboard_puskesmas.html",
+                {
+                    "facility": None,
+                    "draft_lplpo_count": 0,
+                    "submitted_lplpo_count": 0,
+                    "reviewed_lplpo_count": 0,
+                    "recent_lplpos": [],
+                    "recent_requests": [],
+                    "latest_lplpo": None,
+                },
+            )
+
+        lplpo_queryset = LPLPO.objects.filter(facility=facility).select_related(
+            "facility"
+        )
+        request_queryset = PuskesmasRequest.objects.filter(
+            facility=facility
+        ).select_related("program")
+
+        latest_lplpo = lplpo_queryset.order_by("-tahun", "-bulan", "-created_at").first()
+        draft_lplpo_count = lplpo_queryset.filter(status=LPLPO.Status.DRAFT).count()
+        submitted_lplpo_count = lplpo_queryset.filter(
+            status=LPLPO.Status.SUBMITTED
+        ).count()
+        reviewed_lplpo_count = lplpo_queryset.filter(
+            status=LPLPO.Status.REVIEWED
+        ).count()
+
+        recent_lplpos = lplpo_queryset.order_by("-tahun", "-bulan", "-created_at")[:5]
+        recent_requests = request_queryset.order_by("-request_date", "-created_at")[:5]
+
+        return render(
+            request,
+            "dashboard_puskesmas.html",
+            {
+                "facility": facility,
+                "draft_lplpo_count": draft_lplpo_count,
+                "submitted_lplpo_count": submitted_lplpo_count,
+                "reviewed_lplpo_count": reviewed_lplpo_count,
+                "recent_lplpos": recent_lplpos,
+                "recent_requests": recent_requests,
+                "latest_lplpo": latest_lplpo,
+            },
+        )
+
     today = timezone.now().date()
     three_months_later = today + timedelta(days=90)
     thirty_days_ago = today - timedelta(days=29)

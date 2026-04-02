@@ -1,9 +1,15 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from django.test import TestCase
 from django.test import SimpleTestCase
+from django.urls import reverse
 
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
+from apps.items.models import Facility
+from apps.lplpo.models import LPLPO
+from apps.puskesmas.models import PuskesmasRequest
+from apps.users.models import User
 
 
 class SemanticVersionTests(SimpleTestCase):
@@ -36,3 +42,77 @@ class SemanticVersionTests(SimpleTestCase):
             write_version(version_file, expected)
 
             self.assertEqual(str(read_version(version_file)), "1.2.3")
+
+
+class DashboardViewTests(TestCase):
+    def setUp(self):
+        self.facility = Facility.objects.create(
+            code="PKM-A",
+            name="Puskesmas A",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        self.other_facility = Facility.objects.create(
+            code="PKM-B",
+            name="Puskesmas B",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        self.puskesmas_user = User.objects.create_user(
+            username="operator-a",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+            facility=self.facility,
+        )
+
+    def test_puskesmas_dashboard_uses_facility_scoped_template(self):
+        own_lplpo = LPLPO.objects.create(
+            facility=self.facility,
+            bulan=3,
+            tahun=2026,
+            status=LPLPO.Status.DRAFT,
+            created_by=self.puskesmas_user,
+        )
+        other_lplpo = LPLPO.objects.create(
+            facility=self.other_facility,
+            bulan=3,
+            tahun=2026,
+            status=LPLPO.Status.SUBMITTED,
+            created_by=self.puskesmas_user,
+        )
+        own_request = PuskesmasRequest.objects.create(
+            facility=self.facility,
+            created_by=self.puskesmas_user,
+            status=PuskesmasRequest.Status.DRAFT,
+        )
+        other_request = PuskesmasRequest.objects.create(
+            facility=self.other_facility,
+            created_by=self.puskesmas_user,
+            status=PuskesmasRequest.Status.SUBMITTED,
+        )
+
+        self.client.force_login(self.puskesmas_user)
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dashboard_puskesmas.html")
+        self.assertEqual(response.context["facility"], self.facility)
+        self.assertEqual(response.context["latest_lplpo"], own_lplpo)
+        self.assertEqual(list(response.context["recent_lplpos"]), [own_lplpo])
+        self.assertEqual(list(response.context["recent_requests"]), [own_request])
+        self.assertNotIn(other_lplpo, response.context["recent_lplpos"])
+        self.assertNotIn(other_request, response.context["recent_requests"])
+
+    def test_puskesmas_dashboard_handles_missing_facility(self):
+        user = User.objects.create_user(
+            username="operator-no-facility",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dashboard_puskesmas.html")
+        self.assertIsNone(response.context["facility"])
+        self.assertEqual(list(response.context["recent_lplpos"]), [])
+        self.assertEqual(list(response.context["recent_requests"]), [])
