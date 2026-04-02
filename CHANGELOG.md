@@ -4,11 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
-## [1.4.7] - 2026-04-02
+## [1.5.0] - 2026-04-02
 
 ### Changed
 
-- Version bumped before starting Permintaan Khusus module changes.
+- LPLPO behavior for Puskesmas operators now uses facility-scoped dashboard data, role-specific status wording, and stricter navigation/access boundaries around review and distribution flows.
+- Permintaan Khusus behavior for Puskesmas operators now auto-binds requests to the operator's own facility and simplifies barang selection labels to item names only.
 
 ## [1.4.5] - 2026-04-01
 
