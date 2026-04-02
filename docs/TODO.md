@@ -14,3 +14,5 @@
    - OWASP top 10
    - ISO 27001
    - OWASP ASVS level 2
+6. Add in-app settings for the Dashboard (logo, facility names, header fields) to use when generating document headers
+
