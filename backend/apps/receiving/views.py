@@ -34,21 +34,11 @@ def receiving_list(request):
         .order_by("-receiving_date")
     )
 
-    regular_statuses = [
-        Receiving.Status.DRAFT,
-        Receiving.Status.SUBMITTED,
-        Receiving.Status.VERIFIED,
-    ]
-
     search = request.GET.get("q", "").strip()
     if search:
         queryset = queryset.filter(
             Q(document_number__icontains=search) | Q(supplier__name__icontains=search)
         )
-
-    status = request.GET.get("status")
-    if status:
-        queryset = queryset.filter(status=status)
 
     r_type = request.GET.get("type")
     if r_type:
@@ -63,17 +53,7 @@ def receiving_list(request):
         {
             "receivings": receivings,
             "search": search,
-            "selected_status": status or "",
             "selected_type": r_type or "",
-            "status_options": [
-                {
-                    "value": value,
-                    "label": label,
-                    "selected": "selected" if status == value else "",
-                }
-                for value, label in Receiving.Status.choices
-                if value in regular_statuses
-            ],
             "type_procurement": "selected" if r_type == "PROCUREMENT" else "",
             "type_grant": "selected" if r_type == "GRANT" else "",
         },
@@ -259,6 +239,7 @@ def receiving_detail(request, pk):
             "supplier", "sumber_dana", "created_by", "verified_by"
         ),
         pk=pk,
+        is_planned=False,
     )
     items = receiving.items.select_related("item", "item__satuan")
 

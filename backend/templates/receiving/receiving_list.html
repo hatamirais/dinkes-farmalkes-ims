@@ -15,12 +15,6 @@
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
             <input type="text" name="q" class="form-control" placeholder="Cari no. dokumen / supplier..." value="{{ search }}">
-            <select name="status" class="form-select">
-                <option value="">Semua Status</option>
-                {% for option in status_options %}
-                <option value="{{ option.value }}" {{ option.selected }}>{{ option.label }}</option>
-                {% endfor %}
-            </select>
             <select name="type" class="form-select">
                 <option value="">Semua Tipe</option>
                 <option value="PROCUREMENT" {{ type_procurement }}>Pengadaan</option>
@@ -28,17 +22,11 @@
             </select>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
-                {% if search or selected_status or selected_type %}
+                {% if search or selected_type %}
                 <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
         </form>
-        <div class="mt-2 status-legend">
-            <span class="label">Status:</span>
-            {% for option in status_options %}
-            <span class="badge-status badge-{{ option.value|lower }}">{{ option.label }}</span>
-            {% endfor %}
-        </div>
     </div>
 
     <div class="table-responsive">

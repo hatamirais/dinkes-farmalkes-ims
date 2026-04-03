@@ -17,10 +17,23 @@ def _get_receiving_type_choices():
     return builtin_choices + custom_choices
 
 
-class ReceivingForm(forms.ModelForm):
+class BaseReceivingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["receiving_type"].choices = _get_receiving_type_choices()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        receiving_type = cleaned_data.get("receiving_type")
+        supplier = cleaned_data.get("supplier")
+
+        if receiving_type == Receiving.ReceivingType.PROCUREMENT and not supplier:
+            self.add_error("supplier", "Supplier wajib diisi untuk tipe Pengadaan.")
+
+        return cleaned_data
+
+
+class ReceivingForm(BaseReceivingForm):
 
     class Meta:
         model = Receiving
@@ -44,10 +57,7 @@ class ReceivingForm(forms.ModelForm):
         }
 
 
-class PlannedReceivingForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["receiving_type"].choices = _get_receiving_type_choices()
+class PlannedReceivingForm(BaseReceivingForm):
 
     class Meta:
         model = Receiving

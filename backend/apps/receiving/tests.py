@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.receiving.admin import ReceivingAdmin
+from apps.receiving.forms import PlannedReceivingForm, ReceivingForm
 from apps.receiving.models import (
     Receiving,
     ReceivingItem,
@@ -267,7 +268,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_regular_receiving_list_uses_model_status_labels_in_filter_and_legend(self):
+    def test_regular_receiving_list_does_not_show_redundant_status_filter(self):
         Receiving.objects.create(
             document_number="RCV-2026-99994",
             receiving_type=Receiving.ReceivingType.GRANT,
@@ -282,11 +283,51 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.get(reverse("receiving:receiving_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '>Diajukan</option>', html=False)
-        self.assertContains(response, '>Terverifikasi</option>', html=False)
-        self.assertContains(response, '<span class="badge-status badge-verified">Terverifikasi</span>', html=False)
-        self.assertNotContains(response, '>Verified</option>', html=False)
-        self.assertNotContains(response, '>Submitted</option>', html=False)
+        self.assertNotContains(response, 'name="status"', html=False)
+        self.assertNotContains(response, 'Status:</span>', html=False)
+        self.assertContains(response, 'badge-status badge-verified', html=False)
+
+    def test_regular_receiving_detail_rejects_planned_receiving(self):
+        planned_receiving = Receiving.objects.create(
+            document_number="RCV-2026-99993",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+
+        response = self.client.get(
+            reverse("receiving:receiving_detail", args=[planned_receiving.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_procurement_receiving_forms_require_supplier(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": Receiving.ReceivingType.PROCUREMENT,
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(
+            regular_form.errors["supplier"],
+            ["Supplier wajib diisi untuk tipe Pengadaan."],
+        )
+        self.assertEqual(
+            planned_form.errors["supplier"],
+            ["Supplier wajib diisi untuk tipe Pengadaan."],
+        )
 
     def test_plan_receive_page_uses_fixed_rows_without_delete_control(self):
         receiving = Receiving.objects.create(
