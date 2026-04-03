@@ -1,23 +1,16 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Sum, Q, F, DecimalField, ExpressionWrapper
 
-from apps.distribution.models import Distribution
-from apps.expired.models import Expired as ExpiredDoc
 from apps.items.models import Item
 from apps.lplpo.models import LPLPO
 from apps.puskesmas.models import PuskesmasRequest
-from apps.recall.models import Recall
-from apps.receiving.models import Receiving
 from apps.stock.models import Stock, Transaction
-from apps.stock_opname.models import StockOpname
-from apps.users.access import has_module_scope
-from apps.users.models import ModuleAccess, User
+from apps.users.models import User
 
 
 @login_required
@@ -137,151 +130,6 @@ def dashboard(request):
         "-created_at"
     )[:10]
 
-    # ── Notification Center ─────────────────────────────────────────────────
-    notification_modules = []
-    user = request.user
-
-    def _recent_docs(qs, detail_url_name, limit=3):
-        """Return a list of dicts suitable for the notification panel."""
-        items = []
-        for obj in qs[:limit]:
-            items.append(
-                {
-                    "doc_number": obj.document_number,
-                    "status_display": obj.get_status_display(),
-                    "created_at": obj.created_at,
-                    "url": reverse(detail_url_name, args=[obj.pk]),
-                }
-            )
-        return items
-
-    if has_module_scope(user, ModuleAccess.Module.RECEIVING, ModuleAccess.Scope.VIEW):
-        pending_qs = Receiving.objects.filter(
-            status__in=[
-                Receiving.Status.SUBMITTED,
-                Receiving.Status.APPROVED,
-                Receiving.Status.PARTIAL,
-            ]
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "Penerimaan",
-                "icon": "bi-inbox-fill",
-                "color": "primary",
-                "list_url": reverse("receiving:receiving_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "receiving:receiving_detail"),
-            }
-        )
-
-    if has_module_scope(
-        user, ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.VIEW
-    ):
-        pending_qs = Distribution.objects.filter(
-            status__in=[
-                Distribution.Status.SUBMITTED,
-                Distribution.Status.VERIFIED,
-                Distribution.Status.PREPARED,
-            ]
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "Distribusi",
-                "icon": "bi-send",
-                "color": "success",
-                "list_url": reverse("distribution:distribution_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "distribution:distribution_detail"),
-            }
-        )
-
-    if has_module_scope(user, ModuleAccess.Module.RECALL, ModuleAccess.Scope.VIEW):
-        pending_qs = Recall.objects.filter(
-            status__in=[Recall.Status.SUBMITTED, Recall.Status.VERIFIED]
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "Recall / Retur",
-                "icon": "bi-arrow-return-left",
-                "color": "warning",
-                "list_url": reverse("recall:recall_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "recall:recall_detail"),
-            }
-        )
-
-    if has_module_scope(user, ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.VIEW):
-        pending_qs = ExpiredDoc.objects.filter(
-            status__in=[ExpiredDoc.Status.SUBMITTED, ExpiredDoc.Status.VERIFIED]
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "Kadaluarsa",
-                "icon": "bi-trash",
-                "color": "danger",
-                "list_url": reverse("expired:expired_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "expired:expired_detail"),
-            }
-        )
-
-    if has_module_scope(
-        user, ModuleAccess.Module.STOCK_OPNAME, ModuleAccess.Scope.VIEW
-    ):
-        pending_qs = StockOpname.objects.filter(
-            status=StockOpname.Status.IN_PROGRESS
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "Stock Opname",
-                "icon": "bi-clipboard-check",
-                "color": "info",
-                "list_url": reverse("stock_opname:opname_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "stock_opname:opname_detail"),
-            }
-        )
-
-    if has_module_scope(user, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.VIEW):
-        pending_qs = PuskesmasRequest.objects.filter(
-            status=PuskesmasRequest.Status.SUBMITTED
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "Permintaan Puskesmas",
-                "icon": "bi-file-earmark-arrow-up",
-                "color": "secondary",
-                "list_url": reverse("puskesmas:request_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "puskesmas:request_detail"),
-            }
-        )
-
-    if has_module_scope(user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.VIEW):
-        pending_qs = LPLPO.objects.filter(
-            status__in=[LPLPO.Status.SUBMITTED, LPLPO.Status.REVIEWED]
-        ).order_by("-created_at")
-        count = pending_qs.count()
-        notification_modules.append(
-            {
-                "label": "LPLPO",
-                "icon": "bi-file-earmark-medical",
-                "color": "secondary",
-                "list_url": reverse("lplpo:lplpo_list"),
-                "count": count,
-                "recent": _recent_docs(pending_qs, "lplpo:lplpo_detail"),
-            }
-        )
-
-    total_pending = sum(m["count"] for m in notification_modules)
-    active_notification_modules = [m for m in notification_modules if m["count"] > 0]
-
     return render(
         request,
         "dashboard.html",
@@ -301,8 +149,5 @@ def dashboard(request):
             "thirty_days_ago": thirty_days_ago,
             "today": today,
             "recent_transactions": recent_transactions,
-            "notification_modules": notification_modules,
-            "active_notification_modules": active_notification_modules,
-            "total_pending": total_pending,
         },
     )

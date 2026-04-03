@@ -251,15 +251,44 @@
                     <div class="d-flex align-items-center gap-3">
                         <span class="badge text-bg-light border">v{{ app_version }}</span>
                         {% if user.is_authenticated and user.role != 'PUSKESMAS' %}
-                        <a href="{% url 'dashboard' %}#notification-center" class="btn btn-link position-relative p-1" title="Notifikasi dokumen tertunda" aria-label="Notifikasi">
-                            <i class="bi bi-bell fs-5"></i>
-                            {% if nav_notification_count > 0 %}
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;">
-                                {{ nav_notification_count }}
-                                <span class="visually-hidden">dokumen tertunda</span>
-                            </span>
-                            {% endif %}
-                        </a>
+                        <div class="dropdown">
+                            <button class="btn btn-link position-relative p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifikasi aktivitas" aria-label="Notifikasi">
+                                <i class="bi bi-bell fs-5"></i>
+                                {% if nav_notification_count > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem; min-width: 1.2rem;">
+                                    {{ nav_notification_count }}
+                                    <span class="visually-hidden">aktivitas perlu diperiksa</span>
+                                </span>
+                                {% endif %}
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-0 overflow-hidden" style="width: 320px; max-width: calc(100vw - 2rem);">
+                                <div class="px-3 py-2 border-bottom text-center text-muted small">
+                                    {% if nav_notification_count > 0 %}
+                                    {{ nav_notification_count }} aktivitas perlu diperiksa
+                                    {% else %}
+                                    Tidak ada aktivitas baru
+                                    {% endif %}
+                                </div>
+                                {% if nav_notification_items %}
+                                    {% for item in nav_notification_items %}
+                                    <a href="{{ item.url }}" class="dropdown-item d-flex align-items-center justify-content-between gap-3 py-3 px-3">
+                                        <span class="d-flex align-items-center gap-2 min-w-0">
+                                            <i class="bi {{ item.icon }} text-primary"></i>
+                                            <span class="small text-wrap">{{ item.label }}</span>
+                                        </span>
+                                        <span class="text-muted small">{{ item.count }}</span>
+                                    </a>
+                                    {% endfor %}
+                                {% else %}
+                                <div class="px-3 py-3 text-center text-muted small">
+                                    Semua modul sedang bersih.
+                                </div>
+                                {% endif %}
+                                <div class="border-top text-center">
+                                    <a href="{% url 'dashboard' %}" class="dropdown-item py-2 small text-primary">Lihat Dashboard</a>
+                                </div>
+                            </div>
+                        </div>
                         {% endif %}
                         <div class="dropdown">
                             <button class="btn btn-link dropdown-toggle user-dropdown" type="button"

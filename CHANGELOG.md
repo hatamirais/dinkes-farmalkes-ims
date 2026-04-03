@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.6.1] - 2026-04-03
+
+### Changed
+
+- Notification UX now uses a compact navbar dropdown that summarizes actionable activity counts per module instead of rendering the full notification panel on the dashboard.
+- Notification aggregation now stays focused on items that still require user attention, with terminal workflow states excluded from both the navbar badge and dropdown summary.
+
+### Fixed
+
+- Dashboard rendering no longer performs the extra grouped notification queries previously used for the inline notification center, reducing page-level notification overhead.
+
 ## [1.6.0] - 2026-04-02
 
 ### Added

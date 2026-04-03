@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from apps.core.context_processors import nav_notifications
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
+from apps.distribution.models import Distribution
 from apps.items.models import Facility, FundingSource
 from apps.lplpo.models import LPLPO
 from apps.puskesmas.models import PuskesmasRequest
@@ -172,3 +173,34 @@ class NavNotificationsContextProcessorTests(TestCase):
         context = nav_notifications(request)
 
         self.assertGreaterEqual(context["nav_notification_count"], 1)
+
+    def test_admin_user_gets_module_summary_items(self):
+        admin_user = User.objects.create_user(
+            username="nav-admin-summary",
+            password="TestPassword123!",
+            role=User.Role.ADMIN,
+        )
+        facility = Facility.objects.create(
+            code="PKM-SUM",
+            name="Puskesmas Summary",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.LPLPO,
+            request_date="2026-04-03",
+            facility=facility,
+            status=Distribution.Status.SUBMITTED,
+            created_by=admin_user,
+        )
+
+        request = self.factory.get("/")
+        request.user = admin_user
+        context = nav_notifications(request)
+
+        self.assertIn("nav_notification_items", context)
+        self.assertTrue(
+            any(
+                item["label"] == "Distribusi dari LPLPO" and item["count"] == 1
+                for item in context["nav_notification_items"]
+            )
+        )
