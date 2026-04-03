@@ -3,12 +3,15 @@ from tempfile import TemporaryDirectory
 
 from django.test import TestCase
 from django.test import SimpleTestCase
+from django.test import RequestFactory
 from django.urls import reverse
 
+from apps.core.context_processors import nav_notifications
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
-from apps.items.models import Facility
+from apps.items.models import Facility, FundingSource
 from apps.lplpo.models import LPLPO
 from apps.puskesmas.models import PuskesmasRequest
+from apps.receiving.models import Receiving
 from apps.users.models import User
 
 
@@ -116,3 +119,56 @@ class DashboardViewTests(TestCase):
         self.assertIsNone(response.context["facility"])
         self.assertEqual(list(response.context["recent_lplpos"]), [])
         self.assertEqual(list(response.context["recent_requests"]), [])
+
+
+class NavNotificationsContextProcessorTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_unauthenticated_user_gets_zero_notification_count(self):
+        request = self.factory.get("/")
+        request.user = type("AnonymousUser", (), {"is_authenticated": False})()
+
+        context = nav_notifications(request)
+
+        self.assertEqual(context["nav_notification_count"], 0)
+
+    def test_puskesmas_user_gets_zero_notification_count(self):
+        facility = Facility.objects.create(
+            code="PKM-NAV",
+            name="Puskesmas NAV",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        puskesmas_user = User.objects.create_user(
+            username="nav-puskesmas",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+            facility=facility,
+        )
+        request = self.factory.get("/")
+        request.user = puskesmas_user
+
+        context = nav_notifications(request)
+
+        self.assertEqual(context["nav_notification_count"], 0)
+
+    def test_admin_user_counts_pending_receiving_documents(self):
+        admin_user = User.objects.create_user(
+            username="nav-admin",
+            password="TestPassword123!",
+            role=User.Role.ADMIN,
+        )
+        funding_source = FundingSource.objects.create(code="DAK-NAV", name="DAK NAV")
+        Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date="2026-04-03",
+            sumber_dana=funding_source,
+            status=Receiving.Status.SUBMITTED,
+            created_by=admin_user,
+        )
+
+        request = self.factory.get("/")
+        request.user = admin_user
+        context = nav_notifications(request)
+
+        self.assertGreaterEqual(context["nav_notification_count"], 1)
