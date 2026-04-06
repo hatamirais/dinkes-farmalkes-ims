@@ -9,7 +9,7 @@ from .models import PuskesmasRequest, PuskesmasRequestItem
 class PuskesmasRequestForm(forms.ModelForm):
     class Meta:
         model = PuskesmasRequest
-        fields = ["document_number", "facility", "request_date", "program", "notes"]
+        fields = ["document_number", "facility", "request_date", "notes"]
         widgets = {
             "document_number": forms.TextInput(
                 attrs={
@@ -21,7 +21,6 @@ class PuskesmasRequestForm(forms.ModelForm):
             "request_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
-            "program": forms.Select(attrs={"class": "form-select"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
@@ -29,7 +28,6 @@ class PuskesmasRequestForm(forms.ModelForm):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["document_number"].required = False
-        self.fields["program"].required = False
         self.fields["notes"].required = False
         # Only show active puskesmas facilities
         self.fields["facility"].queryset = Facility.objects.filter(
