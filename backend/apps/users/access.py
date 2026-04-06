@@ -103,7 +103,7 @@ def get_user_module_scope(user: User, module: str) -> int:
     )
     if assignment:
         return assignment.scope
-    return ModuleAccess.Scope.NONE
+    return default_scope_for_role(getattr(user, "role", ""), module)
 
 
 def has_module_scope(user: User, module: str, min_scope: int) -> bool:

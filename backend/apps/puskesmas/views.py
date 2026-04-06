@@ -90,6 +90,7 @@ def _check_request_facility_access(request, req):
 
 
 @login_required
+@perm_required("puskesmas.view_puskesmasrequest")
 def request_list(request):
     queryset = PuskesmasRequest.objects.select_related(
         "facility", "created_by", "program"
@@ -178,6 +179,7 @@ def request_create(request):
 
 
 @login_required
+@perm_required("puskesmas.view_puskesmasrequest")
 def request_detail(request, pk):
     req = get_object_or_404(
         PuskesmasRequest.objects.select_related(

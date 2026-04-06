@@ -4,6 +4,7 @@ from django.urls import reverse
 from apps.users.access import (
     ROLE_DEFAULT_SCOPES,
     ensure_default_module_access,
+    get_user_module_scope,
     has_module_permission,
 )
 from apps.users.models import ModuleAccess, User
@@ -372,3 +373,17 @@ class UACRoleMatrixTest(TestCase):
             with self.subTest(module=module):
                 scope = ModuleAccess.objects.get(user=user, module=module).scope
                 self.assertGreaterEqual(scope, ModuleAccess.Scope.APPROVE)
+
+    def test_get_user_module_scope_falls_back_to_role_defaults_without_rows(self):
+        user = User.objects.create_user(
+            username="legacy_kepala",
+            password="VeryStrongPass123!",
+            role=User.Role.KEPALA,
+        )
+        ModuleAccess.objects.filter(user=user).delete()
+
+        self.assertEqual(
+            get_user_module_scope(user, ModuleAccess.Module.PUSKESMAS),
+            ModuleAccess.Scope.APPROVE,
+        )
+        self.assertTrue(has_module_permission(user, "puskesmas.view_puskesmasrequest"))

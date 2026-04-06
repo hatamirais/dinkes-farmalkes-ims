@@ -244,6 +244,59 @@ class PuskesmasRequestCreateViewTests(TestCase):
 		other_request.refresh_from_db()
 		self.assertEqual(other_request.status, PuskesmasRequest.Status.DRAFT)
 
+	def test_kepala_with_missing_module_rows_can_still_view_request_list(self):
+		kepala = User.objects.create_user(
+			username="kepala-legacy",
+			password="TestPassword123!",
+			role=User.Role.KEPALA,
+		)
+		ModuleAccess.objects.filter(user=kepala).delete()
+		PuskesmasRequest.objects.create(
+			facility=self.facility,
+			created_by=self.user,
+		)
+
+		self.client.force_login(kepala)
+		response = self.client.get(reverse("puskesmas:request_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Permintaan Barang Puskesmas")
+
+	def test_admin_umum_with_missing_module_rows_can_view_request_detail(self):
+		admin_umum = User.objects.create_user(
+			username="admin-umum-legacy",
+			password="TestPassword123!",
+			role=User.Role.ADMIN_UMUM,
+		)
+		ModuleAccess.objects.filter(user=admin_umum).delete()
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			created_by=self.user,
+		)
+
+		self.client.force_login(admin_umum)
+		response = self.client.get(reverse("puskesmas:request_detail", args=[req.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, req.document_number)
+
+	def test_explicit_none_scope_cannot_view_request_list(self):
+		auditor = User.objects.create_user(
+			username="auditor-legacy",
+			password="TestPassword123!",
+			role=User.Role.AUDITOR,
+		)
+		ModuleAccess.objects.update_or_create(
+			user=auditor,
+			module=ModuleAccess.Module.PUSKESMAS,
+			defaults={"scope": ModuleAccess.Scope.NONE},
+		)
+
+		self.client.force_login(auditor)
+		response = self.client.get(reverse("puskesmas:request_list"))
+
+		self.assertEqual(response.status_code, 403)
+
 
 class PuskesmasRequestApprovalTests(TestCase):
 	def setUp(self):
