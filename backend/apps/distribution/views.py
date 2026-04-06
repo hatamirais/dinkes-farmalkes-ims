@@ -46,7 +46,9 @@ def distribution_list(request):
     search = request.GET.get("q", "").strip()
     if search:
         queryset = queryset.filter(
-            Q(document_number__icontains=search) | Q(facility__name__icontains=search)
+            Q(document_number__icontains=search)
+            | Q(facility__name__icontains=search)
+            | Q(program__icontains=search)
         )
 
     status = request.GET.get("status")
@@ -78,7 +80,7 @@ def distribution_list(request):
 @perm_required("distribution.add_distribution")
 def distribution_create(request):
     if request.method == "POST":
-        form = DistributionForm(request.POST)
+        form = DistributionForm(request.POST, user=request.user)
         formset = DistributionItemFormSet(request.POST, prefix="items")
 
         if form.is_valid() and formset.is_valid():
@@ -98,7 +100,7 @@ def distribution_create(request):
             )
             return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
-        form = DistributionForm()
+        form = DistributionForm(user=request.user)
         formset = DistributionItemFormSet(prefix="items")
 
     return render(
@@ -122,7 +124,7 @@ def distribution_edit(request, pk):
         return redirect("distribution:distribution_detail", pk=dist.pk)
 
     if request.method == "POST":
-        form = DistributionForm(request.POST, instance=dist)
+        form = DistributionForm(request.POST, instance=dist, user=request.user)
         formset = DistributionItemFormSet(request.POST, instance=dist, prefix="items")
 
         if form.is_valid() and formset.is_valid():
@@ -136,7 +138,7 @@ def distribution_edit(request, pk):
             )
             return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
-        form = DistributionForm(instance=dist)
+        form = DistributionForm(instance=dist, user=request.user)
         formset = DistributionItemFormSet(instance=dist, prefix="items")
 
     return render(

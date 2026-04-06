@@ -430,6 +430,33 @@ class DistributionWorkflowTest(TestCase):
         )
         self.assertEqual(assigned_usernames, ["gudang_dist", "petugas_bantu"])
 
+    def test_create_distribution_saves_program(self):
+        response = self.client.post(
+            reverse("distribution:distribution_create"),
+            {
+                "document_number": "",
+                "distribution_type": Distribution.DistributionType.ALLOCATION,
+                "request_date": "2026-03-11",
+                "facility": self.facility.pk,
+                "program": "Imunisasi",
+                "notes": "Distribusi program imunisasi",
+                "assigned_staff": [self.user.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "10",
+                "items-0-quantity_approved": "10",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        dist = Distribution.objects.latest("id")
+        self.assertEqual(dist.program, "Imunisasi")
+
     def test_edit_distribution_updates_assigned_staff(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)
         dist.staff_assignments.create(user=self.user)

@@ -150,6 +150,11 @@
                             <dt class="col-5 text-muted">Tipe</dt>
                             <dd class="col-7">{{ distribution.get_distribution_type_display }}</dd>
 
+                            {% if distribution.program %}
+                            <dt class="col-5 text-muted">Program</dt>
+                            <dd class="col-7">{{ distribution.program }}</dd>
+                            {% endif %}
+
                             <dt class="col-5 text-muted">Faskes Tujuan</dt>
                             <dd class="col-7">{{ distribution.facility.name }}</dd>
 
@@ -340,6 +345,7 @@
         <div><span class="label">Nomor Dokumen</span>: {{ distribution.document_number }}</div>
         <div><span class="label">Unit Penerima</span>: {{ distribution.facility.name|upper }}</div>
         <div><span class="label">Bulan</span>: {{ distribution.request_date|date:"F Y"|upper }}</div>
+        {% if distribution.program %}<div><span class="label">Program</span>: {{ distribution.program|upper }}</div>{% endif %}
         <div><span class="label">Petugas</span>: {% if assigned_staff %}{% for staff in assigned_staff %}{{ staff }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}-{% endif %}</div>
     </div>
 

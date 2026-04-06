@@ -36,6 +36,7 @@ class DistributionForm(forms.ModelForm):
             "distribution_type",
             "request_date",
             "facility",
+            "program",
             "notes",
         ]
         widgets = {
@@ -50,17 +51,27 @@ class DistributionForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "facility": forms.Select(attrs={"class": "form-select"}),
+            "program": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Contoh: TB, HIV, Imunisasi",
+                }
+            ),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        self.fields["program"].required = False
         if self.instance.pk:
             self.fields[
                 "assigned_staff"
             ].initial = self.instance.staff_assignments.values_list(
                 "user_id", flat=True
             )
+        elif user is not None:
+            self.fields["assigned_staff"].initial = [user.pk]
 
 
 class DistributionItemForm(forms.ModelForm):
