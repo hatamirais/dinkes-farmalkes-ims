@@ -1,17 +1,81 @@
 {% extends "base.html" %}
 
 {% block title %}Laporan — Healthcare IMS{% endblock %}
-{% block page_title %}Laporan{% endblock %}
+{% block page_title %}Laporan Persediaan/Stok{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card content-card">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-bar-chart-line" style="font-size: 4rem; color: #94a3b8;"></i>
-                <h4 class="mt-3 mb-2">Modul Laporan</h4>
-                <p class="text-muted mb-0">Modul laporan sedang dalam pengembangan.</p>
-                <p class="text-muted small">Coming soon — analisis stok, penerimaan, distribusi, dan kedaluwarsa.</p>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body bg-light">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        {{ form.start_date.label_tag }}
+                        {{ form.start_date }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.end_date.label_tag }}
+                        {{ form.end_date }}
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter"></i> Terapkan Filter
+                        </button>
+                        <a href="{% url 'reports:index' %}" class="btn btn-outline-secondary">Reset</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light text-center">
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Unit</th>
+                                <th>Batch</th>
+                                <th>Expiry Date</th>
+                                <th>Funding Source</th>
+                                <th>Unit Price</th>
+                                <th>Initial Stock</th>
+                                <th>Total Received</th>
+                                <th>Total Distributed</th>
+                                <th>Expired/Damaged</th>
+                                <th>Ending Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in report_data %}
+                            <tr>
+                                <td>{{ row.item__nama_barang }}</td>
+                                <td>{{ row.item__satuan__name }}</td>
+                                <td>{{ row.batch_lot }}</td>
+                                <td>{% if row.expiry_date %}{{ row.expiry_date|date:"d M Y" }}{% else %}-{% endif %}</td>
+                                <td>{{ row.sumber_dana__name }}</td>
+                                <td class="text-end">{{ row.unit_price|floatformat:2 }}</td>
+                                <td class="text-end">{{ row.initial_stock|floatformat:2 }}</td>
+                                <td class="text-end">{{ row.received|floatformat:2 }}</td>
+                                <td class="text-end">{{ row.distributed|floatformat:2 }}</td>
+                                <td class="text-end">{{ row.expired|floatformat:2 }}</td>
+                                <td class="text-end fw-bold">{{ row.ending_stock|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="11" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    Tidak ada data untuk periode ini.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
