@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -9,6 +10,7 @@ from django.utils import timezone
 from apps.core.decorators import module_scope_required, perm_required
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
+from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess
 
 from .forms import (
@@ -19,6 +21,40 @@ from .forms import (
 from .models import PuskesmasRequest, PuskesmasRequestItem
 
 
+def _can_review_request(user):
+    if not getattr(user, "is_authenticated", False):
+        return False
+
+    if user.is_superuser:
+        return True
+
+    if getattr(user, "role", None) == "PUSKESMAS":
+        return False
+
+    return has_module_permission(
+        user, "puskesmas.change_puskesmasrequest"
+    ) and has_module_scope(
+        user,
+        ModuleAccess.Module.PUSKESMAS,
+        ModuleAccess.Scope.APPROVE,
+    )
+
+
+def _check_request_facility_access(request, req):
+    if getattr(request.user, "role", None) != "PUSKESMAS":
+        return None
+
+    if not request.user.facility_id:
+        messages.error(request, "Akun Anda belum terhubung ke fasilitas puskesmas.")
+        return redirect("puskesmas:request_list")
+
+    if req.facility_id != request.user.facility_id:
+        messages.error(request, "Anda tidak memiliki akses ke permintaan ini.")
+        return redirect("puskesmas:request_list")
+
+    return None
+
+
 # ──────────────────────────── List ────────────────────────────
 
 
@@ -27,6 +63,12 @@ def request_list(request):
     queryset = PuskesmasRequest.objects.select_related(
         "facility", "created_by", "program"
     ).order_by("-request_date")
+
+    if getattr(request.user, "role", None) == "PUSKESMAS":
+        if request.user.facility_id:
+            queryset = queryset.filter(facility_id=request.user.facility_id)
+        else:
+            queryset = queryset.none()
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -112,11 +154,16 @@ def request_detail(request, pk):
         ),
         pk=pk,
     )
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
+
     items = req.items.select_related("item", "item__satuan", "item__program")
 
     # Approval inline forms (read-only outside SUBMITTED status)
     approval_forms = []
-    if req.status == PuskesmasRequest.Status.SUBMITTED:
+    can_review = _can_review_request(request.user)
+    if req.status == PuskesmasRequest.Status.SUBMITTED and can_review:
         for item_obj in items:
             approval_forms.append(
                 (item_obj, ApprovalItemForm(instance=item_obj, prefix=f"approve_{item_obj.pk}"))
@@ -129,6 +176,7 @@ def request_detail(request, pk):
             "req": req,
             "items": items,
             "approval_forms": approval_forms,
+            "can_review": can_review,
         },
     )
 
@@ -140,6 +188,9 @@ def request_detail(request, pk):
 @perm_required("puskesmas.change_puskesmasrequest")
 def request_edit(request, pk):
     req = get_object_or_404(PuskesmasRequest, pk=pk)
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
 
     if req.status not in (PuskesmasRequest.Status.DRAFT, PuskesmasRequest.Status.REJECTED):
         messages.error(request, "Hanya permintaan berstatus Draft atau Ditolak yang dapat diubah.")
@@ -180,6 +231,10 @@ def request_edit(request, pk):
 @perm_required("puskesmas.change_puskesmasrequest")
 def request_submit(request, pk):
     req = get_object_or_404(PuskesmasRequest, pk=pk)
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
+
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
 
@@ -202,6 +257,12 @@ def request_submit(request, pk):
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_approve(request, pk):
     """Approve the request and create a Distribution Draft automatically."""
+    if not _can_review_request(request.user):
+        return HttpResponseForbidden(
+            "<h1>403 Forbidden</h1>"
+            "<p>Operator Puskesmas tidak dapat menyetujui permintaan.</p>"
+        )
+
     req = get_object_or_404(PuskesmasRequest, pk=pk)
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
@@ -301,6 +362,12 @@ def request_approve(request, pk):
 @perm_required("puskesmas.change_puskesmasrequest")
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_reject(request, pk):
+    if not _can_review_request(request.user):
+        return HttpResponseForbidden(
+            "<h1>403 Forbidden</h1>"
+            "<p>Operator Puskesmas tidak dapat menolak permintaan.</p>"
+        )
+
     req = get_object_or_404(PuskesmasRequest, pk=pk)
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
@@ -323,6 +390,10 @@ def request_reject(request, pk):
 @perm_required("puskesmas.change_puskesmasrequest")
 def request_reset_draft(request, pk):
     req = get_object_or_404(PuskesmasRequest, pk=pk)
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
+
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
 
@@ -341,6 +412,10 @@ def request_reset_draft(request, pk):
 @perm_required("puskesmas.delete_puskesmasrequest")
 def request_delete(request, pk):
     req = get_object_or_404(PuskesmasRequest, pk=pk)
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
+
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
 

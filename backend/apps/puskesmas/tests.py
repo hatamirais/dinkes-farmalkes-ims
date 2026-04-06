@@ -90,6 +90,12 @@ class PuskesmasRequestCreateViewTests(TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=self.facility,
 		)
+		self.other_user = User.objects.create_user(
+			username="operator-other",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.other_facility,
+		)
 
 	def test_create_binds_request_to_logged_in_facility(self):
 		self.client.force_login(self.user)
@@ -171,6 +177,73 @@ class PuskesmasRequestCreateViewTests(TestCase):
 		req.refresh_from_db()
 		self.assertEqual(req.facility, self.facility)
 
+	def test_list_only_shows_operator_facility_requests(self):
+		own_request = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			created_by=self.user,
+		)
+		other_request = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			created_by=self.other_user,
+		)
+
+		self.client.force_login(self.user)
+		response = self.client.get(reverse("puskesmas:request_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, own_request.document_number)
+		self.assertNotContains(response, other_request.document_number)
+
+	def test_detail_redirects_when_operator_accesses_other_facility_request(self):
+		other_request = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			created_by=self.other_user,
+		)
+
+		self.client.force_login(self.user)
+		response = self.client.get(
+			reverse("puskesmas:request_detail", args=[other_request.pk])
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("puskesmas:request_list"))
+
+	def test_edit_redirects_when_operator_accesses_other_facility_request(self):
+		other_request = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			created_by=self.other_user,
+		)
+
+		self.client.force_login(self.user)
+		response = self.client.get(
+			reverse("puskesmas:request_edit", args=[other_request.pk])
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("puskesmas:request_list"))
+
+	def test_submit_redirects_when_operator_accesses_other_facility_request(self):
+		other_request = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			status=PuskesmasRequest.Status.DRAFT,
+			created_by=self.other_user,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=other_request,
+			item=self.item,
+			quantity_requested=Decimal("2.00"),
+		)
+
+		self.client.force_login(self.user)
+		response = self.client.post(
+			reverse("puskesmas:request_submit", args=[other_request.pk])
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("puskesmas:request_list"))
+		other_request.refresh_from_db()
+		self.assertEqual(other_request.status, PuskesmasRequest.Status.DRAFT)
+
 
 class PuskesmasRequestApprovalTests(TestCase):
 	def setUp(self):
@@ -238,3 +311,67 @@ class PuskesmasRequestApprovalTests(TestCase):
 		line = distribution.items.get()
 		self.assertEqual(line.quantity_requested, Decimal("8.00"))
 		self.assertEqual(line.quantity_approved, Decimal("5.00"))
+
+	def test_operator_detail_does_not_show_approval_actions(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("8.00"),
+		)
+
+		self.client.force_login(self.requester)
+		response = self.client.get(reverse("puskesmas:request_detail", args=[req.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, "Setujui Permintaan")
+		self.assertNotContains(response, "Tolak")
+
+	def test_operator_cannot_approve_request_directly(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		item_line = PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("8.00"),
+		)
+
+		self.client.force_login(self.requester)
+		response = self.client.post(
+			reverse("puskesmas:request_approve", args=[req.pk]),
+			{
+				f"approve_{item_line.pk}-quantity_approved": "5.00",
+			},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+		self.assertIsNone(req.distribution)
+
+	def test_operator_cannot_reject_request_directly(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+
+		self.client.force_login(self.requester)
+		response = self.client.post(
+			reverse("puskesmas:request_reject", args=[req.pk]),
+			{"rejection_reason": "Tidak valid"},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)

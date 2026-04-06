@@ -290,6 +290,7 @@
     </div>
 </div>
 
+{% if can_review %}
 <!-- Reject Modal -->
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -313,4 +314,5 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
