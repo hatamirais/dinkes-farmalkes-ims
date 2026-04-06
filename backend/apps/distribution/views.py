@@ -3,17 +3,16 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
-from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess, User
 
 from .forms import DistributionForm, DistributionItemFormSet
 from .models import Distribution, DistributionItem, DistributionStaffAssignment
+from .services import DistributionWorkflowError, execute_stock_distribution
 
 
 def sync_distribution_staff_assignments(distribution, staff_users):
@@ -331,60 +330,9 @@ def distribution_distribute(request, pk):
         )
         return redirect("distribution:distribution_detail", pk=pk)
 
-    dist_items = list(dist.items.select_related("item", "stock"))
-    if not dist_items:
-        messages.error(request, "Distribusi tidak memiliki item untuk didistribusikan.")
-        return redirect("distribution:distribution_detail", pk=pk)
-
     try:
-        with transaction.atomic():
-            for di in dist_items:
-                stock = Stock.objects.select_for_update().get(pk=di.stock_id)
-
-                if stock.item_id != di.item_id:
-                    raise ValueError(
-                        f"Batch stok tidak sesuai untuk item {di.item.nama_barang}."
-                    )
-
-                qty = di.quantity_approved
-                if qty > stock.available_quantity:
-                    raise ValueError(
-                        f"Stok tidak cukup untuk {di.item.nama_barang}. "
-                        f"Tersedia {stock.available_quantity}, disetujui {qty}."
-                    )
-
-                stock.quantity = stock.quantity - qty
-                stock.save(update_fields=["quantity", "updated_at"])
-
-                Transaction.objects.create(
-                    transaction_type=Transaction.TransactionType.OUT,
-                    item=di.item,
-                    location=stock.location,
-                    batch_lot=stock.batch_lot,
-                    quantity=qty,
-                    unit_price=stock.unit_price,
-                    sumber_dana=stock.sumber_dana,
-                    reference_type=Transaction.ReferenceType.DISTRIBUTION,
-                    reference_id=dist.id,
-                    user=request.user,
-                    notes=f"Distribusi {dist.document_number} ke {dist.facility}: {di.notes}".strip(),
-                )
-
-            dist.status = Distribution.Status.DISTRIBUTED
-            dist.approved_by = request.user
-            dist.approved_at = timezone.now()
-            dist.distributed_date = timezone.now().date()
-            dist.save(
-                update_fields=[
-                    "status",
-                    "approved_by",
-                    "approved_at",
-                    "distributed_date",
-                    "updated_at",
-                ]
-            )
-
-    except ValueError as exc:
+        execute_stock_distribution(dist, request.user)
+    except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
         return redirect("distribution:distribution_detail", pk=pk)
 

@@ -14,39 +14,43 @@ from apps.users.models import User
 class DistributionWorkflowTest(TestCase):
     """Tests for the distribution module workflow transitions and stock posting."""
 
-    def setUp(self):
-        self.user = User.objects.create_superuser(
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser(
             username="gudang_dist",
             password="secret12345",
         )
 
-        self.unit = Unit.objects.create(code="TAB", name="Tablet")
-        self.category = Category.objects.create(
+        cls.unit = Unit.objects.create(code="TAB", name="Tablet")
+        cls.category = Category.objects.create(
             code="TABLET", name="Tablet", sort_order=1
         )
-        self.item = Item.objects.create(
+        cls.item = Item.objects.create(
             nama_barang="Amoxicillin 500mg",
-            satuan=self.unit,
-            kategori=self.category,
+            satuan=cls.unit,
+            kategori=cls.category,
             minimum_stock=Decimal("0"),
         )
-        self.location = Location.objects.create(code="LOC-01", name="Gudang Utama")
-        self.funding_source = FundingSource.objects.create(
+        cls.location = Location.objects.create(code="LOC-01", name="Gudang Utama")
+        cls.funding_source = FundingSource.objects.create(
             code="DAK", name="Dana Alokasi Khusus"
         )
-        self.facility = Facility.objects.create(code="PKM-01", name="Puskesmas Kota")
+        cls.facility = Facility.objects.create(
+            code="PKM-01", name="Puskesmas Kota"
+        )
 
-        self.stock = Stock.objects.create(
-            item=self.item,
-            location=self.location,
+        cls.stock = Stock.objects.create(
+            item=cls.item,
+            location=cls.location,
             batch_lot="BATCH-D01",
             expiry_date="2027-12-31",
             quantity=Decimal("200"),
             reserved=Decimal("0"),
             unit_price=Decimal("5000"),
-            sumber_dana=self.funding_source,
+            sumber_dana=cls.funding_source,
         )
 
+    def setUp(self):
         self.client.force_login(self.user)
 
     def _create_distribution(self, status=Distribution.Status.DRAFT, with_items=True):
