@@ -152,7 +152,7 @@ def nav_notifications(request):
             "bi-clipboard-check",
         )
 
-    if puskesmas_scope >= ModuleAccess.Scope.APPROVE:
+    if puskesmas_scope >= ModuleAccess.Scope.VIEW:
         from apps.puskesmas.models import PuskesmasRequest
 
         count = PuskesmasRequest.objects.filter(

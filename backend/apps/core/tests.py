@@ -298,6 +298,95 @@ class NavNotificationsContextProcessorTests(TestCase):
             any(item["label"] == "Penerimaan" for item in context["nav_notification_items"])
         )
 
+    def test_admin_umum_gets_puskesmas_request_notifications_with_view_scope(self):
+        admin_umum = User.objects.create_user(
+            username="nav-admin-umum-puskesmas",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self._set_scope(
+            admin_umum, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.VIEW
+        )
+        facility = Facility.objects.create(
+            code="PKM-NAV-AU",
+            name="Puskesmas Admin Umum",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        PuskesmasRequest.objects.create(
+            facility=facility,
+            created_by=admin_umum,
+            status=PuskesmasRequest.Status.SUBMITTED,
+        )
+
+        request = self.factory.get("/")
+        request.user = admin_umum
+        context = nav_notifications(request)
+
+        self.assertTrue(
+            any(
+                item["label"] == "Permintaan Puskesmas" and item["count"] == 1
+                for item in context["nav_notification_items"]
+            )
+        )
+
+    def test_gudang_gets_puskesmas_request_notifications_with_view_scope(self):
+        gudang = User.objects.create_user(
+            username="nav-gudang-puskesmas",
+            password="TestPassword123!",
+            role=User.Role.GUDANG,
+        )
+        self._set_scope(gudang, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.VIEW)
+        facility = Facility.objects.create(
+            code="PKM-NAV-GD",
+            name="Puskesmas Gudang",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        PuskesmasRequest.objects.create(
+            facility=facility,
+            created_by=gudang,
+            status=PuskesmasRequest.Status.SUBMITTED,
+        )
+
+        request = self.factory.get("/")
+        request.user = gudang
+        context = nav_notifications(request)
+
+        self.assertTrue(
+            any(
+                item["label"] == "Permintaan Puskesmas" and item["count"] == 1
+                for item in context["nav_notification_items"]
+            )
+        )
+
+    def test_explicit_none_scope_hides_puskesmas_request_notifications(self):
+        auditor = User.objects.create_user(
+            username="nav-auditor-none-puskesmas",
+            password="TestPassword123!",
+            role=User.Role.AUDITOR,
+        )
+        self._set_scope(auditor, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.NONE)
+        facility = Facility.objects.create(
+            code="PKM-NAV-NONE",
+            name="Puskesmas None",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        PuskesmasRequest.objects.create(
+            facility=facility,
+            created_by=auditor,
+            status=PuskesmasRequest.Status.SUBMITTED,
+        )
+
+        request = self.factory.get("/")
+        request.user = auditor
+        context = nav_notifications(request)
+
+        self.assertFalse(
+            any(
+                item["label"] == "Permintaan Puskesmas"
+                for item in context["nav_notification_items"]
+            )
+        )
+
     def test_admin_user_gets_module_summary_items(self):
         admin_user = User.objects.create_user(
             username="nav-admin-summary",
