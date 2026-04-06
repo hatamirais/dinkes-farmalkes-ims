@@ -15,4 +15,4 @@
    - ISO 27001
    - OWASP ASVS level 2
 7. Add in-app settings for the Dashboard (logo, facility names, header fields) to use when generating document headers
-8. Create reporting module checkmark
+8. ~~Create reporting module~~ (Done)
