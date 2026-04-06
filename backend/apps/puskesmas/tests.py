@@ -266,15 +266,25 @@ class PuskesmasRequestApprovalTests(TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=self.facility,
 		)
-		self.approver = User.objects.create_superuser(
+		self.approver = User.objects.create_user(
 			username="approver-root",
-			email="approver@example.com",
 			password="TestPassword123!",
+			role=User.Role.KEPALA,
+		)
+		self.manager = User.objects.create_user(
+			username="manager-puskesmas",
+			password="TestPassword123!",
+			role=User.Role.ADMIN,
 		)
 		ModuleAccess.objects.update_or_create(
 			user=self.approver,
 			module=ModuleAccess.Module.PUSKESMAS,
 			defaults={"scope": ModuleAccess.Scope.APPROVE},
+		)
+		ModuleAccess.objects.update_or_create(
+			user=self.manager,
+			module=ModuleAccess.Module.PUSKESMAS,
+			defaults={"scope": ModuleAccess.Scope.MANAGE},
 		)
 
 	def test_approve_creates_distribution_with_requested_and_approved_quantities(self):
@@ -373,5 +383,89 @@ class PuskesmasRequestApprovalTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 403)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+
+	def test_approver_can_reset_submitted_request_to_draft(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+
+		self.client.force_login(self.approver)
+		response = self.client.post(
+			reverse("puskesmas:request_reset_draft", args=[req.pk])
+		)
+
+		self.assertEqual(response.status_code, 302)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.DRAFT)
+
+	def test_approver_detail_hides_draft_actions(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.DRAFT,
+			created_by=self.requester,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+
+		self.client.force_login(self.approver)
+		response = self.client.get(reverse("puskesmas:request_detail", args=[req.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, "Ajukan Permintaan")
+		self.assertNotContains(response, 'id="edit-btn"', html=False)
+		self.assertNotContains(response, 'id="delete-open-btn"', html=False)
+
+	def test_approver_cannot_submit_draft_request(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.DRAFT,
+			created_by=self.requester,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+
+		self.client.force_login(self.approver)
+		response = self.client.post(reverse("puskesmas:request_submit", args=[req.pk]))
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("puskesmas:request_detail", args=[req.pk]))
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.DRAFT)
+
+	def test_manager_can_submit_draft_request(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.DRAFT,
+			created_by=self.requester,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+
+		self.client.force_login(self.manager)
+		response = self.client.post(reverse("puskesmas:request_submit", args=[req.pk]))
+
+		self.assertEqual(response.status_code, 302)
 		req.refresh_from_db()
 		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)

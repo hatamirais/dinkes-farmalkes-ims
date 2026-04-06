@@ -40,6 +40,37 @@ def _can_review_request(user):
     )
 
 
+def _can_manage_request(user, req=None):
+    if not getattr(user, "is_authenticated", False):
+        return False
+
+    if user.is_superuser:
+        return True
+
+    if getattr(user, "role", None) == "PUSKESMAS":
+        if not user.facility_id:
+            return False
+        return req is None or req.facility_id == user.facility_id
+
+    return has_module_permission(
+        user, "puskesmas.change_puskesmasrequest"
+    ) and has_module_scope(
+        user,
+        ModuleAccess.Module.PUSKESMAS,
+        ModuleAccess.Scope.MANAGE,
+    )
+
+
+def _can_reset_request_to_draft(user, req):
+    if req.status == PuskesmasRequest.Status.SUBMITTED:
+        return _can_review_request(user) or _can_manage_request(user, req)
+
+    if req.status == PuskesmasRequest.Status.REJECTED:
+        return _can_manage_request(user, req)
+
+    return False
+
+
 def _check_request_facility_access(request, req):
     if getattr(request.user, "role", None) != "PUSKESMAS":
         return None
@@ -163,6 +194,8 @@ def request_detail(request, pk):
     # Approval inline forms (read-only outside SUBMITTED status)
     approval_forms = []
     can_review = _can_review_request(request.user)
+    can_manage = _can_manage_request(request.user, req)
+    can_reset_to_draft = _can_reset_request_to_draft(request.user, req)
     if req.status == PuskesmasRequest.Status.SUBMITTED and can_review:
         for item_obj in items:
             approval_forms.append(
@@ -177,6 +210,8 @@ def request_detail(request, pk):
             "items": items,
             "approval_forms": approval_forms,
             "can_review": can_review,
+            "can_manage": can_manage,
+            "can_reset_to_draft": can_reset_to_draft,
         },
     )
 
@@ -191,6 +226,10 @@ def request_edit(request, pk):
     denied = _check_request_facility_access(request, req)
     if denied:
         return denied
+
+    if not _can_manage_request(request.user, req):
+        messages.error(request, "Anda tidak dapat mengubah permintaan ini.")
+        return redirect("puskesmas:request_detail", pk=req.pk)
 
     if req.status not in (PuskesmasRequest.Status.DRAFT, PuskesmasRequest.Status.REJECTED):
         messages.error(request, "Hanya permintaan berstatus Draft atau Ditolak yang dapat diubah.")
@@ -234,6 +273,10 @@ def request_submit(request, pk):
     denied = _check_request_facility_access(request, req)
     if denied:
         return denied
+
+    if not _can_manage_request(request.user, req):
+        messages.error(request, "Anda tidak dapat mengajukan ulang permintaan ini.")
+        return redirect("puskesmas:request_detail", pk=pk)
 
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
@@ -401,6 +444,10 @@ def request_reset_draft(request, pk):
         messages.error(request, "Hanya permintaan Diajukan atau Ditolak yang dapat dikembalikan ke Draft.")
         return redirect("puskesmas:request_detail", pk=pk)
 
+    if not _can_reset_request_to_draft(request.user, req):
+        messages.error(request, "Anda tidak dapat mengembalikan permintaan ini ke Draft.")
+        return redirect("puskesmas:request_detail", pk=pk)
+
     req.status = PuskesmasRequest.Status.DRAFT
     req.rejection_reason = ""
     req.save(update_fields=["status", "rejection_reason", "updated_at"])
@@ -415,6 +462,10 @@ def request_delete(request, pk):
     denied = _check_request_facility_access(request, req)
     if denied:
         return denied
+
+    if not _can_manage_request(request.user, req):
+        messages.error(request, "Anda tidak dapat menghapus permintaan ini.")
+        return redirect("puskesmas:request_detail", pk=req.pk)
 
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
