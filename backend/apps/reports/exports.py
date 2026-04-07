@@ -350,3 +350,38 @@ def export_pengadaan_excel(report_data, start_date, end_date):
         headers, col_widths, row_builder,
     )
 
+
+def export_kadaluarsa_excel(report_data, start_date, end_date):
+    """Export the Kadaluarsa (expired/damaged) report to Excel."""
+    headers = [
+        "No", "No. Dokumen", "Nama Barang", "Satuan", "Batch",
+        "Kedaluwarsa", "Sumber Dana", "Harga Satuan (Rp)",
+        "Jumlah", "Total Nilai (Rp)"
+    ]
+    col_widths = [6, 22, 30, 10, 15, 14, 18, 20, 14, 22]
+
+    def row_builder(idx, row):
+        expiry = row.get('expiry_date')
+        if expiry and hasattr(expiry, 'strftime'):
+            expiry = expiry.strftime("%d/%m/%Y")
+        else:
+            expiry = "-"
+        return [
+            idx,
+            row.get('document_number', ''),
+            row.get('nama_barang', ''),
+            row.get('satuan', ''),
+            row.get('batch_lot', ''),
+            expiry,
+            row.get('sumber_dana', ''),
+            float(row.get('unit_price', 0)),
+            float(row.get('quantity', 0)),
+            float(row.get('total_price', 0)),
+        ]
+
+    return _export_penerimaan_excel(
+        report_data, start_date, end_date,
+        "LAPORAN KADALUARSA / RUSAK",
+        "Laporan_Kadaluarsa",
+        headers, col_widths, row_builder,
+    )

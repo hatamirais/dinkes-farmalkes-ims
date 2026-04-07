@@ -399,7 +399,54 @@ def reports_pengadaan(request):
 
 @login_required
 def reports_kadaluarsa(request):
-    return render(request, 'reports/kadaluarsa.html')
+    from apps.expired.models import ExpiredItem
+    from .exports import export_kadaluarsa_excel
+
+    form = InventoryReportFilterForm(request.GET or InventoryReportFilterForm.get_default_initial())
+    report_data = []
+
+    if form.is_valid():
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+
+        qs = ExpiredItem.objects.filter(
+            expired__report_date__range=[start_date, end_date],
+            expired__status='DISPOSED',
+        ).select_related(
+            'expired', 'item', 'item__satuan', 'stock', 'stock__sumber_dana',
+        ).order_by(
+            'expired__report_date', 'expired__document_number', 'item__nama_barang',
+        )
+
+        for ei in qs:
+            unit_price = ei.stock.unit_price if ei.stock else 0
+            report_data.append({
+                'document_number': ei.expired.document_number,
+                'report_date': ei.expired.report_date,
+                'nama_barang': ei.item.nama_barang,
+                'satuan': ei.item.satuan.name if ei.item.satuan else '-',
+                'batch_lot': ei.stock.batch_lot if ei.stock else '-',
+                'expiry_date': ei.stock.expiry_date if ei.stock else None,
+                'sumber_dana': ei.stock.sumber_dana.name if ei.stock and ei.stock.sumber_dana else '-',
+                'unit_price': unit_price,
+                'quantity': ei.quantity,
+                'total_price': ei.quantity * unit_price,
+                'notes': ei.notes,
+            })
+
+        if request.GET.get('format') == 'excel' and report_data:
+            return export_kadaluarsa_excel(report_data, start_date, end_date)
+
+    total_quantity = sum(r['quantity'] for r in report_data)
+    total_value = sum(r['total_price'] for r in report_data)
+
+    context = {
+        'form': form,
+        'report_data': report_data,
+        'total_quantity': total_quantity,
+        'total_value': total_value,
+    }
+    return render(request, 'reports/kadaluarsa.html', context)
 
 @login_required
 def reports_pengeluaran(request):

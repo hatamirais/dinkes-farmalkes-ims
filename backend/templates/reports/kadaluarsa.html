@@ -1,42 +1,176 @@
 {% extends "base.html" %}
+{% load number_format %}
 
 {% block title %}Laporan Kadaluarsa — Healthcare IMS{% endblock %}
-{% block page_title %}Laporan Kadaluarsa{% endblock %}
+{% block page_title %}Laporan Kadaluarsa / Rusak{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-print-sheet {
+        color: #111;
+        font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .report-print-header {
+        display: flex;
+        align-items: center;
+        border-bottom: 3px double #111;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .report-print-logo {
+        width: 80px; height: 100px;
+        background-color: #f8f9fa; border: 2px dashed #ccc;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center; font-size: 11px; color: #666;
+        margin-right: 20px; font-weight: bold;
+    }
+    .report-print-title { flex-grow: 1; text-align: center; line-height: 1.35; }
+    .report-print-title h4 { margin: 0; font-weight: 700; font-size: 18px; }
+    .report-print-title h5 { margin: 0; font-weight: 700; font-size: 20px; }
+    .report-print-title p { margin: 0; font-size: 13px; }
+    .report-print-meta { text-align: center; margin-bottom: 20px; font-weight: 700; font-size: 16px; }
+    .report-sign-box { width: 250px; text-align: center; }
+    .report-sign-name { margin-top: 80px; font-weight: 700; text-decoration: underline; }
+
+    @media print {
+        .main-content { padding: 0 !important; }
+        .report-print-sheet { max-width: none; padding: 0 5mm; }
+        .card { border: none !important; box-shadow: none !important; }
+        .card-body { padding: 0 !important; }
+        .table-light th {
+            background-color: #f8f9fa !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .table-warning td, .table-warning th {
+            background-color: #fff3cd !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        @page { size: landscape; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
+<!-- Filter Bar -->
 <div class="row mb-4 d-print-none">
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body bg-light">
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-dark" onclick="window.print()" disabled>
-                        <i class="bi bi-printer"></i> Cetak Laporan
-                    </button>
-                    <button type="button" class="btn btn-success" disabled>
-                        <i class="bi bi-file-earmark-excel"></i> Export Excel
-                    </button>
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-auto">
+                        {{ form.start_date.label_tag }}
+                        {{ form.start_date }}
+                    </div>
+                    <div class="col-md-auto">
+                        {{ form.end_date.label_tag }}
+                        {{ form.end_date }}
+                    </div>
+                    <div class="col d-flex flex-wrap align-items-end gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter"></i> Terapkan Filter
+                        </button>
+                        <a href="{% url 'reports:kadaluarsa' %}" class="btn btn-outline-secondary">Reset</a>
+                        <button type="button" class="btn btn-dark" onclick="window.print()">
+                            <i class="bi bi-printer"></i> Cetak Laporan
+                        </button>
+                        <button type="submit" name="format" value="excel" class="btn btn-success">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Header -->
+<div class="d-none d-print-block report-print-sheet">
+    <div class="report-print-header">
+        <div class="report-print-logo">[LOGO<br>INSTANSI]</div>
+        <div class="report-print-title">
+            <h4>[NAMA PEMERINTAH DAERAH / KOTA]</h4>
+            <h5>[NAMA FASILITAS KESEHATAN / INSTALASI FARMASI]</h5>
+            <p>[Alamat Instansi / Kop Surat]</p>
+        </div>
+        <div style="width: 100px;"></div>
+    </div>
+    <div class="report-print-meta">
+        LAPORAN KADALUARSA / RUSAK<br>
+        PERIODE: {{ form.start_date.value|default:"-" }} s/d {{ form.end_date.value|default:"-" }}
+    </div>
+</div>
+
+<!-- Report Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-0">
+                        <thead class="table-light text-center">
+                            <tr>
+                                <th style="width: 50px;">NO</th>
+                                <th style="width: 170px;">NO. DOKUMEN</th>
+                                <th>NAMA BARANG</th>
+                                <th style="width: 90px;">SATUAN</th>
+                                <th style="width: 120px;">BATCH</th>
+                                <th style="width: 110px;">KEDALUWARSA</th>
+                                <th style="width: 150px;">SUMBER DANA</th>
+                                <th style="width: 150px;">HARGA SATUAN</th>
+                                <th style="width: 110px;">JUMLAH</th>
+                                <th style="width: 170px;">TOTAL NILAI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if report_data %}
+                                {% for row in report_data %}
+                                <tr>
+                                    <td class="text-center">{{ forloop.counter }}</td>
+                                    <td>{{ row.document_number }}</td>
+                                    <td>{{ row.nama_barang }}</td>
+                                    <td class="text-center">{{ row.satuan }}</td>
+                                    <td>{{ row.batch_lot }}</td>
+                                    <td class="text-center">{{ row.expiry_date|date:"d/m/Y"|default:"-" }}</td>
+                                    <td>{{ row.sumber_dana }}</td>
+                                    <td class="text-end">Rp {{ row.unit_price|id_decimal:2 }}</td>
+                                    <td class="text-end">{{ row.quantity|id_decimal:0 }}</td>
+                                    <td class="text-end">Rp {{ row.total_price|id_decimal:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr class="table-warning fw-bold">
+                                    <td colspan="8" class="text-center">TOTAL</td>
+                                    <td class="text-end">{{ total_quantity|id_decimal:0 }}</td>
+                                    <td class="text-end">Rp {{ total_value|id_decimal:2 }}</td>
+                                </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    Tidak ada data kadaluarsa/rusak untuk periode ini.
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row justify-content-center mt-3">
-    <div class="col-lg-8">
-        <div class="card shadow-sm border-0">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-exclamation-triangle" style="font-size: 4rem; color: #94a3b8;"></i>
-                <h4 class="mt-3 mb-2">Laporan Kadaluarsa</h4>
-                <p class="text-muted mb-0">Halaman Laporan Obat dan Alkes Kadaluarsa sedang dalam pengembangan.</p>
-                <p class="text-muted small">Fitur ini segera hadir!</p>
-                
-                <div class="mt-4">
-                    <a href="{% url 'reports:index' %}" class="btn btn-primary">
-                        <i class="bi bi-arrow-left me-1"></i>Kembali ke Laporan Rincian
-                    </a>
-                </div>
-            </div>
-        </div>
+<!-- Print Signature -->
+<div class="d-none d-print-flex report-print-sheet justify-content-between mt-5" style="page-break-inside: avoid;">
+    <div class="report-sign-box">
+        Mengetahui,<br>Kepala Instalasi Farmasi
+        <div class="report-sign-name">[Nama Kepala Instalasi]</div>
+        <div>NIP. ........................................</div>
+    </div>
+    <div class="report-sign-box">
+        <br>Petugas Pengelola Obat
+        <div class="report-sign-name">[Nama Petugas]</div>
+        <div>NIP. ........................................</div>
     </div>
 </div>
 {% endblock %}
