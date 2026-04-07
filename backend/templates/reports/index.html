@@ -110,23 +110,23 @@
         <div class="card shadow-sm border-0">
             <div class="card-body bg-light">
                 <form method="get" class="row g-3 align-items-end">
-                    <div class="col-md-3">
+                    <div class="col-md-auto">
                         {{ form.start_date.label_tag }}
                         {{ form.start_date }}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-auto">
                         {{ form.end_date.label_tag }}
                         {{ form.end_date }}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col d-flex flex-wrap align-items-end gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-filter"></i> Terapkan Filter
                         </button>
                         <a href="{% url 'reports:index' %}" class="btn btn-outline-secondary">Reset</a>
-                        <button type="button" class="btn btn-dark ms-2" onclick="window.print()">
+                        <button type="button" class="btn btn-dark" onclick="window.print()">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
-                        <button type="button" class="btn btn-success ms-2" onclick="exportExcel()">
+                        <button type="button" class="btn btn-success" onclick="exportExcel()">
                             <i class="bi bi-file-earmark-excel"></i> Export Excel
                         </button>
                     </div>
