@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from apps.core.decorators import perm_required
 from django.db import models
 from django.db.models import Sum, Q, F, Case, When, OuterRef, Subquery
 from django.db.models.functions import Coalesce
@@ -9,6 +10,7 @@ from .exports import export_rincian_excel, export_rekap_excel
 from apps.stock.models import Transaction, Stock
 
 @login_required
+@perm_required('reports.view_reports')
 def reports_index(request):
     form = InventoryReportFilterForm(request.GET or InventoryReportFilterForm.get_default_initial())
     
@@ -124,6 +126,7 @@ def reports_index(request):
     return render(request, 'reports/index.html', context)
 
 @login_required
+@perm_required('reports.view_reports')
 def reports_rekap(request):
     from apps.items.models import FundingSource
     from decimal import Decimal
@@ -291,6 +294,7 @@ def reports_rekap(request):
     return render(request, 'reports/rekap.html', context)
 
 @login_required
+@perm_required('reports.view_reports')
 def reports_penerimaan_hibah(request):
     from apps.receiving.models import ReceivingItem
     from .exports import export_penerimaan_hibah_excel
@@ -344,6 +348,7 @@ def reports_penerimaan_hibah(request):
     return render(request, 'reports/penerimaan_hibah.html', context)
 
 @login_required
+@perm_required('reports.view_reports')
 def reports_pengadaan(request):
     from apps.receiving.models import ReceivingItem
     from .exports import export_pengadaan_excel
@@ -398,6 +403,7 @@ def reports_pengadaan(request):
     return render(request, 'reports/pengadaan.html', context)
 
 @login_required
+@perm_required('reports.view_reports')
 def reports_kadaluarsa(request):
     from apps.expired.models import ExpiredItem
     from .exports import export_kadaluarsa_excel
@@ -449,6 +455,7 @@ def reports_kadaluarsa(request):
     return render(request, 'reports/kadaluarsa.html', context)
 
 @login_required
+@perm_required('reports.view_reports')
 def reports_pengeluaran(request):
     from apps.distribution.models import DistributionItem
     from .forms import PengeluaranReportFilterForm
