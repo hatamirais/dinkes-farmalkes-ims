@@ -157,7 +157,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Type: `LPLPO`, `ALLOCATION`, `SPECIAL_REQUEST`
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
   - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED`)
-  - Submit requires at least one assigned Petugas
+  - Provides `kepala_instalasi` and `petugas` assignments logic for print outputs
   - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
   - FKs: `facility`, `created_by`, `verified_by` (nullable), `approved_by` (nullable)
   - Indexes: `idx_dist_status_date`, `idx_dist_facility_date`
@@ -211,9 +211,9 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 ### 4.10 Reports
 
-- `reports` currently has no active business model entities (placeholder `models.py`).
+- `reports`: Contains views, templates, and services for inventory, expiry, and receiving reporting with Excel export capabilities. No bespoke database models, aggregates data from other apps.
 
-### 4.10 Puskesmas
+### 4.11 Puskesmas
 
 - `puskesmas.PuskesmasRequest` (`puskesmas_requests`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `REJECTED`
@@ -226,7 +226,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - FKs: `request`, `item`
   - Fields: `quantity_requested`, `quantity_approved` (nullable), `notes`
 
-### 4.11 LPLPO
+### 4.12 LPLPO
 
 - `lplpo.LPLPO` (`lplpos`):
   - Status: `DRAFT`, `SUBMITTED`, `REVIEWED`, `DISTRIBUTED`, `CLOSED`

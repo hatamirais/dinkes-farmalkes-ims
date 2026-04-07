@@ -65,7 +65,7 @@ If documentation conflicts with code, code is authoritative until docs are corre
 - `stock_opname`: physical counting workflow
 - `puskesmas`: ad-hoc requests from Puskesmas
 - `lplpo`: monthly reporting and stock requests from Puskesmas
-- `reports`: currently lightweight placeholder
+- `reports`: inventory, expiry, and receiving reporting with print and export capabilities
 
 ## Permissions Model
 
@@ -81,6 +81,10 @@ Module scopes:
 - `NONE`, `VIEW`, `OPERATE`, `APPROVE`, `MANAGE`
 
 Default scopes per role are defined in `backend/apps/users/access.py`.
+
+### Specialized Roles (e.g. OPERATOR PUSKESMAS)
+
+- `OPERATOR PUSKESMAS` role uses `facility` matching. Views in `puskesmas` and `lplpo` enforce strict facility isolation so that operators from one facility cannot read/write another facility's documents.
 
 ## Workflow and Data Mutation Rules
 

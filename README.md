@@ -44,9 +44,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas.
 - `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 
-### Modul pengembangan lanjutan
-
-- `reports`: rute indeks sudah tersedia, tetapi lapisan model masih berupa placeholder.
+- `reports`: kapabilitas pencetakan dan ekspor Excel untuk laporan inventaris, mutasi, kedaluwarsa, dan penerimaan per sumber dana secara role-based.
 
 ## Ringkasan Workflow
 

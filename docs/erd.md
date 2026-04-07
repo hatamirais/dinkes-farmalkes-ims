@@ -13,6 +13,8 @@ erDiagram
         string email
         string role
         string full_name
+        string nip
+        bigint facility_id FK
     }
 
     ModuleAccess {
@@ -364,6 +366,7 @@ erDiagram
     }
 
     User ||--o{ ModuleAccess : has
+    Facility ||--o{ User : operators
 
     Unit ||--o{ Item : referenced_by
     Category ||--o{ Item : referenced_by
