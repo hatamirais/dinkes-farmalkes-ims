@@ -1,7 +1,7 @@
 # TODO LIST
 
 1. Create new module for Instalasi Farmasi to handle borrowing items between them and Rumah Sakit
-2. Ensure `Permintaan Khusus` flow is connected with the Instalasi Farmasi distribution flow
+2. ~~Ensure `Permintaan Khusus` flow is connected with the Instalasi Farmasi distribution flow~~
 3. Laporan are:
    - ~~Laporan persediaan triwulan, semester, dan tahun~~
    - Laporan penerimaan hibah provinsi

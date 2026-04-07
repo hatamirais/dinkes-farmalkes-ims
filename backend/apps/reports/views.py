@@ -5,6 +5,7 @@ from django.db.models import Sum, Q, F, Case, When, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 
 from .forms import InventoryReportFilterForm
+from .exports import export_rincian_excel, export_rekap_excel
 from apps.stock.models import Transaction, Stock
 
 @login_required
@@ -110,6 +111,12 @@ def reports_index(request):
                 row['expired'] != 0):
                 report_data.append(row)
 
+    # Excel export path
+    if request.GET.get('format') == 'excel' and report_data:
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+        return export_rincian_excel(report_data, start_date, end_date)
+
     context = {
         'form': form,
         'report_data': report_data
@@ -118,7 +125,170 @@ def reports_index(request):
 
 @login_required
 def reports_rekap(request):
-    return render(request, 'reports/rekap.html')
+    from apps.items.models import FundingSource
+    from decimal import Decimal
+
+    form = InventoryReportFilterForm(request.GET or InventoryReportFilterForm.get_default_initial())
+
+    all_sumber_dana = FundingSource.objects.filter(is_active=True).order_by('code')
+
+    # Get selected sumber_dana IDs from GET params
+    selected_sd_ids = request.GET.getlist('sumber_dana')
+    selected_sd_ids = [int(x) for x in selected_sd_ids if x.isdigit()]
+
+    rekap_data = []
+    grand_totals = {
+        'saldo_awal': Decimal('0'),
+        'nilai_terima': Decimal('0'),
+        'nilai_distribusi': Decimal('0'),
+        'nilai_ed': Decimal('0'),
+        'saldo_akhir': Decimal('0'),
+    }
+
+    if form.is_valid():
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+
+        # Base queryset: filter by sumber_dana if selected
+        base_qs = Transaction.objects.all()
+        if selected_sd_ids:
+            base_qs = base_qs.filter(sumber_dana_id__in=selected_sd_ids)
+
+        # Aggregate by sumber_dana + kategori
+        qs = base_qs.values(
+            'sumber_dana__id',
+            'sumber_dana__name',
+            'item__kategori__name',
+            'item__kategori__sort_order',
+        ).annotate(
+            saldo_awal=Coalesce(
+                Sum(
+                    Case(
+                        When(created_at__date__lt=start_date, transaction_type='IN',
+                             then=F('quantity') * F('unit_price')),
+                        When(created_at__date__lt=start_date, transaction_type='OUT',
+                             then=-F('quantity') * F('unit_price')),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                0, output_field=models.DecimalField()
+            ),
+            nilai_terima=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            created_at__date__range=[start_date, end_date],
+                            reference_type__in=['RECEIVING', 'INITIAL_IMPORT'],
+                            transaction_type='IN',
+                            then=F('quantity') * F('unit_price')
+                        ),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                0, output_field=models.DecimalField()
+            ),
+            nilai_distribusi=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            created_at__date__range=[start_date, end_date],
+                            reference_type__in=['DISTRIBUTION', 'RECALL'],
+                            transaction_type='OUT',
+                            then=F('quantity') * F('unit_price')
+                        ),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                0, output_field=models.DecimalField()
+            ),
+            nilai_ed=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            created_at__date__range=[start_date, end_date],
+                            reference_type='EXPIRED',
+                            transaction_type='OUT',
+                            then=F('quantity') * F('unit_price')
+                        ),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                0, output_field=models.DecimalField()
+            ),
+        ).order_by('sumber_dana__name', 'item__kategori__sort_order', 'item__kategori__name')
+
+        # Group data by sumber_dana for template rendering
+        sd_groups = {}
+        for row in qs:
+            sd_name = row['sumber_dana__name'] or 'TIDAK DIKETAHUI'
+            sd_id = row['sumber_dana__id']
+            if sd_name not in sd_groups:
+                sd_groups[sd_name] = {
+                    'sd_id': sd_id,
+                    'sd_name': sd_name,
+                    'categories': [],
+                    'subtotal_saldo_awal': Decimal('0'),
+                    'subtotal_nilai_terima': Decimal('0'),
+                    'subtotal_nilai_distribusi': Decimal('0'),
+                    'subtotal_nilai_ed': Decimal('0'),
+                    'subtotal_saldo_akhir': Decimal('0'),
+                }
+
+            saldo_awal = row['saldo_awal'] or Decimal('0')
+            nilai_terima = row['nilai_terima'] or Decimal('0')
+            nilai_distribusi = row['nilai_distribusi'] or Decimal('0')
+            nilai_ed = row['nilai_ed'] or Decimal('0')
+            saldo_akhir = saldo_awal + nilai_terima - nilai_distribusi - nilai_ed
+
+            # Skip zero rows
+            if saldo_awal == 0 and nilai_terima == 0 and nilai_distribusi == 0 and nilai_ed == 0:
+                continue
+
+            category_row = {
+                'kategori': row['item__kategori__name'] or 'Lainnya',
+                'saldo_awal': saldo_awal,
+                'nilai_terima': nilai_terima,
+                'nilai_distribusi': nilai_distribusi,
+                'nilai_ed': nilai_ed,
+                'saldo_akhir': saldo_akhir,
+            }
+            sd_groups[sd_name]['categories'].append(category_row)
+
+            # Accumulate subtotals
+            sd_groups[sd_name]['subtotal_saldo_awal'] += saldo_awal
+            sd_groups[sd_name]['subtotal_nilai_terima'] += nilai_terima
+            sd_groups[sd_name]['subtotal_nilai_distribusi'] += nilai_distribusi
+            sd_groups[sd_name]['subtotal_nilai_ed'] += nilai_ed
+            sd_groups[sd_name]['subtotal_saldo_akhir'] += saldo_akhir
+
+        # Build final list and grand totals
+        for sd_name, group in sd_groups.items():
+            if group['categories']:
+                rekap_data.append(group)
+                grand_totals['saldo_awal'] += group['subtotal_saldo_awal']
+                grand_totals['nilai_terima'] += group['subtotal_nilai_terima']
+                grand_totals['nilai_distribusi'] += group['subtotal_nilai_distribusi']
+                grand_totals['nilai_ed'] += group['subtotal_nilai_ed']
+                grand_totals['saldo_akhir'] += group['subtotal_saldo_akhir']
+
+    # Excel export path
+    if request.GET.get('format') == 'excel' and rekap_data:
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+        return export_rekap_excel(rekap_data, grand_totals, start_date, end_date)
+
+    context = {
+        'form': form,
+        'rekap_data': rekap_data,
+        'grand_totals': grand_totals,
+        'all_sumber_dana': all_sumber_dana,
+        'selected_sd_ids': selected_sd_ids,
+    }
+    return render(request, 'reports/rekap.html', context)
 
 @login_required
 def reports_penerimaan_hibah(request):

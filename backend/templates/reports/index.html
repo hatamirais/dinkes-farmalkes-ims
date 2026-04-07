@@ -126,6 +126,9 @@
                         <button type="button" class="btn btn-dark ms-2" onclick="window.print()">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
+                        <button type="button" class="btn btn-success ms-2" onclick="exportExcel()">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </button>
                     </div>
                 </form>
             </div>
@@ -228,4 +231,14 @@
         <div>NIP. ........................................</div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportExcel() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('format', 'excel');
+    window.location.href = '{% url "reports:index" %}?' + params.toString();
+}
+</script>
 {% endblock %}
