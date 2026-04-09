@@ -1,6 +1,6 @@
 # TODO LIST
 
-1. Create new module for Instalasi Farmasi to handle borrowing and swapping items between them and Rumah Sakit
+1. ~~Create new module for Instalasi Farmasi to handle borrowing and swapping items between them and Rumah Sakit~~
 2. ~~Ensure `Permintaan Khusus` flow is connected with the Instalasi Farmasi distribution flow~~
 3. ~~Laporan are~~:
    - ~~Laporan persediaan triwulan, semester, dan tahun~~
