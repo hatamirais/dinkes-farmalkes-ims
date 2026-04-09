@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.10.0] - 2026-04-09
+
+### Added
+
+- **Rumah Sakit Borrow/Swap Workflow**: Added `Pinjam RS` and `Tukar RS` distribution types so Instalasi Farmasi can record outbound RS documents without creating a separate module yet.
+- **RS Return Settlement Tracking**: Added `Pengembalian RS` as a receiving type with line-level linkage back to the originating RS distribution item, allowing the system to track outstanding quantities from actual documents instead of manual reminders.
+- **Issued Batch and Book-Value Snapshots**: Distribution lines now preserve the issued batch, expiry, funding source, and unit value at the time stock is distributed for stronger audit visibility.
+- **Outstanding RS Monitoring UI**: Added dashboard and distribution-detail visibility for outstanding RS quantities and carrying values.
+
+### Changed
+
+- RS settlement is intentionally strict for this release: returns may use different batch and expiry data, but must settle the same item as the original RS distribution line.
+- Project documentation now reflects the RS borrowing/return workflow and the settlement-link model used for audit tracking.
+
 ## [1.9.0] - 2026-04-07
 
 ### Added
