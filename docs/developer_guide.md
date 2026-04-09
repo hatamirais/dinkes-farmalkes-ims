@@ -110,6 +110,8 @@ python manage.py test apps.items.tests.ItemModelTest
 python manage.py test apps.items.tests.ItemModelTest.test_generate_kode_barang
 ```
 
+Untuk prioritas coverage, fase implementasi, dan standar penulisan test, lihat `docs/testing_plan.md`.
+
 ## Versioning
 
 Repositori menggunakan semantic versioning dengan format `MAJOR.MINOR.PATCH` pada file `VERSION` di root.
