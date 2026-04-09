@@ -26,6 +26,12 @@ APP_VERSION = str(read_version(get_version_file(PROJECT_ROOT)))
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
