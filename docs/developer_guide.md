@@ -9,7 +9,7 @@ Healthcare IMS dibangun dengan Django 6, PostgreSQL, dan Redis untuk mendukung p
 ## Struktur Repositori
 
 ```text
-Healthcare-Inventory-Management-System/
+dinkes-farmalkes-ims/
 |- README.md
 |- AGENTS.md
 |- SYSTEM_MODEL.md
@@ -32,8 +32,8 @@ Healthcare-Inventory-Management-System/
 ### 1. Clone repositori
 
 ```bash
-git clone git@github.com:ahliweb/Healthcare-Inventory-Management-System.git
-cd Healthcare-Inventory-Management-System
+git clone git@github.com:hatamirais/dinkes-farmalkes-ims.git
+cd dinkes-farmalkes-ims
 ```
 
 ### 2. Siapkan environment file

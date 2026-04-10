@@ -104,7 +104,7 @@ Columns:
 
 - `code` (required, unique)
 - `name` (required)
-- `facility_type` (optional, default `PUSKESMAS`; values: `PUSKESMAS`, `RS`, `CLINIC`)
+- `facility_type` (optional, default `PUSKESMAS`; values: `PUSKESMAS`, `RS`, `CLINIC`, `LABORATORIUM`)
 - `address` (optional)
 - `phone` (optional)
 - `is_active` (optional, default `1`)

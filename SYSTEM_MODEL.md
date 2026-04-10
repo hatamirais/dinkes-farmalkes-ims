@@ -44,7 +44,7 @@ Module highlights:
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
 - LPLPO lists: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped)
-- Puskesmas requests: `/puskesmas/`
+- Puskesmas requests: `/puskesmas/permintaan/`
 
 ## 3) Permission and Access Model
 
@@ -102,6 +102,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `items.Location` (`locations`): `code`, `name`, `description`, `is_active`
 - `items.Supplier` (`suppliers`): `code`, `name`, `address`, `phone`, `email`, `notes`, `is_active`
 - `items.Facility` (`facilities`): `code`, `name`, `address`, `phone`, `facility_type`, `is_active`
+  - `facility_type` choices: `PUSKESMAS`, `RS`, `CLINIC`, `LABORATORIUM`
 - `items.Item` (`items`):
   - `kode_barang` (unique, auto-generated `ITM-YYYY-NNNNN` when blank)
   - `nama_barang`
@@ -153,6 +154,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIAL`, `RECEIVED`, `CLOSED`, `VERIFIED`
   - Fields: `document_number` (auto-generated `RCV-YYYY-NNNNN` when blank), `receiving_date`, `is_planned`, `grant_origin`, `program`, `closed_reason`, `notes`
   - FKs: `supplier` (nullable), `facility` (nullable, required for `RETURN_RS`), `sumber_dana`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
+  - Timestamps: `verified_at`, `approved_at`, `closed_at`
   - Index: `idx_recv_status_date`
   - Properties: `is_rs_return`, `receiving_type_label`
   - UI: `RETURN_RS` is intentionally exposed through a dedicated receiving list/form flow, separated from regular receiving entry screens
@@ -260,7 +262,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Fields: `bulan`, `tahun`, `document_number` (auto-generated `LPLPO-YYYYMM-XXXXX` when blank), `notes`
   - FKs: `facility` (puskesmas only), `created_by`, `reviewed_by` (nullable), `distribution` (nullable OneToOne)
   - Timestamps: `submitted_at`, `reviewed_at`
-  - Constraints/Indexes: unique `(facility, bulan, tahun)`
+  - Constraints/Indexes: `uq_lplpo_facility_period` unique on `(facility, bulan, tahun)`, `idx_lplpo_facility_period` on `(facility, tahun, bulan)`, `idx_lplpo_status` on `(status)`
 
 - `lplpo.LPLPOItem` (`lplpo_items`):
   - FKs: `lplpo`, `item`
