@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.12.1] - 2026-04-16
+
+### Changed
+
+- Regular and planned `Penerimaan` create forms no longer expose the `facility`
+  field for generic Instalasi Farmasi receiving. The field remains available only
+  in dedicated `Pengembalian RS` flows where it is part of the business rule.
+- Receiving form headers now mark required fields more clearly and show a
+  document-number placeholder indicating that the number will be auto-generated
+  when left blank.
+
+### Fixed
+
+- Generic receiving screens now better reflect the actual domain boundary
+  between warehouse receiving and Rumah Sakit return workflows, reducing data
+  entry noise and preventing users from inferring that a facility selection is
+  required for standard receiving.
+
 ## [1.12.0] - 2026-04-14
 
 ### Security Audit
