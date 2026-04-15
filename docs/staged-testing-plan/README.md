@@ -141,12 +141,13 @@ Peta jalan tingkat program tersedia di:
 - [04-users-crud-module-test-plan.md](04-users-crud-module-test-plan.md)
 - [05-core-module-test-plan.md](05-core-module-test-plan.md)
 - [06-receiving-module-test-plan.md](06-receiving-module-test-plan.md)
+- [07-distribution-module-test-plan.md](07-distribution-module-test-plan.md)
 
 ## Modul Aktif Saat Ini
 
 Modul aktif untuk review berikutnya:
 
-- [06-receiving-module-test-plan.md](06-receiving-module-test-plan.md)
+- [07-distribution-module-test-plan.md](07-distribution-module-test-plan.md)
 
 ## Aturan Hasil Akhir
 
