@@ -314,6 +314,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.get(reverse("receiving:receiving_plan_create"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="facility"', html=False)
         self.assertContains(response, 'placeholder="Kosongkan untuk generate otomatis"', html=False)
         self.assertContains(response, 'Receiving type <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)

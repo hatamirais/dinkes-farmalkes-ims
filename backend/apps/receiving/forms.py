@@ -173,7 +173,6 @@ class PlannedReceivingForm(BaseReceivingForm):
             "receiving_type",
             "receiving_date",
             "supplier",
-            "facility",
             "sumber_dana",
             "notes",
         ]
@@ -184,7 +183,6 @@ class PlannedReceivingForm(BaseReceivingForm):
                 attrs={"class": "form-control", "type": "date"}
             ),
             "supplier": forms.Select(attrs={"class": "form-select"}),
-            "facility": forms.Select(attrs={"class": "form-select"}),
             "sumber_dana": forms.Select(attrs={"class": "form-select"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
