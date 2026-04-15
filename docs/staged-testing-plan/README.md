@@ -142,12 +142,13 @@ Peta jalan tingkat program tersedia di:
 - [05-core-module-test-plan.md](05-core-module-test-plan.md)
 - [06-receiving-module-test-plan.md](06-receiving-module-test-plan.md)
 - [07-distribution-module-test-plan.md](07-distribution-module-test-plan.md)
+- [08-recall-module-test-plan.md](08-recall-module-test-plan.md)
 
 ## Modul Aktif Saat Ini
 
 Modul aktif untuk review berikutnya:
 
-- [07-distribution-module-test-plan.md](07-distribution-module-test-plan.md)
+- [08-recall-module-test-plan.md](08-recall-module-test-plan.md)
 
 ## Aturan Hasil Akhir
 
