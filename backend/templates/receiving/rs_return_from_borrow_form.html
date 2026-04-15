@@ -26,7 +26,9 @@
                     <div class="row g-3 mb-4">
                         {% for field in form.visible_fields %}
                         <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
-                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
                             {{ field }}
                             {% for error in field.errors %}
                             <div class="invalid-feedback d-block">{{ error }}</div>

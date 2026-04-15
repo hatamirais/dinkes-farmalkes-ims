@@ -109,6 +109,9 @@ class RsReturnReceivingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["document_number"].widget.attrs["placeholder"] = (
+            "Kosongkan untuk generate otomatis"
+        )
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type=Facility.FacilityType.RS
         ).order_by("name")
@@ -157,6 +160,11 @@ class PrefilledRsReturnReceivingForm(RsReturnReceivingForm):
 
 
 class PlannedReceivingForm(BaseReceivingForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["document_number"].widget.attrs["placeholder"] = (
+            "Kosongkan untuk generate otomatis"
+        )
 
     class Meta:
         model = Receiving

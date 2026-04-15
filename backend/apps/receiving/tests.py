@@ -310,6 +310,24 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Sumber dana <span class="text-danger">*</span>', html=False)
 
+    def test_planned_receiving_create_page_shows_required_markers_and_placeholder(self):
+        response = self.client.get(reverse("receiving:receiving_plan_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'placeholder="Kosongkan untuk generate otomatis"', html=False)
+        self.assertContains(response, 'Receiving type <span class="text-danger">*</span>', html=False)
+        self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)
+        self.assertContains(response, 'Sumber dana <span class="text-danger">*</span>', html=False)
+
+    def test_rs_return_create_page_shows_required_markers_and_placeholder(self):
+        response = self.client.get(reverse("receiving:rs_return_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'placeholder="Kosongkan untuk generate otomatis"', html=False)
+        self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)
+        self.assertContains(response, 'Facility <span class="text-danger">*</span>', html=False)
+        self.assertContains(response, 'Sumber dana <span class="text-danger">*</span>', html=False)
+
     def test_rs_return_list_is_separated_from_regular_receiving_list(self):
         Receiving.objects.create(
             document_number="RCV-2026-99992",
