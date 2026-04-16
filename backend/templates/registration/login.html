@@ -4,52 +4,145 @@
 {% block title %}Masuk — Healthcare IMS{% endblock %}
 
 {% block public_content %}
-<div class="login-wrapper">
-    <div class="login-card">
-        <div class="text-center mb-4">
-            <div class="login-icon">
-                <i class="bi bi-hospital"></i>
-            </div>
-            <h2 class="mb-1">Healthcare IMS</h2>
-            <p class="text-muted">Sistem Manajemen Inventaris</p>
-        </div>
+<section class="auth-shell">
+    <div class="auth-backdrop auth-backdrop-primary"></div>
+    <div class="auth-orb auth-orb-one"></div>
+    <div class="auth-orb auth-orb-two"></div>
 
-        {% if form.errors %}
-        <div class="alert alert-danger py-2 px-3">
-            <small><i class="bi bi-exclamation-circle me-1"></i>Nama pengguna atau kata sandi salah.</small>
-        </div>
-        {% endif %}
+    <div class="auth-layout auth-layout-login">
+        <aside class="auth-showcase">
+            <div class="auth-showcase-inner">
+                <div class="auth-brand-mark">
+                    {% if system_settings and system_settings.logo %}
+                    <img src="{{ system_settings.logo.url }}" alt="Logo {{ system_settings.facility_name|default:'Healthcare IMS' }}">
+                    {% else %}
+                    <i class="bi bi-hospital"></i>
+                    {% endif %}
+                </div>
 
-        <form method="post" action="{% url 'login' %}">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="id_username" class="form-label fw-semibold">Nama Pengguna</label>
-                <input type="text" name="username" id="id_username" class="form-control form-control-lg"
-                    placeholder="Masukkan username" autofocus required>
-            </div>
-            <div class="mb-4">
-                <label for="id_password" class="form-label fw-semibold">Kata Sandi</label>
-                <div class="input-group input-group-lg">
-                    <input type="password" name="password" id="id_password" class="form-control form-control-lg"
-                        placeholder="Masukkan kata sandi" required>
-                    <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
-                        <i class="bi bi-eye-slash"></i>
-                    </button>
+                <span class="auth-eyebrow">Healthcare Inventory Platform</span>
+                <h1>{{ system_settings.facility_name|default:"Healthcare IMS" }}</h1>
+                <p class="auth-showcase-copy">
+                    {{ system_settings.header_title|default:"Sistem Manajemen Inventaris untuk pengelolaan obat dan alat kesehatan." }}
+                </p>
+
+                <div class="auth-feature-list">
+                    <div class="auth-feature-item">
+                        <i class="bi bi-shield-check"></i>
+                        <div>
+                            <strong>Akses terkendali</strong>
+                            <span>Otorisasi berbasis peran dan perlindungan brute-force aktif.</span>
+                        </div>
+                    </div>
+                    <div class="auth-feature-item">
+                        <i class="bi bi-box-seam"></i>
+                        <div>
+                            <strong>Jejak stok terpusat</strong>
+                            <span>Penerimaan, distribusi, recall, dan stok opname tercatat dalam satu alur.</span>
+                        </div>
+                    </div>
+                    <div class="auth-feature-item">
+                        <i class="bi bi-clipboard-data"></i>
+                        <div>
+                            <strong>Siap untuk operasional</strong>
+                            <span>Dirancang untuk gudang farmasi dinas kesehatan dan fasilitas layanan.</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary btn-lg w-100">
-                <i class="bi bi-box-arrow-in-right me-2"></i>Masuk
-            </button>
-            <input type="hidden" name="next" value="{{ next }}">
-        </form>
+        </aside>
 
-        <div class="text-center mt-3">
-            <small class="text-muted">
-                <i class="bi bi-question-circle me-1"></i>Lupa kata sandi? Hubungi administrator untuk mengatur ulang.
-            </small>
+        <div class="auth-panel">
+            <div class="auth-card auth-card-login">
+                <div class="auth-card-header">
+                    <span class="auth-badge">
+                        <i class="bi bi-person-lock"></i>
+                        Portal Masuk
+                    </span>
+                    <h2>Masuk ke sistem</h2>
+                    <p>Gunakan akun petugas yang telah diberikan administrator untuk mengakses modul inventaris.</p>
+                </div>
+
+                {% if form.errors %}
+                <div class="alert alert-danger auth-alert" role="alert">
+                    <i class="bi bi-exclamation-circle"></i>
+                    <div>
+                        <strong>Autentikasi gagal.</strong>
+                        <span>Periksa kembali nama pengguna dan kata sandi Anda.</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'login' %}" class="auth-form">
+                    {% csrf_token %}
+                    <div class="auth-field-group">
+                        <label for="id_username" class="form-label">Nama Pengguna</label>
+                        <div class="auth-input-wrap">
+                            <span class="auth-input-icon"><i class="bi bi-person"></i></span>
+                            <input
+                                type="text"
+                                name="username"
+                                id="id_username"
+                                class="form-control form-control-lg"
+                                placeholder="Masukkan username"
+                                value="{{ form.username.value|default:'' }}"
+                                autocomplete="username"
+                                autofocus
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="auth-field-group">
+                        <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
+                            <label for="id_password" class="form-label mb-0">Kata Sandi</label>
+                            <span class="auth-field-hint">Minimal 10 karakter sesuai kebijakan sistem</span>
+                        </div>
+                        <div class="auth-input-wrap auth-input-wrap-password">
+                            <span class="auth-input-icon"><i class="bi bi-key"></i></span>
+                            <input
+                                type="password"
+                                name="password"
+                                id="id_password"
+                                class="form-control form-control-lg"
+                                placeholder="Masukkan kata sandi"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button class="auth-password-toggle" type="button" id="togglePassword" tabindex="-1" aria-label="Tampilkan kata sandi" aria-pressed="false">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="auth-support-row">
+                        <div class="auth-support-note">
+                            <i class="bi bi-info-circle"></i>
+                            Lupa kata sandi? Hubungi administrator untuk reset akses.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg auth-submit-btn">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        Masuk
+                    </button>
+                    <input type="hidden" name="next" value="{{ next }}">
+                </form>
+
+                <div class="auth-card-footer">
+                    <div class="auth-footer-item">
+                        <i class="bi bi-clock-history"></i>
+                        Sesi akan berakhir otomatis demi keamanan.
+                    </div>
+                    <div class="auth-footer-item">
+                        <i class="bi bi-shield-lock"></i>
+                        Akun dikunci sementara setelah 5 percobaan gagal.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
+</section>
 {% endblock %}
 
 {% block extra_js %}

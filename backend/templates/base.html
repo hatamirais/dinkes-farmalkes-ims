@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Healthcare IMS{% endblock %}</title>
-    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}?v={{ app_version }}-20260416" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}?v={{ app_version }}-20260416" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}?v={{ app_version }}-20260416" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -423,9 +423,9 @@
     </main>
     {% endif %}
 
-    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-    <script src="{% static 'js/app.js' %}"></script>
-    <script src="{% static 'js/confirm-actions.js' %}"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}?v={{ app_version }}-20260416"></script>
+    <script src="{% static 'js/app.js' %}?v={{ app_version }}-20260416"></script>
+    <script src="{% static 'js/confirm-actions.js' %}?v={{ app_version }}-20260416"></script>
     {% block extra_js %}{% endblock %}
 </body>
 

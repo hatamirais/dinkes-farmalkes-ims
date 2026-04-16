@@ -4,33 +4,58 @@
 {% block title %}Akun Terkunci — Healthcare IMS{% endblock %}
 
 {% block public_content %}
-<div class="login-wrapper">
-    <div class="login-card">
-        <div class="text-center mb-4">
-            <div class="login-icon" style="background: rgba(220, 53, 69, 0.1); color: #dc3545;">
-                <i class="bi bi-shield-lock"></i>
-            </div>
-            <h2 class="mb-1">Akun Terkunci</h2>
-            <p class="text-muted">Terlalu banyak percobaan login yang gagal.</p>
-        </div>
+<section class="auth-shell auth-shell-lockout">
+    <div class="auth-backdrop auth-backdrop-danger"></div>
+    <div class="auth-orb auth-orb-one"></div>
+    <div class="auth-orb auth-orb-two"></div>
 
-        <div class="alert alert-warning py-3 px-3">
-            <div class="d-flex align-items-start">
-                <i class="bi bi-clock-history me-2 mt-1"></i>
-                <div>
-                    <strong>Akun Anda dikunci selama 30 menit</strong>
-                    <br>
-                    <small class="text-muted">
-                        Demi keamanan, akun dikunci setelah 5x percobaan login gagal.
-                        Silakan coba lagi setelah 30 menit, atau hubungi Administrator untuk membuka kunci.
-                    </small>
+    <div class="auth-layout auth-layout-centered">
+        <div class="auth-panel auth-panel-full">
+            <div class="auth-card auth-card-lockout">
+                <div class="auth-card-header text-center">
+                    <div class="auth-status-icon auth-status-icon-danger">
+                        <i class="bi bi-shield-lock"></i>
+                    </div>
+                    <span class="auth-badge auth-badge-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Perlindungan Aktif
+                    </span>
+                    <h2>Akun Terkunci Sementara</h2>
+                    <p>Terlalu banyak percobaan login yang gagal terdeteksi pada akun ini.</p>
                 </div>
+
+                <div class="alert alert-warning auth-alert auth-alert-lockout" role="alert">
+                    <i class="bi bi-clock-history"></i>
+                    <div>
+                        <strong>Login ditangguhkan selama 30 menit.</strong>
+                        <span>Demi keamanan, sistem mengunci akun setelah 5 percobaan gagal. Coba lagi nanti atau hubungi administrator untuk bantuan.</span>
+                    </div>
+                </div>
+
+                <div class="auth-lockout-grid">
+                    <div class="auth-info-card">
+                        <span class="auth-info-label">Status</span>
+                        <strong>Locked</strong>
+                        <small>Akses sementara dihentikan</small>
+                    </div>
+                    <div class="auth-info-card">
+                        <span class="auth-info-label">Durasi</span>
+                        <strong>30 Menit</strong>
+                        <small>Reset otomatis setelah masa tunggu</small>
+                    </div>
+                    <div class="auth-info-card">
+                        <span class="auth-info-label">Tindakan</span>
+                        <strong>Hubungi Admin</strong>
+                        <small>Gunakan jalur bantuan internal bila mendesak</small>
+                    </div>
+                </div>
+
+                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg auth-secondary-btn">
+                    <i class="bi bi-arrow-left"></i>
+                    Kembali ke Halaman Masuk
+                </a>
             </div>
         </div>
-
-        <a href="{% url 'login' %}" class="btn btn-outline-primary w-100">
-            <i class="bi bi-arrow-left me-2"></i>Kembali ke Halaman Masuk
-        </a>
     </div>
-</div>
+</section>
 {% endblock %}
