@@ -20,7 +20,7 @@
                     {% endif %}
                 </div>
 
-                <span class="auth-eyebrow">Healthcare Inventory Platform</span>
+                <span class="auth-eyebrow">{{ system_settings.platform_label|default:"Healthcare Inventory Platform" }}</span>
                 <h1>{{ system_settings.facility_name|default:"Healthcare IMS" }}</h1>
                 <p class="auth-showcase-copy">
                     {{ system_settings.header_title|default:"Sistem Manajemen Inventaris untuk pengelolaan obat dan alat kesehatan." }}

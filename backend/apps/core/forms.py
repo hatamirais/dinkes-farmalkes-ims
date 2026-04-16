@@ -5,6 +5,7 @@ class SystemSettingsForm(forms.ModelForm):
     class Meta:
         model = SystemSettings
         fields = [
+            'platform_label',
             'facility_name',
             'facility_address',
             'facility_phone',

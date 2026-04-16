@@ -14,6 +14,11 @@ class SystemSettings(TimeStampedModel):
     """
     Singleton model to hold dynamic system settings (facility name, logo, etc.).
     """
+    platform_label = models.CharField(
+        max_length=255,
+        default="Healthcare Inventory Platform",
+        help_text="Label singkat untuk branding aplikasi, misalnya badge di halaman login.",
+    )
     facility_name = models.CharField(max_length=255, default="Healthcare Inventory Management System")
     facility_address = models.TextField(blank=True)
     facility_phone = models.CharField(max_length=50, blank=True)

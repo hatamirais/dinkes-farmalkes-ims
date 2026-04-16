@@ -78,7 +78,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `core.SystemSettings` (`system_settings`)
   - Singleton model (forced `id=1`) for global dynamic settings.
-  - Fields: `facility_name`, `facility_address`, `facility_phone`, `header_title`, `logo`
+  - Fields: `platform_label`, `facility_name`, `facility_address`, `facility_phone`, `header_title`, `logo`
 
 ### 4.2 Users and authorization
 
