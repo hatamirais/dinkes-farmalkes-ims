@@ -319,6 +319,9 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertContains(response, 'Receiving type <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Sumber dana <span class="text-danger">*</span>', html=False)
+        self.assertContains(response, '>Pengadaan</option>', html=False)
+        self.assertContains(response, '>Hibah</option>', html=False)
+        self.assertNotContains(response, '>Pengembalian RS</option>', html=False)
 
     def test_rs_return_create_page_shows_required_markers_and_placeholder(self):
         response = self.client.get(reverse("receiving:rs_return_create"))

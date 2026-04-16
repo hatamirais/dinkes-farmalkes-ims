@@ -161,6 +161,7 @@ class PrefilledRsReturnReceivingForm(RsReturnReceivingForm):
 
 class PlannedReceivingForm(BaseReceivingForm):
     def __init__(self, *args, **kwargs):
+        kwargs.setdefault("include_return_rs", False)
         super().__init__(*args, **kwargs)
         self.fields["document_number"].widget.attrs["placeholder"] = (
             "Kosongkan untuk generate otomatis"
