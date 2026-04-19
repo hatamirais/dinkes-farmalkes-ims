@@ -112,6 +112,10 @@ class RsReturnReceivingForm(forms.ModelForm):
         self.fields["document_number"].widget.attrs["placeholder"] = (
             "Kosongkan untuk generate otomatis"
         )
+        self.fields["facility"].required = True
+        self.fields["facility"].error_messages["required"] = (
+            "Rumah sakit asal wajib dipilih."
+        )
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type=Facility.FacilityType.RS
         ).order_by("name")
@@ -120,7 +124,7 @@ class RsReturnReceivingForm(forms.ModelForm):
         cleaned_data = super().clean()
         facility = cleaned_data.get("facility")
 
-        if not facility:
+        if not facility and "facility" not in self.errors:
             self.add_error("facility", "Rumah sakit asal wajib dipilih.")
 
         return cleaned_data
