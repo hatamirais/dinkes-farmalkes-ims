@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load number_format %}
 
 {% block title %}Detail Rencana {{ receiving.document_number }} — Healthcare IMS{% endblock %}
 {% block page_title %}Detail Rencana Penerimaan{% endblock %}
@@ -23,7 +24,7 @@
                     <dd class="col-7">{{ receiving.supplier.name|default:"-" }}</dd>
 
                     <dt class="col-5 text-muted">Sumber Dana</dt>
-                    <dd class="col-7">{{ receiving.sumber_dana.code }}</dd>
+                    <dd class="col-7">{{ receiving.sumber_dana.name }}</dd>
 
                     <dt class="col-5 text-muted">Status</dt>
                     <dd class="col-7">
@@ -111,9 +112,9 @@
                                 <td>{{ forloop.counter }}</td>
                                 <td><code>{{ ri.item.kode_barang }}</code></td>
                                 <td>{{ ri.item.nama_barang }}</td>
-                                <td class="text-end">{{ ri.planned_quantity }}</td>
-                                <td class="text-end">{{ ri.received_quantity }}</td>
-                                <td class="text-end fw-semibold">{{ ri.remaining_quantity }}</td>
+                                <td class="text-end">{{ ri.planned_quantity|id_decimal }}</td>
+                                <td class="text-end">{{ ri.received_quantity|id_decimal }}</td>
+                                <td class="text-end fw-semibold">{{ ri.remaining_quantity|id_decimal }}</td>
                                 <td class="text-muted small">
                                     {% if ri.is_cancelled %}
                                         <span class="text-danger">Dibatalkan</span>
@@ -164,7 +165,7 @@
                                 <td>{{ ri.item.nama_barang }}</td>
                                 <td>{{ ri.batch_lot }}</td>
                                 <td>{{ ri.location.name|default:"-" }}</td>
-                                <td class="text-end fw-semibold">{{ ri.quantity }}</td>
+                                <td class="text-end fw-semibold">{{ ri.quantity|id_decimal }}</td>
                                 <td>{{ ri.received_by|default:"-" }}</td>
                                 <td>{{ ri.received_at|date:"d/m/Y H:i"|default:"-" }}</td>
                             </tr>

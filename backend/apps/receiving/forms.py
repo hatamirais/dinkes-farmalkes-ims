@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django import forms
 from django.db.models import DecimalField, Sum, Value
 from django.db.models.functions import Coalesce
@@ -9,6 +11,16 @@ from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Facility
 
 from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
+
+
+def _format_id_decimal(value, places=2):
+    try:
+        number = value if isinstance(value, Decimal) else Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        number = Decimal("0")
+
+    formatted = f"{number:,.{places}f}"
+    return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _get_receiving_type_choices(include_return_rs=True):
@@ -492,7 +504,7 @@ class ReceivingReceiptItemForm(forms.ModelForm):
         required=False,
         disabled=True,
         decimal_places=2,
-        widget=forms.NumberInput(
+        widget=forms.TextInput(
             attrs={"class": "form-control form-control-sm text-end", "readonly": True}
         ),
     )
@@ -559,10 +571,12 @@ class ReceivingReceiptItemForm(forms.ModelForm):
             )
 
         if selected_order_item:
-            self.fields["order_item_label"].initial = str(selected_order_item.item)
-            self.fields[
-                "planned_quantity"
-            ].initial = selected_order_item.planned_quantity
+            self.fields["order_item_label"].initial = (
+                selected_order_item.item.nama_barang
+            )
+            self.fields["planned_quantity"].initial = _format_id_decimal(
+                selected_order_item.planned_quantity
+            )
 
         if self.lock_order_item:
             self.fields["order_item"].widget = forms.HiddenInput()
@@ -571,6 +585,7 @@ class ReceivingReceiptItemForm(forms.ModelForm):
         self.fields["order_item"].label_from_instance = lambda obj: (
             f"{obj.item} (Sisa: {obj.remaining_quantity})"
         )
+        self.fields["location"].label_from_instance = lambda obj: obj.name
 
     def clean(self):
         cleaned = super().clean()
@@ -624,13 +639,14 @@ ReceivingReceiptItemFormSet = inlineformset_factory(
 )
 
 
-ReceivingPlannedReceiptItemFormSet = inlineformset_factory(
-    Receiving,
-    ReceivingItem,
-    form=ReceivingReceiptItemForm,
-    extra=0,
-    can_delete=False,
-)
+def build_planned_receipt_item_formset(extra_forms):
+    return inlineformset_factory(
+        Receiving,
+        ReceivingItem,
+        form=ReceivingReceiptItemForm,
+        extra=extra_forms,
+        can_delete=False,
+    )
 
 
 class ReceivingCloseForm(forms.Form):

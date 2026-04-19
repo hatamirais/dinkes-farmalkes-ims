@@ -16,6 +16,7 @@ from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess
 from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 from .forms import (
+    build_planned_receipt_item_formset,
     build_prefilled_rs_return_item_formset,
     PrefilledRsReturnReceivingForm,
     ReceivingForm,
@@ -25,7 +26,6 @@ from .forms import (
     PlannedReceivingForm,
     ReceivingOrderItemFormSet,
     ReceivingReceiptItemFormSet,
-    ReceivingPlannedReceiptItemFormSet,
     ReceivingCloseForm,
     ReceivingOrderCloseItemFormSet,
 )
@@ -726,9 +726,12 @@ def receiving_plan_receive(request, pk):
                 "unit_price": order_item.unit_price,
             }
         )
+    planned_receipt_formset_class = build_planned_receipt_item_formset(
+        extra_forms=len(initial_rows)
+    )
 
     if request.method == "POST":
-        formset = ReceivingPlannedReceiptItemFormSet(
+        formset = planned_receipt_formset_class(
             request.POST,
             prefix="items",
             instance=receiving,
@@ -839,7 +842,7 @@ def receiving_plan_receive(request, pk):
         )
         return redirect("receiving:receiving_plan_detail", pk=pk)
     else:
-        formset = ReceivingPlannedReceiptItemFormSet(
+        formset = planned_receipt_formset_class(
             prefix="items",
             instance=receiving,
             form_kwargs={"receiving": receiving, "lock_order_item": True},

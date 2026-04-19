@@ -578,7 +578,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         ReceivingOrderItem.objects.create(
             receiving=receiving,
             item=self.item,
-            planned_quantity=Decimal("5"),
+            planned_quantity=Decimal("5000"),
             received_quantity=Decimal("0"),
             unit_price=Decimal("1000"),
             is_cancelled=False,
@@ -590,6 +590,12 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Kuantitas Rencana")
         self.assertContains(response, "Kuantitas Diterima")
+        self.assertContains(response, self.item.nama_barang)
+        self.assertNotContains(response, self.item.kode_barang)
+        self.assertContains(response, 'name="items-0-order_item"', html=False)
+        self.assertContains(response, 'value="5.000,00"', html=False)
+        self.assertContains(response, self.location.name)
+        self.assertNotContains(response, self.location.code)
         self.assertNotContains(response, "Hapus")
 
     def test_plan_receive_accepts_zero_qty_as_no_receipt_for_row(self):

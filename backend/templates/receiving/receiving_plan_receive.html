@@ -4,8 +4,8 @@
 {% block page_title %}Terima Barang (Rencana){% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
+<div class="row g-3">
+    <div class="col-12">
         <div class="card content-card">
             <div class="card-header">
                 <span><i class="bi bi-inbox-arrow-down me-2"></i>Terima Barang dari Rencana</span>
@@ -15,7 +15,7 @@
                     <div class="d-flex flex-wrap gap-3 small text-muted">
                         <span><strong>No. Dokumen:</strong> {{ receiving.document_number }}</span>
                         <span><strong>Tanggal:</strong> {{ receiving.receiving_date|date:"d/m/Y" }}</span>
-                        <span><strong>Sumber Dana:</strong> {{ receiving.sumber_dana.code }}</span>
+                        <span><strong>Sumber Dana:</strong> {{ receiving.sumber_dana.name }}</span>
                     </div>
                 </div>
 
@@ -23,16 +23,16 @@
                     {% csrf_token %}
                     {{ formset.management_form }}
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-sm w-100 align-middle">
                             <thead>
                                 <tr>
-                                    <th>Item Pesanan</th>
-                                    <th style="width:140px;">Kuantitas Rencana</th>
-                                    <th style="width:140px;">Kuantitas Diterima</th>
-                                    <th style="width:140px;">Batch/Lot</th>
-                                    <th style="width:140px;">Tanggal Kedaluwarsa</th>
-                                    <th style="width:140px;">Harga Satuan</th>
-                                    <th>Lokasi</th>
+                                    <th style="min-width: 260px;">Item Pesanan</th>
+                                    <th style="width:170px;">Kuantitas Rencana</th>
+                                    <th style="width:180px;">Kuantitas Diterima</th>
+                                    <th style="width:170px;">Batch/Lot</th>
+                                    <th style="width:190px;">Tanggal Kedaluwarsa</th>
+                                    <th style="width:170px;">Harga Satuan</th>
+                                    <th style="min-width: 220px;">Lokasi</th>
                                 </tr>
                             </thead>
                             <tbody>
