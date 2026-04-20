@@ -112,16 +112,16 @@ Target durasi: 1 sampai 2 minggu
 
 Fokus:
 
-- Memperdalam alur RS dan reservation behavior.
+- Memperdalam workflow receiving dan distribution bernilai tinggi.
 - Menutup gap pada decorator permission.
 
 Pekerjaan:
 
-1. Tambah test `BORROW_RS` dan `SWAP_RS` sampai settlement receiving kembali ke item distribusi asal.
-2. Uji properti turunan seperti `settled_quantity`, `outstanding_quantity`, dan `outstanding_value`.
+1. Tambah test workflow receiving reguler dan planned receiving sampai efek stok serta transaksi tervalidasi.
+2. Tambah test workflow distribution sampai aksi verify, prepare, distribute, reset, reject, dan close tervalidasi.
 3. Tambah test `@login_required` + `@perm_required` untuk kombinasi superuser, Django permission, module scope, dan deny path.
 4. Tambah test `Stock.available_quantity` dan perilaku FEFO untuk pilihan batch distribusi.
-5. Tambah negative-path test untuk aksi verify, prepare, distribute, reset, reject, dan close.
+5. Tambah negative-path test untuk guard status dan permission pada receiving, distribution, recall, dan expired.
 
 Definition of done:
 

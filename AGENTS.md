@@ -58,8 +58,8 @@ If documentation conflicts with code, code is authoritative until docs are corre
 - `users`: custom user and `ModuleAccess` scope model
 - `items`: master data and item catalog
 - `stock`: stock entries, immutable transactions, stock card, location-based stock search, and stock transfer
-- `receiving`: regular and planned receiving flows, custom CSV import endpoint in admin, quick-create lookup endpoints, custom `ReceivingTypeOption` support, and RS return settlement links via `ReceivingItem.settlement_distribution_item`
-- `distribution`: outbound distribution workflow, including `BORROW_RS` and `SWAP_RS` document types, step-back/reset actions before distribution, and issued batch/value snapshots on `DistributionItem`
+- `receiving`: regular and planned receiving flows, custom CSV import endpoint in admin, quick-create lookup endpoints, and custom `ReceivingTypeOption` support
+- `distribution`: outbound distribution workflow, step-back/reset actions before distribution, and issued batch/value snapshots on `DistributionItem`
 - `recall`: supplier return workflow
 - `expired`: expired/disposal workflow and alerts page
 - `stock_opname`: physical counting workflow
@@ -93,11 +93,7 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - Stock transfer completion writes paired `OUT` and `IN` transactions.
 - Receiving admin CSV import writes `Receiving`, `ReceivingItem`, updates/creates `Stock`, and writes `Transaction(IN)`.
 - Receiving supports built-in and custom type codes; UI labels for non-built-in types are resolved from `ReceivingTypeOption`.
-- RS borrowing/swap follow normal distribution stock-out rules; repayment from Rumah Sakit is recorded as `Receiving(receiving_type=RETURN_RS)` and linked at line level to the originating `DistributionItem`.
 - Availability checks across distribution, recall, expired, transfer, and several selectors use `Stock.available_quantity` (`quantity - reserved`), but current workflows do not automatically increment or decrement `reserved` during distribution processing.
-- UI rule: keep `RETURN_RS` on a dedicated receiving list/form path, separate from regular receiving, so generic receiving UX does not expose RS settlement controls.
-- UI rule: keep `BORROW_RS` on a dedicated distribution list/create/detail path under Pengeluaran, even though it persists through the existing `distribution` app models.
-- UI rule: when launching `RETURN_RS` from a `BORROW_RS` detail page, lock facility, item, unit price, settlement linkage, and funding source from the originating distribution context on the server side.
 
 ## Documentation Maintenance Contract
 

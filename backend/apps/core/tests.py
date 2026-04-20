@@ -9,12 +9,11 @@ from django.urls import reverse
 
 from apps.core.context_processors import nav_notifications
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
-from apps.distribution.models import Distribution, DistributionItem
-from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.distribution.models import Distribution
+from apps.items.models import Facility, FundingSource
 from apps.lplpo.models import LPLPO
 from apps.puskesmas.models import PuskesmasRequest
 from apps.receiving.models import Receiving
-from apps.stock.models import Stock
 from apps.users.models import ModuleAccess, User
 
 
@@ -126,65 +125,6 @@ class DashboardViewTests(TestCase):
         self.assertIsNone(response.context["facility"])
         self.assertEqual(list(response.context["recent_lplpos"]), [])
         self.assertEqual(list(response.context["recent_requests"]), [])
-
-    def test_main_dashboard_shows_outstanding_rs_items(self):
-        unit = Unit.objects.create(code="TAB", name="Tablet")
-        category = Category.objects.create(code="OBT-DASH", name="Obat", sort_order=1)
-        item = Item.objects.create(
-            nama_barang="Cefixime 200mg",
-            satuan=unit,
-            kategori=category,
-            minimum_stock=Decimal("0"),
-        )
-        location = Location.objects.create(code="GUD-DASH", name="Gudang Dashboard")
-        funding = FundingSource.objects.create(code="DAK-DASH", name="DAK Dashboard")
-        rs_facility = Facility.objects.create(
-            code="RS-DASH",
-            name="RS Dashboard",
-            facility_type=Facility.FacilityType.RS,
-        )
-        admin_user = User.objects.create_superuser(
-            username="dashboard-admin",
-            password="TestPassword123!",
-        )
-        stock = Stock.objects.create(
-            item=item,
-            location=location,
-            batch_lot="BATCH-DASH-1",
-            expiry_date="2027-12-31",
-            quantity=Decimal("100"),
-            reserved=Decimal("0"),
-            unit_price=Decimal("2500"),
-            sumber_dana=funding,
-        )
-        distribution = Distribution.objects.create(
-            distribution_type=Distribution.DistributionType.BORROW_RS,
-            request_date="2026-03-12",
-            facility=rs_facility,
-            status=Distribution.Status.DISTRIBUTED,
-            created_by=admin_user,
-            approved_by=admin_user,
-        )
-        DistributionItem.objects.create(
-            distribution=distribution,
-            item=item,
-            quantity_requested=Decimal("10"),
-            quantity_approved=Decimal("10"),
-            stock=stock,
-            issued_batch_lot="BATCH-DASH-1",
-            issued_expiry_date="2027-12-31",
-            issued_unit_price=Decimal("2500"),
-            issued_sumber_dana=funding,
-        )
-
-        self.client.force_login(admin_user)
-        response = self.client.get(reverse("dashboard"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Sisa Pengembalian RS")
-        self.assertContains(response, distribution.document_number)
-        self.assertContains(response, rs_facility.name)
-
 
 class NavNotificationsContextProcessorTests(TestCase):
     def setUp(self):

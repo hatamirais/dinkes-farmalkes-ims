@@ -150,22 +150,19 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Used by quick-create receiving type UI and by `Receiving.receiving_type_label` to resolve non-built-in labels
 
 - `receiving.Receiving` (`receivings`):
-  - Type: `PROCUREMENT`, `GRANT`, `RETURN_RS`
+  - Type: `PROCUREMENT`, `GRANT`
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIAL`, `RECEIVED`, `CLOSED`, `VERIFIED`
   - Fields: `document_number` (auto-generated `RCV-YYYY-NNNNN` when blank), `receiving_date`, `is_planned`, `grant_origin`, `program`, `closed_reason`, `notes`
-  - FKs: `supplier` (nullable), `facility` (nullable, required for `RETURN_RS`), `sumber_dana`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
+  - FKs: `supplier` (nullable), `facility` (nullable), `sumber_dana`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
   - Timestamps: `verified_at`, `approved_at`, `closed_at`
   - Index: `idx_recv_status_date`
-  - Properties: `is_rs_return`, `receiving_type_label`
-  - UI: `RETURN_RS` is intentionally exposed through a dedicated receiving list/form flow, separated from regular receiving entry screens
+  - Properties: `receiving_type_label`
   - Custom receiving types can still be stored in `receiving_type`; built-in display labels come from `ReceivingType`, while non-built-in labels are resolved from `ReceivingTypeOption`
 
 - `receiving.ReceivingItem` (`receiving_items`):
   - FKs: `receiving`, `order_item` (nullable), `item`, `location` (nullable), `settlement_distribution_item` (nullable), `received_by` (nullable)
   - Fields: `quantity`, `batch_lot`, `expiry_date`, `unit_price`, `received_at`, `created_at`
   - Property: `total_price`
-  - `settlement_distribution_item` is used by `RETURN_RS` to settle sisa pengembalian dari dokumen `BORROW_RS` / `SWAP_RS`
-  - For `RETURN_RS` launched from a `BORROW_RS` detail page, facility, item, unit price, and funding source are derived from the originating distribution document and enforced server-side
 
 - `receiving.ReceivingDocument` (`receiving_documents`):
   - FK: `receiving`
@@ -179,21 +176,18 @@ This section reflects model code in `backend/apps/*/models.py`.
 ### 4.6 Distribution
 
 - `distribution.Distribution` (`distributions`):
-  - Type: `LPLPO`, `ALLOCATION`, `SPECIAL_REQUEST`, `BORROW_RS`, `SWAP_RS`
+  - Type: `LPLPO`, `ALLOCATION`, `SPECIAL_REQUEST`
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
   - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED`)
   - Provides `kepala_instalasi` and `petugas` assignments logic for print outputs
   - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
   - FKs: `facility`, `created_by`, `verified_by` (nullable), `approved_by` (nullable)
   - Indexes: `idx_dist_status_date`, `idx_dist_facility_date`
-  - Property: `is_rs_workflow`
 
 - `distribution.DistributionItem` (`distribution_items`):
   - FKs: `distribution`, `item`, `stock` (nullable)
   - Fields: `quantity_requested`, `quantity_approved` (nullable), `issued_batch_lot`, `issued_expiry_date`, `issued_unit_price`, `notes`, `created_at`
-  - FKs also include `issued_sumber_dana` (nullable) to preserve the book-value source used when the RS document was distributed
-  - Properties: `settled_quantity`, `outstanding_quantity`, `outstanding_value`
-  - Sisa pengembalian RS dihitung dari `quantity_approved - sum(receiving_items.quantity)` untuk baris `settlement_distribution_item` yang terhubung
+  - FKs also include `issued_sumber_dana` (nullable) to preserve the book-value source used when stock is distributed
 
 - `distribution.DistributionStaffAssignment` (`distribution_staff_assignments`):
   - FKs: `distribution`, `user`
@@ -276,7 +270,6 @@ This section reflects model code in `backend/apps/*/models.py`.
 Operational mutation points (from app behavior and admin import logic):
 
 - Receiving verify/receive path posts `Transaction(IN)` and updates/creates `Stock`.
-- `Receiving(receiving_type=RETURN_RS)` still posts a normal `Transaction(IN)`, but operationally it also settles the linked RS distribution item rather than pretending to restore the original batch.
 - Receiving CSV admin import (`import-csv/`) posts:
   - `Receiving(status=VERIFIED)`
   - `ReceivingItem`
@@ -288,7 +281,6 @@ Operational mutation points (from app behavior and admin import logic):
   - verification and distribution validations use `Stock.available_quantity` (`quantity - reserved`) when checking the selected batch
   - prepare phase updates document status only (no stock mutation and no reservation write)
   - distribute phase decreases `Stock.quantity` and posts `Transaction(OUT)`; the current workflow does not automatically increment or clear `stock.reserved`
-  - `BORROW_RS` and `SWAP_RS` use the same stock-out mechanics as other distributions, while preserving issued batch/value snapshots on each `DistributionItem` for settlement and audit visibility
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock

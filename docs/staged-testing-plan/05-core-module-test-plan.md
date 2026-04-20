@@ -193,8 +193,6 @@ Skenario:
 6. `today_transaction_count` benar untuk transaksi hari ini.
 7. Ringkasan in/out 30 hari dan persentasenya benar.
 8. `recent_transactions` tampil terurut terbaru.
-9. Outstanding `BORROW_RS` dan `SWAP_RS` hanya menampilkan item dengan sisa outstanding positif.
-10. `outstanding_rs_count` dan `outstanding_rs_value` dihitung benar.
 
 ### F. Puskesmas Dashboard Scoping
 
@@ -262,7 +260,6 @@ Gunakan data minimal tetapi representatif:
 - item aktif dan item nonaktif untuk aggregate dashboard
 - stock dengan variasi expiry, quantity, reserved, dan unit price
 - transaction `IN` dan `OUT` pada rentang hari yang berbeda
-- contoh distribution `BORROW_RS` atau `SWAP_RS` dengan outstanding positif dan nol
 - contoh `Receiving`, `LPLPO`, `PuskesmasRequest`, `Recall`, `Expired`, dan `StockOpname` sesuai kebutuhan notification
 
 Prinsip data:

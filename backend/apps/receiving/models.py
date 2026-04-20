@@ -30,7 +30,6 @@ class Receiving(TimeStampedModel):
     class ReceivingType(models.TextChoices):
         PROCUREMENT = "PROCUREMENT", "Pengadaan"
         GRANT = "GRANT", "Hibah"
-        RETURN_RS = "RETURN_RS", "Pengembalian RS"
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -59,7 +58,7 @@ class Receiving(TimeStampedModel):
         null=True,
         blank=True,
         related_name="receivings",
-        help_text="Required for Pengembalian RS type",
+        help_text="Optional facility reference for receiving documents.",
     )
     grant_origin = models.CharField(
         max_length=100,
@@ -120,10 +119,6 @@ class Receiving(TimeStampedModel):
 
     def __str__(self):
         return f"{self.document_number} ({self.get_receiving_type_display()})"
-
-    @property
-    def is_rs_return(self):
-        return self.receiving_type == self.ReceivingType.RETURN_RS
 
     @property
     def receiving_type_label(self):

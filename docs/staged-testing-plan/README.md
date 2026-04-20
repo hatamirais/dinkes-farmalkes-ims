@@ -74,7 +74,7 @@ Alasan:
 Alasan:
 
 - Menjadi titik masuk utama penambahan stok dan sumber transaksi `IN`.
-- Memiliki impor CSV, penerimaan reguler, penerimaan terencana, dan pengembalian RS.
+- Memiliki impor CSV, penerimaan reguler, dan penerimaan terencana.
 
 ### Tahap 5: Alur Keluar Inventaris
 
@@ -83,7 +83,7 @@ Alasan:
 Alasan:
 
 - Merupakan alur kerja stok keluar paling penting dan paling sensitif secara operasional.
-- Memiliki cabang bisnis tambahan: `LPLPO`, `BORROW_RS`, dan `SWAP_RS`.
+- Memiliki cabang bisnis utama seperti `LPLPO`, `ALLOCATION`, dan `SPECIAL_REQUEST`.
 
 ### Tahap 6: Alur Retur dan Pemusnahan
 

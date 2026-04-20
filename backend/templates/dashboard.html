@@ -188,57 +188,6 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-hospital me-2"></i>Sisa Pengembalian RS</span>
-                <div class="small text-muted">
-                    <span class="me-3">Dokumen aktif: {{ outstanding_rs_count }}</span>
-                    <span>Nilai sisa pengembalian: {{ outstanding_rs_value|idr }}</span>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                {% if outstanding_rs_items %}
-                <div class="table-responsive">
-                    <table class="table mb-0">
-                        <thead>
-                            <tr>
-                                <th>Dokumen</th>
-                                <th>Rumah Sakit</th>
-                                <th>Barang</th>
-                                <th class="text-end">Qty Sisa Pengembalian</th>
-                                <th class="text-end">Nilai Sisa Pengembalian</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in outstanding_rs_items %}
-                            <tr>
-                                <td>
-                                    <a href="{% url 'distribution:distribution_detail' row.distribution_item.distribution.pk %}" class="fw-semibold text-decoration-none">
-                                        {{ row.distribution_item.distribution.document_number }}
-                                    </a>
-                                </td>
-                                <td>{{ row.distribution_item.distribution.facility.name }}</td>
-                                <td>{{ row.distribution_item.item.nama_barang }}</td>
-                                <td class="text-end text-danger fw-semibold">{{ row.outstanding_quantity }}</td>
-                                <td class="text-end">{{ row.outstanding_value|idr }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-check2-circle d-block"></i>
-                    <p>Tidak ada sisa pengembalian RS yang perlu ditindaklanjuti.</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="row g-3">
     <!-- Recent Transactions -->
     <div class="col-lg-8">

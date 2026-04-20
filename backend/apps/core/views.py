@@ -8,7 +8,6 @@ from django.db.models import Count, Sum, Q, F, DecimalField, ExpressionWrapper, 
 from django.db.models.functions import Coalesce
 
 from apps.items.models import Item
-from apps.distribution.models import Distribution, DistributionItem
 from apps.lplpo.models import LPLPO
 from apps.puskesmas.models import PuskesmasRequest
 from apps.stock.models import Stock, Transaction
@@ -145,37 +144,6 @@ def dashboard(request):
         "-created_at"
     )[:10]
 
-    outstanding_rs_items = []
-    outstanding_rs_count = 0
-    outstanding_rs_value = Decimal("0")
-    rs_distribution_items = DistributionItem.objects.select_related(
-        "distribution",
-        "distribution__facility",
-        "item",
-    ).filter(
-        distribution__status=Distribution.Status.DISTRIBUTED,
-        distribution__distribution_type__in=[
-            Distribution.DistributionType.BORROW_RS,
-            Distribution.DistributionType.SWAP_RS,
-        ],
-    )
-    for distribution_item in rs_distribution_items.order_by(
-        "distribution__request_date", "distribution__document_number", "id"
-    ):
-        outstanding_quantity = distribution_item.outstanding_quantity
-        if outstanding_quantity <= 0:
-            continue
-        outstanding_rs_count += 1
-        outstanding_rs_value += distribution_item.outstanding_value
-        if len(outstanding_rs_items) < 8:
-            outstanding_rs_items.append(
-                {
-                    "distribution_item": distribution_item,
-                    "outstanding_quantity": outstanding_quantity,
-                    "outstanding_value": distribution_item.outstanding_value,
-                }
-            )
-
     return render(
         request,
         "dashboard.html",
@@ -195,9 +163,6 @@ def dashboard(request):
             "thirty_days_ago": thirty_days_ago,
             "today": today,
             "recent_transactions": recent_transactions,
-            "outstanding_rs_items": outstanding_rs_items,
-            "outstanding_rs_count": outstanding_rs_count,
-            "outstanding_rs_value": outstanding_rs_value,
         },
     )
 

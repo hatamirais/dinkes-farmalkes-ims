@@ -11,8 +11,6 @@ class Distribution(TimeStampedModel):
         LPLPO = "LPLPO", "LPLPO"
         ALLOCATION = "ALLOCATION", "Alokasi"
         SPECIAL_REQUEST = "SPECIAL_REQUEST", "Permintaan Khusus"
-        BORROW_RS = "BORROW_RS", "Pinjam RS"
-        SWAP_RS = "SWAP_RS", "Tukar RS"
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -85,13 +83,6 @@ class Distribution(TimeStampedModel):
 
     def __str__(self):
         return f"{self.document_number} → {self.facility}"
-
-    @property
-    def is_rs_workflow(self):
-        return self.distribution_type in {
-            self.DistributionType.BORROW_RS,
-            self.DistributionType.SWAP_RS,
-        }
 
     def save(self, *args, **kwargs):
         if not self.document_number:

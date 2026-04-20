@@ -1,14 +1,8 @@
 from decimal import Decimal, InvalidOperation
 
 from django import forms
-from django.db.models import DecimalField, Sum, Value
-from django.db.models.functions import Coalesce
 from django.db.utils import OperationalError, ProgrammingError
 from django.forms import inlineformset_factory
-from django.forms.models import BaseInlineFormSet
-
-from apps.distribution.models import Distribution, DistributionItem
-from apps.items.models import Facility
 
 from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 
@@ -23,12 +17,7 @@ def _format_id_decimal(value, places=2):
     return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _get_receiving_type_choices(include_return_rs=True):
-    builtin_choices = [
-        choice
-        for choice in Receiving.ReceivingType.choices
-        if include_return_rs or choice[0] != Receiving.ReceivingType.RETURN_RS
-    ]
+def _get_receiving_type_choices():
     try:
         custom_choices = list(
             ReceivingTypeOption.objects.filter(is_active=True)
@@ -37,41 +26,27 @@ def _get_receiving_type_choices(include_return_rs=True):
         )
     except (ProgrammingError, OperationalError):
         custom_choices = []
-    return builtin_choices + custom_choices
+    return list(Receiving.ReceivingType.choices) + custom_choices
 
 
 class BaseReceivingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
-        include_return_rs = kwargs.pop("include_return_rs", True)
         super().__init__(*args, **kwargs)
-        self.fields["receiving_type"].choices = _get_receiving_type_choices(
-            include_return_rs=include_return_rs
-        )
+        self.fields["receiving_type"].choices = _get_receiving_type_choices()
 
     def clean(self):
         cleaned_data = super().clean()
         receiving_type = cleaned_data.get("receiving_type")
         supplier = cleaned_data.get("supplier")
-        facility = cleaned_data.get("facility")
 
         if receiving_type == Receiving.ReceivingType.PROCUREMENT and not supplier:
             self.add_error("supplier", "Supplier wajib diisi untuk tipe Pengadaan.")
-
-        if receiving_type == Receiving.ReceivingType.RETURN_RS:
-            if not facility:
-                self.add_error("facility", "Rumah sakit asal wajib dipilih.")
-            elif facility.facility_type != facility.FacilityType.RS:
-                self.add_error(
-                    "facility",
-                    "Pengembalian RS hanya dapat dikaitkan ke fasilitas Rumah Sakit.",
-                )
 
         return cleaned_data
 
 
 class ReceivingForm(BaseReceivingForm):
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault("include_return_rs", False)
         super().__init__(*args, **kwargs)
         self.fields["document_number"].widget.attrs["placeholder"] = (
             "Kosongkan untuk generate otomatis"
@@ -98,86 +73,8 @@ class ReceivingForm(BaseReceivingForm):
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
-
-class RsReturnReceivingForm(forms.ModelForm):
-    class Meta:
-        model = Receiving
-        fields = [
-            "document_number",
-            "receiving_date",
-            "facility",
-            "sumber_dana",
-            "notes",
-        ]
-        widgets = {
-            "document_number": forms.TextInput(attrs={"class": "form-control"}),
-            "receiving_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
-            ),
-            "facility": forms.Select(attrs={"class": "form-select"}),
-            "sumber_dana": forms.Select(attrs={"class": "form-select"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["document_number"].widget.attrs["placeholder"] = (
-            "Kosongkan untuk generate otomatis"
-        )
-        self.fields["facility"].required = True
-        self.fields["facility"].error_messages["required"] = (
-            "Rumah sakit asal wajib dipilih."
-        )
-        self.fields["facility"].queryset = Facility.objects.filter(
-            facility_type=Facility.FacilityType.RS
-        ).order_by("name")
-
-    def clean(self):
-        cleaned_data = super().clean()
-        facility = cleaned_data.get("facility")
-
-        if not facility and "facility" not in self.errors:
-            self.add_error("facility", "Rumah sakit asal wajib dipilih.")
-
-        return cleaned_data
-
-
-class PrefilledRsReturnReceivingForm(RsReturnReceivingForm):
-    def __init__(self, *args, **kwargs):
-        source_distribution = kwargs.pop("source_distribution", None)
-        locked_funding_source = kwargs.pop("locked_funding_source", None)
-        super().__init__(*args, **kwargs)
-        self.source_distribution = source_distribution
-        self.locked_funding_source = locked_funding_source
-
-        if self.source_distribution is not None:
-            facility = self.source_distribution.facility
-            self.fields["facility"].queryset = Facility.objects.filter(pk=facility.pk)
-            self.fields["facility"].initial = facility.pk
-            self.fields["facility"].disabled = True
-
-        if self.locked_funding_source is not None:
-            self.fields["sumber_dana"].queryset = self.fields["sumber_dana"].queryset.filter(
-                pk=self.locked_funding_source.pk
-            )
-            self.fields["sumber_dana"].initial = self.locked_funding_source.pk
-            self.fields["sumber_dana"].disabled = True
-
-    def clean(self):
-        cleaned_data = super().clean()
-
-        if self.source_distribution is not None:
-            cleaned_data["facility"] = self.source_distribution.facility
-
-        if self.locked_funding_source is not None:
-            cleaned_data["sumber_dana"] = self.locked_funding_source
-
-        return cleaned_data
-
-
 class PlannedReceivingForm(BaseReceivingForm):
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault("include_return_rs", False)
         super().__init__(*args, **kwargs)
         self.fields["document_number"].widget.attrs["placeholder"] = (
             "Kosongkan untuk generate otomatis"
@@ -250,169 +147,6 @@ class ReceivingItemForm(forms.ModelForm):
         return quantity
 
 
-class RSReturnReceivingItemForm(forms.ModelForm):
-    settlement_distribution_item = forms.ModelChoiceField(
-        queryset=DistributionItem.objects.none(),
-        required=False,
-        label="Dokumen RS Asal",
-        widget=forms.Select(
-            attrs={"class": "form-select form-select-sm js-typeahead-select"}
-        ),
-    )
-
-    def __init__(self, *args, **kwargs):
-        receiving_type = kwargs.pop("receiving_type", None)
-        receiving_facility_id = kwargs.pop("receiving_facility_id", None)
-        super().__init__(*args, **kwargs)
-        self.fields["location"].required = True
-
-        open_rs_items = (
-            DistributionItem.objects.select_related(
-                "distribution",
-                "distribution__facility",
-                "item",
-            )
-            .filter(
-                distribution__status=Distribution.Status.DISTRIBUTED,
-                distribution__distribution_type__in=[
-                    Distribution.DistributionType.BORROW_RS,
-                    Distribution.DistributionType.SWAP_RS,
-                ],
-            )
-            .annotate(
-                settled_quantity_total=Coalesce(
-                    Sum("settlement_receipts__quantity"),
-                    Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
-                )
-            )
-            .order_by(
-                "distribution__facility__name",
-                "distribution__request_date",
-                "id",
-            )
-        )
-        if receiving_facility_id:
-            open_rs_items = open_rs_items.filter(
-                distribution__facility_id=receiving_facility_id
-            )
-
-        open_rs_item_ids = [
-            distribution_item.pk
-            for distribution_item in open_rs_items
-            if (
-                (distribution_item.quantity_approved or distribution_item.quantity_requested)
-                - distribution_item.settled_quantity_total
-            )
-            > 0
-        ]
-        self.fields["settlement_distribution_item"].queryset = (
-            DistributionItem.objects.select_related(
-                "distribution",
-                "distribution__facility",
-                "item",
-            ).filter(pk__in=open_rs_item_ids)
-        )
-        self.fields["settlement_distribution_item"].label_from_instance = lambda obj: (
-            f"{obj.distribution.document_number} | {obj.distribution.facility.name} | "
-            f"{obj.item.nama_barang} | Sisa Pengembalian: {obj.outstanding_quantity}"
-        )
-
-        if receiving_type != Receiving.ReceivingType.RETURN_RS:
-            self.fields["settlement_distribution_item"].widget = forms.HiddenInput()
-
-    class Meta:
-        model = ReceivingItem
-        fields = [
-            "item",
-            "settlement_distribution_item",
-            "quantity",
-            "batch_lot",
-            "expiry_date",
-            "unit_price",
-            "location",
-        ]
-        widgets = {
-            "item": forms.Select(
-                attrs={"class": "form-select form-select-sm js-typeahead-select"}
-            ),
-            "settlement_distribution_item": forms.Select(
-                attrs={"class": "form-select form-select-sm js-typeahead-select"}
-            ),
-            "quantity": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1"}
-            ),
-            "batch_lot": forms.TextInput(
-                attrs={"class": "form-control form-control-sm"}
-            ),
-            "expiry_date": forms.DateInput(
-                attrs={"class": "form-control form-control-sm", "type": "date"}
-            ),
-            "unit_price": forms.NumberInput(
-                attrs={
-                    "class": "form-control form-control-sm",
-                    "min": "0",
-                    "step": "0.01",
-                }
-            ),
-            "location": forms.Select(attrs={"class": "form-select form-select-sm"}),
-        }
-
-    def clean_quantity(self):
-        quantity = self.cleaned_data.get("quantity")
-        if quantity is not None and quantity <= 0:
-            raise forms.ValidationError("Jumlah harus lebih dari 0.")
-        return quantity
-
-    def clean(self):
-        cleaned_data = super().clean()
-        item = cleaned_data.get("item")
-        settlement_distribution_item = cleaned_data.get("settlement_distribution_item")
-
-        if settlement_distribution_item and item:
-            if settlement_distribution_item.item_id != item.id:
-                self.add_error(
-                    "settlement_distribution_item",
-                    "Item pengembalian harus sama dengan item distribusi RS yang dipilih.",
-                )
-
-        return cleaned_data
-
-
-class PrefilledRSReturnReceivingItemForm(RSReturnReceivingItemForm):
-    def __init__(self, *args, **kwargs):
-        locked_distribution_item = kwargs.pop("locked_distribution_item", None)
-        super().__init__(*args, **kwargs)
-        self.locked_distribution_item = locked_distribution_item
-
-        if self.locked_distribution_item is None:
-            return
-
-        self.fields["item"].queryset = self.fields["item"].queryset.filter(
-            pk=self.locked_distribution_item.item_id
-        )
-        self.fields["item"].initial = self.locked_distribution_item.item_id
-        self.fields["item"].disabled = True
-
-        self.fields["settlement_distribution_item"].queryset = DistributionItem.objects.filter(
-            pk=self.locked_distribution_item.pk
-        )
-        self.fields["settlement_distribution_item"].initial = self.locked_distribution_item.pk
-        self.fields["settlement_distribution_item"].disabled = True
-
-        self.fields["unit_price"].initial = self.locked_distribution_item.issued_unit_price
-        self.fields["unit_price"].disabled = True
-
-    def clean(self):
-        cleaned_data = super().clean()
-
-        if self.locked_distribution_item is not None:
-            cleaned_data["item"] = self.locked_distribution_item.item
-            cleaned_data["settlement_distribution_item"] = self.locked_distribution_item
-            cleaned_data["unit_price"] = self.locked_distribution_item.issued_unit_price
-
-        return cleaned_data
-
-
 ReceivingItemFormSet = inlineformset_factory(
     Receiving,
     ReceivingItem,
@@ -420,41 +154,6 @@ ReceivingItemFormSet = inlineformset_factory(
     extra=3,
     can_delete=True,
 )
-
-
-RSReturnReceivingItemFormSet = inlineformset_factory(
-    Receiving,
-    ReceivingItem,
-    form=RSReturnReceivingItemForm,
-    extra=3,
-    can_delete=True,
-)
-
-
-class PrefilledRSReturnReceivingItemBaseFormSet(BaseInlineFormSet):
-    def __init__(self, *args, **kwargs):
-        self.locked_distribution_items = list(kwargs.pop("locked_distribution_items", []))
-        super().__init__(*args, **kwargs)
-
-    def get_form_kwargs(self, index):
-        kwargs = super().get_form_kwargs(index)
-        if index is not None and index < len(self.locked_distribution_items):
-            distribution_item = self.locked_distribution_items[index]
-            kwargs["locked_distribution_item"] = distribution_item
-            kwargs["receiving_type"] = Receiving.ReceivingType.RETURN_RS
-            kwargs["receiving_facility_id"] = distribution_item.distribution.facility_id
-        return kwargs
-
-
-def build_prefilled_rs_return_item_formset(extra_forms):
-    return inlineformset_factory(
-        Receiving,
-        ReceivingItem,
-        form=PrefilledRSReturnReceivingItemForm,
-        formset=PrefilledRSReturnReceivingItemBaseFormSet,
-        extra=extra_forms,
-        can_delete=False,
-    )
 
 
 class ReceivingOrderItemForm(forms.ModelForm):

@@ -41,18 +41,16 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 ### Changed
 
 - Regular and planned `Penerimaan` create forms no longer expose the `facility`
-  field for generic Instalasi Farmasi receiving. The field remains available only
-  in dedicated `Pengembalian RS` flows where it is part of the business rule.
+  field for generic Instalasi Farmasi receiving.
 - Receiving form headers now mark required fields more clearly and show a
   document-number placeholder indicating that the number will be auto-generated
   when left blank.
 
 ### Fixed
 
-- Generic receiving screens now better reflect the actual domain boundary
-  between warehouse receiving and Rumah Sakit return workflows, reducing data
-  entry noise and preventing users from inferring that a facility selection is
-  required for standard receiving.
+- Generic receiving screens now better reflect the warehouse receiving flow,
+  reducing data entry noise and preventing users from inferring that a facility
+  selection is required for standard receiving.
 
 ## [1.12.0] - 2026-04-14
 
@@ -106,19 +104,11 @@ detection, and improving production operational logging.
 
 ### Added
 
-- **Rumah Sakit Borrow/Swap Workflow**: Added `Pinjam RS` and `Tukar RS` distribution types so Instalasi Farmasi can record outbound RS documents without creating a separate module yet.
-- **RS Return Settlement Tracking**: Added `Pengembalian RS` as a receiving type with line-level linkage back to the originating RS distribution item, allowing the system to track sisa pengembalian from actual documents instead of manual reminders.
 - **Issued Batch and Book-Value Snapshots**: Distribution lines now preserve the issued batch, expiry, funding source, and unit value at the time stock is distributed for stronger audit visibility.
-- **RS Return Monitoring UI**: Added dashboard and distribution-detail visibility for sisa pengembalian RS and nilai terkaitnya.
 
 ### Changed
 
-- RS settlement is intentionally strict for this release: returns may use different batch and expiry data, but must settle the same item as the original RS distribution line.
-- Project documentation now reflects the RS borrowing/return workflow and the settlement-link model used for audit tracking.
-- `Pengembalian RS` now uses a dedicated receiving list/form path so regular receiving screens no longer expose RS settlement fields.
-- `Pinjam RS` now has a dedicated list/create/detail path under Pengeluaran, while still reusing the existing distribution model and stock workflow underneath.
-- New `Pinjam RS` creation uses a single kuantitas field and auto-copies it to approved quantity, then records the document directly as verified.
-- `Pinjam RS` detail now provides a direct `Catat Pengembalian` action that opens a prefilled return form with locked rumah sakit, item, harga satuan, dan sumber dana from the originating document.
+- Project documentation now reflects the issued batch and book-value snapshot model used for audit tracking.
 
 ## [1.9.0] - 2026-04-07
 

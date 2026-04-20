@@ -158,11 +158,6 @@
                             <dt class="col-5 text-muted">Faskes Tujuan</dt>
                             <dd class="col-7">{{ distribution.facility.name }}</dd>
 
-                            {% if distribution.is_rs_workflow %}
-                            <dt class="col-5 text-muted">Monitoring RS</dt>
-                            <dd class="col-7 text-muted">Sisa pengembalian dihitung dari item Pengembalian RS yang ditautkan ke dokumen ini.</dd>
-                            {% endif %}
-
                             <dt class="col-5 text-muted">Status</dt>
                             <dd class="col-7">
                                 <span class="badge-status badge-{{ distribution.status|lower }}">{{ distribution.get_status_display }}</span>
@@ -277,11 +272,6 @@
                                     </button>
                                 </form>
                                 {% endif %}
-                                {% if module_label == 'Pinjam RS' and distribution.status == 'DISTRIBUTED' and can_record_rs_return %}
-                                <a href="{% url 'receiving:rs_return_from_borrow_create' distribution.pk %}" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-arrow-return-left me-1"></i>Catat Pengembalian
-                                </a>
-                                {% endif %}
                                 {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}
                                 <button type="button" class="btn btn-dark btn-sm" data-action="print">
                                     <i class="bi bi-printer me-1"></i>Cetak SBBK
@@ -343,39 +333,6 @@
         </div>
     </div>
 
-    {% if distribution.is_rs_workflow %}
-    <div class="col-12 d-print-none">
-        <div class="card content-card">
-            <div class="card-header"><span>Sisa Pengembalian RS</span></div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Nama Obat/Barang</th>
-                                <th>Batch Keluar</th>
-                                <th class="text-end">Qty Keluar</th>
-                                <th class="text-end">Qty Sisa Pengembalian</th>
-                                <th class="text-end">Nilai Sisa Pengembalian</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for line in items %}
-                            <tr>
-                                <td>{{ line.item.nama_barang }}</td>
-                                <td>{{ line.issued_batch_lot|default:line.stock.batch_lot|default:"-" }}</td>
-                                <td class="text-end">{{ line.quantity_approved|default:line.quantity_requested }}</td>
-                                <td class="text-end {% if line.outstanding_quantity > 0 %}text-danger fw-semibold{% else %}text-success fw-semibold{% endif %}">{{ line.outstanding_quantity }}</td>
-                                <td class="text-end">{{ line.outstanding_value|idr }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
 <section class="sbbk-print-sheet d-none {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}d-print-block{% endif %}">

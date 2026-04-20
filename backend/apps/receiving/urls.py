@@ -5,14 +5,6 @@ app_name = "receiving"
 
 urlpatterns = [
     path("", views.receiving_list, name="receiving_list"),
-    path("rs-returns/", views.rs_return_list, name="rs_return_list"),
-    path("rs-returns/create/", views.rs_return_create, name="rs_return_create"),
-    path(
-        "rs-returns/from-borrow/<int:distribution_pk>/create/",
-        views.rs_return_from_borrow_create,
-        name="rs_return_from_borrow_create",
-    ),
-    path("rs-returns/<int:pk>/", views.rs_return_detail, name="rs_return_detail"),
     path("plans/", views.receiving_plan_list, name="receiving_plan_list"),
     path("plans/create/", views.receiving_plan_create, name="receiving_plan_create"),
     path("plans/<int:pk>/", views.receiving_plan_detail, name="receiving_plan_detail"),

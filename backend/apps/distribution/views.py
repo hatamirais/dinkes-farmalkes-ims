@@ -10,8 +10,6 @@ from apps.core.decorators import module_scope_required, perm_required
 from apps.users.models import ModuleAccess, User
 
 from .forms import (
-    BorrowRSDistributionForm,
-    BorrowRSDistributionItemFormSet,
     DistributionForm,
     DistributionItemFormSet,
 )
@@ -31,10 +29,6 @@ from .services import (
 
 def _redirect_distribution_detail(pk):
     return redirect("distribution:distribution_detail", pk=pk)
-
-
-def _redirect_borrow_rs_detail(pk):
-    return redirect("distribution:borrow_rs_detail", pk=pk)
 
 
 def sync_distribution_staff_assignments(distribution, staff_users):
@@ -60,8 +54,10 @@ def sync_distribution_staff_assignments(distribution, staff_users):
 
 @login_required
 def distribution_list(request):
-    queryset = Distribution.objects.select_related("facility", "created_by").order_by(
-        "-request_date"
+    queryset = (
+        Distribution.objects.select_related("facility", "created_by")
+        .exclude(distribution_type__in=["BORROW_RS", "SWAP_RS"])
+        .order_by("-request_date")
     )
 
     search = request.GET.get("q", "").strip()
@@ -107,50 +103,6 @@ def distribution_list(request):
 
 
 @login_required
-def borrow_rs_list(request):
-    queryset = Distribution.objects.select_related("facility", "created_by").filter(
-        distribution_type=Distribution.DistributionType.BORROW_RS
-    ).order_by("-request_date")
-
-    search = request.GET.get("q", "").strip()
-    if search:
-        queryset = queryset.filter(
-            Q(document_number__icontains=search)
-            | Q(facility__name__icontains=search)
-            | Q(program__icontains=search)
-        )
-
-    status = request.GET.get("status")
-    if status:
-        queryset = queryset.filter(status=status)
-
-    paginator = Paginator(queryset, 25)
-    distributions = paginator.get_page(request.GET.get("page"))
-
-    return render(
-        request,
-        "distribution/distribution_list.html",
-        {
-            "distributions": distributions,
-            "search": search,
-            "selected_status": status or "",
-            "selected_type": Distribution.DistributionType.BORROW_RS,
-            "status_choices": Distribution.Status.choices,
-            "type_choices": [(Distribution.DistributionType.BORROW_RS, "Pinjam RS")],
-            "page_title": "Pinjam RS",
-            "list_title": "Daftar Pinjam RS",
-            "create_url_name": "distribution:borrow_rs_create",
-            "create_button_label": "Buat Pinjam RS",
-            "detail_url_name": "distribution:borrow_rs_detail",
-            "reset_url_name": "distribution:borrow_rs_list",
-            "show_type_filter": False,
-            "module_icon": "bi-arrow-up-right-circle",
-            "empty_state_text": "Belum ada data Pinjam RS",
-        },
-    )
-
-
-@login_required
 @perm_required("distribution.add_distribution")
 def distribution_create(request):
     if request.method == "POST":
@@ -190,73 +142,6 @@ def distribution_create(request):
             "quantity_label": "Kuantitas Diminta",
             "item_error_colspan": 6,
             "back_url_name": "distribution:distribution_list",
-        },
-    )
-
-
-@login_required
-@perm_required("distribution.add_distribution")
-def borrow_rs_create(request):
-    if request.method == "POST":
-        form = BorrowRSDistributionForm(request.POST, user=request.user)
-        formset = BorrowRSDistributionItemFormSet(request.POST, prefix="items")
-
-        if form.is_valid() and formset.is_valid():
-            try:
-                dist = form.save(commit=False)
-                dist.created_by = request.user
-                dist.distribution_type = Distribution.DistributionType.BORROW_RS
-                dist.status = Distribution.Status.DRAFT
-                dist.save()
-                sync_distribution_staff_assignments(
-                    dist, form.cleaned_data.get("assigned_staff", [])
-                )
-
-                formset.instance = dist
-                items = formset.save(commit=False)
-                if not items:
-                    raise DistributionWorkflowError(
-                        "Tambahkan minimal 1 item sebelum membuat Pinjam RS."
-                    )
-
-                for item in items:
-                    item.distribution = dist
-                    item.quantity_approved = item.quantity_requested
-                    item.save()
-
-                for deleted_form in formset.deleted_forms:
-                    if deleted_form.instance.pk:
-                        deleted_form.instance.delete()
-
-                execute_distribution_verification(dist, request.user)
-            except DistributionWorkflowError as exc:
-                messages.error(request, str(exc))
-            else:
-                messages.success(
-                    request,
-                    f"Pinjam RS {dist.document_number} berhasil dibuat.",
-                )
-                return redirect("distribution:borrow_rs_detail", pk=dist.pk)
-    else:
-        form = BorrowRSDistributionForm(user=request.user)
-        formset = BorrowRSDistributionItemFormSet(prefix="items")
-
-    return render(
-        request,
-        "distribution/distribution_form.html",
-        {
-            "form": form,
-            "formset": formset,
-            "title": "Buat Pinjam RS",
-            "page_title": "Buat Pinjam RS",
-            "is_edit": False,
-            "show_distribution_type": False,
-            "show_approved_quantity": False,
-            "quantity_label": "Kuantitas",
-            "item_error_colspan": 5,
-            "back_url_name": "distribution:borrow_rs_list",
-            "back_button_label": "Pinjam RS",
-            "form_icon": "bi-arrow-up-right-circle",
         },
     )
 
@@ -310,7 +195,9 @@ def distribution_detail(request, pk):
     dist = get_object_or_404(
         Distribution.objects.select_related(
             "facility", "created_by", "verified_by", "approved_by"
-        ).prefetch_related("staff_assignments__user"),
+        )
+        .prefetch_related("staff_assignments__user")
+        .exclude(distribution_type__in=["BORROW_RS", "SWAP_RS"]),
         pk=pk,
     )
     items = dist.items.select_related("item", "item__satuan", "stock")
@@ -366,73 +253,6 @@ def distribution_detail(request, pk):
             "page_title": "Detail Distribusi",
             "module_label": "Distribusi",
             "module_back_url_name": "distribution:distribution_list",
-        },
-    )
-
-
-@login_required
-def borrow_rs_detail(request, pk):
-    dist = get_object_or_404(
-        Distribution.objects.select_related(
-            "facility", "created_by", "verified_by", "approved_by"
-        ).prefetch_related("staff_assignments__user"),
-        pk=pk,
-        distribution_type=Distribution.DistributionType.BORROW_RS,
-    )
-    items = dist.items.select_related("item", "item__satuan", "stock")
-    assigned_staff = [assignment.user for assignment in dist.staff_assignments.all()]
-    kepala_instalasi = (
-        User.objects.filter(
-            role=User.Role.KEPALA,
-            is_active=True,
-        )
-        .order_by("full_name", "username")
-        .first()
-    )
-
-    printable_items = []
-    total_quantity = Decimal("0")
-    grand_total = Decimal("0")
-    can_record_rs_return = False
-    for di in items:
-        quantity = di.quantity_approved if di.quantity_approved is not None else di.quantity_requested
-        unit_price = di.stock.unit_price if di.stock else None
-        line_total = None
-        if quantity is not None and unit_price is not None:
-            line_total = quantity * unit_price
-
-        if quantity is not None:
-            total_quantity += quantity
-        if line_total is not None:
-            grand_total += line_total
-        if di.outstanding_quantity > 0:
-            can_record_rs_return = True
-
-        printable_items.append(
-            {
-                "line": di,
-                "quantity": quantity,
-                "unit_price": unit_price,
-                "line_total": line_total,
-            }
-        )
-
-    return render(
-        request,
-        "distribution/distribution_detail.html",
-        {
-            "distribution": dist,
-            "items": items,
-            "printable_items": printable_items,
-            "total_quantity": total_quantity,
-            "grand_total": grand_total,
-            "assigned_staff": assigned_staff,
-            "kepala_instalasi": kepala_instalasi,
-            "page_title": "Detail Pinjam RS",
-            "module_label": "Pinjam RS",
-            "module_back_url_name": "distribution:borrow_rs_list",
-            "module_back_label": "Pinjam RS",
-            "can_record_rs_return": can_record_rs_return,
         },
     )
 

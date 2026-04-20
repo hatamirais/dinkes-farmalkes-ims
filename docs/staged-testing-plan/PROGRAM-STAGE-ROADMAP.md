@@ -192,8 +192,6 @@ Fokus utama:
 
 - workflow distribusi dari DRAFT ke DISTRIBUTED
 - alokasi stok dan deduction
-- `BORROW_RS` dan `SWAP_RS`
-- outstanding quantity dan value
 - step-back dan reset actions
 
 Alasan prioritas:
@@ -203,15 +201,11 @@ Distribution adalah alur kerja stok keluar paling operasional dan paling sensiti
 Risiko dominan:
 
 - over-allocation atau under-deduction stok
-- outstanding quantity atau value salah
-- RS settlement mismatch dengan receiving asal
 - transisi status tidak valid lolos guard
 
 Deliverable utama:
 
 - full workflow state transition tests
-- `BORROW_RS` dan `SWAP_RS` settlement tests
-- outstanding quantity dan value tests
 - reserved vs distributed quantity assertions
 - step-back dan reset behavior tests
 

@@ -36,8 +36,8 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 - `items`: CRUD master barang dan lookup, filter daftar, serta endpoint AJAX untuk pembuatan referensi cepat.
 - `stock`: daftar stok, daftar transaksi, kartu stok, pencarian stok per lokasi, dan alur transfer stok antar lokasi.
-- `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, tipe penerimaan kustom, serta menu dan form khusus `Pengembalian RS` dengan tautan settlement ke distribusi RS asal.
-- `distribution`: alur permintaan, verifikasi, persiapan, hingga distribusi dengan penugasan petugas per dokumen, termasuk jalur UI khusus `Pinjam RS`, tipe `Tukar RS`, dan reset atau step-back workflow sebelum dokumen terdistribusi.
+- `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, dan tipe penerimaan kustom.
+- `distribution`: alur permintaan, verifikasi, persiapan, hingga distribusi dengan penugasan petugas per dokumen, serta reset atau step-back workflow sebelum dokumen terdistribusi.
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
 - `stock_opname`: proses hitung fisik dan cetak laporan selisih.
@@ -52,10 +52,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 - Receiving terencana: `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`
 - Receiving reguler, tipe kustom, atau hasil import: umumnya tercatat sebagai `VERIFIED` setelah posting.
-- `Pengembalian RS`: tercatat sebagai `VERIFIED` melalui daftar dan form khusus tersendiri, serta wajib ditautkan ke item distribusi RS asal.
 - Distribution: `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED`, dapat berakhir `REJECTED`, dan dokumen yang belum terdistribusi dapat dikembalikan ke `DRAFT`.
-- `Pinjam RS`: memakai model distribusi yang sama, tetapi saat dibuat lewat menu khusus akan langsung tercatat `VERIFIED` dengan satu field kuantitas operasional.
-- `Pengembalian RS` dari dokumen `Pinjam RS` dapat dibuat langsung dari detail dokumen asal dengan form prefill yang mengunci rumah sakit, item, harga satuan, dan sumber dana.
 - Recall: `DRAFT -> SUBMITTED -> VERIFIED -> COMPLETED`
 - Expired: `DRAFT -> SUBMITTED -> VERIFIED -> DISPOSED`
 - Stock transfer: `DRAFT -> COMPLETED`
@@ -69,7 +66,6 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Header dokumen: `receivings`, `distributions`, `recalls`, `expired_docs`, `stock_transfers`, `stock_opnames`
 - Baris dokumen: `receiving_items`, `receiving_order_items`, `distribution_items`, `recall_items`, `expired_items`, `stock_transfer_items`, `stock_opname_items`
 - Penugasan petugas distribusi: `distribution_staff_assignments`
-- Settlement pengembalian RS disimpan melalui FK `receiving_items.settlement_distribution_item` ke `distribution_items`
 - Tabel otorisasi: `users`, `user_module_accesses`
 
 Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
