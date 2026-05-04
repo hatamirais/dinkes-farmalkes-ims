@@ -352,6 +352,68 @@ class DistributionWorkflowTest(TestCase):
             Distribution.DistributionType.SPECIAL_REQUEST,
         )
 
+    def test_distribution_form_special_request_prefills_preview_number(self):
+        form = DistributionForm(
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+
+        self.assertFalse(form.fields["document_number"].disabled)
+        self.assertEqual(form.fields["document_number"].initial, "440/1/KD.F/2026")
+        self.assertEqual(
+            form.fields["document_number_preview"].initial,
+            "440/1/KD.F/2026",
+        )
+        self.assertEqual(
+            form.fields["document_number"].widget.attrs.get("placeholder"),
+            "Nomor dokumen permintaan khusus",
+        )
+        self.assertEqual(
+            form.fields["document_number"].widget.attrs.get("readonly"),
+            True,
+        )
+        self.assertIn("440/1/KD.F/2026", form.fields["document_number"].help_text)
+        self.assertIn("440/{seq}/KD.F/{year}", form.fields["document_number"].help_text)
+
+    def test_distribution_form_special_request_unchanged_preview_keeps_auto_generation(self):
+        form = DistributionForm(
+            data={
+                "document_number": "440/1/KD.F/2026",
+                "document_number_preview": "440/1/KD.F/2026",
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "program": "",
+                "notes": "",
+                "assigned_staff": [self.user.pk],
+            },
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["document_number"], "")
+
+    def test_distribution_form_special_request_keeps_manual_override(self):
+        form = DistributionForm(
+            data={
+                "document_number": "440/MANUAL/KD.F/2026",
+                "document_number_preview": "440/1/KD.F/2026",
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "program": "",
+                "notes": "",
+                "assigned_staff": [self.user.pk],
+            },
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["document_number"],
+            "440/MANUAL/KD.F/2026",
+        )
+
     # --- Verify workflow ---
 
     def test_verify_submitted_to_verified(self):
@@ -709,6 +771,43 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Distribution Type")
         self.assertNotContains(response, "Tipe Distribusi")
+
+    def test_special_request_create_shows_editable_preview_document_number(self):
+        response = self.client.get(reverse("distribution:special_request_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="440/1/KD.F/2026"', html=False)
+        self.assertContains(response, "Konfirmasi Edit Nomor Dokumen")
+        self.assertContains(response, "Ubah Nomor")
+        self.assertContains(response, "Nomor berikutnya saat ini: 440/1/KD.F/2026")
+        self.assertContains(response, "440/{seq}/KD.F/{year}")
+        self.assertNotContains(response, "DIST-YYYYMM-XXXXX")
+
+    def test_special_request_create_uses_auto_generation_when_preview_is_unchanged(self):
+        response = self.client.post(
+            reverse("distribution:special_request_create"),
+            {
+                "document_number": "440/1/KD.F/2026",
+                "document_number_preview": "440/1/KD.F/2026",
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "",
+                "assigned_staff": [self.user.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "50",
+                "items-0-quantity_approved": "40",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist = Distribution.objects.latest("id")
+        self.assertEqual(dist.document_number, "440/1/KD.F/2026")
 
     def test_edit_distribution_updates_assigned_staff(self):
         dist = self._create_distribution(

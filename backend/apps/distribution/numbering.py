@@ -9,7 +9,7 @@ DEFAULT_DOCUMENT_NUMBER_TEMPLATES = {
 }
 
 
-def _get_document_number_template(distribution_type):
+def get_distribution_document_number_template(distribution_type):
     if distribution_type not in DEFAULT_DOCUMENT_NUMBER_TEMPLATES:
         return None
 
@@ -34,8 +34,21 @@ def _render_document_number(template, sequence, year):
     return template.format(seq=sequence, year=year)
 
 
+def render_distribution_document_number_preview(
+    distribution_type,
+    *,
+    sequence="12",
+    year=None,
+):
+    template = get_distribution_document_number_template(distribution_type)
+    if template is None:
+        return None
+    year = str(year or timezone.now().year)
+    return _render_document_number(template, sequence, year)
+
+
 def generate_distribution_document_number(model_class, distribution_type, year=None):
-    template = _get_document_number_template(distribution_type)
+    template = get_distribution_document_number_template(distribution_type)
     if template is None:
         year_month = timezone.now().strftime("%Y%m")
         prefix = f"DIST-{year_month}"

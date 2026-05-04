@@ -37,7 +37,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `items`: CRUD master barang dan lookup, filter daftar, serta endpoint AJAX untuk pembuatan referensi cepat.
 - `stock`: daftar stok, daftar transaksi, kartu stok, pencarian stok per lokasi, dan alur transfer stok antar lokasi.
 - `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, dan tipe penerimaan kustom.
-- `distribution`: alur permintaan, verifikasi, persiapan, hingga distribusi dengan penugasan petugas per dokumen, serta reset atau step-back workflow sebelum dokumen terdistribusi.
+- `distribution`: alur permintaan, verifikasi, persiapan, hingga distribusi dengan penugasan petugas per dokumen, serta reset atau step-back workflow sebelum dokumen terdistribusi. Permintaan khusus menampilkan nomor dokumen usulan dari rule aktif dan mengharuskan konfirmasi sebelum edit manual.
 - `allocation`: perencanaan dan orkestrasi pra-distribusi. Lifecycle Draft→Submitted→Approved membuat satu `Distribution` per fasilitas secara otomatis pada saat approval. Allocation yang sudah disetujui dapat dikembalikan ke Submitted oleh approver, yang menghapus child distributions agar approval dapat diulang. Pengurangan stok ditangguhkan ke konfirmasi pengiriman per distribusi.
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.

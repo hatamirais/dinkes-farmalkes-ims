@@ -7,6 +7,16 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.19.6] - 2026-05-04
+
+### Changed
+
+- Permintaan Khusus now preloads the next document number from the active numbering rule so operators can confirm the value before saving.
+
+### Fixed
+
+- Manual edits to Permintaan Khusus document numbers are now gated behind an explicit warning modal, while unchanged suggested values still follow the normal auto-generation path.
+
 ## [1.19.4] - 2026-04-28
 
 ### Fixed

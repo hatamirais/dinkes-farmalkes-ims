@@ -114,6 +114,9 @@
             <div class="card-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
+                    {% for hidden_field in form.hidden_fields %}
+                    {{ hidden_field }}
+                    {% endfor %}
 
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger py-2">
@@ -124,9 +127,9 @@
                     {% endif %}
 
                     <div class="row g-3 mb-4">
-                        {% for field in form %}
+                        {% for field in form.visible_fields %}
                         {% if field.name == 'distribution_type' and not show_distribution_type %}{% else %}
-                        <div class="{% if field.name == 'notes' or field.name == 'assigned_staff' %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="{% if field.name == 'notes' or field.name == 'assigned_staff' or field.name == 'document_number' and document_number_warning_enabled %}col-12{% else %}col-md-6{% endif %}">
                             {% if field.name == 'assigned_staff' %}
                             <div class="staff-picker border rounded-3 p-3">
                                 <div class="staff-picker-header">
@@ -182,16 +185,47 @@
                                     <i class="bi bi-plus-lg"></i>
                                 </button>
                             </div>
+                            {% elif field.name == 'document_number' and document_number_warning_enabled %}
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                            <div class="row g-3 align-items-start">
+                                <div class="col-lg-8">
+                                    <div class="input-group">
+                                        {{ field }}
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-warning js-enable-document-number-edit"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#document-number-warning-modal"
+                                        >
+                                            <i class="bi bi-pencil-square me-1"></i>Ubah Nomor
+                                        </button>
+                                    </div>
+                                    {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                    {% endif %}
+                                    {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                <div class="col-lg-4">
+                                    <div class="alert alert-warning small mb-0 js-document-number-warning-state">
+                                        <div class="fw-semibold mb-1"><i class="bi bi-shield-exclamation me-1"></i>Kontrol Nomor</div>
+                                        <div>Nomor ini dipersiapkan otomatis dari rule aktif. Edit manual hanya jika harus mengikuti nomor surat resmi yang sudah ditetapkan.</div>
+                                    </div>
+                                </div>
+                            </div>
                             {% else %}
                             <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
                             {{ field }}
                             {% endif %}
-                            {% if field.help_text %}
+                            {% if field.help_text and field.name != 'document_number' or not document_number_warning_enabled %}
                             <div class="form-text">{{ field.help_text }}</div>
                             {% endif %}
+                            {% if field.name != 'document_number' or not document_number_warning_enabled %}
                             {% for error in field.errors %}
                             <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
+                            {% endif %}
                         </div>
                         {% endif %}
                         {% endfor %}
@@ -299,6 +333,27 @@
             </div>
 </div>
 
+{% if document_number_warning_enabled %}
+<div class="modal fade" id="document-number-warning-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Konfirmasi Edit Nomor Dokumen</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Nomor dokumen sudah diisi berdasarkan rule penomoran aktif.</p>
+                <p class="mb-0 text-muted small">Lanjutkan edit manual hanya bila nomor surat memang harus mengikuti dokumen administrasi yang sudah ditetapkan di luar sistem.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-warning btn-sm js-confirm-document-number-edit">Saya Paham, Ubah Nomor</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="modal fade" id="modal-facility" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -349,4 +404,40 @@
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/distribution-form.js' %}"></script>
+{% if document_number_warning_enabled %}
+<script>
+    (function () {
+        const input = document.getElementById("{{ form.document_number.id_for_label }}");
+        const confirmButton = document.querySelector(".js-confirm-document-number-edit");
+        const triggerButton = document.querySelector(".js-enable-document-number-edit");
+        const warningState = document.querySelector(".js-document-number-warning-state");
+        const modalElement = document.getElementById("document-number-warning-modal");
+
+        if (!input || !confirmButton || !triggerButton || !modalElement) {
+            return;
+        }
+
+        confirmButton.addEventListener("click", function () {
+            input.removeAttribute("readonly");
+            input.focus();
+            input.select();
+            triggerButton.classList.remove("btn-outline-warning");
+            triggerButton.classList.add("btn-outline-secondary");
+            triggerButton.setAttribute("disabled", "disabled");
+            triggerButton.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Edit Manual Aktif';
+
+            if (warningState) {
+                warningState.classList.remove("alert-warning");
+                warningState.classList.add("alert-info");
+                warningState.innerHTML = '<div class="fw-semibold mb-1"><i class="bi bi-pencil-square me-1"></i>Edit Manual Aktif</div><div>Pastikan nomor yang Anda masukkan unik dan sesuai dokumen administrasi resmi.</div>';
+            }
+
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        });
+    })();
+</script>
+{% endif %}
 {% endblock %}

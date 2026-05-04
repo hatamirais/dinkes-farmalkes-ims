@@ -100,7 +100,9 @@ def _render_distribution_list(
     )
 
 
-def _build_distribution_form_context(*, title, back_url_name, active_pengeluaran_submenu):
+def _build_distribution_form_context(
+    *, title, back_url_name, active_pengeluaran_submenu, document_number_warning_enabled=False
+):
     return {
         "title": title,
         "page_title": title,
@@ -110,6 +112,7 @@ def _build_distribution_form_context(*, title, back_url_name, active_pengeluaran
         "item_error_colspan": 6,
         "back_url_name": back_url_name,
         "active_pengeluaran_submenu": active_pengeluaran_submenu,
+        "document_number_warning_enabled": document_number_warning_enabled,
     }
 
 
@@ -235,6 +238,7 @@ def _save_special_request(request):
                 title="Buat Permintaan Khusus",
                 back_url_name="distribution:special_request_list",
                 active_pengeluaran_submenu="special_request",
+                document_number_warning_enabled=True,
             ),
         },
     )
@@ -312,6 +316,7 @@ def distribution_edit(request, pk):
                     if is_special_request
                     else "distribution_history"
                 ),
+                document_number_warning_enabled=is_special_request,
             ),
         },
     )
