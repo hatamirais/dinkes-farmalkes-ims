@@ -82,6 +82,56 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateStaffSummary();
 
+    // ── Quantity Validation ───────────────────────────────────
+    function validateApprovedQty(row) {
+        var requestedInput = row.querySelector('[name*="quantity_requested"]');
+        var approvedInput = row.querySelector('[name*="quantity_approved"]');
+        var errorEl = row.querySelector('.js-approved-qty-error');
+
+        if (!requestedInput || !approvedInput) return true;
+
+        var requested = parseFloat(requestedInput.value);
+        var approved = parseFloat(approvedInput.value);
+
+        if (isNaN(requested) || isNaN(approved)) return true;
+
+        if (approved > requested) {
+            if (errorEl) {
+                errorEl.textContent = 'Jumlah disetujui tidak boleh melebihi jumlah diminta.';
+                errorEl.classList.remove('d-none');
+            }
+            approvedInput.setCustomValidity('Jumlah disetujui tidak boleh melebihi jumlah diminta.');
+            return false;
+        } else {
+            if (errorEl) {
+                errorEl.textContent = '';
+                errorEl.classList.add('d-none');
+            }
+            approvedInput.setCustomValidity('');
+            return true;
+        }
+    }
+
+    document.querySelectorAll('.item-row').forEach(function (row) {
+        var approvedInput = row.querySelector('[name*="quantity_approved"]');
+        var requestedInput = row.querySelector('[name*="quantity_requested"]');
+
+        if (approvedInput) {
+            approvedInput.addEventListener('input', function () {
+                validateApprovedQty(row);
+            });
+            approvedInput.addEventListener('blur', function () {
+                validateApprovedQty(row);
+            });
+        }
+
+        if (requestedInput) {
+            requestedInput.addEventListener('input', function () {
+                validateApprovedQty(row);
+            });
+        }
+    });
+
     // ── Quick-create Facility ─────────────────────────────────
     var container = document.getElementById('distribution-form-container');
     var urlFacility = container ? container.getAttribute('data-url-facility') : '';

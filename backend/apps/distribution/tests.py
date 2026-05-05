@@ -250,7 +250,7 @@ class DistributionWorkflowTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("quantity_approved", form.errors)
 
-    def test_distribution_item_form_allows_approved_quantity_above_requested(self):
+    def test_distribution_item_form_rejects_approved_quantity_above_requested(self):
         form = DistributionItemForm(
             data={
                 "item": self.item.pk,
@@ -261,7 +261,8 @@ class DistributionWorkflowTest(TestCase):
             }
         )
 
-        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.is_valid())
+        self.assertIn("quantity_approved", form.errors)
 
     def test_distribution_item_form_rejects_approved_quantity_above_available_stock(self):
         self.stock.quantity = Decimal("8")
@@ -789,18 +790,18 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "js/distribution-form.js?v=")
 
-    def test_distribution_form_static_asset_removes_old_approved_vs_requested_guard(self):
+    def test_distribution_form_static_asset_includes_approved_vs_requested_guard(self):
         asset_path = finders.find("js/distribution-form.js")
 
         self.assertIsNotNone(asset_path)
         with open(asset_path, encoding="utf-8") as asset_file:
             asset_content = asset_file.read()
 
-        self.assertNotIn(
+        self.assertIn(
             "Jumlah disetujui tidak boleh melebihi jumlah diminta.",
             asset_content,
         )
-        self.assertNotIn("validateApprovedQty", asset_content)
+        self.assertIn("validateApprovedQty", asset_content)
 
     def test_special_request_create_uses_auto_generation_when_preview_is_unchanged(self):
         response = self.client.post(
@@ -1000,8 +1001,10 @@ class DistributionWorkflowTest(TestCase):
 
     # --- Model-level validation (Issue #11) ---
 
-    def test_model_clean_allows_approved_above_requested(self):
-        """DistributionItem.full_clean() should allow approved quantity above requested."""
+    def test_model_clean_rejects_approved_above_requested(self):
+        """DistributionItem.full_clean() should reject approved quantity above requested."""
+        from django.core.exceptions import ValidationError
+
         dist = self._create_distribution(with_items=False)
         di = DistributionItem(
             distribution=dist,
@@ -1010,10 +1013,12 @@ class DistributionWorkflowTest(TestCase):
             quantity_approved=Decimal("100"),
             stock=self.stock,
         )
-        di.full_clean()
+        with self.assertRaises(ValidationError) as context:
+            di.full_clean()
+        self.assertIn("quantity_approved", context.exception.message_dict)
 
-    def test_create_post_allows_approved_above_requested(self):
-        """POST to special_request_create may save even when approved quantity exceeds requested."""
+    def test_create_post_rejects_approved_above_requested(self):
+        """POST to special_request_create should reject when approved quantity exceeds requested."""
         response = self.client.post(
             reverse("distribution:special_request_create"),
             {
@@ -1033,14 +1038,11 @@ class DistributionWorkflowTest(TestCase):
                 "items-0-notes": "",
             },
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jumlah disetujui tidak boleh melebihi jumlah diminta")
 
-        dist = Distribution.objects.latest("id")
-        self.assertEqual(dist.items.get().quantity_requested, Decimal("50"))
-        self.assertEqual(dist.items.get().quantity_approved, Decimal("100"))
-
-    def test_edit_post_allows_approved_above_requested(self):
-        """POST to distribution_edit may save even when approved quantity exceeds requested."""
+    def test_edit_post_rejects_approved_above_requested(self):
+        """POST to distribution_edit should reject when approved quantity exceeds requested."""
         dist = self._create_distribution(
             status=Distribution.Status.DRAFT,
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
@@ -1067,9 +1069,6 @@ class DistributionWorkflowTest(TestCase):
                 "items-0-notes": "",
             },
         )
-        self.assertEqual(response.status_code, 302)
-
-        item_line.refresh_from_db()
-        self.assertEqual(item_line.quantity_requested, Decimal("50"))
-        self.assertEqual(item_line.quantity_approved, Decimal("100"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jumlah disetujui tidak boleh melebihi jumlah diminta")
 

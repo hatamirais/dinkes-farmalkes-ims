@@ -266,6 +266,16 @@ class DistributionItemForm(forms.ModelForm):
                 "Jumlah disetujui melebihi stok batch yang tersedia.",
             )
 
+        if (
+            quantity_requested is not None
+            and quantity_approved is not None
+            and quantity_approved > quantity_requested
+        ):
+            self.add_error(
+                "quantity_approved",
+                "Jumlah disetujui tidak boleh melebihi jumlah diminta.",
+            )
+
         return cleaned_data
 
 

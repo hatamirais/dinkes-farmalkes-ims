@@ -175,6 +175,18 @@ class DistributionItem(models.Model):
 
     def clean(self):
         super().clean()
+        if (
+            self.quantity_approved is not None
+            and self.quantity_requested is not None
+            and self.quantity_approved > self.quantity_requested
+        ):
+            from django.core.exceptions import ValidationError
+
+            raise ValidationError(
+                {
+                    "quantity_approved": "Jumlah disetujui tidak boleh melebihi jumlah diminta."
+                }
+            )
 
     class Meta:
         db_table = "distribution_items"
