@@ -77,4 +77,4 @@
 
 1. Mobile clients, whether dedicated mobile apps or PWA
 2. Storage system to store images, documents, and so on using MinIO
-3. Reddis for cache storage especially for the expiry date which are refresh daily on user's dashboard
+3. Redis for cache storage, especially for expiry-date data that is refreshed daily on the user's dashboard

@@ -11,6 +11,7 @@ from apps.core.views import (
     dashboard,
 )
 
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     # Dashboard (root)
@@ -26,6 +27,7 @@ urlpatterns = [
         administration_distribution_history,
         name="administration_distribution_history",
     ),
+
     # Auth
     path("login/", auth_views.LoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),

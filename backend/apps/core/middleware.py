@@ -1,4 +1,4 @@
-from django.http import HttpResponseForbidden
+from django.core.exceptions import PermissionDenied
 from django.conf import settings
 
 from apps.users.access import has_module_scope
@@ -21,9 +21,7 @@ class AdminPanelAccessMiddleware:
                     ModuleAccess.Scope.MANAGE,
                 )
                 if not allowed:
-                    return HttpResponseForbidden(
-                        "<h1>403 Forbidden</h1><p>Akses Admin Panel hanya untuk Admin.</p>"
-                    )
+                    raise PermissionDenied("Akses Admin Panel hanya untuk Admin.")
 
         return self.get_response(request)
 

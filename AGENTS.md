@@ -54,7 +54,7 @@ If documentation conflicts with code, code is authoritative until docs are corre
 
 ## Active Django Apps
 
-- `core`: shared abstractions, dashboard, dynamic system settings (login platform label, logo/headers, and configurable distribution numbering templates), plus placeholder administration history pages for receiving and distribution archives
+- `core`: shared abstractions, dashboard, dynamic system settings (login platform label, logo/headers, and configurable distribution numbering templates), placeholder administration history pages for receiving and distribution archives, plus centralized `400/403/404/500` handlers and a `/maintenance/` `503` view
 - `users`: custom user and `ModuleAccess` scope model
 - `items`: master data and item catalog; items may be flagged as program item `[P]` (`is_program_item`) or essential `[E]` (`is_essential`)
 - `stock`: stock entries, immutable transactions, stock card, location-based stock search, and stock transfer
@@ -76,6 +76,8 @@ There are two permission layers:
 2. Module scope fallback (`ModuleAccess`) used by `@perm_required`
 
 `@perm_required` in `backend/apps/core/decorators.py` allows access if either layer grants permission. Keep this hybrid model in mind before changing authorization logic.
+
+Permission denials should raise `PermissionDenied` so requests flow through the centralized `handler403` page instead of returning raw HTML fragments.
 
 Module scopes:
 

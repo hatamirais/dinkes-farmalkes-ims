@@ -1,8 +1,8 @@
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -88,10 +88,7 @@ def _check_request_facility_access(request, req):
 
 def _check_puskesmas_request_creator_access(request):
     if getattr(request.user, "role", None) != "PUSKESMAS":
-        return HttpResponseForbidden(
-            "<h1>403 Forbidden</h1>"
-            "<p>Hanya operator Puskesmas yang dapat membuat permintaan khusus.</p>"
-        )
+        raise PermissionDenied("Hanya operator Puskesmas yang dapat membuat permintaan khusus.")
     return None
 
 
@@ -316,10 +313,7 @@ def request_submit(request, pk):
 def request_approve(request, pk):
     """Approve the request and create a Distribution Draft automatically."""
     if not _can_review_request(request.user):
-        return HttpResponseForbidden(
-            "<h1>403 Forbidden</h1>"
-            "<p>Operator Puskesmas tidak dapat menyetujui permintaan.</p>"
-        )
+        raise PermissionDenied("Operator Puskesmas tidak dapat menyetujui permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
     if request.method != "POST":
@@ -421,10 +415,7 @@ def request_approve(request, pk):
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_reject(request, pk):
     if not _can_review_request(request.user):
-        return HttpResponseForbidden(
-            "<h1>403 Forbidden</h1>"
-            "<p>Operator Puskesmas tidak dapat menolak permintaan.</p>"
-        )
+        raise PermissionDenied("Operator Puskesmas tidak dapat menolak permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
     if request.method != "POST":

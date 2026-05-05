@@ -7,6 +7,24 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-05-05
+
+### Added
+
+- Centralized `400/403/404/500` error-page handling with a shared standalone layout, contextual fallback navigation, and a dedicated `/maintenance/` preview route that returns `503 Service Unavailable`.
+- New standalone templates for `400`, `403`, and `503`, plus a shared `errors/status.html` shell and CSP-safe `backend/static/js/error-page.js` for back-navigation fallback behavior.
+- Focused regression coverage for the error-page flow, including anonymous 404 fallback, permission-denied rendering, admin middleware denial, bad-request fallback behavior, and the maintenance route.
+
+### Changed
+
+- Documentation now records the centralized error handlers, the maintenance preview route, and the expectation that permission denials should flow through the shared `403` experience.
+- Admin-panel access denial in middleware and Puskesmas request authorization failures now use the centralized forbidden-page path instead of returning raw inline HTML fragments.
+
+### Fixed
+
+- Error-page navigation is now compatible with the repository's strict `Content-Security-Policy` by moving client-side fallback logic into an external script instead of inline JavaScript.
+- Common production error states now present a consistent recovery path back to the previous page or the appropriate authenticated fallback destination instead of a hardcoded dashboard-only link.
+
 ## [1.20.2] - 2026-05-04
 
 ### Changed

@@ -46,7 +46,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas.
 - `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 
-- `core`: dashboard, middleware akses panel admin, pengaturan sistem (label platform login, logo, header dokumen, nama fasilitas, serta template penomoran dokumen distribusi) secara dinamis, dan placeholder riwayat administrasi terpisah untuk penerimaan serta pengeluaran.
+- `core`: dashboard, middleware akses panel admin, pengaturan sistem (label platform login, logo, header dokumen, nama fasilitas, serta template penomoran dokumen distribusi) secara dinamis, placeholder riwayat administrasi terpisah untuk penerimaan serta pengeluaran, dan handler error terpusat untuk `400/403/404/500` plus halaman maintenance `503`.
 - `reports`: halaman ringkasan laporan dengan keluaran `rekap`, `penerimaan hibah`, `pengadaan`, `kadaluarsa`, dan `pengeluaran`.
 
 ## Ringkasan Workflow
@@ -80,6 +80,8 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.
 - Dukungan `CSRF_TRUSTED_ORIGINS`, backend email berbasis environment, dan batas field upload yang dinaikkan untuk form LPLPO berukuran besar.
+- Error umum `400/403/404/500` dirender lewat halaman khusus yang konsisten, mencatat event ke logger aplikasi, dan menyediakan tombol kembali ke halaman sebelumnya dengan fallback dinamis ke login atau dashboard.
+- Route `/maintenance/` tersedia sebagai halaman maintenance/manual preview dengan status `503 Service Unavailable`.
 
 ## Dokumentasi
 

@@ -19,6 +19,7 @@ from apps.core.models import SystemSettings
 from apps.core.templatetags.number_format import safe_media_url
 from apps.core.views import bad_request, maintenance_mode, permission_denied_handler
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
+
 from apps.distribution.models import Distribution
 from apps.items.models import Facility, FundingSource
 from apps.lplpo.models import LPLPO
@@ -214,6 +215,44 @@ class DashboardViewTests(TestCase):
         self.assertIsNone(response.context["facility"])
         self.assertEqual(list(response.context["recent_lplpos"]), [])
         self.assertEqual(list(response.context["recent_requests"]), [])
+
+
+class ErrorPageTemplateTests(TestCase):
+    def test_404_page_renders_back_and_fallback_actions(self):
+        response = self.client.get("/halaman-yang-tidak-ada/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, "Kembali ke Halaman Sebelumnya", status_code=404)
+        self.assertContains(response, "Buka Halaman Utama", status_code=404)
+
+    def test_403_page_keeps_same_error_layout_actions(self):
+        user = User.objects.create_user(
+            username="forbidden-user",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("settings"))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "Kembali ke Halaman Sebelumnya", status_code=403)
+        self.assertContains(response, "Buka Halaman Utama", status_code=403)
+
+    def test_admin_middleware_uses_custom_403_page(self):
+        user = User.objects.create_user(
+            username="admin-panel-blocked",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get("/admin/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "Kembali ke Halaman Sebelumnya", status_code=403)
+        self.assertContains(response, "Buka Halaman Utama", status_code=403)
+
 
 
 class SystemSettingsAccessTests(TestCase):

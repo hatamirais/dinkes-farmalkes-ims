@@ -106,6 +106,8 @@ Alamat aplikasi: `http://localhost:8000`
 
 Alamat admin: `http://localhost:8000/admin/`
 
+Preview halaman maintenance: `http://localhost:8000/maintenance/`
+
 Catatan akun admin:
 
 - Akun dengan role `ADMIN` atau superuser hanya dibuat melalui `python manage.py createsuperuser`.
@@ -186,6 +188,7 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
    - route ke `backend/config/urls.py` dan `backend/apps/*/urls.py`
    - security dan settings ke `backend/config/settings.py`
    - script ke `scripts/`
+   - error handler global ke `backend/config/urls.py`, `backend/apps/core/views.py`, dan template di `backend/templates/`
 3. Validasi panduan pihak ketiga menggunakan referensi utama:
    - `/django/django`
    - `/websites/django-import-export_readthedocs_io_en`

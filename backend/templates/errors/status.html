@@ -1,0 +1,198 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block page_title %}{{ status_code|default:'000' }} - {{ title|default:'Terjadi Kesalahan' }}{% endblock %}</title>
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <style>
+        body.error-shell {
+            min-height: 100vh;
+            margin: 0;
+            background:
+                radial-gradient(circle at top left, rgba(13, 110, 253, 0.12), transparent 32%),
+                radial-gradient(circle at bottom right, rgba(220, 53, 69, 0.1), transparent 28%),
+                linear-gradient(135deg, #f8fafc 0%, #eef3f8 100%);
+            color: #1f2937;
+        }
+
+        .error-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .error-card {
+            width: min(100%, 760px);
+            border: 0;
+            border-radius: 28px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.14);
+            backdrop-filter: blur(12px);
+        }
+
+        .error-card__body {
+            padding: 2.5rem;
+        }
+
+        .error-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 999px;
+            padding: 0.55rem 0.95rem;
+            background: rgba(15, 23, 42, 0.06);
+            color: #475569;
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .error-hero {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .error-code {
+            font-size: clamp(3.5rem, 10vw, 6rem);
+            line-height: 0.9;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            margin: 0;
+        }
+
+        .error-icon {
+            flex: 0 0 auto;
+            width: 88px;
+            height: 88px;
+            border-radius: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        .error-icon.warning {
+            background: rgba(255, 193, 7, 0.18);
+            color: #b45309;
+        }
+
+        .error-icon.danger {
+            background: rgba(220, 53, 69, 0.16);
+            color: #b42318;
+        }
+
+        .error-icon.info {
+            background: rgba(13, 110, 253, 0.14);
+            color: #0b5ed7;
+        }
+
+        .error-title {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .error-message {
+            max-width: 52ch;
+            margin-bottom: 1.5rem;
+            color: #475569;
+            font-size: 1.05rem;
+        }
+
+        .error-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .error-actions .btn {
+            border-radius: 14px;
+            padding: 0.9rem 1.2rem;
+            font-weight: 600;
+        }
+
+        .error-help {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 575.98px) {
+            .error-card__body {
+                padding: 1.5rem;
+            }
+
+            .error-hero {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .error-icon {
+                width: 72px;
+                height: 72px;
+                border-radius: 20px;
+                font-size: 2rem;
+            }
+
+            .error-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body class="error-shell">
+    <main class="error-wrapper">
+        <section class="error-card">
+            <div class="error-card__body">
+                <div class="error-pill">
+                    <i class="bi bi-shield-exclamation"></i>
+                    Error Sistem
+                </div>
+                <div class="error-hero">
+                    <div>
+                        <p class="error-code">{% block status_code %}{{ status_code|default:"000" }}{% endblock %}</p>
+                        <h1 class="error-title">{% block title %}{{ title|default:"Terjadi gangguan" }}{% endblock %}</h1>
+                    </div>
+                    <div class="error-icon {% block tone %}{{ tone|default:"info" }}{% endblock %}">
+                        <i class="{% block icon %}{{ icon|default:"bi bi-exclamation-circle" }}{% endblock %}"></i>
+                    </div>
+                </div>
+
+                <p class="error-message">{% block message %}{{ message|default:"Kami tidak bisa menyelesaikan permintaan ini sekarang." }}{% endblock %}</p>
+
+                <div class="error-actions">
+                    <button type="button" id="goBackButton" class="btn btn-primary">
+                        <i class="bi bi-arrow-left me-2"></i>Kembali ke Halaman Sebelumnya
+                    </button>
+                    <a
+                        id="fallbackLink"
+                        href="{{ fallback_url|default:'/' }}"
+                        class="btn btn-outline-secondary"
+                        data-default-label="{{ fallback_label|default:'Buka Halaman Utama' }}"
+                        data-previous-label="Buka Halaman Terakhir"
+                    >
+                        <i id="fallbackIcon" class="bi bi-house-door me-2"></i><span id="fallbackLabel">{{ fallback_label|default:"Buka Halaman Utama" }}</span>
+                    </a>
+                </div>
+
+                <p class="error-help">{% block help_text %}{{ help_text|default:"Jika halaman sebelumnya juga gagal dimuat, gunakan tombol fallback untuk memulai ulang alur kerja Anda." }}{% endblock %}</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="{% static 'js/error-page.js' %}"></script>
+</body>
+</html>

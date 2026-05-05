@@ -33,7 +33,15 @@ Root route include map from `backend/config/urls.py`:
 - `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`)
 - `/administration/history/receiving/` -> placeholder riwayat penerimaan administrasi (`apps.core.views.administration_receiving_history`)
 - `/administration/history/distribution/` -> placeholder riwayat pengeluaran administrasi (`apps.core.views.administration_distribution_history`)
+- `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
 - `/users/`, `/items/`, `/stock/`, `/receiving/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
+
+Global error handlers in `backend/config/urls.py`:
+
+- `handler400` -> `apps.core.views.bad_request`
+- `handler403` -> `apps.core.views.permission_denied_handler`
+- `handler404` -> `apps.core.views.page_not_found_handler`
+- `handler500` -> `apps.core.views.server_error_handler`
 
 Module highlights:
 
@@ -56,6 +64,8 @@ Hybrid authorization in `@perm_required`:
 
 1. Django permission (`request.user.has_perm`)
 2. Module-scope fallback (`has_module_permission`)
+
+Permission denials are expected to raise `PermissionDenied` so the centralized 403 handler can render the standard fallback-aware error page and emit structured logs.
 
 `ModuleAccess.module` values:
 
