@@ -542,7 +542,7 @@ def api_item_search(request):
                 "text": f"{item.kode_barang} - {item.nama_barang}",
                 "satuan": item.satuan.name if item.satuan else "",
                 "kategori": item.kategori.name if item.kategori else "",
-                "stock": float(item.total_stock),
+                "stock": str(item.total_stock),
             }
         )
 
