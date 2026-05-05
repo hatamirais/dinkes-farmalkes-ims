@@ -7,6 +7,11 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Added
+
+- New `Procurement Source` column (`procurement_source`) on LPLPO item matrix with choice values `BLUD`, `APBD`, `BHP`, `Hibah`, and `Lainnya`. Field appears on create, edit, detail, review, and print views so operators can tag funding source per line item.
+- Admin role users can now view all Puskesmas LPLPO pages (list, detail, print) alongside Puskesmas operators, with facility isolation preserved for edit/delete actions.
+
 ## [1.21.0] - 2026-05-05
 
 ### Added

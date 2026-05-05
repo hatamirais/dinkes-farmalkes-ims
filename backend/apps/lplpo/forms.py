@@ -57,6 +57,7 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
         fields = [
             "stock_awal",
             "penerimaan",
+            "procurement_source",
             "pemakaian",
             "stock_gudang_puskesmas",
             "waktu_kosong",
@@ -64,27 +65,14 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
             "permintaan_alasan",
         ]
         widgets = {
-            "stock_awal": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
-            "penerimaan": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
-            "pemakaian": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
-            "stock_gudang_puskesmas": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
-            "waktu_kosong": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
-            "permintaan_jumlah": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
-            "permintaan_alasan": forms.Textarea(
-                attrs={"class": "form-control form-control-sm", "rows": 1}
-            ),
+            "stock_awal": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "penerimaan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "procurement_source": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "pemakaian": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "stock_gudang_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "waktu_kosong": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "permintaan_jumlah": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "permintaan_alasan": forms.Textarea(attrs={"class": "form-control form-control-sm", "rows": 1}),
         }
 
 

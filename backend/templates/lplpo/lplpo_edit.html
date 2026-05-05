@@ -39,6 +39,7 @@
                                 <th rowspan="2" class="text-center" style="width:50px">Satuan</th>
                                 <th class="text-center" style="width:90px">Stock Awal</th>
                                 <th class="text-center" style="width:90px">Penerimaan</th>
+                                <th class="text-center" style="width:110px">Sumber Pengadaan</th>
                                 <th class="text-center computed-cell" style="width:90px">Persediaan</th>
                                 <th class="text-center" style="width:90px">Pemakaian</th>
                                 <th class="text-center computed-cell" style="width:90px">Sisa Stok</th>
@@ -74,6 +75,7 @@
                                     <small class="text-warning"><i class="bi bi-lightning-fill" title="Auto-filled"></i></small>
                                     {% endif %}
                                 </td>
+                                <td>{{ f.procurement_source }}</td>
                                 <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"-2" }}</td>
                                 <td>{{ f.pemakaian }}</td>
                                 <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"-2" }}</td>

@@ -137,6 +137,21 @@ class LPLPOItem(models.Model):
         default=0,
         help_text="Auto-filled from Distribution records, confirmable by Puskesmas",
     )
+
+    class ProcurementSource(models.TextChoices):
+        BLUD = "BLUD", "BLUD"
+        APBD = "APBD", "APBD"
+        BHP = "BHP", "BHP"
+        HIBAH = "HIBAH", "Hibah"
+        LAINNYA = "LAINNYA", "Lainnya"
+
+    procurement_source = models.CharField(
+        max_length=20,
+        choices=ProcurementSource.choices,
+        blank=True,
+        default="",
+        help_text="Sumber pengadaan untuk item ini",
+    )
     pemakaian = models.DecimalField(
         max_digits=12,
         decimal_places=2,

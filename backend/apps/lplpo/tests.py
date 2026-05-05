@@ -61,6 +61,11 @@ class LPLPOTestCase(TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=cls.other_facility,
 		)
+		cls.gudang_user = User.objects.create_user(
+			username="gudang",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
+		)
 		cls.staff_user = User.objects.create_superuser(
 			username="staff",
 			email="staff@example.com",
@@ -75,6 +80,7 @@ class LPLPOTestCase(TestCase):
 		for user, scope in (
 			(cls.puskesmas_user, ModuleAccess.Scope.OPERATE),
 			(cls.other_puskesmas_user, ModuleAccess.Scope.OPERATE),
+			(cls.gudang_user, ModuleAccess.Scope.OPERATE),
 			(cls.staff_user, ModuleAccess.Scope.MANAGE),
 		):
 			ModuleAccess.objects.update_or_create(
@@ -301,6 +307,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			{
 				f"item_{line.pk}-stock_awal": "10.00",
 				f"item_{line.pk}-penerimaan": "5.00",
+				f"item_{line.pk}-procurement_source": LPLPOItem.ProcurementSource.HIBAH,
 				f"item_{line.pk}-pemakaian": "8.00",
 				f"item_{line.pk}-stock_gudang_puskesmas": "4.00",
 				f"item_{line.pk}-waktu_kosong": "2.00",
@@ -313,6 +320,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		line.refresh_from_db()
 		self.assertEqual(line.stock_awal, Decimal("10.00"))
 		self.assertEqual(line.penerimaan, Decimal("5.00"))
+		self.assertEqual(line.procurement_source, LPLPOItem.ProcurementSource.HIBAH)
 		self.assertEqual(line.pemakaian, Decimal("8.00"))
 		self.assertEqual(line.stock_gudang_puskesmas, Decimal("4.00"))
 		self.assertEqual(line.waktu_kosong, Decimal("2.00"))
@@ -323,6 +331,59 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(line.stock_optimum, Decimal("8.40"))
 		self.assertEqual(line.jumlah_kebutuhan, Decimal("3.40"))
 		self.assertEqual(line.pemberian_jumlah, Decimal("3.40"))
+
+	def test_non_puskesmas_cannot_edit_draft_lplpo(self):
+		lplpo = self.create_lplpo()
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_edit", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 403)
+		self.assertContains(
+			response,
+			"Hanya operator Puskesmas yang dapat mengubah LPLPO draft.",
+			status_code=403,
+		)
+
+	def test_non_puskesmas_cannot_submit_draft_lplpo(self):
+		lplpo = self.create_lplpo()
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.post(reverse("lplpo:lplpo_submit", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 403)
+		self.assertContains(
+			response,
+			"Hanya operator Puskesmas yang dapat mengubah LPLPO draft.",
+			status_code=403,
+		)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.DRAFT)
+
+	def test_non_puskesmas_detail_hides_draft_mutation_actions(self):
+		lplpo = self.create_lplpo()
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, 'id="edit-btn"')
+		self.assertNotContains(response, 'id="submit-btn"')
+		self.assertNotContains(response, 'id="delete-btn"')
+
+	def test_non_puskesmas_cannot_delete_draft_lplpo(self):
+		lplpo = self.create_lplpo()
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.post(reverse("lplpo:lplpo_delete", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 403)
+		self.assertContains(
+			response,
+			"Hanya operator Puskesmas yang dapat mengubah LPLPO draft.",
+			status_code=403,
+		)
+		self.assertTrue(LPLPO.objects.filter(pk=lplpo.pk).exists())
 
 	def test_unique_constraint_facility_period(self):
 		self.create_lplpo(bulan=2, tahun=2026)

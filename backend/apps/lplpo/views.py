@@ -17,7 +17,7 @@ from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Item
 from apps.stock.models import Stock
-from apps.users.models import ModuleAccess
+from apps.users.models import ModuleAccess, User
 
 from .forms import LPLPOCreateForm, LPLPOItemPuskesmasForm, LPLPOItemReviewForm
 from .models import LPLPO, LPLPOItem, get_penerimaan_for_facility_period, get_previous_lplpo
@@ -55,6 +55,14 @@ def _check_puskesmas_creator_access(request):
     """Restrict create flow to PUSKESMAS operators only."""
     if request.user.role != "PUSKESMAS":
         raise PermissionDenied("Hanya operator Puskesmas yang dapat membuat LPLPO.")
+
+
+def _check_puskesmas_draft_action_access(request):
+    """Restrict draft LPLPO mutations to PUSKESMAS operators only."""
+    if request.user.role != User.Role.PUSKESMAS:
+        raise PermissionDenied(
+            "Hanya operator Puskesmas yang dapat mengubah LPLPO draft."
+        )
 
 
 def _get_submission_month_choices():
@@ -347,6 +355,8 @@ def lplpo_detail(request, pk):
 @perm_required("lplpo.change_lplpo")
 def lplpo_edit(request, pk):
     """Puskesmas fills their columns — only DRAFT status."""
+    _check_puskesmas_draft_action_access(request)
+
     lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
 
     if lplpo_obj.status != LPLPO.Status.DRAFT:
@@ -396,6 +406,7 @@ def lplpo_edit(request, pk):
                     fields=[
                         "stock_awal",
                         "penerimaan",
+                        "procurement_source",
                         "pemakaian",
                         "stock_gudang_puskesmas",
                         "waktu_kosong",
@@ -442,6 +453,8 @@ def lplpo_edit(request, pk):
 @perm_required("lplpo.change_lplpo")
 def lplpo_submit(request, pk):
     """Transition DRAFT → SUBMITTED."""
+    _check_puskesmas_draft_action_access(request)
+
     lplpo_obj = get_object_or_404(LPLPO, pk=pk)
     denied = _check_facility_access(request, lplpo_obj)
     if denied:
@@ -714,6 +727,8 @@ def lplpo_print_report(request):
 @perm_required("lplpo.delete_lplpo")
 def lplpo_delete(request, pk):
     """Delete a DRAFT LPLPO document."""
+    _check_puskesmas_draft_action_access(request)
+
     lplpo_obj = get_object_or_404(LPLPO, pk=pk)
 
     if request.method != "POST":

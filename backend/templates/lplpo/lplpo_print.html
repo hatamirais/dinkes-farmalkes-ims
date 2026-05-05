@@ -48,15 +48,16 @@
         <thead>
             <tr>
                 <th rowspan="2" style="width:3%">No</th>
-                <th rowspan="2" style="width:18%">Nama Obat / Barang</th>
+                <th rowspan="2" style="width:16%">Nama Obat / Barang</th>
                 <th rowspan="2" style="width:4%">Satuan</th>
-                <th colspan="5">PEMAKAIAN</th>
+                <th colspan="6">PEMAKAIAN</th>
                 <th colspan="3">PERMINTAAN</th>
                 <th colspan="2">PEMBERIAN</th>
             </tr>
             <tr>
                 <th>Stock Awal</th>
                 <th>Penerimaan</th>
+                <th>Sumber Pengadaan</th>
                 <th>Persediaan</th>
                 <th>Pemakaian</th>
                 <th>Sisa Stok</th>
@@ -67,7 +68,7 @@
                 <th>Ket</th>
             </tr>
         </thead>
-        <tbody>
+            <tbody>
             <tr class="cat-header"><td colspan="14">{{ cat_name }}</td></tr>
             {% for li in cat_items %}
             <tr>
@@ -76,6 +77,11 @@
                 <td style="text-align:center">{{ li.item.satuan.code }}</td>
                 <td class="num">{{ li.stock_awal|floatformat:"-2" }}</td>
                 <td class="num">{{ li.penerimaan|floatformat:"-2" }}</td>
+                <td class="num">
+                    {% if li.procurement_source %}
+                    {{ li.get_procurement_source_display }}
+                    {% endif %}
+                </td>
                 <td class="num">{{ li.persediaan|floatformat:"-2" }}</td>
                 <td class="num">{{ li.pemakaian|floatformat:"-2" }}</td>
                 <td class="num">{{ li.stock_keseluruhan|floatformat:"-2" }}</td>
