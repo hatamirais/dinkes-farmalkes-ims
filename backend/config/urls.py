@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
@@ -8,6 +8,9 @@ from apps.core.views import (
     SystemSettingsUpdateView,
     administration_distribution_history,
     administration_receiving_history,
+    bad_request,
+    dashboard,
+    debug_page_not_found,
     maintenance_mode,
     dashboard,
 )
@@ -71,3 +74,7 @@ handler400 = "apps.core.views.bad_request"
 handler403 = "apps.core.views.permission_denied_handler"
 handler404 = "apps.core.views.page_not_found_handler"
 handler500 = "apps.core.views.server_error_handler"
+
+urlpatterns += [
+    re_path(r"^(?P<unmatched_path>.*)$", debug_page_not_found, name="debug_page_not_found")
+]

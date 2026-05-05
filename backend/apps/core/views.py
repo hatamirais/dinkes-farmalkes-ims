@@ -24,7 +24,6 @@ from django.contrib import messages
 from apps.core.models import SystemSettings
 from apps.core.forms import SystemSettingsForm
 
-
 security_logger = logging.getLogger("security")
 app_logger = logging.getLogger("core")
 
@@ -136,6 +135,10 @@ def page_not_found_handler(request, exception):
         "Kembali ke halaman sebelumnya untuk melanjutkan alur terakhir Anda, atau buka tujuan fallback untuk mulai dari titik yang aman.",
     )
     return _render_error_page(request, "404.html", 404, **context)
+
+
+def debug_page_not_found(request, unmatched_path=""):
+    return page_not_found_handler(request, FileNotFoundError(unmatched_path or request.path))
 
 
 @requires_csrf_token

@@ -11,6 +11,7 @@ from django.db import ProgrammingError
 from django.test import TestCase
 from django.test import SimpleTestCase
 from django.test import RequestFactory
+from django.test import override_settings
 from django.template import Context, Template
 from django.urls import resolve, reverse
 
@@ -25,7 +26,6 @@ from apps.core.views import (
     permission_denied_handler,
 )
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
-
 from apps.distribution.models import Distribution
 from apps.items.models import Facility, FundingSource
 from apps.lplpo.models import LPLPO
@@ -359,7 +359,6 @@ class ErrorHandlerTests(SimpleTestCase):
         )
         self.assertEqual(root_urls.handler404, "apps.core.views.page_not_found_handler")
         self.assertEqual(root_urls.handler500, "apps.core.views.server_error_handler")
-
     def test_maintenance_mode_renders_503_template(self):
         request = self.factory.get("/maintenance/")
         request.user = AnonymousUser()
@@ -432,6 +431,14 @@ class ErrorHandlerTests(SimpleTestCase):
         self.assertIn("event=page_not_found", captured.output[0])
         self.assertIn("status_code=404", captured.output[0])
         self.assertIn("exception=FileNotFoundError", captured.output[0])
+
+    @override_settings(DEBUG=True)
+    def test_unmatched_route_uses_custom_404_page_in_debug(self):
+        response = self.client.get("/route-yang-tidak-ada/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, "Halaman yang Anda cari tidak ditemukan", status_code=404)
+        self.assertContains(response, "Buka Login", status_code=404)
 
 class NavNotificationsContextProcessorTests(TestCase):
     def setUp(self):
