@@ -17,7 +17,7 @@ from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Item
 from apps.stock.models import Stock
-from apps.users.models import ModuleAccess
+from apps.users.models import ModuleAccess, User
 
 from .forms import LPLPOCreateForm, LPLPOItemPuskesmasForm, LPLPOItemReviewForm
 from .models import LPLPO, LPLPOItem, get_penerimaan_for_facility_period, get_previous_lplpo
@@ -59,7 +59,7 @@ def _check_puskesmas_creator_access(request):
 
 def _check_puskesmas_draft_action_access(request):
     """Restrict draft LPLPO mutations to PUSKESMAS operators only."""
-    if request.user.role != "PUSKESMAS":
+    if request.user.role != User.Role.PUSKESMAS:
         raise PermissionDenied(
             "Hanya operator Puskesmas yang dapat mengubah LPLPO draft."
         )
