@@ -138,6 +138,7 @@ class ReceivingItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["item"].label_from_instance = lambda obj: obj.picker_label
         self.fields["location"].required = True
 
     def clean_quantity(self):
@@ -182,6 +183,10 @@ class ReceivingOrderItemForm(forms.ModelForm):
         if quantity is not None and quantity <= 0:
             raise forms.ValidationError("Jumlah rencana harus lebih dari 0.")
         return quantity
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["item"].label_from_instance = lambda obj: obj.picker_label
 
     def clean_unit_price(self):
         unit_price = self.cleaned_data.get("unit_price")

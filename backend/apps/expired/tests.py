@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.expired.forms import ExpiredItemForm
 from apps.expired.models import Expired, ExpiredItem
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
@@ -334,6 +335,20 @@ class ExpiredWorkflowTest(TestCase):
         self.assertIn(
             "dokumen kedaluwarsa yang masih diajukan sebanyak", error_message
         )
+
+    def test_expired_item_form_uses_picker_label_without_suffixes(self):
+        self.item.nama_barang = "Sirup Cough 60ml [P]"
+        self.item.save(update_fields=["nama_barang", "updated_at"])
+
+        form = ExpiredItemForm()
+
+        self.assertEqual(form.fields["item"].label_from_instance(self.item), "Sirup Cough 60ml")
+
+    def test_expired_create_includes_item_picker_table_script(self):
+        response = self.client.get(reverse("expired:expired_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "js/item-picker-table.js?v=")
 
     def test_expired_alerts_show_remaining_actionable_quantity(self):
         self._create_expired(status=Expired.Status.SUBMITTED)

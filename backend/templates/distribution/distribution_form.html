@@ -112,7 +112,7 @@
                 <span><i class="bi {% if form_icon %}{{ form_icon }}{% else %}bi-send{% endif %} me-2"></i>{{ title }}</span>
             </div>
             <div class="card-body">
-                <form method="post" novalidate>
+                <form method="post" novalidate data-item-picker-table="true" data-item-table-target="distribution-items" data-item-required-field="quantity_requested" data-item-required-message="Kuantitas wajib diisi." data-item-focus-field="stock" data-item-dependent-fields="quantity_requested,quantity_approved,stock,notes">
                     {% csrf_token %}
                     {% for hidden_field in form.hidden_fields %}
                     {{ hidden_field }}
@@ -237,6 +237,8 @@
 
                     {{ formset.management_form }}
 
+                    <div class="alert alert-danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
+
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
                         <div class="d-flex gap-2">
@@ -267,12 +269,15 @@
                                 {% for item_form in formset %}
                                 <tr class="formset-row">
                                     <td>{{ item_form.item }}</td>
-                                    <td>{{ item_form.quantity_requested }}</td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_requested">
+                                        {{ item_form.quantity_requested }}
+                                        <div class="item-picker-field-error d-none js-item-picker-field-error" data-field-name="quantity_requested">Kuantitas wajib diisi.</div>
+                                    </td>
                                     {% if show_approved_quantity %}
-                                    <td>{{ item_form.quantity_approved }}</td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_approved">{{ item_form.quantity_approved }}</td>
                                     {% endif %}
-                                    <td>{{ item_form.stock }}</td>
-                                    <td>{{ item_form.notes }}</td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="stock">{{ item_form.stock }}</td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ item_form.notes }}</td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                             <i class="bi bi-trash"></i>
@@ -307,12 +312,15 @@
                     <template id="distribution-items-empty">
                         <tr class="formset-row">
                             <td>{{ formset.empty_form.item }}</td>
-                            <td>{{ formset.empty_form.quantity_requested }}</td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_requested">
+                                {{ formset.empty_form.quantity_requested }}
+                                <div class="item-picker-field-error d-none js-item-picker-field-error" data-field-name="quantity_requested">Kuantitas wajib diisi.</div>
+                            </td>
                             {% if show_approved_quantity %}
-                            <td>{{ formset.empty_form.quantity_approved }}</td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_approved">{{ formset.empty_form.quantity_approved }}</td>
                             {% endif %}
-                            <td>{{ formset.empty_form.stock }}</td>
-                            <td>{{ formset.empty_form.notes }}</td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="stock">{{ formset.empty_form.stock }}</td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ formset.empty_form.notes }}</td>
                             <td class="text-center">
                                 <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
@@ -403,6 +411,7 @@
 
 {% block extra_js %}
 {% load static %}
+<script src="{% static 'js/item-picker-table.js' %}?v={{ app_version }}-20260506a"></script>
 <script src="{% static 'js/distribution-form.js' %}?v={{ app_version }}-20260504a"></script>
 {% if document_number_warning_enabled %}
 <script>

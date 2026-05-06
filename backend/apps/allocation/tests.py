@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from apps.allocation.forms import AllocationItemForm
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
@@ -212,6 +213,11 @@ class AllocationSubmissionTest(TestCase):
 
         with self.assertRaises(AllocationWorkflowError):
             execute_allocation_submission(allocation, self.fixtures["admin"])
+
+    def test_allocation_item_form_uses_name_only_item_labels(self):
+        form = AllocationItemForm()
+
+        self.assertEqual(form.fields["item"].label_from_instance(self.fixtures["item"]), self.fixtures["item"].nama_barang)
 
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)

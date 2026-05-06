@@ -1,3 +1,5 @@
+import re
+
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -6,6 +8,11 @@ from apps.core.models import TimeStampedModel
 
 def _normalize_spaces(value: str) -> str:
     return " ".join(value.split())
+
+
+def _strip_picker_suffixes(value: str) -> str:
+    cleaned = (value or "").strip()
+    return re.sub(r"(?:\s*\[(?:P|E)\])+$", "", cleaned).strip()
 
 
 def _validate_case_insensitive_name_uniqueness(
@@ -218,6 +225,10 @@ class Item(TimeStampedModel):
 
     def __str__(self):
         return f"{self.kode_barang} - {self.nama_barang}"
+    
+    @property
+    def picker_label(self):
+        return _strip_picker_suffixes(self.nama_barang)
 
     @staticmethod
     def generate_kode_barang():

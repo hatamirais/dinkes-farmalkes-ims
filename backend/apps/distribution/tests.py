@@ -787,7 +787,13 @@ class DistributionWorkflowTest(TestCase):
         response = self.client.get(reverse("distribution:special_request_create"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "js/item-picker-table.js?v=")
         self.assertContains(response, "js/distribution-form.js?v=")
+
+    def test_distribution_item_form_uses_name_only_item_labels(self):
+        form = DistributionItemForm()
+
+        self.assertEqual(form.fields["item"].label_from_instance(self.item), self.item.nama_barang)
 
     def test_distribution_form_static_asset_removes_old_approved_vs_requested_guard(self):
         asset_path = finders.find("js/distribution-form.js")

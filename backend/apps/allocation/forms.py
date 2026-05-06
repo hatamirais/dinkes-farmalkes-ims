@@ -97,6 +97,7 @@ class AllocationItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         kwargs.pop("selected_facility_ids", None)
         super().__init__(*args, **kwargs)
+        self.fields["item"].label_from_instance = lambda obj: obj.picker_label
         self.fields["notes"].required = False
         self.fields["stock"].required = False
         self.fields["total_qty_available"].required = False

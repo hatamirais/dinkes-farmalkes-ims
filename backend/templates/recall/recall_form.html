@@ -3,13 +3,48 @@
 {% block title %}{{ title }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .recall-item-table td {
+        vertical-align: top;
+    }
+
+    .recall-dependent-cell {
+        transition: opacity 0.16s ease;
+    }
+
+    .recall-dependent-cell.is-disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .recall-dependent-cell.is-disabled .form-control,
+    .recall-dependent-cell.is-disabled .form-select,
+    .recall-dependent-cell.is-disabled .typeahead-input {
+        cursor: not-allowed;
+        background-color: #f8fafc;
+    }
+
+    .recall-input-error {
+        border: 1.5px solid #E24B4A !important;
+        box-shadow: none !important;
+    }
+
+    .recall-field-error {
+        margin-top: 4px;
+        color: #E24B4A;
+        font-size: 0.78rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card content-card table-container form-page-card">
     <div class="card-header">
         <span><i class="bi bi-arrow-return-left me-2"></i>{{ title }}</span>
     </div>
     <div class="card-body">
-        <form method="post" novalidate>
+        <form method="post" novalidate data-recall-form>
             {% csrf_token %}
 
             {% if form.non_field_errors %}
@@ -37,6 +72,8 @@
 
             {{ formset.management_form }}
 
+            <div class="alert alert-danger py-2 d-none js-recall-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
+
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
                 <div class="d-flex gap-2">
@@ -50,7 +87,7 @@
             </div>
 
             <div class="table-responsive" data-formset="recall-items" data-formset-prefix="{{ formset.prefix }}">
-                <table class="table table-sm">
+                <table class="table table-sm recall-item-table">
                     <thead>
                         <tr>
                             <th>Barang</th>
@@ -63,10 +100,13 @@
                     <tbody>
                         {% for item_form in formset %}
                         <tr class="formset-row">
-                            <td>{{ item_form.item }}</td>
-                            <td>{{ item_form.stock }}</td>
-                            <td>{{ item_form.quantity }}</td>
-                            <td>{{ item_form.notes }}</td>
+                            <td class="js-recall-item-cell">{{ item_form.item }}</td>
+                            <td class="recall-dependent-cell js-recall-dependent-cell" data-dependent-field="stock">{{ item_form.stock }}</td>
+                            <td class="recall-dependent-cell js-recall-dependent-cell" data-dependent-field="quantity">
+                                {{ item_form.quantity }}
+                                <div class="recall-field-error d-none js-recall-quantity-error">Kuantitas wajib diisi.</div>
+                            </td>
+                            <td class="recall-dependent-cell js-recall-dependent-cell" data-dependent-field="notes">{{ item_form.notes }}</td>
                             <td class="text-center">
                                 <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
@@ -100,10 +140,13 @@
 
             <template id="recall-items-empty">
                 <tr class="formset-row">
-                    <td>{{ formset.empty_form.item }}</td>
-                    <td>{{ formset.empty_form.stock }}</td>
-                    <td>{{ formset.empty_form.quantity }}</td>
-                    <td>{{ formset.empty_form.notes }}</td>
+                    <td class="js-recall-item-cell">{{ formset.empty_form.item }}</td>
+                    <td class="recall-dependent-cell js-recall-dependent-cell" data-dependent-field="stock">{{ formset.empty_form.stock }}</td>
+                    <td class="recall-dependent-cell js-recall-dependent-cell" data-dependent-field="quantity">
+                        {{ formset.empty_form.quantity }}
+                        <div class="recall-field-error d-none js-recall-quantity-error">Kuantitas wajib diisi.</div>
+                    </td>
+                    <td class="recall-dependent-cell js-recall-dependent-cell" data-dependent-field="notes">{{ formset.empty_form.notes }}</td>
                     <td class="text-center">
                         <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                             <i class="bi bi-trash"></i>
@@ -125,4 +168,9 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/recall-form.js' %}?v={{ app_version }}-20260506a"></script>
 {% endblock %}

@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.items.models import Category, FundingSource, Item, Location, Supplier, Unit
+from apps.recall.forms import RecallItemForm
 from apps.recall.models import Recall, RecallItem
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
@@ -214,6 +215,25 @@ class RecallWorkflowTest(TestCase):
         recall = self._create_recall(status=Recall.Status.DRAFT)
         response = self.client.get(reverse("recall:recall_edit", args=[recall.pk]))
         self.assertEqual(response.status_code, 200)
+
+    def test_recall_create_renders_item_validation_hooks(self):
+        response = self.client.get(reverse("recall:recall_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-recall-form')
+        self.assertContains(response, 'js-recall-table-error')
+        self.assertContains(response, 'Kuantitas wajib diisi.')
+
+    def test_recall_create_includes_recall_form_script(self):
+        response = self.client.get(reverse("recall:recall_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'js/recall-form.js')
+
+    def test_recall_item_form_uses_name_only_item_labels(self):
+        form = RecallItemForm()
+
+        self.assertEqual(form.fields["item"].label_from_instance(self.item), self.item.nama_barang)
 
     def test_edit_allowed_for_submitted(self):
         recall = self._create_recall(status=Recall.Status.SUBMITTED)

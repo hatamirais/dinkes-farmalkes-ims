@@ -76,7 +76,7 @@ class PuskesmasRequestItemForm(forms.ModelForm):
             .filter(is_active=True)
             .order_by("-is_program_item", "kode_barang")
         )
-        self.fields["item"].label_from_instance = lambda obj: obj.nama_barang
+        self.fields["item"].label_from_instance = lambda obj: obj.picker_label
 
     def clean_quantity_requested(self):
         qty = self.cleaned_data.get("quantity_requested")
