@@ -97,21 +97,60 @@ function initTypeaheadSelects() {
             }
         };
 
+        let positionUpdateFrame = null;
+        let positionListenersAttached = false;
+
         const updateDropdownPosition = () => {
             const rect = input.getBoundingClientRect();
             const viewportPadding = 8;
+            const availableWidth = Math.max(window.innerWidth - (viewportPadding * 2), 0);
+            if (availableWidth === 0) return;
+
             const desiredWidth = Math.max(rect.width, 320);
-            const maxLeft = Math.max(viewportPadding, window.innerWidth - desiredWidth - viewportPadding);
+            const minimumWidth = Math.min(Math.max(rect.width, 160), availableWidth);
+            const width = Math.max(Math.min(desiredWidth, availableWidth), minimumWidth);
+            const maxLeft = Math.max(viewportPadding, window.innerWidth - width - viewportPadding);
             const left = Math.min(Math.max(rect.left, viewportPadding), maxLeft);
 
             dropdown.style.top = `${rect.bottom + 6}px`;
             dropdown.style.left = `${left}px`;
-            dropdown.style.width = `${desiredWidth}px`;
+            dropdown.style.width = `${width}px`;
+        };
+
+        const scheduleDropdownPositionUpdate = () => {
+            if (!dropdown.classList.contains('show') || positionUpdateFrame !== null) return;
+
+            positionUpdateFrame = window.requestAnimationFrame(() => {
+                positionUpdateFrame = null;
+                if (dropdown.classList.contains('show')) {
+                    updateDropdownPosition();
+                }
+            });
+        };
+
+        const attachDropdownPositionListeners = () => {
+            if (positionListenersAttached) return;
+            window.addEventListener('resize', scheduleDropdownPositionUpdate);
+            window.addEventListener('scroll', scheduleDropdownPositionUpdate, true);
+            positionListenersAttached = true;
+        };
+
+        const detachDropdownPositionListeners = () => {
+            if (!positionListenersAttached) return;
+            window.removeEventListener('resize', scheduleDropdownPositionUpdate);
+            window.removeEventListener('scroll', scheduleDropdownPositionUpdate, true);
+            positionListenersAttached = false;
+
+            if (positionUpdateFrame !== null) {
+                window.cancelAnimationFrame(positionUpdateFrame);
+                positionUpdateFrame = null;
+            }
         };
 
         const closeDropdown = () => {
             dropdown.classList.remove('show');
             dropdown.dataset.activeIndex = '-1';
+            detachDropdownPositionListeners();
         };
 
         const openDropdown = () => {
@@ -120,6 +159,7 @@ function initTypeaheadSelects() {
                 return;
             }
             dropdown.classList.add('show');
+            attachDropdownPositionListeners();
             updateDropdownPosition();
         };
 
@@ -233,9 +273,6 @@ function initTypeaheadSelects() {
         document.addEventListener('click', (e) => {
             if (!wrapper.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
         });
-
-        window.addEventListener('resize', updateDropdownPosition);
-        window.addEventListener('scroll', updateDropdownPosition, true);
 
         // If select changes programmatically, reflect in input
         select.addEventListener('change', () => {
