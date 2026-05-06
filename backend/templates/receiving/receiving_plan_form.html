@@ -9,7 +9,7 @@
                 <span><i class="bi bi-clipboard-check me-2"></i>{{ title }}</span>
             </div>
             <div class="card-body">
-                <form method="post" novalidate data-confirm-submit="Pastikan harga satuan setiap item sudah benar. Setelah rencana penerimaan disimpan, harga satuan pada item rencana tidak dapat diubah.">
+                <form method="post" novalidate data-confirm-submit="Pastikan harga satuan setiap item sudah benar. Setelah rencana penerimaan disimpan, harga satuan pada item rencana tidak dapat diubah." data-item-picker-table="true" data-item-table-target="receiving-plan-items" data-item-required-field="planned_quantity" data-item-required-message="Kuantitas rencana wajib diisi." data-item-focus-field="planned_quantity" data-item-dependent-fields="planned_quantity,unit_price,notes">
                     {% csrf_token %}
                     <div class="row g-3 mb-4">
                         {% for field in form %}
@@ -37,6 +37,7 @@
                     <hr>
                     <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Rencana</h6>
                     {{ formset.management_form }}
+                    <div class="alert alert-danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small">Tambah baris untuk menambah item rencana.</span>
                         <div class="d-flex gap-2">
@@ -63,9 +64,12 @@
                                 {% for item_form in formset %}
                                 <tr class="formset-row">
                                     <td>{{ item_form.item }}</td>
-                                    <td>{{ item_form.planned_quantity }}</td>
-                                    <td>{{ item_form.unit_price }}</td>
-                                    <td>{{ item_form.notes }}</td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="planned_quantity">
+                                        {{ item_form.planned_quantity }}
+                                        <div class="item-picker-field-error d-none js-item-picker-field-error" data-field-name="planned_quantity">Kuantitas rencana wajib diisi.</div>
+                                    </td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="unit_price">{{ item_form.unit_price }}</td>
+                                    <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ item_form.notes }}</td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                             <i class="bi bi-trash"></i>
@@ -86,9 +90,12 @@
                     <template id="receiving-plan-items-empty">
                         <tr class="formset-row">
                             <td>{{ formset.empty_form.item }}</td>
-                            <td>{{ formset.empty_form.planned_quantity }}</td>
-                            <td>{{ formset.empty_form.unit_price }}</td>
-                            <td>{{ formset.empty_form.notes }}</td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="planned_quantity">
+                                {{ formset.empty_form.planned_quantity }}
+                                <div class="item-picker-field-error d-none js-item-picker-field-error" data-field-name="planned_quantity">Kuantitas rencana wajib diisi.</div>
+                            </td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="unit_price">{{ formset.empty_form.unit_price }}</td>
+                            <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ formset.empty_form.notes }}</td>
                             <td class="text-center">
                                 <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
@@ -227,5 +234,6 @@
 
 {% block extra_js %}
 {% load static %}
+<script src="{% static 'js/item-picker-table.js' %}?v={{ app_version }}-20260506a"></script>
 <script src="{% static 'js/quick-create.js' %}"></script>
 {% endblock %}

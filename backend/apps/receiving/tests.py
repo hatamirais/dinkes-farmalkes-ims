@@ -278,6 +278,28 @@ class ReceivingWorkflowCleanupTest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_receiving_item_forms_use_name_only_item_labels(self):
+        self.item.nama_barang = "Paracetamol 500mg [P]"
+        self.item.save(update_fields=["nama_barang", "updated_at"])
+
+        receiving_form = ReceivingOrderItemForm()
+        receipt_form = ReceivingForm()
+
+        self.assertEqual(receiving_form.fields["item"].label_from_instance(self.item), "Paracetamol 500mg")
+        self.assertNotIn("kode_barang", receipt_form.fields)
+
+    def test_receiving_create_includes_item_picker_table_script(self):
+        response = self.client.get(reverse("receiving:receiving_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "js/item-picker-table.js?v=")
+
+    def test_receiving_plan_create_includes_item_picker_table_script(self):
+        response = self.client.get(reverse("receiving:receiving_plan_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "js/item-picker-table.js?v=")
+
     def test_regular_receiving_list_does_not_show_redundant_status_filter(self):
         Receiving.objects.create(
             document_number="RCV-2026-99994",

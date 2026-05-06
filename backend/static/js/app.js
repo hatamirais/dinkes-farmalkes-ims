@@ -84,10 +84,44 @@ function initTypeaheadSelects() {
         const parent = select.parentNode;
         parent.insertBefore(wrapper, select);
         wrapper.appendChild(input);
-        wrapper.appendChild(dropdown);
         wrapper.appendChild(select);
+        document.body.appendChild(dropdown);
 
         select.style.display = 'none';
+
+        const syncInputDisabledState = () => {
+            input.disabled = select.disabled;
+            wrapper.classList.toggle('is-disabled', select.disabled);
+            if (select.disabled) {
+                closeDropdown();
+            }
+        };
+
+        const updateDropdownPosition = () => {
+            const rect = input.getBoundingClientRect();
+            const viewportPadding = 8;
+            const desiredWidth = Math.max(rect.width, 320);
+            const maxLeft = Math.max(viewportPadding, window.innerWidth - desiredWidth - viewportPadding);
+            const left = Math.min(Math.max(rect.left, viewportPadding), maxLeft);
+
+            dropdown.style.top = `${rect.bottom + 6}px`;
+            dropdown.style.left = `${left}px`;
+            dropdown.style.width = `${desiredWidth}px`;
+        };
+
+        const closeDropdown = () => {
+            dropdown.classList.remove('show');
+            dropdown.dataset.activeIndex = '-1';
+        };
+
+        const openDropdown = () => {
+            if (input.disabled) {
+                closeDropdown();
+                return;
+            }
+            dropdown.classList.add('show');
+            updateDropdownPosition();
+        };
 
         const syncInputFromSelect = () => {
             const selectedOption = select.selectedOptions?.[0] || select.options[select.selectedIndex] || null;
@@ -98,7 +132,7 @@ function initTypeaheadSelects() {
             const q = (query || '').trim().toLowerCase();
             dropdown.innerHTML = '';
             if (!q) {
-                dropdown.classList.remove('show');
+                closeDropdown();
                 return;
             }
 
@@ -112,7 +146,7 @@ function initTypeaheadSelects() {
                 empty.className = 'typeahead-item empty';
                 empty.textContent = 'Tidak ada hasil';
                 dropdown.appendChild(empty);
-                dropdown.classList.add('show');
+                openDropdown();
                 return;
             }
 
@@ -133,7 +167,7 @@ function initTypeaheadSelects() {
                 dropdown.appendChild(item);
             });
 
-            dropdown.classList.add('show');
+            openDropdown();
         };
 
         const setActiveIndex = (idx) => {
@@ -175,7 +209,7 @@ function initTypeaheadSelects() {
         });
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                dropdown.classList.remove('show');
+                closeDropdown();
                 return;
             }
             if (e.key === 'ArrowDown') {
@@ -197,21 +231,44 @@ function initTypeaheadSelects() {
         });
 
         document.addEventListener('click', (e) => {
-            if (!wrapper.contains(e.target)) dropdown.classList.remove('show');
+            if (!wrapper.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
         });
+
+        window.addEventListener('resize', updateDropdownPosition);
+        window.addEventListener('scroll', updateDropdownPosition, true);
 
         // If select changes programmatically, reflect in input
         select.addEventListener('change', () => {
             syncInputFromSelect();
+            syncInputDisabledState();
+            closeDropdown();
         });
 
         syncInputFromSelect();
+        syncInputDisabledState();
         window.setTimeout(syncInputFromSelect, 0);
     });
 }
 
 /** Add/remove rows for Django formsets */
 function initFormsetControls() {
+    const resetFieldValue = (field) => {
+        if (field.type === 'checkbox' || field.type === 'radio') {
+            field.checked = false;
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
+        }
+
+        field.value = '';
+
+        if (field.tagName === 'SELECT') {
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    };
+
     document.querySelectorAll('[data-formset]').forEach((container) => {
         const prefix = container.getAttribute('data-formset-prefix');
         const totalInput = document.querySelector(`input[name="${prefix}-TOTAL_FORMS"]`);
@@ -273,11 +330,7 @@ function initFormsetControls() {
                         if (deleteInput) deleteInput.checked = false;
                         row.classList.remove('d-none');
                         row.querySelectorAll('input, select, textarea').forEach((field) => {
-                            if (field.type === 'checkbox' || field.type === 'radio') {
-                                field.checked = false;
-                            } else {
-                                field.value = '';
-                            }
+                            resetFieldValue(field);
                         });
                     } else {
                         const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');

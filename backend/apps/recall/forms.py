@@ -59,6 +59,7 @@ class RecallItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['item'].label_from_instance = lambda obj: obj.picker_label
         self.fields['notes'].required = False
         # FEFO default: only show batches with available stock, ordered by earliest expiry
         self.fields['stock'].queryset = (

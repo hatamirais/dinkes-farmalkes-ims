@@ -59,9 +59,12 @@ class PuskesmasRequestFormTests(TestCase):
 		self.assertEqual(form.cleaned_data["facility"], self.facility)
 
 	def test_item_label_shows_name_only(self):
+		self.item.nama_barang = "Haloperidol 5 mg [P]"
+		self.item.save(update_fields=["nama_barang", "updated_at"])
+
 		form = PuskesmasRequestItemForm()
 
-		self.assertEqual(form.fields["item"].label_from_instance(self.item), self.item.nama_barang)
+		self.assertEqual(form.fields["item"].label_from_instance(self.item), "Haloperidol 5 mg")
 
 
 class PuskesmasRequestCreateViewTests(TestCase):

@@ -222,6 +222,7 @@ class DistributionItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["item"].label_from_instance = lambda obj: obj.picker_label
         if "quantity_approved" in self.fields:
             self.fields["quantity_approved"].required = False
         self.fields["stock"].required = False

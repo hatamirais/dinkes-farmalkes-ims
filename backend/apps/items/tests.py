@@ -61,3 +61,12 @@ class ItemEssentialTagTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, '[E] Esensial')
+
+	def test_picker_label_strips_program_and_essential_suffixes(self):
+		item = Item.objects.create(
+			nama_barang='Isoniazid (H) 300 mg Tablet [P] [E]',
+			satuan=self.unit,
+			kategori=self.category,
+		)
+
+		self.assertEqual(item.picker_label, 'Isoniazid (H) 300 mg Tablet')

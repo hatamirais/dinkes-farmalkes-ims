@@ -562,22 +562,48 @@ body {
 }
 
 .typeahead-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
+    position: fixed;
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
-    z-index: 20;
-    max-height: 260px;
+    z-index: 1085;
+    max-height: 240px;
+    min-width: 320px;
     overflow-y: auto;
     display: none;
 }
 
 .typeahead-dropdown.show {
     display: block;
+}
+
+.item-picker-dependent-cell {
+    transition: opacity 0.16s ease;
+    vertical-align: top;
+}
+
+.item-picker-dependent-cell.is-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.item-picker-dependent-cell.is-disabled .form-control,
+.item-picker-dependent-cell.is-disabled .form-select,
+.item-picker-dependent-cell.is-disabled .typeahead-input {
+    cursor: not-allowed;
+    background-color: #f8fafc;
+}
+
+.item-picker-input-error {
+    border: 1.5px solid #E24B4A !important;
+    box-shadow: none !important;
+}
+
+.item-picker-field-error {
+    margin-top: 4px;
+    color: #E24B4A;
+    font-size: 0.78rem;
 }
 
 .typeahead-item {

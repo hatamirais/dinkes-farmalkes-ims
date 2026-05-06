@@ -7,6 +7,17 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.23.1] - 2026-05-06
+
+### Changed
+
+- Item pickers on Distribution, Permintaan Khusus, Recall, Alokasi, Penerimaan, Rencana Penerimaan, Kedaluwarsa, and Permintaan Puskesmas now show item names without item codes or trailing `[P]` / `[E]` picker suffixes.
+
+### Fixed
+
+- Typeahead item pickers now render as detached floating overlays so search results are no longer clipped inside transaction tables and stay aligned during scroll and resize.
+- Shared transaction item tables now keep dependent inputs disabled until an item is selected, restore consistent reset behavior when rows are cleared, and show inline quantity validation before submit on the staged create flows.
+
 ## [1.23.0] - 2026-05-05
 
 ### Fixed
