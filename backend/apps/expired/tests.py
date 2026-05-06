@@ -306,6 +306,75 @@ class ExpiredWorkflowTest(TestCase):
         formset = response.context["formset"]
         self.assertEqual(formset.forms[0].initial["quantity"], Decimal("45"))
 
+    def test_expired_create_prefills_one_form_per_selected_stock(self):
+        other_item = Item.objects.create(
+            nama_barang="Paracetamol 500mg",
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal("0"),
+        )
+        third_item = Item.objects.create(
+            nama_barang="Vitamin C 100mg",
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal("0"),
+        )
+        other_stock = Stock.objects.create(
+            item=other_item,
+            location=self.location,
+            batch_lot="BATCH-EXP-02",
+            expiry_date="2026-02-01",
+            quantity=Decimal("25"),
+            reserved=Decimal("0"),
+            unit_price=Decimal("1500"),
+            sumber_dana=self.funding_source,
+        )
+        third_stock = Stock.objects.create(
+            item=third_item,
+            location=self.location,
+            batch_lot="BATCH-EXP-03",
+            expiry_date="2026-03-01",
+            quantity=Decimal("10"),
+            reserved=Decimal("0"),
+            unit_price=Decimal("500"),
+            sumber_dana=self.funding_source,
+        )
+
+        response = self.client.get(
+            reverse("expired:expired_create")
+            + f"?stocks={self.stock.pk},{other_stock.pk},{third_stock.pk}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        formset = response.context["formset"]
+        self.assertEqual(formset.total_form_count(), 3)
+        self.assertEqual(len(formset.forms), 3)
+
+        initial_by_stock = {
+            form.initial["stock"]: {
+                "item": form.initial["item"],
+                "quantity": form.initial["quantity"],
+            }
+            for form in formset.forms
+        }
+        self.assertEqual(
+            initial_by_stock,
+            {
+                self.stock.pk: {
+                    "item": self.item.pk,
+                    "quantity": Decimal("50"),
+                },
+                other_stock.pk: {
+                    "item": other_item.pk,
+                    "quantity": Decimal("25"),
+                },
+                third_stock.pk: {
+                    "item": third_item.pk,
+                    "quantity": Decimal("10"),
+                },
+            },
+        )
+
     def test_expired_create_rejects_quantity_reserved_by_other_submitted_docs(self):
         self._create_expired(status=Expired.Status.SUBMITTED)
 
