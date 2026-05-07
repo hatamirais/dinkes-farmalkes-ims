@@ -64,7 +64,7 @@ def user_list(request):
             "Anda tidak memiliki izin untuk membuka manajemen user.",
         )
 
-    queryset = User.objects.select_related("facility").order_by("-date_joined") \
+    queryset = User.objects.select_related("facility") \
         .only(
             "id", "username", "full_name", "nip", "email",
             "role", "is_active", "last_login", "facility",
@@ -90,18 +90,43 @@ def user_list(request):
     elif active == "0":
         queryset = queryset.filter(is_active=False)
 
+    sort = request.GET.get("sort", "").strip()
+    order = request.GET.get("order", "asc").strip()
+    allowed_sorts = ["username", "full_name", "role", "is_active", "last_login"]
+    sort_icon = {}
+    if sort in allowed_sorts:
+        direction = "" if order == "asc" else "-"
+        queryset = queryset.order_by(f"{direction}{sort}")
+        for col in allowed_sorts:
+            if col == sort:
+                sort_icon[col] = "bi-arrow-down" if order == "asc" else "bi-arrow-up"
+            else:
+                sort_icon[col] = None
+    else:
+        queryset = queryset.order_by("-date_joined")
+
+    total_count = queryset.count()
     paginator = Paginator(queryset, 25)
     users = paginator.get_page(request.GET.get("page"))
+
+    filter_params = request.GET.copy()
+    if "page" in filter_params:
+        del filter_params["page"]
 
     return render(
         request,
         "users/user_list.html",
         {
             "users": users,
+            "total_count": total_count,
             "search": search,
             "selected_jabatan": jabatan,
             "selected_active": active,
             "jabatan_choices": User.Role.choices,
+            "sort": sort,
+            "order": order,
+            "sort_icon": sort_icon,
+            "filter_params": filter_params.urlencode(),
             "can_add_user": _can_manage_users(request.user),
             "can_change_user": _can_manage_users(request.user),
             "can_delete_user": _can_manage_users(request.user),

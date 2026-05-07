@@ -1,5 +1,5 @@
 /**
- * User list: inline AJAX active toggle and tooltips.
+ * User list: inline AJAX active toggle, sortable columns, and tooltips.
  */
 document.addEventListener('DOMContentLoaded', function () {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -19,6 +19,32 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<span class="badge bg-secondary-subtle text-secondary">Nonaktif</span>';
     }
 
+    function getQueryParam(name) {
+        var params = new URLSearchParams(window.location.search);
+        return params.get(name) || '';
+    }
+
+    // ── Sortable column headers ────────────────────────────────────
+    document.querySelectorAll('.sortable-header').forEach(function (th) {
+        th.addEventListener('click', function () {
+            var sort = this.getAttribute('data-sort');
+            var params = new URLSearchParams(window.location.search);
+            var currentSort = params.get('sort') || '';
+            var currentOrder = params.get('order') || 'asc';
+
+            if (sort === currentSort) {
+                params.set('order', currentOrder === 'asc' ? 'desc' : 'asc');
+            } else {
+                params.set('sort', sort);
+                params.set('order', 'asc');
+            }
+            params.delete('page');
+
+            window.location.search = params.toString();
+        });
+    });
+
+    // ── Inline AJAX active toggle ──────────────────────────────────
     document.querySelectorAll('.user-active-toggle').forEach(function (toggle) {
         toggle.addEventListener('change', function () {
             var url = this.getAttribute('data-url');

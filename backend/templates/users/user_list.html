@@ -9,6 +9,9 @@
     <div class="table-header">
         <h5><i class="bi bi-people me-2"></i>Manajemen Pengguna</h5>
         <div class="d-flex align-items-center gap-2">
+            {% if total_count %}
+            <span class="badge bg-light text-dark border me-1">{{ total_count }} pengguna</span>
+            {% endif %}
             {% if can_add_user %}
             <a href="{% url 'users:user_create' %}" class="btn btn-primary btn-sm">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
@@ -42,14 +45,39 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>Nama Pengguna</th>
-                    <th>Nama Lengkap</th>
+                    <th class="sortable-header" data-sort="username">
+                        Nama Pengguna
+                        {% if sort == 'username' %}
+                        <i class="bi {{ sort_icon.username }} ms-1"></i>
+                        {% endif %}
+                    </th>
+                    <th class="sortable-header" data-sort="full_name">
+                        Nama Lengkap
+                        {% if sort == 'full_name' %}
+                        <i class="bi {{ sort_icon.full_name }} ms-1"></i>
+                        {% endif %}
+                    </th>
                     <th>Fasilitas</th>
                     <th>NIP</th>
                     <th>Email</th>
-                    <th>Jabatan</th>
-                    <th class="d-none d-md-table-cell">Login Terakhir</th>
-                    <th>Status</th>
+                    <th class="sortable-header" data-sort="role">
+                        Jabatan
+                        {% if sort == 'role' %}
+                        <i class="bi {{ sort_icon.role }} ms-1"></i>
+                        {% endif %}
+                    </th>
+                    <th class="d-none d-md-table-cell sortable-header" data-sort="last_login">
+                        Login Terakhir
+                        {% if sort == 'last_login' %}
+                        <i class="bi {{ sort_icon.last_login }} ms-1"></i>
+                        {% endif %}
+                    </th>
+                    <th class="sortable-header" data-sort="is_active">
+                        Status
+                        {% if sort == 'is_active' %}
+                        <i class="bi {{ sort_icon.is_active }} ms-1"></i>
+                        {% endif %}
+                    </th>
                     <th class="text-end">Aksi</th>
                 </tr>
             </thead>
@@ -152,15 +180,23 @@
         <nav>
             <ul class="pagination pagination-sm mb-0">
                 {% if users.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ users.previous_page_number }}">&laquo;</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ users.previous_page_number }}&{{ filter_params }}">&laquo;</a>
+                </li>
                 {% endif %}
+
                 {% for num in users.paginator.page_range %}
-                {% if users.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% endif %}
+                    {% if num >= users.number|add:'-3' and num <= users.number|add:'3' %}
+                    <li class="page-item {% if users.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}&{{ filter_params }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
                 {% endfor %}
+
                 {% if users.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ users.next_page_number }}">&raquo;</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ users.next_page_number }}&{{ filter_params }}">&raquo;</a>
+                </li>
                 {% endif %}
             </ul>
         </nav>

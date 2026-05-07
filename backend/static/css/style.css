@@ -627,6 +627,23 @@ body {
     user-select: none;
 }
 
+/* ===== Sortable Table Headers ===== */
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+}
+
+.sortable-header:hover {
+    color: var(--primary);
+}
+
+.sortable-header i {
+    font-size: 0.7rem;
+    vertical-align: middle;
+}
+
 /* ===== Buttons ===== */
 .btn-primary {
     background: var(--primary);
