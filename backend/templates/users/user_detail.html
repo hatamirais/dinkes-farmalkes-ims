@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}{{ target_user.username }} — Healthcare IMS{% endblock %}
+{% block page_title %}Detail Pengguna{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-5 mb-4">
+        <div class="card content-card">
+            <div class="card-header">
+                <span><i class="bi bi-person-vcard me-2"></i>Profil</span>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <span class="avatar-circle avatar-lg d-inline-flex" data-initial="{{ target_user.full_name|slice:':1'|default:target_user.username|slice:':1' }}">
+                        {{ target_user.full_name|slice:':1'|default:target_user.username|slice:':1'|upper }}
+                    </span>
+                    <h5 class="mt-2 mb-1">{{ target_user.full_name|default:target_user.username }}</h5>
+                    <code>{{ target_user.username }}</code>
+                    <div class="mt-2">
+                        <span class="badge badge-role-{{ target_user.role|lower }}">{{ target_user.get_role_display }}</span>
+                        {% if target_user.is_active %}
+                        <span class="badge bg-success-subtle text-success">Aktif</span>
+                        {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary">Nonaktif</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 text-muted">NIP</dt>
+                    <dd class="col-sm-8">{{ target_user.nip|default:'-' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Email</dt>
+                    <dd class="col-sm-8">{{ target_user.email|default:'-' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Fasilitas</dt>
+                    <dd class="col-sm-8">
+                        {% if target_user.facility %}
+                        {{ target_user.facility.name }}
+                        {% elif target_user.role == 'PUSKESMAS' %}
+                        <span class="text-muted">Belum diatur</span>
+                        {% else %}
+                        Instalasi Farmasi
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4 text-muted">Login Terakhir</dt>
+                    <dd class="col-sm-8">
+                        {% if target_user.last_login %}
+                        {{ target_user.last_login|date:'d M Y, H:i' }}
+                        {% else %}
+                        <span class="text-muted">Belum pernah</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4 text-muted">Bergabung</dt>
+                    <dd class="col-sm-8">{{ target_user.date_joined|date:'d M Y' }}</dd>
+                </dl>
+            </div>
+            <div class="card-footer d-flex gap-2">
+                <a href="{% url 'users:user_update' target_user.pk %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+                <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Kembali
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card content-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-shield-lock me-2"></i>Akses Modul (UAC)</span>
+                <span class="badge bg-light text-dark border">{{ effective_scopes|length }} modul</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Modul</th>
+                                <th style="width: 140px;">Scope</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in effective_scopes %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.module }}</td>
+                                <td>
+                                    {% if row.scope_value == 0 %}
+                                    <span class="badge bg-secondary-subtle text-secondary">Tidak Ada</span>
+                                    {% elif row.scope_value == 1 %}
+                                    <span class="badge bg-info-subtle text-info">Lihat</span>
+                                    {% elif row.scope_value == 2 %}
+                                    <span class="badge bg-primary-subtle text-primary">Operasional</span>
+                                    {% elif row.scope_value == 3 %}
+                                    <span class="badge bg-warning-subtle text-warning">Persetujuan</span>
+                                    {% elif row.scope_value == 4 %}
+                                    <span class="badge bg-danger-subtle text-danger">Kelola</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary">Tidak Ada</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-muted text-center py-3">Tidak ada data akses modul.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

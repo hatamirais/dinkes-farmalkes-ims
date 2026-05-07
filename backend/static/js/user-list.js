@@ -1,5 +1,6 @@
 /**
- * User list: inline AJAX active toggle, sortable columns, and tooltips.
+ * User list: inline AJAX active toggle, sortable columns, bulk actions,
+ * Bootstrap modal delete, and tooltips.
  */
 document.addEventListener('DOMContentLoaded', function () {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -43,6 +44,79 @@ document.addEventListener('DOMContentLoaded', function () {
             window.location.search = params.toString();
         });
     });
+
+    // ── Bulk action bar ────────────────────────────────────────────
+    var bulkBar = document.getElementById('bulkActionBar');
+    var selectedCount = bulkBar ? bulkBar.querySelector('.selected-count') : null;
+    var allCheckboxes = document.querySelectorAll('.user-checkbox');
+    var selectAll = document.getElementById('selectAll');
+    var bulkActionForm = document.getElementById('bulkActionForm');
+    var bulkActionField = document.getElementById('bulkActionField');
+
+    function updateBulkBar() {
+        if (!bulkBar) return;
+        var checked = document.querySelectorAll('.user-checkbox:checked');
+        var count = checked.length;
+        if (count > 0) {
+            bulkBar.classList.remove('d-none');
+            if (selectedCount) selectedCount.textContent = count + ' dipilih';
+        } else {
+            bulkBar.classList.add('d-none');
+            if (selectedCount) selectedCount.textContent = '0 dipilih';
+        }
+    }
+
+    if (allCheckboxes.length) {
+        allCheckboxes.forEach(function (cb) {
+            cb.addEventListener('change', updateBulkBar);
+        });
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            allCheckboxes.forEach(function (cb) {
+                cb.checked = selectAll.checked;
+            });
+            updateBulkBar();
+        });
+    }
+
+    document.querySelectorAll('.bulk-action-btn[data-action]:not([data-bs-toggle])').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var action = this.getAttribute('data-action');
+            if (bulkActionField) bulkActionField.value = action;
+            if (bulkActionForm) bulkActionForm.submit();
+        });
+    });
+
+    // ── Bulk delete modal confirm ─────────────────────────────────
+    var bulkDeleteConfirm = document.getElementById('bulkDeleteConfirm');
+    if (bulkDeleteConfirm) {
+        bulkDeleteConfirm.addEventListener('click', function () {
+            if (bulkActionField) bulkActionField.value = 'delete';
+            if (bulkActionForm) bulkActionForm.submit();
+        });
+    }
+
+    // ── Single delete with Bootstrap modal ─────────────────────────
+    var deleteModal = document.getElementById('deleteConfirmModal');
+    var deleteConfirmForm = document.getElementById('deleteConfirmForm');
+    var deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
+
+    if (deleteModal && deleteConfirmForm) {
+        document.querySelectorAll('.single-delete-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var url = this.getAttribute('data-delete-url');
+                var username = this.getAttribute('data-username');
+                deleteConfirmForm.action = url;
+                if (deleteConfirmMessage) {
+                    deleteConfirmMessage.textContent = 'Apakah Anda yakin ingin menghapus pengguna "' + username + '" secara permanen? Tindakan ini tidak dapat dibatalkan.';
+                }
+                var modal = new bootstrap.Modal(deleteModal);
+                modal.show();
+            });
+        });
+    }
 
     // ── Inline AJAX active toggle ──────────────────────────────────
     document.querySelectorAll('.user-active-toggle').forEach(function (toggle) {

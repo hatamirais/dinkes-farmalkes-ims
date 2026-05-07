@@ -546,6 +546,13 @@ body {
     font-size: 0.8rem;
 }
 
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+    font-size: 1.4rem;
+    margin: 0 auto;
+}
+
 .avatar-circle[data-initial*="A"],
 .avatar-circle[data-initial*="a"] { background: rgba(79, 140, 255, 0.15); color: #3b82f6; }
 .avatar-circle[data-initial*="B"],
@@ -642,6 +649,30 @@ body {
 .sortable-header i {
     font-size: 0.7rem;
     vertical-align: middle;
+}
+
+/* ===== Bulk Action Bar ===== */
+.bulk-action-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(79, 140, 255, 0.06);
+    border-bottom: 1px solid rgba(79, 140, 255, 0.15);
+    transition: opacity 0.2s ease;
+}
+
+.bulk-action-bar.d-none {
+    display: none;
+}
+
+.bulk-action-bar .selected-count {
+    color: var(--primary);
+}
+
+/* Checkbox column sizing */
+.table .form-check-input.select-all-checkbox,
+.table .form-check-input.user-checkbox {
+    cursor: pointer;
 }
 
 /* ===== Buttons ===== */

@@ -273,3 +273,83 @@ def user_delete(request, pk):
         return redirect("users:user_list")
     messages.success(request, f"User {username} berhasil dihapus.")
     return redirect("users:user_list")
+
+
+@login_required
+def user_detail(request, pk):
+    if not _can_view_users(request.user):
+        return _forbidden_manage_user(
+            request,
+            "Anda tidak memiliki izin untuk membuka detail user.",
+        )
+
+    target_user = get_object_or_404(
+        User.objects.select_related("facility").prefetch_related("module_accesses"),
+        pk=pk,
+    )
+
+    return render(
+        request,
+        "users/user_detail.html",
+        {
+            "target_user": target_user,
+            "effective_scopes": _effective_scope_rows(target_user),
+        },
+    )
+
+
+@login_required
+def user_bulk_action(request):
+    if not _can_manage_users(request.user):
+        return _forbidden_manage_user(
+            request,
+            "Anda tidak memiliki izin untuk aksi massal.",
+        )
+
+    if request.method != "POST":
+        return redirect("users:user_list")
+
+    action = request.POST.get("action", "")
+    pks = request.POST.getlist("selected_users", [])
+
+    if not pks:
+        messages.error(request, "Tidak ada pengguna yang dipilih.")
+        return redirect("users:user_list")
+
+    queryset = User.objects.filter(pk__in=pks)
+    count = queryset.count()
+
+    if action == "activate":
+        queryset.update(is_active=True)
+        messages.success(request, f"{count} pengguna berhasil diaktifkan.")
+    elif action == "deactivate":
+        updated = queryset.exclude(pk=request.user.pk).update(is_active=False)
+        if updated < count:
+            messages.warning(
+                request,
+                f"{updated} dari {count} pengguna dinonaktifkan. "
+                f"Akun Anda sendiri tidak dapat dinonaktifkan.",
+            )
+        else:
+            messages.success(request, f"{updated} pengguna berhasil dinonaktifkan.")
+    elif action == "delete":
+        inactive = queryset.filter(is_active=False)
+        active_count = queryset.filter(is_active=True).count()
+        try:
+            deleted_count, _ = inactive.delete()
+        except ProtectedError:
+            deleted_count = 0
+        if active_count:
+            messages.warning(
+                request,
+                f"{deleted_count} pengguna dihapus. "
+                f"{active_count} pengguna aktif tidak dapat dihapus.",
+            )
+        elif deleted_count:
+            messages.success(request, f"{deleted_count} pengguna berhasil dihapus.")
+        else:
+            messages.error(request, "Tidak ada pengguna yang dapat dihapus.")
+    else:
+        messages.error(request, "Aksi tidak dikenali.")
+
+    return redirect("users:user_list")
