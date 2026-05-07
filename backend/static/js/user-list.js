@@ -26,16 +26,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function badgeHtml(isActive) {
-        if (isActive) {
-            return '<span class="badge bg-success-subtle text-success">Aktif</span>';
-        }
-        return '<span class="badge bg-secondary-subtle text-secondary">Nonaktif</span>';
+    function createBadge(isActive) {
+        var badge = document.createElement('span');
+        badge.className = isActive
+            ? 'badge bg-success-subtle text-success'
+            : 'badge bg-secondary-subtle text-secondary';
+        badge.textContent = isActive ? 'Aktif' : 'Nonaktif';
+        return badge;
     }
 
-    function getQueryParam(name) {
-        var params = new URLSearchParams(window.location.search);
-        return params.get(name) || '';
+    function setBadge(container, isActive) {
+        if (!container) return;
+        container.replaceChildren(createBadge(Boolean(isActive)));
     }
 
     // ── Sortable column headers ────────────────────────────────────
@@ -70,6 +72,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!bulkBar) return;
         var checked = document.querySelectorAll('.user-checkbox:checked');
         var count = checked.length;
+        if (selectAll) {
+            selectAll.checked = count > 0 && count === allCheckboxes.length;
+            selectAll.indeterminate = count > 0 && count < allCheckboxes.length;
+        }
         if (count > 0) {
             bulkBar.classList.remove('d-none');
             if (selectedCount) selectedCount.textContent = count + ' dipilih';
@@ -93,6 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
             updateBulkBar();
         });
     }
+    updateBulkBar();
 
     document.querySelectorAll('.bulk-action-btn[data-action]:not([data-bs-toggle])').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -142,6 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var isActive = this.checked;
             var label = this.parentElement.querySelector('.form-check-label');
             var switchEl = this;
+            var wasDisabled = switchEl.disabled;
 
             switchEl.disabled = true;
 
@@ -162,18 +170,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .then(function (data) {
                     if (data.success) {
-                        label.innerHTML = badgeHtml(data.is_active);
+                        setBadge(label, data.is_active);
                     } else {
                         switchEl.checked = !isActive;
-                        label.innerHTML = badgeHtml(!isActive);
+                        setBadge(label, !isActive);
                     }
                 })
                 .catch(function () {
                     switchEl.checked = !isActive;
-                    label.innerHTML = badgeHtml(!isActive);
+                    setBadge(label, !isActive);
                 })
                 .finally(function () {
-                    switchEl.disabled = switchEl.hasAttribute('disabled');
+                    switchEl.disabled = wasDisabled;
                 });
         });
     });

@@ -5,7 +5,7 @@ from django.db.models import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .access import ROLE_DEFAULT_SCOPES, get_user_module_scope, has_module_scope
+from .access import ROLE_DEFAULT_SCOPES, has_module_scope
 from .forms import UserCreateForm, UserUpdateForm
 from .models import ModuleAccess, User
 
@@ -39,11 +39,24 @@ def _effective_scope_rows(user_obj):
         ModuleAccess.Scope.APPROVE: "Persetujuan",
         ModuleAccess.Scope.MANAGE: "Kelola",
     }
+    prefetched_accesses = getattr(user_obj, "_prefetched_objects_cache", {}).get(
+        "module_accesses"
+    )
+    module_scopes = {
+        access.module: access.scope
+        for access in (
+            prefetched_accesses
+            if prefetched_accesses is not None
+            else user_obj.module_accesses.only("module", "scope")
+        )
+    }
     rows = []
     for module_code, module_label in ModuleAccess.Module.choices:
         if not module_code:
             continue
-        scope_value = get_user_module_scope(user_obj, module_code)
+        scope_value = module_scopes.get(
+            module_code, ROLE_DEFAULT_SCOPES.get(user_obj.role, {}).get(module_code, 0)
+        )
         rows.append(
             {
                 "module": module_label,
@@ -67,7 +80,7 @@ def user_list(request):
     queryset = User.objects.select_related("facility") \
         .only(
             "id", "username", "full_name", "nip", "email",
-            "role", "is_active", "last_login", "facility",
+            "role", "is_active", "last_login", "facility_id", "facility__name",
         )
 
     search = request.GET.get("q", "").strip()
@@ -294,6 +307,7 @@ def user_detail(request, pk):
         {
             "target_user": target_user,
             "effective_scopes": _effective_scope_rows(target_user),
+            "can_manage_users": _can_manage_users(request.user),
         },
     )
 
@@ -335,15 +349,27 @@ def user_bulk_action(request):
     elif action == "delete":
         inactive = queryset.filter(is_active=False)
         active_count = queryset.filter(is_active=True).count()
-        try:
-            deleted_count, _ = inactive.delete()
-        except ProtectedError:
-            deleted_count = 0
-        if active_count:
+        deleted_count = 0
+        protected_count = 0
+        for user_obj in inactive:
+            try:
+                user_obj.delete()
+                deleted_count += 1
+            except ProtectedError:
+                protected_count += 1
+        if active_count or protected_count:
+            message_parts = [f"{deleted_count} pengguna dihapus."]
+            if active_count:
+                message_parts.append(
+                    f"{active_count} pengguna aktif tidak dapat dihapus."
+                )
+            if protected_count:
+                message_parts.append(
+                    f"{protected_count} pengguna memiliki data terkait dan tidak dapat dihapus."
+                )
             messages.warning(
                 request,
-                f"{deleted_count} pengguna dihapus. "
-                f"{active_count} pengguna aktif tidak dapat dihapus.",
+                " ".join(message_parts),
             )
         elif deleted_count:
             messages.success(request, f"{deleted_count} pengguna berhasil dihapus.")

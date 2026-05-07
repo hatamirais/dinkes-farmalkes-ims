@@ -1,4 +1,7 @@
+from unittest import mock
+
 from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 
@@ -271,6 +274,39 @@ class UserManagementViewsTest(TestCase):
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
 
+    def test_toggle_active_ajax_returns_json_payload(self):
+        response = self.client.post(
+            reverse("users:user_toggle_active", args=[self.target.pk]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.target.refresh_from_db()
+        self.assertFalse(self.target.is_active)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": True,
+                "is_active": False,
+                "status_text": "Nonaktif",
+            },
+        )
+
+    def test_toggle_active_ajax_blocks_self_deactivation(self):
+        response = self.client.post(
+            reverse("users:user_toggle_active", args=[self.admin.pk]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": False,
+                "error": "Tidak dapat menonaktifkan akun sendiri.",
+            },
+        )
+
     def test_delete_user_success(self):
         self.target.is_active = False
         self.target.save(update_fields=["is_active"])
@@ -287,6 +323,113 @@ class UserManagementViewsTest(TestCase):
         response = self.client.post(reverse("users:user_delete", args=[self.target.pk]))
         self.assertEqual(response.status_code, 302)
         self.assertTrue(User.objects.filter(pk=self.target.pk).exists())
+
+    def test_user_detail_hides_edit_button_for_view_only_access(self):
+        kepala = User.objects.create_user(
+            username="kepala_detail",
+            password="secret12345",
+            email="kepala.detail@example.com",
+            role=User.Role.KEPALA,
+        )
+        self.client.force_login(kepala)
+
+        response = self.client.get(reverse("users:user_detail", args=[self.target.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.target.full_name)
+        self.assertNotContains(
+            response,
+            reverse("users:user_update", args=[self.target.pk]),
+        )
+
+    def test_user_detail_denies_user_without_view_access(self):
+        admin_umum = User.objects.create_user(
+            username="admin_umum_detail",
+            password="secret12345",
+            email="adminumum.detail@example.com",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self.client.force_login(admin_umum)
+
+        response = self.client.get(reverse("users:user_detail", args=[self.target.pk]))
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_bulk_action_activate_selected_users(self):
+        inactive_user = User.objects.create_user(
+            username="inactive_user",
+            password="secret12345",
+            email="inactive@example.com",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+
+        response = self.client.post(
+            reverse("users:user_bulk_action"),
+            {"action": "activate", "selected_users": [inactive_user.pk]},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        inactive_user.refresh_from_db()
+        self.assertTrue(inactive_user.is_active)
+
+    def test_bulk_action_deactivate_selected_users(self):
+        response = self.client.post(
+            reverse("users:user_bulk_action"),
+            {"action": "deactivate", "selected_users": [self.target.pk]},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.target.refresh_from_db()
+        self.assertFalse(self.target.is_active)
+
+    def test_bulk_action_delete_skips_active_and_protected_users(self):
+        deletable_user = User.objects.create_user(
+            username="deletable_user",
+            password="secret12345",
+            email="deletable@example.com",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+        protected_user = User.objects.create_user(
+            username="protected_user",
+            password="secret12345",
+            email="protected@example.com",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+
+        original_delete = User.delete
+
+        def delete_with_protection(user_obj, *args, **kwargs):
+            if user_obj.pk == protected_user.pk:
+                raise ProtectedError("protected", [user_obj])
+            return original_delete(user_obj, *args, **kwargs)
+
+        with mock.patch.object(User, "delete", autospec=True, side_effect=delete_with_protection):
+            response = self.client.post(
+                reverse("users:user_bulk_action"),
+                {
+                    "action": "delete",
+                    "selected_users": [
+                        self.target.pk,
+                        deletable_user.pk,
+                        protected_user.pk,
+                    ],
+                },
+                follow=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(pk=deletable_user.pk).exists())
+        self.assertTrue(User.objects.filter(pk=self.target.pk).exists())
+        self.assertTrue(User.objects.filter(pk=protected_user.pk).exists())
+        self.assertContains(response, "1 pengguna dihapus.")
+        self.assertContains(response, "1 pengguna aktif tidak dapat dihapus.")
+        self.assertContains(
+            response,
+            "1 pengguna memiliki data terkait dan tidak dapat dihapus.",
+        )
 
 
 class StaffFlagSyncTest(TestCase):

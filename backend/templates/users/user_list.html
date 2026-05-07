@@ -226,7 +226,11 @@
                 {% for num in users.paginator.page_range %}
                     {% if num >= users.number|add:'-3' and num <= users.number|add:'3' %}
                     <li class="page-item {% if users.number == num %}active{% endif %}">
+                        {% if users.number == num %}
+                        <span class="page-link" aria-current="page">{{ num }}</span>
+                        {% else %}
                         <a class="page-link" href="?page={{ num }}&{{ filter_params }}">{{ num }}</a>
+                        {% endif %}
                     </li>
                     {% endif %}
                 {% endfor %}
