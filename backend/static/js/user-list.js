@@ -137,7 +137,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!safeUrl) {
                     return;
                 }
-                deleteConfirmForm.setAttribute('action', safeUrl);
+                if (safeUrl.charAt(0) !== '/' || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(safeUrl)) {
+                    return;
+                }
+                deleteConfirmForm.action = safeUrl;
                 if (deleteConfirmMessage) {
                     deleteConfirmMessage.textContent = 'Apakah Anda yakin ingin menghapus pengguna "' + username + '" secara permanen? Tindakan ini tidak dapat dibatalkan.';
                 }
