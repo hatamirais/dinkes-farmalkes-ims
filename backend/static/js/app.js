@@ -393,11 +393,54 @@ function initStockCardSearch() {
     if (!searchInput || !searchResults) return;
 
     const searchUrl = searchInput.getAttribute('data-search-url') || '/stock/api/item-search/';
-    const detailTemplate = searchInput.getAttribute('data-detail-template') || '/stock/stock-card/0/';
+    const defaultDetailTemplate = '/stock/stock-card/0/';
+    const detailTemplatePathPattern = /\/0\/?$/;
+    const rawDetailTemplate = searchInput.getAttribute('data-detail-template') || defaultDetailTemplate;
+    const getSafeDetailTemplate = (template) => {
+        try {
+            const candidate = new URL(template, window.location.origin);
+            const isHttp = candidate.protocol === 'http:' || candidate.protocol === 'https:';
+            const isSameOrigin = candidate.origin === window.location.origin;
+            const hasPlaceholder = detailTemplatePathPattern.test(candidate.pathname);
+            if (isHttp && isSameOrigin && hasPlaceholder) {
+                return `${candidate.pathname}${candidate.search}${candidate.hash}`;
+            }
+        } catch (e) {
+            // Fall through to default template.
+        }
+        return defaultDetailTemplate;
+    };
+    const detailTemplate = getSafeDetailTemplate(rawDetailTemplate);
     let debounceTimer = null;
     let activeIndex = -1;
 
-    const buildDetailUrl = (id) => detailTemplate.replace(/0\/?$/, `${id}/`);
+    const buildDefaultDetailUrl = (id) => {
+        const detailUrl = new URL(defaultDetailTemplate, window.location.origin);
+        detailUrl.pathname = detailUrl.pathname.replace(
+            detailTemplatePathPattern,
+            `/${encodeURIComponent(String(id))}/`
+        );
+        return detailUrl;
+    };
+
+    const buildDetailUrl = (id) => {
+        try {
+            const detailUrl = new URL(detailTemplate, window.location.origin);
+            if (
+                detailUrl.origin !== window.location.origin ||
+                !detailTemplatePathPattern.test(detailUrl.pathname)
+            ) {
+                return buildDefaultDetailUrl(id);
+            }
+            detailUrl.pathname = detailUrl.pathname.replace(
+                detailTemplatePathPattern,
+                `/${encodeURIComponent(String(id))}/`
+            );
+            return detailUrl;
+        } catch (e) {
+            return buildDefaultDetailUrl(id);
+        }
+    };
 
     const getResultItems = () => Array.from(searchResults.querySelectorAll('.search-result-item'));
 
@@ -441,7 +484,8 @@ function initStockCardSearch() {
             const stockText = `Stok: ${item.stock ?? 0} ${item.satuan || ''}`;
 
             const a = document.createElement('a');
-            a.href = buildDetailUrl(item.id);
+            const detailUrl = buildDetailUrl(item.id);
+            a.href = detailUrl.href;
             a.className = 'search-result-item';
 
             const row = document.createElement('div');
