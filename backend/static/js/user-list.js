@@ -193,4 +193,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
     });
+
+    // ── Keyboard shortcut: Alt+N to create user ────────────────────
+    document.addEventListener('keydown', function (e) {
+        if (e.altKey && e.key === 'n') {
+            e.preventDefault();
+            var createBtn = document.getElementById('createUserBtn');
+            if (createBtn) {
+                window.location.href = createBtn.href;
+            }
+        }
+    });
 });

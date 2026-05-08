@@ -307,4 +307,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     syncFacilityField();
     updateDeviationDots();
+
+    // ── Keyboard shortcut: Esc to go back to user list ──────────────
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !e.target.closest('.modal') && !e.target.closest('input,textarea,select')) {
+            var backLink = document.querySelector('.navbar-left-tools a[href*="/users/"]') ||
+                           document.querySelector('a[href*="/users/"]');
+            if (backLink) {
+                e.preventDefault();
+                window.location.href = backLink.href;
+            }
+        }
+    });
 });

@@ -1586,3 +1586,21 @@ body {
 .strength-bar.fair { width: 50%; background: #f59e0b; }
 .strength-bar.good { width: 75%; background: #3b82f6; }
 .strength-bar.strong { width: 100%; background: #22c55e; }
+
+/* ===== Mobile User Cards ===== */
+.user-card-mobile {
+    background: #fff;
+    transition: background 0.15s;
+}
+
+.user-card-mobile:hover {
+    background: #f8fafc;
+}
+
+.user-card-mobile:last-child {
+    border-bottom: none !important;
+}
+
+.user-card-mobile .dropdown-toggle::after {
+    display: none;
+}

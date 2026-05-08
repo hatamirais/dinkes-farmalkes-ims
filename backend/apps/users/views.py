@@ -1,3 +1,5 @@
+import csv
+
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -5,7 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import ProtectedError
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .access import ROLE_DEFAULT_SCOPES, has_module_scope
@@ -415,3 +417,78 @@ def user_reset_password(request, pk):
         request, f"Password untuk {target_user.username} berhasil direset."
     )
     return redirect("users:user_update", pk=pk)
+
+
+class _Echo:
+    """Object that implements just the write method of the file-like interface."""
+
+    def write(self, value):
+        return value
+
+
+def _build_user_export_queryset(request):
+    queryset = User.objects.select_related("facility").only(
+        "username", "full_name", "nip", "email", "role",
+        "is_active", "last_login", "facility",
+    )
+
+    search = request.GET.get("q", "").strip()
+    if search:
+        queryset = (
+            queryset.filter(username__icontains=search)
+            | queryset.filter(full_name__icontains=search)
+            | queryset.filter(email__icontains=search)
+        )
+
+    jabatan = request.GET.get("jabatan", "").strip()
+    if not jabatan:
+        jabatan = request.GET.get("role", "").strip()
+    if jabatan:
+        queryset = queryset.filter(role=jabatan)
+
+    active = request.GET.get("active", "1")
+    if active == "1":
+        queryset = queryset.filter(is_active=True)
+    elif active == "0":
+        queryset = queryset.filter(is_active=False)
+
+    return queryset.order_by("-date_joined")
+
+
+@login_required
+def user_export_csv(request):
+    if not _can_view_users(request.user):
+        return _forbidden_manage_user(
+            request,
+            "Anda tidak memiliki izin untuk mengekspor data pengguna.",
+        )
+
+    queryset = _build_user_export_queryset(request)
+    role_map = dict(User.Role.choices)
+
+    def generate_rows():
+        writer = csv.writer(_Echo())
+        yield writer.writerow([
+            "Username", "Nama Lengkap", "NIP", "Email",
+            "Jabatan", "Fasilitas", "Status", "Login Terakhir",
+        ])
+        for user in queryset.iterator(chunk_size=200):
+            yield writer.writerow([
+                user.username,
+                user.full_name,
+                user.nip,
+                user.email,
+                role_map.get(user.role, user.role),
+                user.facility.name if user.facility else (
+                    "Instalasi Farmasi" if user.role != "PUSKESMAS" else ""
+                ),
+                "Aktif" if user.is_active else "Nonaktif",
+                user.last_login.strftime("%Y-%m-%d %H:%M") if user.last_login else "",
+            ])
+
+    response = StreamingHttpResponse(
+        generate_rows(),
+        content_type="text/csv; charset=utf-8-sig",
+    )
+    response["Content-Disposition"] = 'attachment; filename="users_export.csv"'
+    return response

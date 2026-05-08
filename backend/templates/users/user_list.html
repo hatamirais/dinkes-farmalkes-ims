@@ -12,8 +12,11 @@
             {% if total_count %}
             <span class="badge bg-light text-dark border me-1">{{ total_count }} pengguna</span>
             {% endif %}
+            <a href="{% url 'users:user_export_csv' %}?{{ filter_params }}" class="btn btn-outline-secondary btn-sm" title="Ekspor ke CSV" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ekspor hasil filter ke CSV">
+                <i class="bi bi-download me-1"></i>Export
+            </a>
             {% if can_add_user %}
-            <a href="{% url 'users:user_create' %}" class="btn btn-primary btn-sm">
+            <a href="{% url 'users:user_create' %}" class="btn btn-primary btn-sm" id="createUserBtn">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
             </a>
             {% endif %}
@@ -65,7 +68,7 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="" id="bulkActionField">
 
-        <div class="table-responsive">
+        <div class="table-responsive d-none d-md-block">
             <table class="table">
                 <thead>
                     <tr>
@@ -211,6 +214,71 @@
             </table>
         </div>
     </form>
+
+    <!-- Mobile card layout (visible only on small screens) -->
+    <div class="d-md-none">
+        {% for account in users %}
+        <div class="user-card-mobile border-bottom p-3">
+            <div class="d-flex align-items-start justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    {% if can_change_user %}
+                    <input type="checkbox" class="form-check-input user-checkbox" name="selected_users" value="{{ account.pk }}" form="bulkActionForm">
+                    {% endif %}
+                    <span class="avatar-circle avatar-sm" data-initial="{{ account.full_name|slice:':1'|default:account.username|slice:':1' }}">{{ account.full_name|slice:':1'|default:account.username|slice:':1'|upper }}</span>
+                    <div>
+                        <a href="{% url 'users:user_detail' account.pk %}" class="fw-semibold text-decoration-none">{{ account.username }}</a>
+                        {% if account.full_name %}<div class="small text-muted">{{ account.full_name }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="badge badge-role-{{ account.role|lower }}">{{ account.get_role_display }}</span>
+                    {% if can_change_user %}
+                    <div class="form-check form-switch active-toggle-switch ms-1 mb-0">
+                        <input class="form-check-input user-active-toggle" type="checkbox" role="switch"
+                            data-pk="{{ account.pk }}"
+                            data-url="{% url 'users:user_toggle_active' account.pk %}"
+                            {% if account.is_active %}checked{% endif %}
+                            {% if request.user == account %}disabled{% endif %}>
+                    </div>
+                    {% endif %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'users:user_detail' account.pk %}"><i class="bi bi-eye me-2"></i>Lihat Detail</a></li>
+                            {% if can_change_user %}
+                            <li><a class="dropdown-item" href="{% url 'users:user_update' account.pk %}"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                            {% endif %}
+                            {% if can_delete_user %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button type="button" class="dropdown-item text-danger single-delete-btn"
+                                data-delete-url="{% url 'users:user_delete' account.pk %}"
+                                data-username="{{ account.username }}"
+                                {% if request.user == account or account.is_active %}disabled{% endif %}>
+                                <i class="bi bi-trash me-2"></i>Hapus
+                            </button></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-2 small text-muted">
+                <div class="col-6">
+                    {% if account.facility %}{{ account.facility.name }}{% elif account.role == 'PUSKESMAS' %}Belum diatur{% else %}Instalasi Farmasi{% endif %}
+                </div>
+                <div class="col-6 text-end">
+                    {% if account.last_login %}{{ account.last_login|timesince }} lalu{% else %}Belum pernah{% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i class="bi bi-person-lines-fill d-block"></i>
+            <p>Belum ada data pengguna</p>
+        </div>
+        {% endfor %}
+    </div>
 
     {% if users.has_other_pages %}
     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">

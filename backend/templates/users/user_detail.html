@@ -17,6 +17,9 @@
                     </span>
                     <h5 class="mt-2 mb-1">{{ target_user.full_name|default:target_user.username }}</h5>
                     <code>{{ target_user.username }}</code>
+                    <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 copy-btn" data-copy="{{ target_user.username }}" title="Salin username">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
                     <div class="mt-2">
                         <span class="badge badge-role-{{ target_user.role|lower }}">{{ target_user.get_role_display }}</span>
                         {% if target_user.is_active %}
@@ -32,7 +35,10 @@
                     <dd class="col-sm-8">{{ target_user.nip|default:'-' }}</dd>
 
                     <dt class="col-sm-4 text-muted">Email</dt>
-                    <dd class="col-sm-8">{{ target_user.email|default:'-' }}</dd>
+                    <dd class="col-sm-8">
+                        {{ target_user.email|default:'-' }}
+                        {% if target_user.email %}<button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 copy-btn" data-copy="{{ target_user.email }}" title="Salin email"><i class="bi bi-clipboard"></i></button>{% endif %}
+                    </dd>
 
                     <dt class="col-sm-4 text-muted">Fasilitas</dt>
                     <dd class="col-sm-8">
@@ -118,4 +124,25 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var text = this.getAttribute('data-copy');
+        navigator.clipboard.writeText(text).then(function() {
+            var icon = btn.querySelector('i');
+            icon.className = 'bi bi-check text-success';
+            setTimeout(function() { icon.className = 'bi bi-clipboard'; }, 1500);
+        }).catch(function() {});
+    });
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) {
+        window.location.href = '{% url "users:user_list" %}';
+    }
+});
+</script>
 {% endblock %}
