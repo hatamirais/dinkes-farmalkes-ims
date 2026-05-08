@@ -468,11 +468,11 @@ def user_export_csv(request):
 
     def generate_rows():
         writer = csv.writer(_Echo())
-        header_row = writer.writerow([
+        yield "\ufeff"
+        yield writer.writerow([
             "Username", "Nama Lengkap", "NIP", "Email",
             "Jabatan", "Fasilitas", "Status", "Login Terakhir",
         ])
-        yield f"\ufeff{header_row}"
         for user in queryset.iterator(chunk_size=200):
             yield writer.writerow([
                 user.username,
