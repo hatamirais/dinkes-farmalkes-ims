@@ -150,14 +150,19 @@
                         <div class="tab-pane fade" id="aksesPane" role="tabpanel">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <h6 class="mb-0">Akses Modul (UAC)</h6>
-                                <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#scopeInfoModal">
-                                    <i class="bi bi-info-circle me-1"></i>Info Scope
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-warning btn-sm" id="resetScopeBtn" title="Reset semua scope ke default jabatan terpilih">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset ke Default
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#scopeInfoModal">
+                                        <i class="bi bi-info-circle me-1"></i>Info Scope
+                                    </button>
+                                </div>
                             </div>
-                            <p class="text-muted small mb-3">Atur scope langsung per modul tanpa perlu scroll ke bagian lain.</p>
+                            <p class="text-muted small mb-3">Atur scope langsung per modul. Scope yang berbeda dari default jabatan akan diberi tanda.</p>
 
                             <div class="table-responsive border rounded">
-                                <table class="table table-sm align-middle mb-0">
+                                <table class="table table-sm align-middle mb-0 uac-scope-table">
                                     <thead>
                                         <tr>
                                             <th style="width: 220px;">Modul</th>
@@ -167,30 +172,27 @@
                                     <tbody>
                                         {% for field in form %}
                                         {% if 'module_scope__' in field.name %}
-                                        <tr>
+                                        <tr class="uac-scope-row" data-module="{{ field.name|cut:'module_scope__' }}">
                                             <td>
-                                                <span class="fw-semibold">{{ field.label|cut:'Akses ' }}</span>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="fw-semibold">{{ field.label|cut:'Akses ' }}</span>
+                                                    <span class="scope-deviation-dot d-none" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Scope berbeda dari default jabatan">&bull;</span>
+                                                </div>
                                             </td>
                                             <td>
-                                                <div class="d-flex flex-wrap gap-2">
+                                                <div class="scope-segmented-control" data-field-name="{{ field.html_name }}">
                                                     {% for value, label in field.field.choices %}
-                                                    <div>
+                                                    <label class="scope-segment scope-{{ value }} {% if field.value|stringformat:'s' == value|stringformat:'s' %}active{% endif %}" for="{{ field.id_for_label }}_{{ value }}">
                                                         <input
-                                                            class="btn-check"
                                                             type="radio"
                                                             name="{{ field.html_name }}"
                                                             id="{{ field.id_for_label }}_{{ value }}"
                                                             value="{{ value }}"
                                                             {% if field.value|stringformat:'s' == value|stringformat:'s' %}checked{% endif %}
+                                                            class="d-none"
                                                         >
-                                                        <label
-                                                            class="btn btn-outline-secondary btn-sm"
-                                                            for="{{ field.id_for_label }}_{{ value }}"
-                                                            data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-title="{% if value|stringformat:'s' == '0' %}Tidak dapat melihat atau menjalankan fitur modul{% elif value|stringformat:'s' == '1' %}Hanya dapat melihat data modul{% elif value|stringformat:'s' == '2' %}Dapat melakukan proses operasional modul{% elif value|stringformat:'s' == '3' %}Dapat melakukan proses persetujuan modul{% else %}Akses penuh termasuk aksi sensitif{% endif %}"
-                                                        >{{ label }}</label>
-                                                    </div>
+                                                        <span class="scope-label-text">{{ label }}</span>
+                                                    </label>
                                                     {% endfor %}
                                                 </div>
                                                 {% for error in field.errors %}

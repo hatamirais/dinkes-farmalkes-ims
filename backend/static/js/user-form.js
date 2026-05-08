@@ -108,6 +108,30 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function getDefaultScope(moduleCode) {
+        if (!roleDefaults || !roleSelect) return null;
+        var defaults = roleDefaults[roleSelect.value];
+        return defaults ? defaults[moduleCode] : null;
+    }
+
+    function updateDeviationDots() {
+        document.querySelectorAll('.uac-scope-row').forEach(function (row) {
+            var moduleCode = row.getAttribute('data-module');
+            var defaultScope = getDefaultScope(moduleCode);
+            var dot = row.querySelector('.scope-deviation-dot');
+            if (!dot) return;
+
+            var checkedRadio = row.querySelector('input[type="radio"]:checked');
+            var currentValue = checkedRadio ? parseInt(checkedRadio.value, 10) : null;
+
+            if (defaultScope !== null && currentValue !== null && currentValue !== defaultScope) {
+                dot.classList.remove('d-none');
+            } else {
+                dot.classList.add('d-none');
+            }
+        });
+    }
+
     roleSelect.addEventListener('change', function () {
         var selectedRole = this.value;
         var defaults = roleDefaults[selectedRole];
@@ -122,9 +146,67 @@ document.addEventListener('DOMContentLoaded', function () {
             );
             if (radio) {
                 radio.checked = true;
+                var segment = radio.closest('.scope-segment');
+                if (segment) {
+                    var parent = segment.parentElement;
+                    parent.querySelectorAll('.scope-segment').forEach(function (s) {
+                        s.classList.remove('active');
+                    });
+                    segment.classList.add('active');
+                }
             }
         }
+        updateDeviationDots();
     });
 
+    // ── Segmented control click handling ───────────────────────────
+    document.querySelectorAll('.scope-segment').forEach(function (segment) {
+        segment.addEventListener('click', function () {
+            var radio = this.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+                var parent = this.parentElement;
+                parent.querySelectorAll('.scope-segment').forEach(function (s) {
+                    s.classList.remove('active');
+                });
+                this.classList.add('active');
+                updateDeviationDots();
+            }
+        });
+    });
+
+    // ── Reset to default scope button ─────────────────────────────
+    var resetBtn = document.getElementById('resetScopeBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+            var defaults = roleDefaults[roleSelect.value];
+            if (!defaults) return;
+
+            if (!confirm('Reset semua scope ke default jabatan "' + roleSelect.options[roleSelect.selectedIndex].text + '"?')) {
+                return;
+            }
+
+            for (var moduleName in defaults) {
+                var scopeValue = defaults[moduleName];
+                var radio = document.querySelector(
+                    'input[type="radio"][name="module_scope__' + moduleName + '"][value="' + scopeValue + '"]'
+                );
+                if (radio) {
+                    radio.checked = true;
+                    var segment = radio.closest('.scope-segment');
+                    if (segment) {
+                        var parent = segment.parentElement;
+                        parent.querySelectorAll('.scope-segment').forEach(function (s) {
+                            s.classList.remove('active');
+                        });
+                        segment.classList.add('active');
+                    }
+                }
+            }
+            updateDeviationDots();
+        });
+    }
+
     syncFacilityField();
+    updateDeviationDots();
 });

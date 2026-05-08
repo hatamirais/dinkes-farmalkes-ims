@@ -1516,3 +1516,54 @@ body {
 .user-info-sidebar dl dd {
     margin-bottom: 0.5rem;
 }
+
+/* ===== UAC Scope Segmented Control ===== */
+.scope-segmented-control {
+    display: inline-flex;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    gap: 0;
+}
+
+.scope-segment {
+    cursor: pointer;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #64748b;
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    user-select: none;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+    margin: 0;
+}
+
+.scope-segment:hover {
+    background: #e9ecef;
+    color: #334155;
+}
+
+.scope-segment:last-child {
+    border-right: none;
+}
+
+.scope-segment.active {
+    font-weight: 600;
+}
+
+/* Scope level colors */
+.scope-segment.scope-0.active { background: #e9ecef; color: #6c757d; }
+.scope-segment.scope-1.active { background: rgba(6, 182, 212, 0.15); color: #0891b2; }
+.scope-segment.scope-2.active { background: rgba(79, 140, 255, 0.15); color: #3b82f6; }
+.scope-segment.scope-3.active { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.scope-segment.scope-4.active { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+
+/* Scope deviation indicator */
+.scope-deviation-dot {
+    color: #f59e0b;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: help;
+}
