@@ -537,12 +537,35 @@ class ExpiredWorkflowTest(TestCase):
         self.assertContains(response, "Expired Audit Report")
         self.assertContains(response, 'data-action="print"')
         self.assertContains(response, "Harga Satuan")
+        self.assertContains(response, "<th>Satuan</th>", html=True)
         self.assertContains(response, "Total Nilai Barang di Musnahkan")
         self.assertContains(response, self.user.username)
         self.assertContains(response, "Kepala Instalasi")
         self.assertContains(response, self.kepala_user.nip)
         self.assertNotContains(response, "<th>User</th>", html=True)
         self.assertNotContains(response, "<th>Ref Item</th>", html=True)
+        self.assertNotContains(
+            response,
+            "generated_by.get_full_name|default:generated_by.username|default:generated_by",
+        )
+
+    def test_expired_audit_report_print_empty_state_uses_current_column_count(self):
+        response = self.client.get(
+            reverse("expired:expired_audit_report"),
+            {
+                "start_date": "2027-03-01",
+                "end_date": "2027-03-31",
+                "date_field": "disposed_at",
+                "format": "print",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            '<td colspan="12">Tidak ada data untuk filter yang dipilih.</td>',
+            html=True,
+        )
 
     def test_expired_document_print_endpoint_returns_printable_html(self):
         expired_doc = self._create_expired(status=Expired.Status.DRAFT)

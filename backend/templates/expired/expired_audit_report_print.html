@@ -76,7 +76,7 @@
                 <th>Qty</th>
                 <th>Harga Satuan</th>
                 <th>Total Nilai</th>
-                <th>Kategori</th>
+                <th>Satuan</th>
                 <th>Lokasi</th>
                 <th>Sumber Dana</th>
                 <th>Timestamp</th>
@@ -102,7 +102,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="13">Tidak ada data untuk filter yang dipilih.</td>
+                <td colspan="12">Tidak ada data untuk filter yang dipilih.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -162,7 +162,6 @@
                     [Nama Pembuat Laporan]
                 {% endif %}
             </div>
-            <!--{{ generated_by.get_full_name|default:generated_by.username|default:generated_by }}-->
         </div>
     </div>
     <script src="{% static 'js/confirm-actions.js' %}"></script>
