@@ -485,6 +485,7 @@ def distribution_prepare(request, pk):
 
 @login_required
 @perm_required("distribution.change_distribution")
+@module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.APPROVE)
 def distribution_distribute(request, pk):
     """Final step: deduct stock and create Transaction(OUT) records."""
     dist = get_object_or_404(Distribution, pk=pk)

@@ -231,7 +231,13 @@
                                 <td>{{ tx.batch_lot }}</td>
                                 <td class="text-center">{{ tx.expiry_display }}</td>
                                 <td class="text-end text-success fw-semibold num-cell">{% if tx.tx_in > 0 %}{{ tx.tx_in|id_decimal:0 }}{% endif %}</td>
-                                <td class="text-end text-danger fw-semibold num-cell">{% if tx.tx_out > 0 %}{{ tx.tx_out|id_decimal:0 }}{% endif %}</td>
+                                <td class="text-end fw-semibold num-cell">
+                                    {% if tx.is_transfer_transaction %}
+                                        <span class="badge bg-info text-dark">Mutasi {{ tx.transfer_quantity|id_decimal:0 }}</span>
+                                    {% elif tx.tx_out > 0 %}
+                                        <span class="text-danger fw-semibold">{{ tx.tx_out|id_decimal:0 }}</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end fw-bold bg-light num-cell">{{ tx.running_balance|id_decimal:0 }}</td>
                                 <td class="small">{{ tx.notes|truncatewords:8 }}</td>
                             </tr>

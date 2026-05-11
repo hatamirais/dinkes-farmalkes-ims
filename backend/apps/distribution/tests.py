@@ -1004,6 +1004,26 @@ class DistributionWorkflowTest(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_gudang_cannot_distribute_distribution(self):
+        dist = self._create_distribution(status=Distribution.Status.PREPARED)
+        gudang = User.objects.create_user(
+            username="gudang_only_distribute",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.post(
+            reverse("distribution:distribution_distribute", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+        self.assertEqual(self.stock.quantity, Decimal("200"))
+
     # --- Model-level validation (Issue #11) ---
 
     def test_model_clean_allows_approved_above_requested(self):

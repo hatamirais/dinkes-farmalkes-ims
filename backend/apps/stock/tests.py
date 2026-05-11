@@ -117,6 +117,119 @@ class StockCardTest(TestCase):
         # tx2 running balance should still be 80
         self.assertEqual(transactions[0].running_balance, Decimal('80'))
 
+    def test_stock_card_location_filter_excludes_transfer_from_totals(self):
+        destination = Location.objects.create(code='PKM', name='Puskesmas Tujuan')
+
+        transfer_out = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.OUT,
+            item=self.item,
+            location=self.location,
+            batch_lot='B01',
+            quantity=Decimal('5'),
+            reference_type=Transaction.ReferenceType.TRANSFER,
+            reference_id=99,
+            user=self.user,
+        )
+        Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=destination,
+            batch_lot='B01',
+            quantity=Decimal('5'),
+            reference_type=Transaction.ReferenceType.TRANSFER,
+            reference_id=99,
+            user=self.user,
+        )
+        transfer_out.created_at = timezone.now() - timedelta(days=1)
+        transfer_out.save(update_fields=['created_at'])
+
+        response = self.client.get(
+            reverse('stock:stock_card_detail', args=[self.item.id]),
+            {'location': self.location.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        card = response.context['funding_source_cards'][0]
+        transactions = card['transactions']
+
+        self.assertEqual(len(transactions), 3)
+        self.assertEqual(card['closing_balance'], Decimal('75'))
+        self.assertEqual(card['total_in'], Decimal('100'))
+        self.assertEqual(card['total_out'], Decimal('20'))
+        self.assertEqual(transactions[-1].reference_type, Transaction.ReferenceType.TRANSFER)
+        self.assertEqual(transactions[-1].running_balance, Decimal('75'))
+
+    def test_stock_card_transfer_transactions_display_computed_fields(self):
+        """Verify transfer transactions have computed display fields for UI rendering."""
+        # Create receiving transaction
+        Transaction.objects.create(
+            item=self.item,
+            transaction_type=Transaction.TransactionType.IN,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=1,
+            quantity=Decimal('100'),
+            location=self.location,
+            sumber_dana=self.funding,
+            user=self.user,
+            batch_lot="BATCH-001",
+        )
+
+        # Create transfer out (internal move)
+        transfer_out = Transaction.objects.create(
+            item=self.item,
+            transaction_type=Transaction.TransactionType.OUT,
+            reference_type=Transaction.ReferenceType.TRANSFER,
+            reference_id=99,
+            quantity=Decimal('30'),
+            location=self.location,
+            sumber_dana=self.funding,
+            user=self.user,
+            batch_lot="BATCH-001",
+        )
+        transfer_out.created_at = timezone.now() - timedelta(days=1)
+        transfer_out.save(update_fields=['created_at'])
+
+        response = self.client.get(
+            reverse('stock:stock_card_detail', args=[self.item.id]),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        cards = response.context['funding_source_cards']
+        self.assertGreater(len(cards), 0)
+
+        # Find the card with self.funding sumber_dana
+        card = None
+        for c in cards:
+            if c['sumber_dana'] == self.funding:
+                card = c
+                break
+
+        self.assertIsNotNone(card)
+        transactions = card['transactions']
+        self.assertGreater(len(transactions), 0)
+
+        # The transfer_out should be present in the transactions; identify it by reference_type.
+        transfer_tx = None
+        receiving_tx = None
+        for tx in transactions:
+            if tx.reference_type == Transaction.ReferenceType.TRANSFER:
+                transfer_tx = tx
+            elif tx.reference_type == Transaction.ReferenceType.RECEIVING:
+                receiving_tx = tx
+
+        self.assertIsNotNone(transfer_tx, "Transfer transaction not found in card")
+        self.assertIsNotNone(receiving_tx, "Receiving transaction not found in card")
+
+        # Verify transfer transaction has display fields
+        self.assertTrue(hasattr(transfer_tx, 'is_transfer_transaction'))
+        self.assertTrue(transfer_tx.is_transfer_transaction)
+        self.assertEqual(transfer_tx.transfer_quantity, Decimal('30'))
+
+        # Verify non-transfer transaction does not have transfer marker
+        self.assertTrue(hasattr(receiving_tx, 'is_transfer_transaction'))
+        self.assertFalse(receiving_tx.is_transfer_transaction)
+        self.assertIsNone(receiving_tx.transfer_quantity)
+
 
 class StockTransferModelTests(SimpleTestCase):
     def test_save_retries_when_auto_generated_document_number_conflicts(self):

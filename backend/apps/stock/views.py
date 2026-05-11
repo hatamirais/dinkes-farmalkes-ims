@@ -343,7 +343,6 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
         current_balance = opening_balance
         total_in = Decimal("0")
         total_out = Decimal("0")
-        include_transfer_in_totals = bool(location_id)
 
         for tx in sd_txs:
             tx_in = Decimal("0")
@@ -355,18 +354,12 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
             ]:
                 tx_in = tx.quantity
                 current_balance += tx_in
-                if (
-                    include_transfer_in_totals
-                    or tx.reference_type != Transaction.ReferenceType.TRANSFER
-                ):
+                if tx.reference_type != Transaction.ReferenceType.TRANSFER:
                     total_in += tx_in
             else:
                 tx_out = tx.quantity
                 current_balance -= tx_out
-                if (
-                    include_transfer_in_totals
-                    or tx.reference_type != Transaction.ReferenceType.TRANSFER
-                ):
+                if tx.reference_type != Transaction.ReferenceType.TRANSFER:
                     total_out += tx_out
 
             tx.tx_in = tx_in
@@ -396,6 +389,10 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
                 expiry_date = batch_expiry_map.get(tx.batch_lot)
                 if expiry_date:
                     tx.expiry_display = expiry_date.strftime("%d/%m/%Y")
+
+            # Mark transfers for informational display
+            tx.is_transfer_transaction = tx.reference_type == Transaction.ReferenceType.TRANSFER
+            tx.transfer_quantity = tx.quantity if tx.is_transfer_transaction else None
 
         # Determine Tahun Anggaran from earliest receiving year
         tahun_anggaran = timezone.now().year
@@ -547,7 +544,7 @@ def api_item_search(request):
                 "text": f"{item.kode_barang} - {item.nama_barang}",
                 "satuan": item.satuan.name if item.satuan else "",
                 "kategori": item.kategori.name if item.kategori else "",
-                "stock": str(item.total_stock.quantize(Decimal("0.01"))),
+                "stock": float(item.total_stock.quantize(Decimal("0.01"))),
             }
         )
 
