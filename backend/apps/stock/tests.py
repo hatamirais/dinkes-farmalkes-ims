@@ -226,14 +226,14 @@ class StockCardTest(TestCase):
         self.assertEqual(response.status_code, 200)
         cards = response.context['funding_source_cards']
         self.assertGreater(len(cards), 0)
-        
+
         # Find the card with self.funding sumber_dana
         card = None
         for c in cards:
             if c['sumber_dana'] == self.funding:
                 card = c
                 break
-        
+
         self.assertIsNotNone(card)
         transactions = card['transactions']
         self.assertGreater(len(transactions), 0)
@@ -256,7 +256,6 @@ class StockCardTest(TestCase):
                 transfer_in_tx = tx
             elif tx.reference_type == Transaction.ReferenceType.RECEIVING:
                 receiving_tx = tx
-        
         self.assertIsNotNone(transfer_out_tx, "Transfer out transaction not found in card")
         self.assertIsNotNone(transfer_in_tx, "Transfer in transaction not found in card")
         self.assertIsNotNone(receiving_tx, "Receiving transaction not found in card")

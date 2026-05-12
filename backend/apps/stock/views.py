@@ -433,7 +433,7 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
                 expiry_date = batch_expiry_map.get(tx.batch_lot)
                 if expiry_date:
                     tx.expiry_display = expiry_date.strftime("%d/%m/%Y")
-            
+
             # Mark transfers for informational display
             tx.is_transfer_transaction = tx.reference_type == Transaction.ReferenceType.TRANSFER
             tx.transfer_quantity = tx.quantity if tx.is_transfer_transaction else None
