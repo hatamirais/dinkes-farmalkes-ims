@@ -10,7 +10,7 @@ from apps.expired.services import build_expired_audit_report
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
-from apps.users.models import User
+from apps.users.models import ModuleAccess, User
 
 
 class ExpiredWorkflowTest(TestCase):
@@ -607,3 +607,21 @@ class ExpiredWorkflowTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(list(response.context["items"].object_list), [])
+
+    def test_expired_alerts_forbid_user_without_expired_view_scope(self):
+        limited_user = User.objects.create_user(
+            username="expired-alerts-blocked",
+            password="secret12345",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ensure_default_module_access(limited_user, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=limited_user,
+            module=ModuleAccess.Module.EXPIRED,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(limited_user)
+
+        response = self.client.get(reverse("expired:expired_alerts"))
+
+        self.assertEqual(response.status_code, 403)

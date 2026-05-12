@@ -143,6 +143,7 @@ def expired_create(request):
 
 
 @login_required
+@perm_required("expired.view_expired")
 def expired_alerts(request):
     """Monitoring stok kedaluwarsa/mendekati kedaluwarsa yang belum diproses."""
     today = timezone.now().date()
