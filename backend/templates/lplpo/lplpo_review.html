@@ -61,10 +61,10 @@
                                     <br><small class="text-muted">{{ entry.item_obj.item.kode_barang }}</small>
                                 </td>
                                 <td class="text-center text-muted small">{{ entry.item_obj.item.satuan.code }}</td>
-                                <td class="text-end computed-cell">{{ entry.item_obj.stock_keseluruhan|floatformat:"-2" }}</td>
+                                <td class="text-end computed-cell">{{ entry.item_obj.stock_keseluruhan|floatformat:"0" }}</td>
                                 <td class="text-end computed-cell fw-semibold">{{ entry.item_obj.jumlah_kebutuhan|floatformat:"-2" }}</td>
-                                <td class="text-end">{{ entry.item_obj.permintaan_jumlah|floatformat:"-2" }}</td>
-                                <td class="text-end small">{{ entry.item_obj.pembelian_puskesmas|floatformat:"-2" }}</td>
+                                <td class="text-end">{{ entry.item_obj.permintaan_jumlah|floatformat:"0" }}</td>
+                                <td class="text-end small">{{ entry.item_obj.pembelian_puskesmas|floatformat:"0" }}</td>
                                 <td class="small">{{ entry.item_obj.permintaan_alasan|default:"–" }}</td>
                                 <td class="text-center">
                                     <span class="badge text-bg-light border fw-semibold">{{ entry.stock_gudang|floatformat:"-2" }}</span>

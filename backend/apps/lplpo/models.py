@@ -1,10 +1,19 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
 from apps.core.models import TimeStampedModel
+
+
+def normalize_whole_number(value):
+    if value in (None, ""):
+        return 0
+    if isinstance(value, int):
+        return value
+    decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
+    return int(decimal_value.to_integral_value(rounding=ROUND_HALF_UP))
 
 
 class LPLPO(TimeStampedModel):
@@ -127,45 +136,31 @@ class LPLPOItem(models.Model):
     )
 
     # === Filled by Puskesmas ===
-    stock_awal = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    stock_awal = models.PositiveIntegerField(
         default=0,
         help_text="Manual on first LPLPO, auto-filled from previous month Stock Keseluruhan",
     )
-    penerimaan = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    penerimaan = models.PositiveIntegerField(
         default=0,
         help_text="Auto-filled from Distribution records, confirmable by Puskesmas",
     )
-    pembelian_puskesmas = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    pembelian_puskesmas = models.PositiveIntegerField(
         default=0,
         help_text="Jumlah pembelian mandiri Puskesmas pada periode ini",
     )
-    pemakaian = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    pemakaian = models.PositiveIntegerField(
         default=0,
         help_text="Filled by Puskesmas operator",
     )
-    stock_gudang_puskesmas = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    stock_gudang_puskesmas = models.PositiveIntegerField(
         default=0,
         help_text="Physical count of Puskesmas warehouse stock",
     )
-    waktu_kosong = models.DecimalField(
-        max_digits=6,
-        decimal_places=2,
+    waktu_kosong = models.PositiveSmallIntegerField(
         default=0,
         help_text="Stockout days in the reporting period",
     )
-    permintaan_jumlah = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    permintaan_jumlah = models.PositiveIntegerField(
         default=0,
         help_text="Requested quantity by Puskesmas",
     )
@@ -175,15 +170,11 @@ class LPLPOItem(models.Model):
     )
 
     # === Computed Fields (auto-calculated, stored) ===
-    persediaan = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    persediaan = models.PositiveIntegerField(
         default=0,
         help_text="stock_awal + penerimaan + pembelian_puskesmas",
     )
-    stock_keseluruhan = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    stock_keseluruhan = models.IntegerField(
         default=0,
         help_text="persediaan - pemakaian",
     )
@@ -191,19 +182,17 @@ class LPLPOItem(models.Model):
         max_digits=12,
         decimal_places=2,
         default=0,
-        help_text="stock_keseluruhan * 1.2",
+        help_text="pemakaian * 1.2",
     )
     jumlah_kebutuhan = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=0,
-        help_text="(stock_keseluruhan * 0.2) + waktu_kosong",
+        help_text="max(stock_optimum - stock_keseluruhan, 0) + waktu_kosong",
     )
 
     # === Filled by Instalasi Farmasi ===
-    pemberian_jumlah = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    pemberian_jumlah = models.PositiveIntegerField(
         null=True,
         blank=True,
         help_text="Actual quantity given, system-suggested = jumlah_kebutuhan",
@@ -230,19 +219,25 @@ class LPLPOItem(models.Model):
     def compute_fields(self):
         """Recalculate all derived fields. Called automatically before save."""
 
-        def safe(val):
-            return val if val is not None else Decimal("0")
+        def safe_int(val):
+            return normalize_whole_number(val)
 
         self.persediaan = (
-            safe(self.stock_awal)
-            + safe(self.penerimaan)
-            + safe(self.pembelian_puskesmas)
+            safe_int(self.stock_awal)
+            + safe_int(self.penerimaan)
+            + safe_int(self.pembelian_puskesmas)
         )
-        self.stock_keseluruhan = self.persediaan - safe(self.pemakaian)
-        self.stock_optimum = self.stock_keseluruhan * Decimal("1.2")
-        self.jumlah_kebutuhan = (
-            self.stock_keseluruhan * Decimal("0.2")
-        ) + safe(self.waktu_kosong)
+        self.stock_keseluruhan = self.persediaan - safe_int(self.pemakaian)
+        # Stok optimum follows the consumption method: monthly usage plus a
+        # 20 percent buffer, independent from the ending stock position.
+        replenishment_basis = Decimal(safe_int(self.pemakaian))
+        self.stock_optimum = replenishment_basis * Decimal("1.20")
+        required_replenishment = self.stock_optimum - Decimal(self.stock_keseluruhan)
+        if required_replenishment < Decimal("0"):
+            required_replenishment = Decimal("0")
+        self.jumlah_kebutuhan = required_replenishment + Decimal(
+            safe_int(self.waktu_kosong)
+        )
 
     def save(self, *args, **kwargs):
         self.compute_fields()
@@ -274,7 +269,7 @@ def get_penerimaan_for_facility_period(facility, bulan, tahun):
         .annotate(total=Sum("quantity_approved"))
     )
     for row in items:
-        result[row["item_id"]] = row["total"] or Decimal("0")
+        result[row["item_id"]] = normalize_whole_number(row["total"])
     return result
 
 

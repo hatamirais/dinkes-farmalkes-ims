@@ -235,8 +235,8 @@ def lplpo_create(request):
 
                 lplpo_items = []
                 for item in active_items:
-                    stock_awal = prev_stock.get(item.pk, Decimal("0"))
-                    penerimaan = penerimaan_data.get(item.pk, Decimal("0"))
+                    stock_awal = prev_stock.get(item.pk, 0)
+                    penerimaan = penerimaan_data.get(item.pk, 0)
                     has_auto_fill = item.pk in penerimaan_data
 
                     li = LPLPOItem(
@@ -247,7 +247,6 @@ def lplpo_create(request):
                         penerimaan_auto_filled=has_auto_fill,
                     )
                     li.compute_fields()
-                    li.pemberian_jumlah = li.jumlah_kebutuhan
                     lplpo_items.append(li)
 
                 LPLPOItem.objects.bulk_create(lplpo_items)
@@ -421,9 +420,6 @@ def lplpo_edit(request, pk):
             for f in forms_data:
                 obj = f.save(commit=False)
                 obj.compute_fields()
-                # Pre-set pemberian suggestion only when not yet reviewed
-                if obj.pemberian_jumlah is None:
-                    obj.pemberian_jumlah = obj.jumlah_kebutuhan
                 updated_objs.append(obj)
 
             if updated_objs:
@@ -442,7 +438,6 @@ def lplpo_edit(request, pk):
                         "stock_optimum",
                         "jumlah_kebutuhan",
                         "permintaan_jumlah",
-                        "pemberian_jumlah",
                     ],
                 )
 
@@ -664,7 +659,7 @@ def lplpo_review(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE)
 def lplpo_finalize(request, pk):
-    """Create Distribution from REVIEWED LPLPO. REVIEWED → DISTRIBUTED."""
+    """Create a draft Distribution from REVIEWED LPLPO without skipping Distribution workflow."""
     denied = _check_instalasi_farmasi_access(request)
     if denied:
         return denied
@@ -680,6 +675,13 @@ def lplpo_finalize(request, pk):
             request, "Hanya LPLPO berstatus Ditinjau yang dapat difinalisasi."
         )
         return redirect("lplpo:lplpo_detail", pk=pk)
+
+    if lplpo_obj.distribution_id:
+        messages.info(
+            request,
+            "Dokumen distribusi untuk LPLPO ini sudah dibuat sebelumnya.",
+        )
+        return redirect("distribution:distribution_detail", pk=lplpo_obj.distribution_id)
 
     items_with_pemberian = list(
         lplpo_obj.items.filter(pemberian_jumlah__gt=0).select_related("item")
@@ -717,9 +719,8 @@ def lplpo_finalize(request, pk):
             assign_default_distribution_staff(dist, request.user)
 
             lplpo_obj.distribution = dist
-            lplpo_obj.status = LPLPO.Status.DISTRIBUTED
             lplpo_obj.save(
-                update_fields=["distribution", "status", "updated_at"]
+                update_fields=["distribution", "updated_at"]
             )
 
     except (IntegrityError, ValueError) as exc:

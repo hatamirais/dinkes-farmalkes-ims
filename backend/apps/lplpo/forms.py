@@ -1,5 +1,5 @@
 import calendar
-from decimal import Decimal
+from decimal import ROUND_HALF_UP
 
 from django import forms
 from django.utils import timezone
@@ -61,13 +61,13 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
     def clean_stock_awal(self):
         value = self.cleaned_data.get("stock_awal")
         if value in (None, ""):
-            return Decimal("0")
+            return 0
         return value
 
     def clean_pembelian_puskesmas(self):
         value = self.cleaned_data.get("pembelian_puskesmas")
         if value in (None, ""):
-            return Decimal("0")
+            return 0
         return value
 
     class Meta:
@@ -83,19 +83,38 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
             "permintaan_alasan",
         ]
         widgets = {
-            "stock_awal": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
-            "penerimaan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
-            "pembelian_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
-            "pemakaian": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
-            "stock_gudang_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
-            "waktu_kosong": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
-            "permintaan_jumlah": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}),
+            "stock_awal": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "penerimaan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "pembelian_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "pemakaian": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "stock_gudang_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "waktu_kosong": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "permintaan_jumlah": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
             "permintaan_alasan": forms.Textarea(attrs={"class": "form-control form-control-sm", "rows": 1}),
         }
 
 
 class LPLPOItemReviewForm(forms.ModelForm):
     """Form for Instalasi Farmasi to fill pemberian columns."""
+
+    pemberian_jumlah = forms.IntegerField(
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(
+            attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.pemberian_jumlah is None:
+            suggested_value = int(
+                self.instance.jumlah_kebutuhan.to_integral_value(
+                    rounding=ROUND_HALF_UP
+                )
+            )
+            self.initial["pemberian_jumlah"] = suggested_value
+            self.fields["pemberian_jumlah"].initial = suggested_value
 
     class Meta:
         model = LPLPOItem
@@ -104,9 +123,6 @@ class LPLPOItemReviewForm(forms.ModelForm):
             "pemberian_alasan",
         ]
         widgets = {
-            "pemberian_jumlah": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm text-end", "step": "0.01"}
-            ),
             "pemberian_alasan": forms.Textarea(
                 attrs={"class": "form-control form-control-sm", "rows": 1}
             ),

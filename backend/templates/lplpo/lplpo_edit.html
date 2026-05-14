@@ -49,8 +49,8 @@
                                 <th class="text-center computed-cell" style="width:90px">Persediaan</th>
                                 <th class="text-center" style="width:90px">Pemakaian</th>
                                 <th class="text-center computed-cell" style="width:90px">Sisa Stok</th>
-                                <th class="text-center computed-cell" style="width:90px">Stok Optimum</th>
-                                <th class="text-center computed-cell" style="width:90px">Kebutuhan</th>
+                                <th class="text-center computed-cell" style="width:90px" title="Dihitung dari pemakaian periode ini ditambah buffer 20 persen.">Stok Optimum</th>
+                                <th class="text-center computed-cell" style="width:90px" title="Jumlah untuk mencapai stok optimum ditambah hari kosong pada periode ini.">Kebutuhan</th>
                                 <th class="text-center" style="width:50px">Hari Kosong</th>
                                 <th class="text-center" style="width:90px">Stok Gudang</th>
                                 <th class="text-center" style="width:90px">Jml Diminta</th>
@@ -79,10 +79,10 @@
                                 <td class="text-center text-muted small">{{ li.item.satuan.code }}</td>
                                 <td>
                                     {% if has_prev %}
-                                    <input type="number" value="{{ li.stock_awal|floatformat:'-2' }}"
+                                    <input type="number" value="{{ li.stock_awal|floatformat:'0' }}"
                                         class="form-control form-control-sm text-end" readonly
                                         title="Auto-filled dari bulan sebelumnya">
-                                    <input type="hidden" name="item_{{ li.pk }}-stock_awal" value="{{ li.stock_awal|floatformat:'-2' }}">
+                                    <input type="hidden" name="item_{{ li.pk }}-stock_awal" value="{{ li.stock_awal|floatformat:'0' }}">
                                     {% else %}
                                     {{ f.stock_awal }}
                                     {% endif %}
@@ -94,9 +94,9 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ f.pembelian_puskesmas }}</td>
-                                <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"-2" }}</td>
+                                <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"0" }}</td>
                                 <td>{{ f.pemakaian }}</td>
-                                <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"-2" }}</td>
+                                <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                                 <td class="text-end computed-cell js-stock-optimum">{{ li.stock_optimum|floatformat:"-2" }}</td>
                                 <td class="text-end computed-cell js-jumlah-kebutuhan">{{ li.jumlah_kebutuhan|floatformat:"-2" }}</td>
                                 <td>{{ f.waktu_kosong }}</td>

@@ -14,11 +14,12 @@ function recalcRow(row) {
 
     var persediaan = stockAwal + penerimaan + pembelianPuskesmas;
     var stockKeseluruhan = persediaan - pemakaian;
-    var stockOptimum = stockKeseluruhan * 1.2;
-    var jumlahKebutuhan = (stockKeseluruhan * 0.2) + waktuKosong;
+    var stockOptimum = pemakaian * 1.2;
+    var requiredReplenishment = Math.max(stockOptimum - stockKeseluruhan, 0);
+    var jumlahKebutuhan = requiredReplenishment + waktuKosong;
 
-    row.querySelector('.js-persediaan').textContent = persediaan.toFixed(2);
-    row.querySelector('.js-stock-keseluruhan').textContent = stockKeseluruhan.toFixed(2);
+    row.querySelector('.js-persediaan').textContent = persediaan.toFixed(0);
+    row.querySelector('.js-stock-keseluruhan').textContent = stockKeseluruhan.toFixed(0);
     row.querySelector('.js-stock-optimum').textContent = stockOptimum.toFixed(2);
     row.querySelector('.js-jumlah-kebutuhan').textContent = jumlahKebutuhan.toFixed(2);
 }

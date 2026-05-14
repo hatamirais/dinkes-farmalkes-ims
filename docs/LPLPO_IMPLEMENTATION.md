@@ -41,9 +41,9 @@ LPLPO is a monthly document submitted by each Puskesmas to Instalasi Farmasi. It
 11. Operator adjusts Pemberian Jumlah based on actual warehouse stock
 12. Operator fills Pemberian Alasan where adjusted
 13. Operator finalizes → status: REVIEWED
-14. System auto-generates a Distribution document (type: LPLPO)
-    → status: DISTRIBUTED (after normal Distribution workflow)
-15. LPLPO status → CLOSED after Distribution is DISTRIBUTED
+14. System auto-generates a draft Distribution document (type: LPLPO)
+    while the LPLPO remains in REVIEWED until the Distribution workflow is completed
+15. LPLPO status → CLOSED after the linked Distribution reaches DISTRIBUTED
 
 [Next Month Auto-fill]
 14. When Puskesmas opens next month's LPLPO:
@@ -93,13 +93,15 @@ All computed fields must be calculated server-side and stored. They are also rec
 ```
 persediaan        = stock_awal + penerimaan
 stock_keseluruhan = persediaan - pemakaian
-stock_optimum     = stock_keseluruhan + (stock_keseluruhan * 20 / 100)
-                  = stock_keseluruhan * 1.2
+stock_optimum     = pemakaian + (pemakaian * 20 / 100)
+                  = pemakaian * 1.2
 jumlah_kebutuhan  = (stock_optimum - stock_keseluruhan) + waktu_kosong
-                  = (stock_keseluruhan * 0.2) + waktu_kosong
+                  = max(stock_optimum - stock_keseluruhan, 0) + waktu_kosong
 
 suggested_pemberian = jumlah_kebutuhan
 ```
+
+`stock_optimum` follows the consumption method, so it must always be based on period usage (`pemakaian`) rather than ending stock.
 
 **Important**: All computed fields must handle `None`/null inputs gracefully. If any input is None, treat as 0 for calculation purposes.
 
@@ -198,28 +200,32 @@ class LPLPOItem(models.Model):
     )
 
     # === Filled by Puskesmas ===
-    stock_awal = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+    stock_awal = models.PositiveIntegerField(
+        default=0,
         help_text='Manual on first LPLPO, auto-filled from previous month Stock Keseluruhan'
     )
-    penerimaan = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+    penerimaan = models.PositiveIntegerField(
+        default=0,
         help_text='Auto-filled from Distribution records, confirmable by Puskesmas'
     )
-    pemakaian = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+    pembelian_puskesmas = models.PositiveIntegerField(
+        default=0,
+        help_text='Jumlah pembelian mandiri Puskesmas pada periode ini'
+    )
+    pemakaian = models.PositiveIntegerField(
+        default=0,
         help_text='Filled by Puskesmas operator'
     )
-    stock_gudang_puskesmas = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+    stock_gudang_puskesmas = models.PositiveIntegerField(
+        default=0,
         help_text='Physical count of Puskesmas warehouse stock, filled manually'
     )
-    waktu_kosong = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0,
+    waktu_kosong = models.PositiveSmallIntegerField(
+        default=0,
         help_text='Stockout days in the reporting period'
     )
-    permintaan_jumlah = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+    permintaan_jumlah = models.PositiveIntegerField(
+        default=0,
         help_text='Requested quantity by Puskesmas'
     )
     permintaan_alasan = models.TextField(
@@ -228,26 +234,26 @@ class LPLPOItem(models.Model):
     )
 
     # === Computed Fields (auto-calculated, stored) ===
-    persediaan = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
-        help_text='stock_awal + penerimaan'
+    persediaan = models.PositiveIntegerField(
+        default=0,
+        help_text='stock_awal + penerimaan + pembelian_puskesmas'
     )
-    stock_keseluruhan = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
+    stock_keseluruhan = models.IntegerField(
+        default=0,
         help_text='persediaan - pemakaian'
     )
     stock_optimum = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        help_text='stock_keseluruhan * 1.2'
+        help_text='replenishment_basis * 1.2; use pemakaian when stock_keseluruhan <= 0'
     )
     jumlah_kebutuhan = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
-        help_text='(stock_keseluruhan * 0.2) + waktu_kosong'
+        help_text='max(stock_optimum - stock_keseluruhan, 0) + waktu_kosong'
     )
 
     # === Filled by Instalasi Farmasi ===
-    pemberian_jumlah = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True,
+    pemberian_jumlah = models.PositiveIntegerField(
+        null=True, blank=True,
         help_text='Actual quantity given, system-suggested = jumlah_kebutuhan'
     )
     pemberian_alasan = models.TextField(
@@ -375,8 +381,8 @@ App namespace: `lplpo`
   3. Auto-generate one `LPLPOItem` per active `Item` in the system
   4. Auto-fill `stock_awal` from previous month's `stock_keseluruhan` if available
   5. Auto-fill `penerimaan` from Distribution records (set `penerimaan_auto_filled=True`)
-  6. Set `pemberian_jumlah = jumlah_kebutuhan` as initial suggestion (after compute)
-  7. Redirect to detail view
+    6. Keep `pemberian_jumlah` empty until Instalasi Farmasi review
+    7. Redirect to detail view
 
 ### 6.2 lplpo_edit
 
@@ -384,7 +390,7 @@ App namespace: `lplpo`
 - Puskesmas can edit: `stock_awal` (only if no previous LPLPO), `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
 - Puskesmas can confirm/override `penerimaan` (even if auto-filled)
 - Computed fields recalculate on save
-- `pemberian_jumlah` suggestion updates when computed fields change
+- `pemberian_jumlah` suggestion is shown only in review form initial data and is not persisted before review
 
 ### 6.3 lplpo_submit
 
@@ -425,7 +431,8 @@ App namespace: `lplpo`
   )
   ```
 - Links `lplpo.distribution = distribution`
-- Transitions LPLPO → DISTRIBUTED
+- Keeps LPLPO in REVIEWED so the Distribution document can continue through
+    submit, verify, prepare, and distribute stages normally
 - Redirects to the created Distribution detail view
 - LPLPO transitions to CLOSED automatically via a signal or explicit check
   when the linked Distribution reaches DISTRIBUTED status
@@ -589,7 +596,7 @@ def close_lplpo_on_distribution_complete(sender, instance, **kwargs):
         return
     try:
         lplpo = instance.lplpo_source
-        if lplpo.status == LPLPO.Status.DISTRIBUTED:
+        if lplpo.status in (LPLPO.Status.REVIEWED, LPLPO.Status.DISTRIBUTED):
             lplpo.status = LPLPO.Status.CLOSED
             lplpo.save(update_fields=['status', 'updated_at'])
     except LPLPO.DoesNotExist:

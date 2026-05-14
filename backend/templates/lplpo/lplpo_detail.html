@@ -35,13 +35,19 @@
                 — Alasan: {{ lplpo.rejection_reason }}
                 {% endif %}
                 {% elif lplpo.status == 'REVIEWED' %}
+                {% if lplpo.distribution %}
+                <strong>Dokumen Distribusi Dibuat / Menunggu Distribusi</strong>
+                {% else %}
                 <strong>Disetujui / Menunggu Proses Distribusi</strong>
+                {% endif %}
                 {% elif lplpo.status == 'DISTRIBUTED' %}
                 <strong>Dokumen Distribusi Dibuat</strong>
                 {% elif lplpo.status == 'CLOSED' %}
                 <strong>Sudah Didistribusikan</strong>
                 {% endif %}
-                {% if lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
+                {% if lplpo.status == 'REVIEWED' and lplpo.distribution %}
+                — Instalasi Farmasi sedang memproses dokumen distribusi {{ lplpo.distribution.document_number }}.
+                {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
                 — Instalasi Farmasi sudah membuat dokumen distribusi {{ lplpo.distribution.document_number }}.
                 {% elif lplpo.status == 'CLOSED' and lplpo.distribution %}
                 — Distribusi {{ lplpo.distribution.document_number }} telah diselesaikan.
@@ -51,7 +57,9 @@
                 {% if lplpo.status == 'REJECTED' and lplpo.rejection_reason %}
                 — Alasan: {{ lplpo.rejection_reason }}
                 {% endif %}
-                {% if lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
+                {% if lplpo.status == 'REVIEWED' and lplpo.distribution %}
+                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat dan masih mengikuti workflow distribusi.
+                {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
                 — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat.
                 {% elif lplpo.status == 'CLOSED' and lplpo.distribution %}
                 — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah selesai.
@@ -139,23 +147,23 @@
                                         <br><small class="text-muted">{{ li.item.kode_barang }}</small>
                                     </td>
                                     <td class="text-end text-muted">{{ li.item.satuan.code }}</td>
-                                    <td class="text-end">{{ li.stock_awal|floatformat:"-2" }}</td>
+                                    <td class="text-end">{{ li.stock_awal|floatformat:"0" }}</td>
                                     <td class="text-end">
-                                        {{ li.penerimaan|floatformat:"-2" }}
+                                        {{ li.penerimaan|floatformat:"0" }}
                                         {% if li.penerimaan_auto_filled %}
                                         <i class="bi bi-lightning-fill text-warning" title="Auto-filled"></i>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end">{{ li.pembelian_puskesmas|floatformat:"-2" }}</td>
-                                    <td class="text-end text-info fw-semibold">{{ li.persediaan|floatformat:"-2" }}</td>
-                                    <td class="text-end">{{ li.pemakaian|floatformat:"-2" }}</td>
-                                    <td class="text-end fw-semibold">{{ li.stock_keseluruhan|floatformat:"-2" }}</td>
+                                    <td class="text-end">{{ li.pembelian_puskesmas|floatformat:"0" }}</td>
+                                    <td class="text-end text-info fw-semibold">{{ li.persediaan|floatformat:"0" }}</td>
+                                    <td class="text-end">{{ li.pemakaian|floatformat:"0" }}</td>
+                                    <td class="text-end fw-semibold">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                                     <td class="text-end">{{ li.stock_optimum|floatformat:"-2" }}</td>
                                     <td class="text-end">{{ li.jumlah_kebutuhan|floatformat:"-2" }}</td>
-                                    <td class="text-end">{{ li.permintaan_jumlah|floatformat:"-2" }}</td>
+                                    <td class="text-end">{{ li.permintaan_jumlah|floatformat:"0" }}</td>
                                     <td class="text-end">
                                         {% if li.pemberian_jumlah is not None %}
-                                        <strong>{{ li.pemberian_jumlah|floatformat:"-2" }}</strong>
+                                        <strong>{{ li.pemberian_jumlah|floatformat:"0" }}</strong>
                                         {% else %}
                                         <span class="text-muted">–</span>
                                         {% endif %}
@@ -232,7 +240,7 @@
                     </button>
                     {% endif %}
 
-                    {% elif lplpo.status == 'REVIEWED' and can_approve %}
+                    {% elif lplpo.status == 'REVIEWED' and can_approve and not lplpo.distribution %}
                     <form method="post" action="{% url 'lplpo:lplpo_finalize' lplpo.pk %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success w-100" id="finalize-btn"
@@ -241,7 +249,7 @@
                         </button>
                     </form>
 
-                    {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution and request.user.role != 'PUSKESMAS' %}
+                    {% elif lplpo.distribution and request.user.role != 'PUSKESMAS' %}
                     <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}"
                         class="btn btn-outline-success w-100" id="view-dist-btn">
                         <i class="bi bi-truck me-1"></i>Lihat Distribusi

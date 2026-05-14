@@ -127,7 +127,7 @@
                                 {% elif lp.status == 'REJECTED' %}
                                 <span class="badge text-bg-danger">Ditolak</span>
                                 {% elif lp.status == 'REVIEWED' %}
-                                <span class="badge text-bg-info">{% if request.user.role == 'PUSKESMAS' %}Disetujui / Menunggu Proses Distribusi{% else %}Ditinjau{% endif %}</span>
+                                <span class="badge text-bg-info">{% if lp.distribution_id %}{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Diproses{% else %}Ditinjau / Distribusi Diproses{% endif %}{% else %}{% if request.user.role == 'PUSKESMAS' %}Disetujui / Menunggu Proses Distribusi{% else %}Ditinjau{% endif %}{% endif %}</span>
                                 {% elif lp.status == 'DISTRIBUTED' %}
                                 <span class="badge text-bg-primary">{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Dibuat{% else %}Didistribusikan{% endif %}</span>
                                 {% elif lp.status == 'CLOSED' %}

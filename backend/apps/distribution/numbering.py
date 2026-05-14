@@ -41,10 +41,12 @@ def generate_distribution_document_number(model_class, distribution_type, year=N
         fallback_prefix = f"DIST-{year_month}"
         return generate_document_number(model_class, template=None, template_field_name=None, template_default=None, filter_kwargs=None, year=year, fallback_prefix=fallback_prefix)
 
-    # When using template-based numbering, restrict scan to same distribution_type
+    # When using template-based numbering, scan all existing document numbers.
+    # The sequence still remains effectively per-template because numbers that
+    # don't match the current template/year are ignored, and this avoids unique
+    # collisions if a record's distribution_type is changed after creation.
     return generate_document_number(
         model_class,
         template=template,
-        filter_kwargs={"distribution_type": distribution_type},
         year=year,
     )

@@ -98,16 +98,16 @@
                 <td class="num">{{ forloop.counter }}</td>
                 <td>{{ li.item.nama_barang }}</td>
                 <td style="text-align:center">{{ li.item.satuan.code }}</td>
-                <td class="num">{{ li.stock_awal|floatformat:"-2" }}</td>
-                <td class="num">{{ li.penerimaan|floatformat:"-2" }}</td>
-                <td class="num">{{ li.pembelian_puskesmas|floatformat:"-2" }}</td>
-                <td class="num">{{ li.persediaan|floatformat:"-2" }}</td>
-                <td class="num">{{ li.pemakaian|floatformat:"-2" }}</td>
-                <td class="num">{{ li.stock_keseluruhan|floatformat:"-2" }}</td>
+                <td class="num">{{ li.stock_awal|floatformat:"0" }}</td>
+                <td class="num">{{ li.penerimaan|floatformat:"0" }}</td>
+                <td class="num">{{ li.pembelian_puskesmas|floatformat:"0" }}</td>
+                <td class="num">{{ li.persediaan|floatformat:"0" }}</td>
+                <td class="num">{{ li.pemakaian|floatformat:"0" }}</td>
+                <td class="num">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                 <td class="num">{{ li.stock_optimum|floatformat:"-2" }}</td>
                 <td class="num">{{ li.jumlah_kebutuhan|floatformat:"-2" }}</td>
-                <td class="num">{{ li.permintaan_jumlah|floatformat:"-2" }}</td>
-                <td class="num">{% if li.pemberian_jumlah is not None %}{{ li.pemberian_jumlah|floatformat:"-2" }}{% endif %}</td>
+                <td class="num">{{ li.permintaan_jumlah|floatformat:"0" }}</td>
+                <td class="num">{% if li.pemberian_jumlah is not None %}{{ li.pemberian_jumlah|floatformat:"0" }}{% endif %}</td>
                 <td>{{ li.pemberian_alasan }}</td>
             </tr>
             {% endfor %}

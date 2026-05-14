@@ -419,18 +419,19 @@ erDiagram
         bigint id PK
         bigint lplpo_id FK
         bigint item_id FK
-        decimal stock_awal
-        decimal penerimaan
-        decimal pemakaian
-        decimal stock_gudang_puskesmas
-        decimal waktu_kosong
-        decimal permintaan_jumlah
+        int stock_awal
+        int penerimaan
+        int pembelian_puskesmas
+        int pemakaian
+        int stock_gudang_puskesmas
+        smallint waktu_kosong
+        int permintaan_jumlah
         text permintaan_alasan
-        decimal persediaan
-        decimal stock_keseluruhan
+        int persediaan
+        int stock_keseluruhan
         decimal stock_optimum
         decimal jumlah_kebutuhan
-        decimal pemberian_jumlah
+        int pemberian_jumlah
         text pemberian_alasan
         bool penerimaan_auto_filled
     }
