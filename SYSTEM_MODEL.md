@@ -335,7 +335,7 @@ Operational mutation points (from app behavior and admin import logic):
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
-- Stock opname completion may post adjustment transactions based on discrepancy handling
+- Stock opname completion currently records workflow completion only (`status=COMPLETED`, `completed_at`) and does not mutate `Stock` or write `Transaction` rows
 - Allocation:
   - Approval phase auto-generates `Distribution(type=ALLOCATION, status=VERIFIED)` per facility — no stock mutation at this point
   - Per-distribution delivery confirmation decreases `Stock.quantity` and posts `Transaction(OUT, reference_type=ALLOCATION, reference_id=allocation.pk)`

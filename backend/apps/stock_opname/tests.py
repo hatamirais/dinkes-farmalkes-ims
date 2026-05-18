@@ -214,6 +214,25 @@ class StockOpnameInputValidationTests(StockOpnameTestMixin, TestCase):
         self.assertEqual(self.opname_item.actual_quantity, Decimal("95.50"))
         self.assertEqual(self.opname_item.notes, "Disesuaikan")
 
+    def test_location_filter_is_preserved_after_post(self):
+        self.client.force_login(self.gudang)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            {
+                "location": str(self.location.pk),
+                f"qty_{self.opname_item.pk}": "90",
+                f"notes_{self.opname_item.pk}": "Rak depan",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.headers["Location"],
+            f"{reverse('stock_opname:opname_input', args=[self.opname.pk])}?location={self.location.pk}",
+        )
+
 
 class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
     def setUp(self):

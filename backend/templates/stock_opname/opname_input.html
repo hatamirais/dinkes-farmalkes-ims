@@ -28,6 +28,7 @@
 
                 <form method="post">
                     {% csrf_token %}
+                    <input type="hidden" name="location" value="{{ selected_location }}">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover align-middle">
                             <thead>

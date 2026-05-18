@@ -77,7 +77,9 @@ Do not treat model save events as the main inventory mutation mechanism. Stock c
 - Files:
   - `backend/apps/stock_opname/views.py`
 - Mutation rule:
-  - Completion may create adjustment transactions based on counted discrepancies
+  - Start snapshots current `Stock.quantity` into `StockOpnameItem.system_quantity`
+  - Completion marks the session as finished and timestamps it
+  - Completion does not currently mutate `Stock` or write `Transaction` rows; discrepancy handling remains a reporting/follow-up step
 
 ## Document Numbering
 

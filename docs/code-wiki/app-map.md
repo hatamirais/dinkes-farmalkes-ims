@@ -94,7 +94,7 @@ This page answers "where should I look?" for each module.
 
 ## `stock_opname`
 
-- Purpose: physical stock counting and discrepancy completion
+- Purpose: physical stock counting and discrepancy reporting
 - Start with:
   - `backend/apps/stock_opname/models.py`
   - `backend/apps/stock_opname/views.py`
