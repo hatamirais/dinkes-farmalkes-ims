@@ -60,10 +60,13 @@
                                     <td>{{ item.stock.item.satuan.name|default:'-' }}</td>
                                     <td class="text-end">{{ item.system_quantity }}</td>
                                     <td>
-                                        <input type="number" name="qty_{{ item.pk }}" class="form-control form-control-sm" step="0.01" min="0" value="{% if item.actual_quantity is not None %}{{ item.actual_quantity }}{% endif %}">
+                                        <input type="number" name="qty_{{ item.pk }}" class="form-control form-control-sm {% if item.quantity_error %}is-invalid{% endif %}" step="0.01" min="0" value="{% if item.input_quantity is not None %}{{ item.input_quantity }}{% elif item.actual_quantity is not None %}{{ item.actual_quantity }}{% endif %}">
+                                        {% if item.quantity_error %}
+                                        <div class="invalid-feedback d-block">{{ item.quantity_error }}</div>
+                                        {% endif %}
                                     </td>
                                     <td>
-                                        <input type="text" name="notes_{{ item.pk }}" class="form-control form-control-sm" value="{{ item.notes|default:'' }}">
+                                        <input type="text" name="notes_{{ item.pk }}" class="form-control form-control-sm" value="{{ item.input_notes|default:item.notes|default:'' }}">
                                     </td>
                                 </tr>
                                 {% empty %}

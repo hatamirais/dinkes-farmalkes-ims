@@ -1,11 +1,14 @@
+import logging
 from urllib.parse import urlencode
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import Q, F
+from django.core.exceptions import ValidationError
+from django.db import DatabaseError, transaction
+from django.db.models import F
 from django.urls import reverse
 from django.utils import timezone
 
@@ -16,8 +19,11 @@ from apps.users.models import ModuleAccess
 from .models import StockOpname, StockOpnameItem
 from .forms import StockOpnameForm
 
+logger = logging.getLogger(__name__)
+
 
 @login_required
+@perm_required("stock_opname.view_stockopname")
 def opname_list(request):
     queryset = (
         StockOpname.objects.select_related("created_by")
@@ -116,6 +122,7 @@ def opname_edit(request, pk):
 
 
 @login_required
+@perm_required("stock_opname.view_stockopname")
 def opname_detail(request, pk):
     opname = get_object_or_404(
         StockOpname.objects.select_related("created_by"),
@@ -167,41 +174,80 @@ def opname_detail(request, pk):
 @perm_required("stock_opname.change_stockopname")
 def opname_start(request, pk):
     """Transition DRAFT → IN_PROGRESS and snapshot stock quantities filtered by categories."""
-    opname = get_object_or_404(StockOpname, pk=pk, status=StockOpname.Status.DRAFT)
+    opname = get_object_or_404(StockOpname, pk=pk)
 
-    if request.method == "POST":
-        stocks = Stock.objects.filter(quantity__gt=0).select_related(
-            "item",
-            "location",
-            "sumber_dana",
-        )
+    if request.method != "POST":
+        return redirect("stock_opname:opname_detail", pk=opname.pk)
 
-        # Filter by assigned categories
-        selected_categories = opname.categories.all()
-        if selected_categories.exists():
-            stocks = stocks.filter(item__kategori__in=selected_categories)
-
+    try:
         with transaction.atomic():
-            opname_items = []
-            for stock in stocks:
-                opname_items.append(
-                    StockOpnameItem(
-                        stock_opname=opname,
-                        stock=stock,
-                        system_quantity=stock.quantity,
-                    )
+            opname = (
+                StockOpname.objects.select_for_update()
+                .prefetch_related("categories")
+                .get(pk=pk)
+            )
+
+            if opname.status != StockOpname.Status.DRAFT:
+                messages.error(
+                    request,
+                    "Stock Opname ini sudah dimulai atau diselesaikan.",
                 )
+                return redirect("stock_opname:opname_detail", pk=opname.pk)
+
+            if opname.items.exists():
+                logger.error(
+                    "Draft stock opname already has snapshot rows",
+                    extra={"stock_opname_id": opname.pk},
+                )
+                messages.error(
+                    request,
+                    "Stock Opname draft ini memiliki data snapshot yang tidak konsisten.",
+                )
+                return redirect("stock_opname:opname_detail", pk=opname.pk)
+
+            selected_category_ids = list(
+                opname.categories.values_list("pk", flat=True)
+            )
+            stocks = (
+                Stock.objects.select_for_update()
+                .filter(quantity__gt=0)
+                .select_related(
+                    "item",
+                    "location",
+                    "sumber_dana",
+                )
+                .order_by("pk")
+            )
+            if selected_category_ids:
+                stocks = stocks.filter(item__kategori_id__in=selected_category_ids)
+
+            opname_items = [
+                StockOpnameItem(
+                    stock_opname=opname,
+                    stock=stock,
+                    system_quantity=stock.quantity,
+                )
+                for stock in stocks
+            ]
             StockOpnameItem.objects.bulk_create(opname_items)
 
             opname.status = StockOpname.Status.IN_PROGRESS
             opname.save(update_fields=["status", "updated_at"])
-
-        messages.success(
-            request,
-            f"Stock Opname dimulai. {len(opname_items)} item stok berhasil di-snapshot.",
+    except DatabaseError:
+        logger.exception(
+            "Failed to start stock opname snapshot",
+            extra={"stock_opname_id": pk, "user_id": request.user.pk},
         )
-        return redirect("stock_opname:opname_detail", pk=opname.pk)
+        messages.error(
+            request,
+            "Stock Opname gagal dimulai. Silakan coba lagi.",
+        )
+        return redirect("stock_opname:opname_detail", pk=pk)
 
+    messages.success(
+        request,
+        f"Stock Opname dimulai. {len(opname_items)} item stok berhasil di-snapshot.",
+    )
     return redirect("stock_opname:opname_detail", pk=opname.pk)
 
 
@@ -236,27 +282,78 @@ def opname_input(request, pk):
     location_ids = opname.items.values_list("stock__location_id", flat=True).distinct()
     locations = Location.objects.filter(pk__in=location_ids).order_by("code")
 
+    for item in items:
+        item.input_quantity = item.actual_quantity
+        item.input_notes = item.notes
+        item.quantity_error = ""
+
     if request.method == "POST":
-        updated = 0
+        updated_items = []
+        has_errors = False
         for item in items:
             qty_key = f"qty_{item.pk}"
             notes_key = f"notes_{item.pk}"
             qty_val = request.POST.get(qty_key, "").strip()
             notes_val = request.POST.get(notes_key, "").strip()
+            item.input_quantity = qty_val
+            item.input_notes = notes_val
+            item.quantity_error = ""
 
-            if qty_val:
-                try:
-                    from decimal import Decimal
+            if not qty_val:
+                continue
 
-                    actual = Decimal(qty_val)
-                    item.actual_quantity = actual
-                    item.notes = notes_val
-                    item.save(update_fields=["actual_quantity", "notes"])
-                    updated += 1
-                except Exception:
-                    pass
+            try:
+                actual = Decimal(qty_val)
+            except InvalidOperation:
+                item.quantity_error = "Jumlah aktual harus berupa angka yang valid."
+                has_errors = True
+                continue
 
-        messages.success(request, f"{updated} item berhasil diperbarui.")
+            if actual < 0:
+                item.quantity_error = "Jumlah aktual tidak boleh kurang dari 0."
+                has_errors = True
+                continue
+
+            item.actual_quantity = actual
+            item.notes = notes_val
+            try:
+                item.full_clean()
+            except ValidationError as exc:
+                quantity_errors = exc.message_dict.get("actual_quantity", [])
+                item.quantity_error = " ".join(quantity_errors) or "Data tidak valid."
+                has_errors = True
+                continue
+
+            updated_items.append(item)
+
+        if has_errors:
+            logger.warning(
+                "Rejected invalid stock opname input",
+                extra={"stock_opname_id": opname.pk, "user_id": request.user.pk},
+            )
+            messages.error(
+                request,
+                "Beberapa input jumlah aktual tidak valid. Periksa data yang ditandai.",
+            )
+            return render(
+                request,
+                "stock_opname/opname_input.html",
+                {
+                    "opname": opname,
+                    "items": items,
+                    "locations": locations,
+                    "selected_location": location_id or "",
+                },
+                status=400,
+            )
+
+        with transaction.atomic():
+            StockOpnameItem.objects.bulk_update(
+                updated_items,
+                ["actual_quantity", "notes"],
+            )
+
+        messages.success(request, f"{len(updated_items)} item berhasil diperbarui.")
         # Redirect back with same location filter
         url = reverse("stock_opname:opname_input", args=[pk])
         if location_id:
@@ -299,6 +396,7 @@ def opname_complete(request, pk):
 
 
 @login_required
+@perm_required("stock_opname.view_stockopname")
 def opname_print(request, pk):
     """Printable discrepancy report — shows only items where actual ≠ system."""
     opname = get_object_or_404(
