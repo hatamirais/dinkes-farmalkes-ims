@@ -4,14 +4,14 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import ProtectedError
 from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .access import ROLE_DEFAULT_SCOPES, has_module_scope
+from .access import ROLE_DEFAULT_SCOPES, has_module_permission
 from .forms import UserCreateForm, UserUpdateForm
 from .models import ModuleAccess, User
 
@@ -24,12 +24,28 @@ def _role_defaults_json():
     }
 
 
+def _has_user_access(user, perm):
+    return user.is_superuser or user.has_perm(perm) or has_module_permission(user, perm)
+
+
 def _can_view_users(user):
-    return has_module_scope(user, ModuleAccess.Module.USERS, ModuleAccess.Scope.VIEW)
+    return _has_user_access(user, "users.view_user")
 
 
-def _can_manage_users(user):
-    return has_module_scope(user, ModuleAccess.Module.USERS, ModuleAccess.Scope.MANAGE)
+def _can_add_users(user):
+    return _has_user_access(user, "users.add_user")
+
+
+def _can_change_users(user):
+    return _has_user_access(user, "users.change_user")
+
+
+def _can_delete_users(user):
+    return _has_user_access(user, "users.delete_user")
+
+
+def _can_manage_user_scopes(user):
+    return user.is_superuser or has_module_permission(user, "users.change_user")
 
 
 def _protected_user_account_q():
@@ -40,17 +56,16 @@ def _is_protected_user_account(user_obj):
     return User.objects.filter(pk=user_obj.pk).filter(_protected_user_account_q()).exists()
 
 
-def _forbidden_manage_user(request, message):
-    messages.error(request, message)
-    return redirect("dashboard")
+def _require_user_access(user, perm, message):
+    if not _has_user_access(user, perm):
+        raise PermissionDenied(message)
 
 
 def _forbidden_protected_user_mutation(request, is_ajax=False):
     message = "Akun admin hanya dapat dikelola oleh superuser."
     if is_ajax:
         return JsonResponse({"success": False, "error": message}, status=403)
-    messages.error(request, message)
-    return redirect("users:user_list")
+    raise PermissionDenied(message)
 
 
 def _ensure_can_mutate_target_user(request, target_user, is_ajax=False):
@@ -94,11 +109,11 @@ def _effective_scope_rows(user_obj):
 
 @login_required
 def user_list(request):
-    if not _can_view_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk membuka manajemen user.",
-        )
+    _require_user_access(
+        request.user,
+        "users.view_user",
+        "Anda tidak memiliki izin untuk membuka manajemen user.",
+    )
 
     queryset = User.objects.select_related("facility") \
         .only(
@@ -163,29 +178,33 @@ def user_list(request):
             "order": order,
             "sort_icon": sort_icon,
             "filter_params": filter_params.urlencode(),
-            "can_add_user": _can_manage_users(request.user),
-            "can_change_user": _can_manage_users(request.user),
-            "can_delete_user": _can_manage_users(request.user),
+            "can_add_user": _can_add_users(request.user),
+            "can_change_user": _can_change_users(request.user),
+            "can_delete_user": _can_delete_users(request.user),
         },
     )
 
 
 @login_required
 def user_create(request):
-    if not _can_manage_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk menambah user.",
-        )
+    _require_user_access(
+        request.user,
+        "users.add_user",
+        "Anda tidak memiliki izin untuk menambah user.",
+    )
+    can_manage_user_scopes = _can_manage_user_scopes(request.user)
 
     if request.method == "POST":
-        form = UserCreateForm(request.POST)
+        form = UserCreateForm(
+            request.POST,
+            can_manage_module_scopes=can_manage_user_scopes,
+        )
         if form.is_valid():
             user = form.save()
             messages.success(request, f"User {user.username} berhasil ditambahkan.")
             return redirect("users:user_list")
     else:
-        form = UserCreateForm()
+        form = UserCreateForm(can_manage_module_scopes=can_manage_user_scopes)
 
     return render(
         request,
@@ -194,17 +213,19 @@ def user_create(request):
             "form": form,
             "title": "Tambah User",
             "role_defaults_json": _role_defaults_json(),
+            "can_manage_user_scopes": can_manage_user_scopes,
         },
     )
 
 
 @login_required
 def user_update(request, pk):
-    if not _can_manage_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk mengubah user.",
-        )
+    _require_user_access(
+        request.user,
+        "users.change_user",
+        "Anda tidak memiliki izin untuk mengubah user.",
+    )
+    can_manage_user_scopes = _can_manage_user_scopes(request.user)
 
     target_user = get_object_or_404(User, pk=pk)
     protected_response = _ensure_can_mutate_target_user(request, target_user)
@@ -212,13 +233,20 @@ def user_update(request, pk):
         return protected_response
 
     if request.method == "POST":
-        form = UserUpdateForm(request.POST, instance=target_user)
+        form = UserUpdateForm(
+            request.POST,
+            instance=target_user,
+            can_manage_module_scopes=can_manage_user_scopes,
+        )
         if form.is_valid():
             user = form.save()
             messages.success(request, f"User {user.username} berhasil diperbarui.")
             return redirect("users:user_list")
     else:
-        form = UserUpdateForm(instance=target_user)
+        form = UserUpdateForm(
+            instance=target_user,
+            can_manage_module_scopes=can_manage_user_scopes,
+        )
 
     return render(
         request,
@@ -229,6 +257,7 @@ def user_update(request, pk):
             "target_user": target_user,
             "effective_scopes": _effective_scope_rows(target_user),
             "role_defaults_json": _role_defaults_json(),
+            "can_manage_user_scopes": can_manage_user_scopes,
         },
     )
 
@@ -237,13 +266,12 @@ def user_update(request, pk):
 def user_toggle_active(request, pk):
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
-    if not _can_manage_users(request.user):
+    if not _can_change_users(request.user):
         if is_ajax:
-            return JsonResponse({"success": False, "error": "Tidak memiliki izin."}, status=403)
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk mengubah status user.",
-        )
+            return JsonResponse(
+                {"success": False, "error": "Tidak memiliki izin."}, status=403
+            )
+        raise PermissionDenied("Anda tidak memiliki izin untuk mengubah status user.")
 
     target_user = get_object_or_404(User, pk=pk)
     protected_response = _ensure_can_mutate_target_user(
@@ -284,11 +312,11 @@ def user_toggle_active(request, pk):
 
 @login_required
 def user_delete(request, pk):
-    if not _can_manage_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk menghapus user.",
-        )
+    _require_user_access(
+        request.user,
+        "users.delete_user",
+        "Anda tidak memiliki izin untuk menghapus user.",
+    )
 
     target_user = get_object_or_404(User, pk=pk)
     protected_response = _ensure_can_mutate_target_user(request, target_user)
@@ -324,11 +352,11 @@ def user_delete(request, pk):
 
 @login_required
 def user_detail(request, pk):
-    if not _can_view_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk membuka detail user.",
-        )
+    _require_user_access(
+        request.user,
+        "users.view_user",
+        "Anda tidak memiliki izin untuk membuka detail user.",
+    )
 
     target_user = get_object_or_404(
         User.objects.select_related("facility").prefetch_related("module_accesses"),
@@ -341,23 +369,23 @@ def user_detail(request, pk):
         {
             "target_user": target_user,
             "effective_scopes": _effective_scope_rows(target_user),
-            "can_manage_users": _can_manage_users(request.user),
+            "can_manage_users": _can_change_users(request.user),
         },
     )
 
 
 @login_required
 def user_bulk_action(request):
-    if not _can_manage_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk aksi massal.",
-        )
-
     if request.method != "POST":
         return redirect("users:user_list")
 
     action = request.POST.get("action", "")
+    required_perm = "users.delete_user" if action == "delete" else "users.change_user"
+    _require_user_access(
+        request.user,
+        required_perm,
+        "Anda tidak memiliki izin untuk aksi massal.",
+    )
     pks = request.POST.getlist("selected_users", [])
 
     if not pks:
@@ -447,11 +475,11 @@ def user_bulk_action(request):
 
 @login_required
 def user_reset_password(request, pk):
-    if not _can_manage_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk mereset password user.",
-        )
+    _require_user_access(
+        request.user,
+        "users.change_user",
+        "Anda tidak memiliki izin untuk mereset password user.",
+    )
 
     target_user = get_object_or_404(User, pk=pk)
     protected_response = _ensure_can_mutate_target_user(request, target_user)
@@ -526,11 +554,11 @@ def _build_user_export_queryset(request):
 
 @login_required
 def user_export_csv(request):
-    if not _can_view_users(request.user):
-        return _forbidden_manage_user(
-            request,
-            "Anda tidak memiliki izin untuk mengekspor data pengguna.",
-        )
+    _require_user_access(
+        request.user,
+        "users.view_user",
+        "Anda tidak memiliki izin untuk mengekspor data pengguna.",
+    )
 
     queryset = _build_user_export_queryset(request)
     role_map = dict(User.Role.choices)

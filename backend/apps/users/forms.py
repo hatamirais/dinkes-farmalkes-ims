@@ -34,6 +34,15 @@ def _clean_role_and_facility(form):
     return cleaned_data
 
 
+def _save_role_default_module_scopes(user, role):
+    for module_code, _ in ModuleAccess.Module.choices:
+        ModuleAccess.objects.update_or_create(
+            user=user,
+            module=module_code,
+            defaults={"scope": default_scope_for_role(role, module_code)},
+        )
+
+
 class UserCreateForm(forms.ModelForm):
     password1 = forms.CharField(
         label="Password",
@@ -63,10 +72,12 @@ class UserCreateForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.can_manage_module_scopes = kwargs.pop("can_manage_module_scopes", True)
         super().__init__(*args, **kwargs)
         self.fields["role"].choices = UI_ROLE_CHOICES
         _configure_user_form_fields(self)
-        self._add_module_scope_fields()
+        if self.can_manage_module_scopes:
+            self._add_module_scope_fields()
 
     def _add_module_scope_fields(self):
         role = self.data.get("role") or self.initial.get("role") or User.Role.ADMIN_UMUM
@@ -116,7 +127,10 @@ class UserCreateForm(forms.ModelForm):
         user.set_password(self.cleaned_data["password1"])
         if commit:
             user.save()
-            self._save_module_scopes(user)
+            if self.can_manage_module_scopes:
+                self._save_module_scopes(user)
+            else:
+                _save_role_default_module_scopes(user, user.role)
         return user
 
     def _save_module_scopes(self, user):
@@ -148,6 +162,7 @@ class UserUpdateForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.can_manage_module_scopes = kwargs.pop("can_manage_module_scopes", True)
         super().__init__(*args, **kwargs)
         # Only restrict role choices if the user is NOT already an ADMIN.
         # Existing ADMIN users can still be edited, but role cannot be
@@ -157,7 +172,8 @@ class UserUpdateForm(forms.ModelForm):
         ):
             self.fields["role"].choices = UI_ROLE_CHOICES
         _configure_user_form_fields(self)
-        self._add_module_scope_fields()
+        if self.can_manage_module_scopes:
+            self._add_module_scope_fields()
 
     def _add_module_scope_fields(self):
         role = self.data.get("role") or self.initial.get("role") or self.instance.role
@@ -209,7 +225,7 @@ class UserUpdateForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=commit)
-        if commit:
+        if commit and self.can_manage_module_scopes:
             for module_code, _ in ModuleAccess.Module.choices:
                 field_name = f"module_scope__{module_code}"
                 scope = int(self.cleaned_data.get(field_name, ModuleAccess.Scope.NONE))
