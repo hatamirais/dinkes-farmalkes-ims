@@ -16,6 +16,7 @@ urlpatterns = [
     path("<int:pk>/", views.lplpo_detail, name="lplpo_detail"),
     path("<int:pk>/edit/", views.lplpo_edit, name="lplpo_edit"),
     path("<int:pk>/submit/", views.lplpo_submit, name="lplpo_submit"),
+    path("<int:pk>/verify/", views.lplpo_verify, name="lplpo_verify"),
     path("<int:pk>/reject/", views.lplpo_reject, name="lplpo_reject"),
     path("<int:pk>/review/", views.lplpo_review, name="lplpo_review"),
     path("<int:pk>/finalize/", views.lplpo_finalize, name="lplpo_finalize"),

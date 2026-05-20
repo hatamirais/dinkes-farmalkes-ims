@@ -11,7 +11,11 @@ def close_lplpo_on_distribution_complete(sender, instance, **kwargs):
         return
     try:
         lplpo = instance.lplpo_source
-        if lplpo.status in (LPLPO.Status.REVIEWED, LPLPO.Status.DISTRIBUTED):
+        if lplpo.status in (
+            LPLPO.Status.REVIEWED,
+            LPLPO.Status.APPROVED,
+            LPLPO.Status.DISTRIBUTED,
+        ):
             lplpo.status = LPLPO.Status.CLOSED
             lplpo.save(update_fields=["status", "updated_at"])
     except LPLPO.DoesNotExist:

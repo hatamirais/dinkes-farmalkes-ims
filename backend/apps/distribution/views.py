@@ -2,12 +2,14 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.users.access import has_module_scope
 from apps.users.models import ModuleAccess, User
 
 from .forms import (
@@ -37,6 +39,24 @@ def _is_special_request(distribution):
         distribution.distribution_type
         == Distribution.DistributionType.SPECIAL_REQUEST
     )
+
+
+def _is_distribution_preparer(user, distribution):
+    if getattr(user, "is_superuser", False):
+        return True
+    return distribution.staff_assignments.filter(user_id=user.pk).exists()
+
+
+def _can_manage_distribution_preparation(user, distribution):
+    if _is_distribution_preparer(user, distribution):
+        return True
+    if not distribution.staff_assignments.exists():
+        return has_module_scope(
+            user,
+            ModuleAccess.Module.DISTRIBUTION,
+            ModuleAccess.Scope.APPROVE,
+        )
+    return False
 
 
 def _render_distribution_list(
@@ -252,8 +272,17 @@ def _save_special_request(request):
 @perm_required("distribution.change_distribution")
 def distribution_edit(request, pk):
     dist = get_object_or_404(Distribution, pk=pk)
-    if dist.status not in (Distribution.Status.DRAFT, Distribution.Status.SUBMITTED):
-        messages.error(request, "Hanya distribusi Draft/Diajukan yang dapat diubah.")
+    if dist.status not in (Distribution.Status.DRAFT, Distribution.Status.REJECTED):
+        messages.error(request, "Hanya distribusi Draft/Ditolak yang dapat diubah.")
+        return redirect("distribution:distribution_detail", pk=dist.pk)
+
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Hanya petugas yang ditugaskan yang dapat mengubah distribusi ini."
+        )
+
+    if dist.distribution_type == Distribution.DistributionType.ALLOCATION:
+        messages.error(request, "Distribusi alokasi tidak dapat diubah dari modul ini.")
         return redirect("distribution:distribution_detail", pk=dist.pk)
 
     is_special_request = _is_special_request(dist)
@@ -380,6 +409,40 @@ def distribution_detail(request, pk):
     is_allocation = (
         dist.distribution_type == Distribution.DistributionType.ALLOCATION
     )
+    can_prepare_distribution = (
+        not is_allocation
+        and dist.status in {Distribution.Status.DRAFT, Distribution.Status.REJECTED}
+        and _can_manage_distribution_preparation(request.user, dist)
+    )
+    can_submit_distribution = (
+        not is_allocation
+        and dist.status == Distribution.Status.PREPARED
+        and _can_manage_distribution_preparation(request.user, dist)
+    )
+    can_edit_distribution = (
+        not is_allocation
+        and dist.status in {Distribution.Status.DRAFT, Distribution.Status.REJECTED}
+        and _can_manage_distribution_preparation(request.user, dist)
+    )
+    can_verify_distribution = (
+        not is_allocation
+        and dist.status == Distribution.Status.SUBMITTED
+        and has_module_scope(
+            request.user,
+            ModuleAccess.Module.DISTRIBUTION,
+            ModuleAccess.Scope.APPROVE,
+        )
+    )
+    can_reject_distribution = can_verify_distribution
+    can_distribute_distribution = (
+        not is_allocation
+        and dist.status == Distribution.Status.VERIFIED
+        and has_module_scope(
+            request.user,
+            ModuleAccess.Module.DISTRIBUTION,
+            ModuleAccess.Scope.APPROVE,
+        )
+    )
 
     return render(
         request,
@@ -408,6 +471,12 @@ def distribution_detail(request, pk):
                 if _is_special_request(dist)
                 else "distribution:distribution_list"
             ),
+            "can_edit_distribution": can_edit_distribution,
+            "can_prepare_distribution": can_prepare_distribution,
+            "can_submit_distribution": can_submit_distribution,
+            "can_verify_distribution": can_verify_distribution,
+            "can_reject_distribution": can_reject_distribution,
+            "can_distribute_distribution": can_distribute_distribution,
             "active_pengeluaran_submenu": (
                 "special_request"
                 if _is_special_request(dist)
@@ -427,8 +496,13 @@ def distribution_submit(request, pk):
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
 
-    if dist.status != Distribution.Status.DRAFT:
-        messages.error(request, "Hanya distribusi Draft yang dapat diajukan.")
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Hanya petugas yang ditugaskan yang dapat mengajukan distribusi ini."
+        )
+
+    if dist.status != Distribution.Status.PREPARED:
+        messages.error(request, "Hanya distribusi berstatus Disiapkan yang dapat diajukan.")
         return _redirect_distribution_detail(pk)
 
     try:
@@ -474,12 +548,20 @@ def distribution_prepare(request, pk):
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
 
-    if dist.status != Distribution.Status.VERIFIED:
-        messages.error(request, "Hanya distribusi terverifikasi yang dapat disiapkan.")
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Hanya petugas yang ditugaskan yang dapat menyiapkan distribusi ini."
+        )
+
+    if dist.status not in (Distribution.Status.DRAFT, Distribution.Status.REJECTED):
+        messages.error(
+            request,
+            "Hanya distribusi Draft atau Ditolak yang dapat ditandai siap.",
+        )
         return _redirect_distribution_detail(pk)
 
     execute_distribution_preparation(dist)
-    messages.success(request, f"Distribusi {dist.document_number} ditandai disiapkan.")
+    messages.success(request, f"Distribusi {dist.document_number} ditandai siap diajukan.")
     return _redirect_distribution_detail(pk)
 
 
@@ -492,9 +574,9 @@ def distribution_distribute(request, pk):
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
 
-    if dist.status != Distribution.Status.PREPARED:
+    if dist.status != Distribution.Status.VERIFIED:
         messages.error(
-            request, "Hanya distribusi berstatus Disiapkan yang dapat didistribusikan."
+            request, "Hanya distribusi berstatus Diverifikasi yang dapat didistribusikan."
         )
         return _redirect_distribution_detail(pk)
 

@@ -10,16 +10,20 @@
     <div class="alert
         {% if lplpo.status == 'DRAFT' %}alert-secondary
         {% elif lplpo.status == 'SUBMITTED' %}alert-warning
-        {% elif lplpo.status == 'REJECTED' %}alert-danger
-        {% elif lplpo.status == 'REVIEWED' %}alert-info
+        {% elif lplpo.status == 'PIC_VERIFIED' %}alert-info
+        {% elif lplpo.status == 'REJECTED_PUSKESMAS' or lplpo.status == 'REJECTED_PIC' %}alert-danger
+        {% elif lplpo.status == 'REVIEWED' %}alert-primary
+        {% elif lplpo.status == 'APPROVED' %}alert-success
         {% elif lplpo.status == 'DISTRIBUTED' %}alert-primary
         {% elif lplpo.status == 'CLOSED' %}alert-success
         {% endif %} d-flex align-items-center gap-2 mb-4" role="alert" id="status-banner">
         <i class="bi
             {% if lplpo.status == 'DRAFT' %}bi-pencil-square
             {% elif lplpo.status == 'SUBMITTED' %}bi-hourglass-split
-            {% elif lplpo.status == 'REJECTED' %}bi-x-circle-fill
-            {% elif lplpo.status == 'REVIEWED' %}bi-check-circle
+            {% elif lplpo.status == 'PIC_VERIFIED' %}bi-shield-check
+            {% elif lplpo.status == 'REJECTED_PUSKESMAS' or lplpo.status == 'REJECTED_PIC' %}bi-x-circle-fill
+            {% elif lplpo.status == 'REVIEWED' %}bi-person-check
+            {% elif lplpo.status == 'APPROVED' %}bi-check-circle
             {% elif lplpo.status == 'DISTRIBUTED' %}bi-truck
             {% elif lplpo.status == 'CLOSED' %}bi-check-circle-fill
             {% endif %} fs-5"></i>
@@ -28,13 +32,19 @@
                 {% if lplpo.status == 'DRAFT' %}
                 <strong>Draft</strong>
                 {% elif lplpo.status == 'SUBMITTED' %}
-                <strong>Menunggu Tinjauan</strong>
-                {% elif lplpo.status == 'REJECTED' %}
-                <strong>Ditolak</strong>
+                <strong>Menunggu Verifikasi PIC</strong>
+                {% elif lplpo.status == 'PIC_VERIFIED' %}
+                <strong>Sedang Ditinjau PIC</strong>
+                {% elif lplpo.status == 'REJECTED_PUSKESMAS' %}
+                <strong>Ditolak PIC</strong>
                 {% if lplpo.rejection_reason %}
                 — Alasan: {{ lplpo.rejection_reason }}
                 {% endif %}
+                {% elif lplpo.status == 'REJECTED_PIC' %}
+                <strong>Sedang Direvisi PIC</strong>
                 {% elif lplpo.status == 'REVIEWED' %}
+                <strong>Menunggu Persetujuan Kepala Instalasi</strong>
+                {% elif lplpo.status == 'APPROVED' %}
                 {% if lplpo.distribution %}
                 <strong>Dokumen Distribusi Dibuat / Menunggu Distribusi</strong>
                 {% else %}
@@ -45,7 +55,7 @@
                 {% elif lplpo.status == 'CLOSED' %}
                 <strong>Sudah Didistribusikan</strong>
                 {% endif %}
-                {% if lplpo.status == 'REVIEWED' and lplpo.distribution %}
+                {% if lplpo.status == 'APPROVED' and lplpo.distribution %}
                 — Instalasi Farmasi sedang memproses dokumen distribusi {{ lplpo.distribution.document_number }}.
                 {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
                 — Instalasi Farmasi sudah membuat dokumen distribusi {{ lplpo.distribution.document_number }}.
@@ -54,10 +64,13 @@
                 {% endif %}
             {% else %}
                 <strong>{{ lplpo.get_status_display }}</strong>
-                {% if lplpo.status == 'REJECTED' and lplpo.rejection_reason %}
+                {% if lplpo.rejection_reason and lplpo.status != 'REJECTED_PIC' %}
                 — Alasan: {{ lplpo.rejection_reason }}
                 {% endif %}
-                {% if lplpo.status == 'REVIEWED' and lplpo.distribution %}
+                {% if lplpo.status == 'REJECTED_PIC' and lplpo.rejection_reason %}
+                — Alasan revisi dari Kepala: {{ lplpo.rejection_reason }}
+                {% endif %}
+                {% if lplpo.status == 'APPROVED' and lplpo.distribution %}
                 — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat dan masih mengikuti workflow distribusi.
                 {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
                 — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat.
@@ -93,9 +106,19 @@
                         <dd class="col-sm-8">{{ lplpo.submitted_at|date:"d M Y H:i" }}</dd>
                         {% endif %}
 
+                        {% if lplpo.verified_by %}
+                        <dt class="col-sm-4">Diverifikasi PIC</dt>
+                        <dd class="col-sm-8">{{ lplpo.verified_by }} <span class="text-muted small">{{ lplpo.verified_at|date:"d M Y H:i" }}</span></dd>
+                        {% endif %}
+
                         {% if lplpo.reviewed_by %}
                         <dt class="col-sm-4">Ditinjau Oleh</dt>
                         <dd class="col-sm-8">{{ lplpo.reviewed_by }} <span class="text-muted small">{{ lplpo.reviewed_at|date:"d M Y H:i" }}</span></dd>
+                        {% endif %}
+
+                        {% if lplpo.approved_by %}
+                        <dt class="col-sm-4">Disetujui Kepala</dt>
+                        <dd class="col-sm-8">{{ lplpo.approved_by }} <span class="text-muted small">{{ lplpo.approved_at|date:"d M Y H:i" }}</span></dd>
                         {% endif %}
 
                         {% if lplpo.notes %}
@@ -103,8 +126,12 @@
                         <dd class="col-sm-8">{{ lplpo.notes }}</dd>
                         {% endif %}
 
-                        {% if lplpo.status == 'REJECTED' and lplpo.rejection_reason %}
+                        {% if lplpo.rejection_reason and lplpo.status != 'REJECTED_PIC' %}
                         <dt class="col-sm-4">Alasan Penolakan</dt>
+                        <dd class="col-sm-8">{{ lplpo.rejection_reason }}</dd>
+                        {% endif %}
+                        {% if lplpo.status == 'REJECTED_PIC' and lplpo.rejection_reason %}
+                        <dt class="col-sm-4">Alasan Revisi Kepala</dt>
                         <dd class="col-sm-8">{{ lplpo.rejection_reason }}</dd>
                         {% endif %}
                     </dl>
@@ -210,7 +237,7 @@
                         </button>
                     </form>
 
-                    {% elif lplpo.status == 'REJECTED' and can_manage_draft %}
+                    {% elif lplpo.status == 'REJECTED_PUSKESMAS' and can_manage_draft %}
                     <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100" id="edit-rejected-btn">
                         <i class="bi bi-pencil me-1"></i>Perbaiki Data
                     </a>
@@ -230,24 +257,42 @@
                     </form>
 
                     {% elif lplpo.status == 'SUBMITTED' and can_review %}
-                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}" class="btn btn-info w-100 text-white" id="review-btn">
-                        <i class="bi bi-clipboard-check me-1"></i>Tinjau & Isi Pemberian
-                    </a>
-                    {% if can_approve %}
+                    <form method="post" action="{% url 'lplpo:lplpo_verify' lplpo.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-info w-100 text-white" id="verify-btn"
+                            data-confirm-click="Verifikasi awal LPLPO ini dan lanjutkan ke tahap tinjauan PIC?">
+                            <i class="bi bi-shield-check me-1"></i>Verifikasi Awal PIC
+                        </button>
+                    </form>
+                    {% if can_review %}
                     <button type="button" class="btn btn-outline-danger w-100" id="reject-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-1"></i>Tolak
                     </button>
                     {% endif %}
 
+                    {% elif lplpo.status == 'PIC_VERIFIED' and can_review %}
+                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}" class="btn btn-info w-100 text-white" id="review-btn">
+                        <i class="bi bi-clipboard-check me-1"></i>Tinjau & Isi Pemberian
+                    </a>
+
+                    {% elif lplpo.status == 'REJECTED_PIC' and can_review %}
+                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}" class="btn btn-warning w-100" id="review-rejected-btn">
+                        <i class="bi bi-arrow-repeat me-1"></i>Perbaiki Tinjauan PIC
+                    </a>
+
                     {% elif lplpo.status == 'REVIEWED' and can_approve and not lplpo.distribution %}
                     <form method="post" action="{% url 'lplpo:lplpo_finalize' lplpo.pk %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success w-100" id="finalize-btn"
-                            data-confirm-click="Finalisasi LPLPO ini dan buat dokumen distribusi?">
-                            <i class="bi bi-check2-all me-1"></i>Finalisasi & Buat Distribusi
+                            data-confirm-click="Setujui LPLPO ini dan buat dokumen distribusi?">
+                            <i class="bi bi-check2-all me-1"></i>Setujui & Buat Distribusi
                         </button>
                     </form>
+                    <button type="button" class="btn btn-outline-danger w-100" id="reject-reviewed-btn"
+                        data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-1"></i>Kembalikan ke PIC
+                    </button>
 
                     {% elif lplpo.distribution and request.user.role != 'PUSKESMAS' %}
                     <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}"
@@ -292,6 +337,12 @@
                         <span>{{ lplpo.reviewed_at|date:"d M Y H:i" }}</span>
                     </li>
                     {% endif %}
+                    {% if lplpo.approved_at %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Disetujui Kepala</span>
+                        <span>{{ lplpo.approved_at|date:"d M Y H:i" }}</span>
+                    </li>
+                    {% endif %}
                     <li class="list-group-item d-flex justify-content-between">
                         <span class="text-muted">Terakhir Diubah</span>
                         <span>{{ lplpo.updated_at|date:"d M Y H:i" }}</span>
@@ -302,25 +353,34 @@
     </div>
 </div>
 
-{% if lplpo.status == 'SUBMITTED' and can_approve %}
+{% if lplpo.status == 'SUBMITTED' and can_review or lplpo.status == 'REVIEWED' and can_approve %}
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="post" action="{% url 'lplpo:lplpo_reject' lplpo.pk %}">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title" id="rejectModalLabel">Tolak LPLPO</h5>
+                    <h5 class="modal-title" id="rejectModalLabel">
+                        {% if lplpo.status == 'SUBMITTED' %}Tolak LPLPO ke Puskesmas{% else %}Kembalikan LPLPO ke PIC{% endif %}
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-2">Isi alasan penolakan agar operator Puskesmas tahu apa yang harus diperbaiki.</p>
+                    <p class="mb-2">
+                        {% if lplpo.status == 'SUBMITTED' %}
+                        Isi alasan penolakan agar operator Puskesmas tahu apa yang harus diperbaiki.
+                        {% else %}
+                        Isi alasan revisi agar PIC tahu apa yang harus diperbaiki sebelum diajukan ulang ke Kepala.
+                        {% endif %}
+                    </p>
                     <label for="rejection_reason" class="form-label">Alasan Penolakan</label>
                     <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="4" required></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger" id="reject-submit-btn">
-                        <i class="bi bi-x-circle me-1"></i>Tolak LPLPO
+                        <i class="bi bi-x-circle me-1"></i>
+                        {% if lplpo.status == 'SUBMITTED' %}Tolak LPLPO{% else %}Kembalikan ke PIC{% endif %}
                     </button>
                 </div>
             </form>

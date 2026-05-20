@@ -767,7 +767,7 @@ class NavNotificationsContextProcessorTests(TestCase):
             facility=facility,
             bulan=4,
             tahun=2026,
-            status=LPLPO.Status.REJECTED,
+            status=LPLPO.Status.REJECTED_PUSKESMAS,
             created_by=puskesmas_user,
             rejection_reason="Perlu perbaikan.",
         )
@@ -775,7 +775,7 @@ class NavNotificationsContextProcessorTests(TestCase):
             facility=other_facility,
             bulan=5,
             tahun=2026,
-            status=LPLPO.Status.REJECTED,
+            status=LPLPO.Status.REJECTED_PUSKESMAS,
             created_by=puskesmas_user,
             rejection_reason="Fasilitas lain.",
         )
@@ -790,7 +790,7 @@ class NavNotificationsContextProcessorTests(TestCase):
             any(
                 item["label"] == "LPLPO Ditolak"
                 and item["count"] == 1
-                and item["url"].endswith("/lplpo/my/?status=REJECTED")
+                and item["url"].endswith("/lplpo/my/?status=REJECTED_PUSKESMAS")
                 for item in context["nav_notification_items"]
             )
         )

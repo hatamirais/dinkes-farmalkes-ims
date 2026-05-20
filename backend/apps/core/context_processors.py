@@ -59,13 +59,13 @@ def nav_notifications(request):
             rejected_count = safe_count(
                 lambda: LPLPO.objects.filter(
                     facility=user.facility,
-                    status=LPLPO.Status.REJECTED,
+                    status=LPLPO.Status.REJECTED_PUSKESMAS,
                 )
             )
         add_notification_item(
             "LPLPO Ditolak",
             rejected_count,
-            f"{reverse('lplpo:lplpo_my_list')}?status=REJECTED",
+            f"{reverse('lplpo:lplpo_my_list')}?status=REJECTED_PUSKESMAS",
             "bi-file-earmark-x",
         )
         total = sum(item["count"] for item in notification_items)
@@ -229,7 +229,13 @@ def nav_notifications(request):
 
         lplpo_statuses = []
         if lplpo_scope >= ModuleAccess.Scope.OPERATE:
-            lplpo_statuses.append(LPLPO.Status.SUBMITTED)
+            lplpo_statuses.extend(
+                [
+                    LPLPO.Status.SUBMITTED,
+                    LPLPO.Status.PIC_VERIFIED,
+                    LPLPO.Status.REJECTED_PIC,
+                ]
+            )
         if lplpo_scope >= ModuleAccess.Scope.APPROVE:
             lplpo_statuses.append(LPLPO.Status.REVIEWED)
 

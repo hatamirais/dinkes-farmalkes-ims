@@ -11,7 +11,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Lapisan | Teknologi |
 | --- | --- |
 | Bahasa | Python 3.13+ |
-| Framework | Django 6.0.4 |
+| Framework | Django 6.0.5 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis 7 |
 | Antarmuka | Django Templates + Bootstrap 5 |
@@ -25,7 +25,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Pencatatan stok per batch dengan pendekatan FEFO agar distribusi lebih terkendali dan masa kedaluwarsa lebih mudah dipantau.
 - Alur kerja end-to-end untuk penerimaan, distribusi, recall, barang kedaluwarsa, transfer stok, dan stock opname.
 - Dukungan tipe penerimaan bawaan dan tipe kustom melalui `ReceivingTypeOption`, termasuk quick-create dari form penerimaan.
-- Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, termasuk carry-over `sisa stok` bulan sebelumnya ke `stock_awal` bulan berikutnya selama dokumen bulan sebelumnya tidak berstatus `REJECTED`.
+- Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, termasuk carry-over `sisa stok` bulan sebelumnya ke `stock_awal` bulan berikutnya selama dokumen bulan sebelumnya tidak berstatus `REJECTED_PUSKESMAS` atau `REJECTED_PIC`.
 - Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
 - Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
 - Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`.
@@ -37,7 +37,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `items`: CRUD master barang dan lookup, filter daftar, serta endpoint AJAX untuk pembuatan referensi cepat.
 - `stock`: daftar stok, daftar transaksi, kartu stok, pencarian stok per lokasi, dan alur transfer stok antar lokasi.
 - `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, dan tipe penerimaan kustom.
-- `distribution`: alur permintaan, verifikasi, persiapan, hingga distribusi dengan penugasan petugas per dokumen, serta reset atau step-back workflow sebelum dokumen terdistribusi. Permintaan khusus menampilkan nomor dokumen usulan dari rule aktif dan mengharuskan konfirmasi sebelum edit manual.
+- `distribution`: alur persiapan, pengajuan, verifikasi, hingga distribusi dengan penugasan petugas per dokumen. Distribusi reguler dan permintaan khusus kini menempatkan kontrol tahap persiapan pada petugas yang ditugaskan, sementara approver memverifikasi dokumen yang sudah diajukan sebelum distribusi. Reset dan step-back tetap tersedia sebelum dokumen terdistribusi. Permintaan khusus menampilkan nomor dokumen usulan dari rule aktif dan mengharuskan konfirmasi sebelum edit manual.
 - `allocation`: perencanaan dan orkestrasi pra-distribusi. Lifecycle Draft→Submitted→Approved membuat satu `Distribution` per fasilitas secara otomatis pada saat approval. Allocation yang sudah disetujui dapat dikembalikan ke Submitted oleh approver, yang menghapus child distributions agar approval dapat diulang. Pengurangan stok ditangguhkan ke konfirmasi pengiriman per distribusi.
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
@@ -60,7 +60,8 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Expired: `DRAFT -> SUBMITTED -> VERIFIED -> DISPOSED`
 - Stock transfer: `DRAFT -> COMPLETED`
 - Stock opname: `DRAFT -> IN_PROGRESS -> COMPLETED`
-- LPLPO: `DRAFT -> SUBMITTED -> REVIEWED -> DISTRIBUTED -> CLOSED`, dapat berakhir `REJECTED` dari status `SUBMITTED`; reject mewajibkan alasan penolakan, dan dokumen `REJECTED` dapat diperbaiki dan diajukan ulang oleh operator Puskesmas.
+- Distribution: `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`. Petugas yang ditugaskan menyiapkan dokumen, lalu approver memverifikasi dan akhirnya mendistribusikan stok. Distribution hasil approval Allocation tetap langsung dibuat pada status `VERIFIED`.
+- LPLPO: `DRAFT -> SUBMITTED -> PIC_VERIFIED -> REVIEWED -> APPROVED -> CLOSED`, dengan dua loop penolakan: `SUBMITTED -> REJECTED_PUSKESMAS` untuk koreksi operator Puskesmas dan `REVIEWED -> REJECTED_PIC` untuk koreksi PIC Gudang. Approval Kepala membuat dokumen Distribution LPLPO, lalu LPLPO ditutup saat distribusi terkait selesai.
 - Puskesmas Request: `DRAFT -> SUBMITTED -> APPROVED -> REJECTED`
 
 ## Model Data Singkat

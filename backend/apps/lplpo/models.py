@@ -22,8 +22,11 @@ class LPLPO(TimeStampedModel):
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         SUBMITTED = "SUBMITTED", "Diajukan"
-        REJECTED = "REJECTED", "Ditolak"
-        REVIEWED = "REVIEWED", "Ditinjau"
+        PIC_VERIFIED = "PIC_VERIFIED", "Terverifikasi PIC"
+        REJECTED_PUSKESMAS = "REJECTED_PUSKESMAS", "Ditolak ke Puskesmas"
+        REVIEWED = "REVIEWED", "Ditinjau PIC"
+        REJECTED_PIC = "REJECTED_PIC", "Dikembalikan ke PIC"
+        APPROVED = "APPROVED", "Disetujui Kepala"
         DISTRIBUTED = "DISTRIBUTED", "Didistribusikan"
         CLOSED = "CLOSED", "Ditutup"
 
@@ -56,6 +59,14 @@ class LPLPO(TimeStampedModel):
         related_name="created_lplpos",
     )
     submitted_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="verified_lplpos",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -63,8 +74,16 @@ class LPLPO(TimeStampedModel):
         blank=True,
         related_name="reviewed_lplpos",
     )
-    rejection_reason = models.TextField(blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="approved_lplpos",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
     distribution = models.OneToOneField(
         "distribution.Distribution",
         on_delete=models.SET_NULL,
@@ -101,6 +120,14 @@ class LPLPO(TimeStampedModel):
         import calendar
 
         return f"{calendar.month_name[self.bulan]} {self.tahun}"
+
+    @property
+    def is_rejected_for_puskesmas(self):
+        return self.status == self.Status.REJECTED_PUSKESMAS
+
+    @property
+    def is_rejected_for_pic(self):
+        return self.status == self.Status.REJECTED_PIC
 
     def save(self, *args, **kwargs):
         if not self.document_number:
@@ -287,8 +314,6 @@ def get_previous_lplpo(facility, bulan, tahun):
             bulan=prev_bulan,
             tahun=prev_tahun,
         )
-        .exclude(
-            status=LPLPO.Status.REJECTED,
-        )
+        .exclude(status__in=[LPLPO.Status.REJECTED_PUSKESMAS, LPLPO.Status.REJECTED_PIC])
         .first()
     )

@@ -11,7 +11,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 | Item | Value |
 | --- | --- |
 | Python | 3.13+ |
-| Django | 6.0.4 |
+| Django | 6.0.5 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis 7 |
 | UI | Django templates + Bootstrap 5 |
@@ -59,7 +59,7 @@ If documentation conflicts with code, code is authoritative until docs are corre
 - `items`: master data and item catalog; items may be flagged as program item `[P]` (`is_program_item`) or essential `[E]` (`is_essential`)
 - `stock`: stock entries, immutable transactions, stock card, location-based stock search, and stock transfer
 - `receiving`: regular and planned receiving flows, custom CSV import endpoint in admin, quick-create lookup endpoints, and custom `ReceivingTypeOption` support
-- `distribution`: outbound distribution workflow, step-back/reset actions before distribution, issued batch/value snapshots on `DistributionItem`, and special-request numbering UI that preloads the next suggested number while requiring confirmation before manual override. The user-facing manual create path is `special_request_create`; keep the generic `distribution_create` route reserved for internal or compatibility flows tied to broader distribution orchestration.
+- `distribution`: outbound distribution workflow, step-back/reset actions before distribution, issued batch/value snapshots on `DistributionItem`, object-level preparer assignment for regular/special-request preparation, and special-request numbering UI that preloads the next suggested number while requiring confirmation before manual override. The user-facing manual create path is `special_request_create`; keep the generic `distribution_create` route reserved for internal or compatibility flows tied to broader distribution orchestration.
 - `allocation`: pre-distribution planning and orchestration. Draft→Submitted→Approved lifecycle auto-generates one `Distribution` per facility on approval. Approved allocations may be stepped back to Submitted by approvers, which deletes the auto-generated child distributions so approval can be re-run cleanly. Allocation no longer stores a header-level funding source; item batch selection can span all available stock sources. Stock deduction deferred to delivery confirmation per distribution. Module is active and gated by `ModuleAccess` scopes like all other modules.
 - `recall`: supplier return workflow
 - `expired`: expired/disposal workflow and alerts page
@@ -98,7 +98,9 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - Receiving admin CSV import writes `Receiving`, `ReceivingItem`, updates/creates `Stock`, and writes `Transaction(IN)`.
 - Receiving supports built-in and custom type codes; UI labels for non-built-in types are resolved from `ReceivingTypeOption`.
 - `Distribution(distribution_type=LPLPO)` is system-generated from `lplpo_finalize`; do not expose it as a manual distribution type in the generic distribution create/edit flow.
-- LPLPO creation auto-fills `stock_awal` from the immediately previous month's LPLPO for the same facility when one exists and is not `REJECTED`; the carry-over no longer waits for the prior document to reach `CLOSED`.
+- LPLPO workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> REVIEWED -> APPROVED -> CLOSED`, with rejection loops `SUBMITTED -> REJECTED_PUSKESMAS` and `REVIEWED -> REJECTED_PIC`. PIC verification/review and Kepala approval are stored on the LPLPO header via dedicated audit fields.
+- LPLPO creation auto-fills `stock_awal` from the immediately previous month's LPLPO for the same facility when one exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`; the carry-over no longer waits for the prior document to reach `CLOSED`.
+- Regular and special-request distributions now use the preparation sequence `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`. Assigned `DistributionStaffAssignment` users control draft/rejected preparation and submission; when no preparers are assigned, approve-scope users remain the fallback managers.
 - Distribution numbering templates for `LPLPO` and `SPECIAL_REQUEST` are user-configurable through `SystemSettings`; supported placeholders are `{seq}` and `{year}` and sequence counters remain scoped per distribution type and matched against the active template.
 - `Distribution(distribution_type=ALLOCATION)` is system-generated from `allocation` approval; one per facility, starts in `VERIFIED` status, quantities are locked and cannot be edited.
 - Allocation approval atomically creates `Distribution` + `DistributionItem` records for each facility. Stepping an allocation back from `APPROVED` to `SUBMITTED` deletes those child distributions so they can be regenerated on the next approval. Stock deduction is deferred to per-distribution delivery confirmation.

@@ -383,7 +383,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		line.pemakaian = Decimal("10.00")
 		line.compute_fields()
 		line.save()
-		lplpo.status = LPLPO.Status.SUBMITTED
+		lplpo.status = LPLPO.Status.PIC_VERIFIED
 		lplpo.submitted_at = timezone.now()
 		lplpo.save(update_fields=["status", "submitted_at", "updated_at"])
 
@@ -400,7 +400,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(review_form["pemberian_jumlah"].value(), 12)
 
 	def test_review_rejects_decimal_pemberian_input(self):
-		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED, created_by=self.puskesmas_user)
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED, created_by=self.puskesmas_user)
 		line = LPLPOItem.objects.create(
 			lplpo=lplpo,
 			item=self.item_a,
@@ -679,10 +679,19 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertRedirects(response, reverse("lplpo:lplpo_my_list"))
 
 	def test_puskesmas_cannot_access_review(self):
-		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED)
 
 		self.client.force_login(self.puskesmas_user)
 		response = self.client.get(reverse("lplpo:lplpo_review", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("lplpo:lplpo_my_list"))
+
+	def test_puskesmas_cannot_access_verify(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.post(reverse("lplpo:lplpo_verify", args=[lplpo.pk]))
 
 		self.assertEqual(response.status_code, 302)
 		self.assertRedirects(response, reverse("lplpo:lplpo_my_list"))
@@ -709,13 +718,25 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		)
 
 	def test_puskesmas_detail_uses_operator_friendly_status_labels(self):
-		lplpo = self.create_lplpo(status=LPLPO.Status.REVIEWED)
+		lplpo = self.create_lplpo(status=LPLPO.Status.APPROVED)
 
 		self.client.force_login(self.puskesmas_user)
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
 		self.assertContains(response, "Disetujui / Menunggu Proses Distribusi")
-		self.assertNotContains(response, "<strong>Ditinjau</strong>", html=True)
+		self.assertNotContains(response, "<strong>Disetujui Kepala</strong>", html=True)
+
+	def test_operate_scope_user_can_verify_submitted_lplpo(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.post(reverse("lplpo:lplpo_verify", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 302)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.PIC_VERIFIED)
+		self.assertEqual(lplpo.verified_by, self.gudang_user)
+		self.assertIsNotNone(lplpo.verified_at)
 
 	def test_approve_scope_user_can_reject_submitted_lplpo(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
@@ -728,8 +749,25 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 		self.assertEqual(response.status_code, 302)
 		lplpo.refresh_from_db()
-		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED)
+		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PUSKESMAS)
 		self.assertEqual(lplpo.rejection_reason, "Data pemakaian belum lengkap.")
+
+	def test_kepala_can_reject_reviewed_lplpo_back_to_pic(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.REVIEWED, reviewed_by=self.gudang_user)
+
+		self.client.force_login(self.staff_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+			{"rejection_reason": "Sesuaikan jumlah pemberian dengan stok tersedia."},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PIC)
+		self.assertEqual(
+			lplpo.rejection_reason,
+			"Sesuaikan jumlah pemberian dengan stok tersedia.",
+		)
 
 	def test_reject_requires_reason(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
@@ -744,7 +782,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 	def test_rejection_reason_is_shown_on_detail(self):
 		lplpo = self.create_lplpo(
-			status=LPLPO.Status.REJECTED,
+			status=LPLPO.Status.REJECTED_PUSKESMAS,
 			rejection_reason="Mohon perbaiki angka penerimaan dan alasan permintaan.",
 		)
 
@@ -758,7 +796,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		)
 
 	def test_operator_can_edit_and_resubmit_rejected_lplpo(self):
-		lplpo = self.create_lplpo(status=LPLPO.Status.REJECTED)
+		lplpo = self.create_lplpo(status=LPLPO.Status.REJECTED_PUSKESMAS)
 		line = LPLPOItem.objects.create(
 			lplpo=lplpo,
 			item=self.item_a,
@@ -797,14 +835,23 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(lplpo.status, LPLPO.Status.SUBMITTED)
 		self.assertEqual(lplpo.rejection_reason, "")
 
-	def test_operate_scope_user_does_not_see_reject_button(self):
+	def test_operate_scope_user_sees_verify_and_reject_buttons(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
 
 		self.client.force_login(self.gudang_user)
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
+		self.assertContains(response, 'id="verify-btn"')
+		self.assertContains(response, 'id="reject-btn"')
+
+	def test_operate_scope_user_can_review_pic_verified_lplpo(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
 		self.assertContains(response, 'id="review-btn"')
-		self.assertNotContains(response, 'id="reject-btn"')
+		self.assertNotContains(response, 'id="finalize-btn"')
 
 	def test_puskesmas_detail_hides_distribution_navigation(self):
 		distribution = Distribution.objects.create(
@@ -815,7 +862,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			created_by=self.staff_user,
 		)
 		lplpo = self.create_lplpo(
-			status=LPLPO.Status.REVIEWED,
+			status=LPLPO.Status.APPROVED,
 			distribution=distribution,
 		)
 
@@ -839,7 +886,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			created_by=self.staff_user,
 		)
 		lplpo = self.create_lplpo(
-			status=LPLPO.Status.REVIEWED,
+			status=LPLPO.Status.APPROVED,
 			distribution=distribution,
 		)
 
@@ -879,7 +926,8 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			response,
 			reverse("distribution:distribution_detail", args=[distribution.pk]),
 		)
-		self.assertEqual(lplpo.status, LPLPO.Status.REVIEWED)
+		self.assertEqual(lplpo.status, LPLPO.Status.APPROVED)
+		self.assertEqual(lplpo.approved_by, self.superuser)
 		self.assertEqual(distribution.distribution_type, Distribution.DistributionType.LPLPO)
 		self.assertEqual(distribution.status, Distribution.Status.DRAFT)
 		self.assertEqual(distribution.items.count(), 1)
@@ -959,7 +1007,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			created_by=self.staff_user,
 		)
 		lplpo = self.create_lplpo(
-			status=LPLPO.Status.DISTRIBUTED,
+			status=LPLPO.Status.APPROVED,
 			distribution=distribution,
 			created_by=self.staff_user,
 		)
@@ -991,7 +1039,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		)
 
 	def test_review_uses_available_stock_not_total_stock(self):
-		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED, created_by=self.puskesmas_user)
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED, created_by=self.puskesmas_user)
 		LPLPOItem.objects.create(lplpo=lplpo, item=self.item_a, pemberian_jumlah=Decimal("1.00"))
 		Stock.objects.create(
 			item=self.item_a,
@@ -1062,7 +1110,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 	def test_edit_preserves_existing_pemberian_jumlah(self):
 		"""lplpo_edit must not overwrite pemberian_jumlah when it was already set by a reviewer."""
-		lplpo = self.create_lplpo(status=LPLPO.Status.REJECTED)
+		lplpo = self.create_lplpo(status=LPLPO.Status.REJECTED_PUSKESMAS)
 		line = LPLPOItem.objects.create(
 			lplpo=lplpo,
 			item=self.item_a,
@@ -1120,7 +1168,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 	def test_delete_rejected_lplpo_allowed(self):
 		"""A REJECTED LPLPO can be deleted by its Puskesmas operator."""
-		lplpo = self.create_lplpo(status=LPLPO.Status.REJECTED)
+		lplpo = self.create_lplpo(status=LPLPO.Status.REJECTED_PUSKESMAS)
 		pk = lplpo.pk
 
 		self.client.force_login(self.puskesmas_user)

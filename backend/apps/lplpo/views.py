@@ -59,6 +59,18 @@ def _check_instalasi_farmasi_access(request):
     return None
 
 
+def _has_lplpo_operate_access(user):
+    return user.role != User.Role.PUSKESMAS and has_module_scope(
+        user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE
+    )
+
+
+def _has_lplpo_approve_access(user):
+    return user.role != User.Role.PUSKESMAS and has_module_scope(
+        user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE
+    )
+
+
 def _check_puskesmas_creator_access(request):
     """Restrict create flow to PUSKESMAS operators and super admin."""
     if _is_super_admin(request.user):
@@ -83,7 +95,12 @@ def _get_submission_month_choices():
 
 def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
     queryset = LPLPO.objects.select_related(
-        "facility", "created_by", "reviewed_by", "distribution"
+        "facility",
+        "created_by",
+        "verified_by",
+        "reviewed_by",
+        "approved_by",
+        "distribution",
     )
     if submitted_only:
         queryset = queryset.filter(submitted_at__isnull=False)
@@ -348,7 +365,12 @@ def lplpo_detail(request, pk):
     """Read-only full view of an LPLPO."""
     lplpo = get_object_or_404(
         LPLPO.objects.select_related(
-            "facility", "created_by", "reviewed_by", "distribution"
+            "facility",
+            "created_by",
+            "verified_by",
+            "reviewed_by",
+            "approved_by",
+            "distribution",
         ),
         pk=pk,
     )
@@ -362,18 +384,8 @@ def lplpo_detail(request, pk):
         "item", "item__satuan", "item__kategori"
     ).order_by("item__kategori__sort_order", "item__nama_barang")
 
-    can_review = (
-        request.user.role != User.Role.PUSKESMAS
-        and has_module_scope(
-            request.user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE
-        )
-    )
-    can_approve = (
-        request.user.role != User.Role.PUSKESMAS
-        and has_module_scope(
-            request.user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE
-        )
-    )
+    can_review = _has_lplpo_operate_access(request.user)
+    can_approve = _has_lplpo_approve_access(request.user)
 
     # Group items by category for display
     grouped_items = {}
@@ -403,12 +415,15 @@ def lplpo_detail(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
 def lplpo_edit(request, pk):
-    """Puskesmas fills their columns — only DRAFT or REJECTED status."""
+    """Puskesmas fills their columns — only DRAFT or PIC-rejected status."""
     _check_puskesmas_draft_action_access(request)
 
     lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
 
-    if lplpo_obj.status not in (LPLPO.Status.DRAFT, LPLPO.Status.REJECTED):
+    if lplpo_obj.status not in (
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.REJECTED_PUSKESMAS,
+    ):
         messages.error(
             request,
             "Hanya LPLPO berstatus Draft atau Ditolak yang dapat diedit.",
@@ -520,7 +535,7 @@ def lplpo_edit(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
 def lplpo_submit(request, pk):
-    """Transition DRAFT/REJECTED → SUBMITTED."""
+    """Transition DRAFT/PIC rejection → SUBMITTED."""
     _check_puskesmas_draft_action_access(request)
 
     lplpo_obj = get_object_or_404(LPLPO, pk=pk)
@@ -530,7 +545,10 @@ def lplpo_submit(request, pk):
     if request.method != "POST":
         return redirect("lplpo:lplpo_detail", pk=pk)
 
-    if lplpo_obj.status not in (LPLPO.Status.DRAFT, LPLPO.Status.REJECTED):
+    if lplpo_obj.status not in (
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.REJECTED_PUSKESMAS,
+    ):
         messages.error(
             request,
             "Hanya LPLPO berstatus Draft atau Ditolak yang dapat diajukan.",
@@ -544,12 +562,31 @@ def lplpo_submit(request, pk):
             f"{zero_pemakaian_count} item memiliki pemakaian 0. Pastikan data sudah benar sebelum diajukan.",
         )
 
-    lplpo_obj.status = LPLPO.Status.SUBMITTED
-    lplpo_obj.rejection_reason = ""
-    lplpo_obj.submitted_at = timezone.now()
-    lplpo_obj.save(
-        update_fields=["status", "rejection_reason", "submitted_at", "updated_at"]
-    )
+    with transaction.atomic():
+        lplpo_obj = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
+        lplpo_obj.status = LPLPO.Status.SUBMITTED
+        lplpo_obj.rejection_reason = ""
+        lplpo_obj.submitted_at = timezone.now()
+        lplpo_obj.verified_by = None
+        lplpo_obj.verified_at = None
+        lplpo_obj.reviewed_by = None
+        lplpo_obj.reviewed_at = None
+        lplpo_obj.approved_by = None
+        lplpo_obj.approved_at = None
+        lplpo_obj.save(
+            update_fields=[
+                "status",
+                "rejection_reason",
+                "submitted_at",
+                "verified_by",
+                "verified_at",
+                "reviewed_by",
+                "reviewed_at",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ]
+        )
 
     if _is_super_admin(request.user):
         logger.info(
@@ -566,19 +603,59 @@ def lplpo_submit(request, pk):
 
 @login_required
 @perm_required("lplpo.change_lplpo")
-@module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE)
-def lplpo_reject(request, pk):
-    """Transition SUBMITTED → REJECTED."""
+@module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
+def lplpo_verify(request, pk):
+    """PIC verification gate for submitted LPLPO before detailed review."""
     denied = _check_instalasi_farmasi_access(request)
     if denied:
         return denied
 
-    lplpo_obj = get_object_or_404(LPLPO, pk=pk)
     if request.method != "POST":
         return redirect("lplpo:lplpo_detail", pk=pk)
 
-    if lplpo_obj.status != LPLPO.Status.SUBMITTED:
-        messages.error(request, "Hanya LPLPO berstatus Diajukan yang dapat ditolak.")
+    with transaction.atomic():
+        lplpo_obj = get_object_or_404(
+            LPLPO.objects.select_for_update(),
+            pk=pk,
+        )
+
+        if lplpo_obj.status != LPLPO.Status.SUBMITTED:
+            messages.error(
+                request,
+                "Hanya LPLPO berstatus Diajukan yang dapat diverifikasi oleh PIC.",
+            )
+            return redirect("lplpo:lplpo_detail", pk=pk)
+
+        lplpo_obj.status = LPLPO.Status.PIC_VERIFIED
+        lplpo_obj.verified_by = request.user
+        lplpo_obj.verified_at = timezone.now()
+        lplpo_obj.rejection_reason = ""
+        lplpo_obj.save(
+            update_fields=[
+                "status",
+                "verified_by",
+                "verified_at",
+                "rejection_reason",
+                "updated_at",
+            ]
+        )
+
+    messages.success(
+        request,
+        f"LPLPO {lplpo_obj.document_number} berhasil diverifikasi oleh PIC.",
+    )
+    return redirect("lplpo:lplpo_detail", pk=pk)
+
+
+@login_required
+@perm_required("lplpo.change_lplpo")
+def lplpo_reject(request, pk):
+    """Reject submitted LPLPO back to Puskesmas or reviewed LPLPO back to PIC."""
+    denied = _check_instalasi_farmasi_access(request)
+    if denied:
+        return denied
+
+    if request.method != "POST":
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     form = RejectLPLPOForm(request.POST)
@@ -586,10 +663,47 @@ def lplpo_reject(request, pk):
         messages.error(request, "Alasan penolakan wajib diisi.")
         return redirect("lplpo:lplpo_detail", pk=pk)
 
-    lplpo_obj.status = LPLPO.Status.REJECTED
-    lplpo_obj.rejection_reason = form.cleaned_data["rejection_reason"]
-    lplpo_obj.save(update_fields=["status", "rejection_reason", "updated_at"])
-    messages.success(request, f"LPLPO {lplpo_obj.document_number} berhasil ditolak.")
+    with transaction.atomic():
+        lplpo_obj = get_object_or_404(
+            LPLPO.objects.select_for_update(),
+            pk=pk,
+        )
+
+        if lplpo_obj.status == LPLPO.Status.SUBMITTED:
+            if not _has_lplpo_operate_access(request.user):
+                raise PermissionDenied("Anda tidak memiliki akses untuk menolak LPLPO ini.")
+            lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
+            success_message = (
+                f"LPLPO {lplpo_obj.document_number} berhasil dikembalikan ke Puskesmas."
+            )
+        elif lplpo_obj.status == LPLPO.Status.REVIEWED:
+            if not _has_lplpo_approve_access(request.user):
+                raise PermissionDenied("Anda tidak memiliki akses untuk menolak LPLPO ini.")
+            lplpo_obj.status = LPLPO.Status.REJECTED_PIC
+            lplpo_obj.approved_by = None
+            lplpo_obj.approved_at = None
+            success_message = (
+                f"LPLPO {lplpo_obj.document_number} berhasil dikembalikan ke PIC."
+            )
+        else:
+            messages.error(
+                request,
+                "Hanya LPLPO berstatus Diajukan atau Ditinjau PIC yang dapat ditolak.",
+            )
+            return redirect("lplpo:lplpo_detail", pk=pk)
+
+        lplpo_obj.rejection_reason = form.cleaned_data["rejection_reason"]
+        lplpo_obj.save(
+            update_fields=[
+                "status",
+                "rejection_reason",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ]
+        )
+
+    messages.success(request, success_message)
     return redirect("lplpo:lplpo_detail", pk=pk)
 
 
@@ -600,7 +714,7 @@ def lplpo_reject(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
 def lplpo_review(request, pk):
-    """Instalasi Farmasi fills pemberian columns. SUBMITTED → REVIEWED."""
+    """PIC fills granted quantities and submits reviewed LPLPO to Kepala."""
     denied = _check_instalasi_farmasi_access(request)
     if denied:
         return denied
@@ -609,8 +723,14 @@ def lplpo_review(request, pk):
         LPLPO.objects.select_related("facility"), pk=pk
     )
 
-    if lplpo_obj.status != LPLPO.Status.SUBMITTED:
-        messages.error(request, "Hanya LPLPO berstatus Diajukan yang dapat ditinjau.")
+    if lplpo_obj.status not in (
+        LPLPO.Status.PIC_VERIFIED,
+        LPLPO.Status.REJECTED_PIC,
+    ):
+        messages.error(
+            request,
+            "Hanya LPLPO yang sudah diverifikasi PIC atau dikembalikan Kepala yang dapat ditinjau.",
+        )
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     items_qs = lplpo_obj.items.select_related(
@@ -654,13 +774,20 @@ def lplpo_review(request, pk):
                 lplpo_obj.status = LPLPO.Status.REVIEWED
                 lplpo_obj.reviewed_by = request.user
                 lplpo_obj.reviewed_at = timezone.now()
+                lplpo_obj.rejection_reason = ""
                 lplpo_obj.save(
-                    update_fields=["status", "reviewed_by", "reviewed_at", "updated_at"]
+                    update_fields=[
+                        "status",
+                        "reviewed_by",
+                        "reviewed_at",
+                        "rejection_reason",
+                        "updated_at",
+                    ]
                 )
 
             messages.success(
                 request,
-                f"LPLPO {lplpo_obj.document_number} berhasil ditinjau.",
+                f"LPLPO {lplpo_obj.document_number} berhasil ditinjau dan diajukan ke Kepala Instalasi.",
             )
             return redirect("lplpo:lplpo_detail", pk=pk)
     else:
@@ -707,7 +834,7 @@ def lplpo_review(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE)
 def lplpo_finalize(request, pk):
-    """Create a draft Distribution from REVIEWED LPLPO without skipping Distribution workflow."""
+    """Approve a reviewed LPLPO and create its draft Distribution."""
     denied = _check_instalasi_farmasi_access(request)
     if denied:
         return denied
@@ -720,7 +847,7 @@ def lplpo_finalize(request, pk):
 
     if lplpo_obj.status != LPLPO.Status.REVIEWED:
         messages.error(
-            request, "Hanya LPLPO berstatus Ditinjau yang dapat difinalisasi."
+            request, "Hanya LPLPO berstatus Ditinjau PIC yang dapat disetujui."
         )
         return redirect("lplpo:lplpo_detail", pk=pk)
 
@@ -744,6 +871,17 @@ def lplpo_finalize(request, pk):
 
     try:
         with transaction.atomic():
+            lplpo_obj = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
+            if lplpo_obj.distribution_id:
+                messages.info(
+                    request,
+                    "Dokumen distribusi untuk LPLPO ini sudah dibuat sebelumnya.",
+                )
+                return redirect(
+                    "distribution:distribution_detail",
+                    pk=lplpo_obj.distribution_id,
+                )
+
             dist = Distribution.objects.create(
                 distribution_type=Distribution.DistributionType.LPLPO,
                 facility=lplpo_obj.facility,
@@ -766,9 +904,20 @@ def lplpo_finalize(request, pk):
             )
             assign_default_distribution_staff(dist, request.user)
 
+            lplpo_obj.status = LPLPO.Status.APPROVED
+            lplpo_obj.approved_by = request.user
+            lplpo_obj.approved_at = timezone.now()
+            lplpo_obj.rejection_reason = ""
             lplpo_obj.distribution = dist
             lplpo_obj.save(
-                update_fields=["distribution", "updated_at"]
+                update_fields=[
+                    "status",
+                    "approved_by",
+                    "approved_at",
+                    "rejection_reason",
+                    "distribution",
+                    "updated_at",
+                ]
             )
 
     except (IntegrityError, ValueError) as exc:
@@ -779,7 +928,7 @@ def lplpo_finalize(request, pk):
 
     messages.success(
         request,
-        f"LPLPO {lplpo_obj.document_number} difinalisasi. "
+        f"LPLPO {lplpo_obj.document_number} disetujui. "
         f"Distribusi {dist.document_number} telah dibuat sebagai Draft.",
     )
     return redirect("distribution:distribution_detail", pk=dist.pk)
@@ -793,7 +942,13 @@ def lplpo_finalize(request, pk):
 def lplpo_print(request, pk):
     """Print-friendly HTML version of the LPLPO."""
     lplpo_obj = get_object_or_404(
-        LPLPO.objects.select_related("facility", "created_by", "reviewed_by"),
+        LPLPO.objects.select_related(
+            "facility",
+            "created_by",
+            "verified_by",
+            "reviewed_by",
+            "approved_by",
+        ),
         pk=pk,
     )
     denied = _check_facility_access(request, lplpo_obj)
@@ -858,7 +1013,10 @@ def lplpo_delete(request, pk):
     if denied:
         return denied
 
-    if lplpo_obj.status not in (LPLPO.Status.DRAFT, LPLPO.Status.REJECTED):
+    if lplpo_obj.status not in (
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.REJECTED_PUSKESMAS,
+    ):
         messages.error(
             request,
             "Hanya LPLPO berstatus Draft atau Ditolak yang dapat dihapus.",

@@ -49,8 +49,16 @@
                         <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>
                             {% if request.user.role == 'PUSKESMAS' %}
                                 {% if val == 'SUBMITTED' %}
-                                Menunggu Tinjauan
+                                Menunggu Verifikasi PIC
+                                {% elif val == 'PIC_VERIFIED' %}
+                                Sedang Ditinjau PIC
+                                {% elif val == 'REJECTED_PUSKESMAS' %}
+                                Ditolak PIC
+                                {% elif val == 'REJECTED_PIC' %}
+                                Direvisi oleh PIC
                                 {% elif val == 'REVIEWED' %}
+                                Menunggu Persetujuan Kepala
+                                {% elif val == 'APPROVED' %}
                                 Disetujui / Menunggu Proses Distribusi
                                 {% elif val == 'DISTRIBUTED' %}
                                 Dokumen Distribusi Dibuat
@@ -128,11 +136,17 @@
                                 {% if lp.status == 'DRAFT' %}
                                 <span class="badge text-bg-secondary">Draft</span>
                                 {% elif lp.status == 'SUBMITTED' %}
-                                <span class="badge text-bg-warning">{% if request.user.role == 'PUSKESMAS' %}Menunggu Tinjauan{% else %}Diajukan{% endif %}</span>
-                                {% elif lp.status == 'REJECTED' %}
-                                <span class="badge text-bg-danger">Ditolak</span>
+                                <span class="badge text-bg-warning">{% if request.user.role == 'PUSKESMAS' %}Menunggu Verifikasi PIC{% else %}Menunggu Verifikasi PIC{% endif %}</span>
+                                {% elif lp.status == 'PIC_VERIFIED' %}
+                                <span class="badge text-bg-info">{% if request.user.role == 'PUSKESMAS' %}Sedang Ditinjau PIC{% else %}Terverifikasi PIC{% endif %}</span>
+                                {% elif lp.status == 'REJECTED_PUSKESMAS' %}
+                                <span class="badge text-bg-danger">{% if request.user.role == 'PUSKESMAS' %}Ditolak PIC{% else %}Dikembalikan ke Puskesmas{% endif %}</span>
                                 {% elif lp.status == 'REVIEWED' %}
-                                <span class="badge text-bg-info">{% if lp.distribution_id %}{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Diproses{% else %}Ditinjau / Distribusi Diproses{% endif %}{% else %}{% if request.user.role == 'PUSKESMAS' %}Disetujui / Menunggu Proses Distribusi{% else %}Ditinjau{% endif %}{% endif %}</span>
+                                <span class="badge text-bg-primary">{% if request.user.role == 'PUSKESMAS' %}Menunggu Persetujuan Kepala{% else %}Ditinjau PIC / Menunggu Persetujuan{% endif %}</span>
+                                {% elif lp.status == 'REJECTED_PIC' %}
+                                <span class="badge text-bg-danger">{% if request.user.role == 'PUSKESMAS' %}Direvisi oleh PIC{% else %}Dikembalikan ke PIC{% endif %}</span>
+                                {% elif lp.status == 'APPROVED' %}
+                                <span class="badge text-bg-success">{% if lp.distribution_id %}{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Diproses{% else %}Disetujui / Distribusi Diproses{% endif %}{% else %}{% if request.user.role == 'PUSKESMAS' %}Disetujui / Menunggu Proses Distribusi{% else %}Disetujui Kepala{% endif %}{% endif %}</span>
                                 {% elif lp.status == 'DISTRIBUTED' %}
                                 <span class="badge text-bg-primary">{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Dibuat{% else %}Didistribusikan{% endif %}</span>
                                 {% elif lp.status == 'CLOSED' %}

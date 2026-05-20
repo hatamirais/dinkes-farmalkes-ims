@@ -229,7 +229,7 @@
                                 {% endif %}
                                 {% else %}
                                 {# Regular distribution: full workflow actions #}
-                                {% if distribution.status == 'DRAFT' %}
+                                {% if can_edit_distribution %}
                                 <a href="{% url 'distribution:distribution_edit' distribution.pk %}" class="btn btn-outline-secondary btn-sm">
                                     <i class="bi bi-pencil me-1"></i>Ubah
                                 </a>
@@ -239,43 +239,37 @@
                                         <i class="bi bi-trash me-1"></i>Hapus Dokumen
                                     </button>
                                 </form>
-                                <form method="post" action="{% url 'distribution:distribution_submit' distribution.pk %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-primary btn-sm w-100">
-                                        <i class="bi bi-send me-1"></i>Ajukan
-                                    </button>
-                                </form>
-                                {% elif distribution.status == 'SUBMITTED' %}
-                                <a href="{% url 'distribution:distribution_edit' distribution.pk %}" class="btn btn-outline-secondary btn-sm">
-                                    <i class="bi bi-pencil me-1"></i>Ubah
-                                </a>
-                                <form method="post" action="{% url 'distribution:distribution_verify' distribution.pk %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-success btn-sm w-100">
-                                        <i class="bi bi-patch-check me-1"></i>Verifikasi
-                                    </button>
-                                </form>
-                                <form method="post" action="{% url 'distribution:distribution_reject' distribution.pk %}" data-confirm-submit="Yakin ingin menolak distribusi ini?">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                                        <i class="bi bi-x-circle me-1"></i>Tolak
-                                    </button>
-                                </form>
-                                {% elif distribution.status == 'REJECTED' %}
-                                <form method="post" action="{% url 'distribution:distribution_delete' distribution.pk %}" data-confirm-submit="Hapus distribusi yang ditolak ini? Tindakan ini tidak dapat dibatalkan.">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                                        <i class="bi bi-trash me-1"></i>Hapus Dokumen
-                                    </button>
-                                </form>
-                                {% elif distribution.status == 'VERIFIED' %}
+                                {% if can_prepare_distribution %}
                                 <form method="post" action="{% url 'distribution:distribution_prepare' distribution.pk %}">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-info btn-sm w-100">
-                                        <i class="bi bi-box-seam me-1"></i>Siapkan Barang
+                                        <i class="bi bi-box-seam me-1"></i>Tandai Siap
                                     </button>
                                 </form>
-                                {% elif distribution.status == 'PREPARED' %}
+                                {% endif %}
+                                {% elif can_submit_distribution %}
+                                <form method="post" action="{% url 'distribution:distribution_submit' distribution.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                                        <i class="bi bi-send me-1"></i>Ajukan ke Kepala
+                                    </button>
+                                </form>
+                                {% elif can_verify_distribution %}
+                                <form method="post" action="{% url 'distribution:distribution_verify' distribution.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success btn-sm w-100">
+                                        <i class="bi bi-patch-check me-1"></i>Setujui
+                                    </button>
+                                </form>
+                                {% if can_reject_distribution %}
+                                <form method="post" action="{% url 'distribution:distribution_reject' distribution.pk %}" data-confirm-submit="Yakin ingin mengembalikan distribusi ini ke petugas yang ditugaskan?">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                        <i class="bi bi-x-circle me-1"></i>Kembalikan ke Petugas
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% elif can_distribute_distribution %}
                                 <button type="button" class="btn btn-success btn-sm w-100"
                                         data-bs-toggle="modal" data-bs-target="#distributeModal">
                                     <i class="bi bi-truck me-1"></i>Distribusikan
@@ -297,7 +291,7 @@
                                     </button>
                                 </form>
                                 {% endif %}
-                                {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}
+                                {% if distribution.status == 'VERIFIED' or distribution.approved_by %}
                                 <button type="button" class="btn btn-dark btn-sm" data-action="print">
                                     <i class="bi bi-printer me-1"></i>Cetak SBBK
                                 </button>

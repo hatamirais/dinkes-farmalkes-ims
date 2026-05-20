@@ -20,7 +20,11 @@
             <h5 class="mb-0">{{ lplpo.document_number }}</h5>
             <span class="text-muted">{{ lplpo.facility.name }} — {{ lplpo.period_display }}</span>
         </div>
-        <span class="badge text-bg-warning fs-6">DIAJUKAN — Menunggu Tinjauan</span>
+        {% if lplpo.status == 'REJECTED_PIC' %}
+        <span class="badge text-bg-danger fs-6">REVISI KEPALA — Perbaiki Tinjauan PIC</span>
+        {% else %}
+        <span class="badge text-bg-info fs-6">TERVERIFIKASI PIC — Siap Ditinjau</span>
+        {% endif %}
     </div>
 
     <form method="post" id="review-form">
@@ -82,7 +86,7 @@
 
         <div class="d-flex gap-2 mb-4">
             <button type="submit" class="btn btn-info text-white" id="save-review-btn">
-                <i class="bi bi-clipboard-check me-1"></i>Simpan & Tinjau (REVIEWED)
+                <i class="bi bi-clipboard-check me-1"></i>Simpan & Ajukan ke Kepala
             </button>
             <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="btn btn-outline-secondary">Batal</a>
         </div>

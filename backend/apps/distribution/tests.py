@@ -24,6 +24,24 @@ class DistributionWorkflowTest(TestCase):
             username="gudang_dist",
             password="secret12345",
         )
+        cls.preparer_user = User.objects.create_user(
+            username="petugas_prepare",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(cls.preparer_user, overwrite=True)
+        cls.other_preparer_user = User.objects.create_user(
+            username="petugas_lain",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(cls.other_preparer_user, overwrite=True)
+        cls.kepala_user = User.objects.create_user(
+            username="kepala_dist",
+            password="secret12345",
+            role=User.Role.KEPALA,
+        )
+        ensure_default_module_access(cls.kepala_user, overwrite=True)
 
         cls.unit = Unit.objects.create(code="TAB", name="Tablet")
         cls.category = Category.objects.create(
@@ -67,6 +85,7 @@ class DistributionWorkflowTest(TestCase):
         status=Distribution.Status.DRAFT,
         with_items=True,
         distribution_type=Distribution.DistributionType.LPLPO,
+        assigned_users=None,
     ):
         """Helper to create a distribution with optional items."""
         dist = Distribution.objects.create(
@@ -84,6 +103,8 @@ class DistributionWorkflowTest(TestCase):
                 quantity_approved=Decimal("40"),
                 stock=self.stock,
             )
+        for user in assigned_users or []:
+            dist.staff_assignments.create(user=user)
         return dist
 
     # --- Auto-generated document number ---
@@ -185,8 +206,10 @@ class DistributionWorkflowTest(TestCase):
     # --- Submit workflow ---
 
     def test_submit_draft_to_submitted(self):
-        dist = self._create_distribution(status=Distribution.Status.DRAFT)
-        dist.staff_assignments.create(user=self.user)
+        dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            assigned_users=[self.user],
+        )
         response = self.client.post(
             reverse("distribution:distribution_submit", args=[dist.pk])
         )
@@ -215,17 +238,19 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
 
     def test_submit_requires_assigned_staff(self):
-        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        dist = self._create_distribution(status=Distribution.Status.PREPARED)
         response = self.client.post(
             reverse("distribution:distribution_submit", args=[dist.pk])
         )
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
 
     def test_submit_with_assigned_staff_moves_to_submitted(self):
-        dist = self._create_distribution(status=Distribution.Status.DRAFT)
-        dist.staff_assignments.create(user=self.user)
+        dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            assigned_users=[self.user],
+        )
 
         response = self.client.post(
             reverse("distribution:distribution_submit", args=[dist.pk])
@@ -479,7 +504,10 @@ class DistributionWorkflowTest(TestCase):
     # --- Prepare workflow ---
 
     def test_prepare_verified_to_prepared(self):
-        dist = self._create_distribution(status=Distribution.Status.VERIFIED)
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            assigned_users=[self.user],
+        )
         response = self.client.post(
             reverse("distribution:distribution_prepare", args=[dist.pk])
         )
@@ -487,10 +515,55 @@ class DistributionWorkflowTest(TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.PREPARED)
 
+    def test_assigned_staff_can_prepare_draft_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_prepare", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+
+    def test_non_assigned_staff_cannot_prepare_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.other_preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_prepare", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+
+    def test_assigned_staff_can_submit_prepared_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_submit", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+
     # --- Distribute workflow (stock deduction + transaction) ---
 
     def test_distribute_deducts_stock_and_creates_transaction(self):
-        dist = self._create_distribution(status=Distribution.Status.PREPARED)
+        dist = self._create_distribution(status=Distribution.Status.VERIFIED)
         response = self.client.post(
             reverse("distribution:distribution_distribute", args=[dist.pk])
         )
@@ -522,13 +595,13 @@ class DistributionWorkflowTest(TestCase):
     def test_distribute_insufficient_stock_fails(self):
         self.stock.quantity = Decimal("10")
         self.stock.save()
-        dist = self._create_distribution(status=Distribution.Status.PREPARED)
+        dist = self._create_distribution(status=Distribution.Status.VERIFIED)
         response = self.client.post(
             reverse("distribution:distribution_distribute", args=[dist.pk])
         )
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.PREPARED)  # unchanged
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)  # unchanged
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, Decimal("10"))  # unchanged
 
@@ -612,7 +685,7 @@ class DistributionWorkflowTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
 
     def test_step_back_prepared_to_verified(self):
         dist = self._create_distribution(status=Distribution.Status.PREPARED)
@@ -621,7 +694,7 @@ class DistributionWorkflowTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
 
     def test_step_back_rejected_to_submitted(self):
         dist = self._create_distribution(status=Distribution.Status.REJECTED)
@@ -1005,7 +1078,7 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_gudang_cannot_distribute_distribution(self):
-        dist = self._create_distribution(status=Distribution.Status.PREPARED)
+        dist = self._create_distribution(status=Distribution.Status.VERIFIED)
         gudang = User.objects.create_user(
             username="gudang_only_distribute",
             password="secret12345",
@@ -1021,8 +1094,21 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 403)
         dist.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
         self.assertEqual(self.stock.quantity, Decimal("200"))
+
+    def test_non_assigned_staff_cannot_edit_draft_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.other_preparer_user)
+
+        response = self.client.get(
+            reverse("distribution:distribution_edit", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
 
     # --- Model-level validation (Issue #11) ---
 

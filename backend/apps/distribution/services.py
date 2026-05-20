@@ -62,6 +62,11 @@ def execute_distribution_submission(distribution):
             "Pilih minimal 1 staf terlibat sebelum mengajukan distribusi."
         )
 
+    if distribution.status != Distribution.Status.PREPARED:
+        raise DistributionWorkflowError(
+            "Hanya distribusi berstatus Disiapkan yang dapat diajukan ke Kepala Instalasi."
+        )
+
     distribution.status = Distribution.Status.SUBMITTED
     _save_distribution(distribution, ["status"])
 
@@ -82,6 +87,15 @@ def execute_distribution_verification(distribution, user):
 
 
 def execute_distribution_preparation(distribution):
+    allowed_statuses = {Distribution.Status.DRAFT, Distribution.Status.REJECTED}
+    if distribution.distribution_type == Distribution.DistributionType.ALLOCATION:
+        allowed_statuses = {Distribution.Status.VERIFIED}
+
+    if distribution.status not in allowed_statuses:
+        raise DistributionWorkflowError(
+            "Status distribusi saat ini tidak dapat ditandai sebagai siap."
+        )
+
     distribution.status = Distribution.Status.PREPARED
     _save_distribution(distribution, ["status"])
 
@@ -188,9 +202,9 @@ def execute_distribution_reset_to_draft(distribution):
 
 def get_distribution_step_back_target(distribution):
     previous_status_map = {
-        Distribution.Status.SUBMITTED: Distribution.Status.DRAFT,
+        Distribution.Status.PREPARED: Distribution.Status.DRAFT,
+        Distribution.Status.SUBMITTED: Distribution.Status.PREPARED,
         Distribution.Status.VERIFIED: Distribution.Status.SUBMITTED,
-        Distribution.Status.PREPARED: Distribution.Status.VERIFIED,
         Distribution.Status.REJECTED: Distribution.Status.SUBMITTED,
     }
     return previous_status_map.get(distribution.status)

@@ -28,8 +28,12 @@ class LPLPOAdmin(admin.ModelAdmin):
     readonly_fields = (
         "document_number",
         "created_by",
+        "verified_by",
+        "verified_at",
         "reviewed_by",
         "reviewed_at",
+        "approved_by",
+        "approved_at",
         "submitted_at",
         "distribution",
     )

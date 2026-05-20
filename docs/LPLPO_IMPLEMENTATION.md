@@ -1,5 +1,7 @@
 # LPLPO Feature Implementation Guide
 
+> Historical design reference. The current source of truth is the live code in `backend/apps/lplpo/`, `backend/apps/distribution/`, and `SYSTEM_MODEL.md`. This document summarizes the implemented workflow shape after issue `#75`, but some lower sections remain legacy design notes.
+
 ## Overview
 
 This document describes the full implementation plan for the **Laporan Pemakaian dan Lembar Permintaan Obat (LPLPO)** module. It is intended as a complete specification for a coding agent to implement without ambiguity.
@@ -32,18 +34,29 @@ LPLPO is a monthly document submitted by each Puskesmas to Instalasi Farmasi. It
    Waktu Kosong, Permintaan Jumlah, Permintaan Alasan
 5. All computed fields are calculated automatically (see formulas)
 6. Puskesmas submits LPLPO → status: SUBMITTED
-7. Kepala Instalasi / approver can reject submitted LPLPO with a required rejection reason → status: REJECTED
-8. Puskesmas revises rejected LPLPO and re-submits it when ready
+7. PIC Gudang verifies incoming LPLPO → status: PIC_VERIFIED
+8. PIC Gudang can reject submitted LPLPO back to Puskesmas with a required rejection reason
+   → status: REJECTED_PUSKESMAS
+9. Puskesmas revises rejected LPLPO and re-submits it when ready
 
 [Instalasi Farmasi Operator]
-9. Reviews submitted LPLPO
-10. System suggests Pemberian Jumlah = Jumlah Kebutuhan per item
-11. Operator adjusts Pemberian Jumlah based on actual warehouse stock
-12. Operator fills Pemberian Alasan where adjusted
-13. Operator finalizes → status: REVIEWED
-14. System auto-generates a draft Distribution document (type: LPLPO)
-    while the LPLPO remains in REVIEWED until the Distribution workflow is completed
-15. LPLPO status → CLOSED after the linked Distribution reaches DISTRIBUTED
+10. PIC Gudang reviews verified LPLPO
+11. System suggests Pemberian Jumlah = Jumlah Kebutuhan per item
+12. PIC adjusts Pemberian Jumlah based on actual warehouse stock
+13. PIC fills Pemberian Alasan where adjusted
+14. PIC submits reviewed LPLPO upward → status: REVIEWED
+15. Kepala Instalasi can reject reviewed LPLPO back to PIC with a required rejection reason
+    → status: REJECTED_PIC
+16. Kepala Instalasi approves/finalizes reviewed LPLPO → status: APPROVED
+17. System auto-generates a linked draft Distribution document (type: LPLPO)
+18. LPLPO status → CLOSED after the linked Distribution reaches DISTRIBUTED
+
+[Distribution Preparation]
+19. Assigned staff prepare the linked Distribution from `DRAFT` or `REJECTED`
+    → status: PREPARED
+20. Assigned staff submit the prepared Distribution → status: SUBMITTED
+21. Kepala Instalasi verifies or rejects the submission
+22. Verified Distribution is distributed and stock leaves the system
 
 [Next Month Auto-fill]
 14. When Puskesmas opens next month's LPLPO:
@@ -81,7 +94,7 @@ Then aggregate `quantity_approved` per `item` across all matching `DistributionI
 - **Month 1 (first ever LPLPO for a Puskesmas)**: filled manually by Puskesmas operator
 - **Subsequent months**: `Stock_Awal = previous month's Stock_Keseluruhan`
   - Lookup: previous LPLPO for same facility where `(bulan, tahun)` is one month earlier
-  - If previous LPLPO exists and is CLOSED, auto-fill from `stock_keseluruhan`
+  - If previous LPLPO exists and is not rejected back to Puskesmas or PIC, auto-fill from `stock_keseluruhan`
   - If no previous LPLPO exists, field is editable
 
 ---

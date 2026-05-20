@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-05-04
+Last verified: 2026-05-20
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`
 
 ## 1) Domain Overview
@@ -54,7 +54,7 @@ Module highlights:
 - Special requests: `/distribution/special-requests/`, `/distribution/special-requests/create/`
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
-- LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
+- LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
@@ -197,6 +197,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Type: `LPLPO`, `ALLOCATION`, `SPECIAL_REQUEST`
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `GENERATED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
   - Current allocation workflow auto-generates child distributions directly in `VERIFIED`; `GENERATED` remains in the enum for compatibility with older rows and migrations, but is not emitted by the active services
+  - Current regular/special-request workflow is `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`
   - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED` or compatibility-only `GENERATED`)
   - Provides `kepala_instalasi` and `petugas` assignments logic for print outputs
   - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank for non-rule types; `LPLPO` and `SPECIAL_REQUEST` use the templates stored in `SystemSettings`), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
@@ -211,7 +212,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `distribution.DistributionStaffAssignment` (`distribution_staff_assignments`):
   - FKs: `distribution`, `user`
-  - Purpose: stores staff involved in a distribution document and surfaces them in detail/print output
+  - Purpose: stores staff involved in a distribution document, surfaces them in detail/print output, and acts as the object-level authorization source for draft/rejected preparation and submission
   - Constraint: unique pair per (`distribution`, `user`)
 
 ### 4.7 Allocation
@@ -306,11 +307,13 @@ This section reflects model code in `backend/apps/*/models.py`.
 ### 4.13 LPLPO
 
 - `lplpo.LPLPO` (`lplpos`):
-  - Status: `DRAFT`, `SUBMITTED`, `REJECTED`, `REVIEWED`, `DISTRIBUTED`, `CLOSED`
+  - Status: `DRAFT`, `SUBMITTED`, `PIC_VERIFIED`, `REJECTED_PUSKESMAS`, `REVIEWED`, `REJECTED_PIC`, `APPROVED`, `DISTRIBUTED`, `CLOSED`
   - Fields: `bulan`, `tahun`, `document_number` (auto-generated `LPLPO-YYYYMM-XXXXX` when blank), `rejection_reason`, `notes`
-  - FKs: `facility` (puskesmas only), `created_by`, `reviewed_by` (nullable), `distribution` (nullable OneToOne)
-  - Timestamps: `submitted_at`, `reviewed_at`
+  - FKs: `facility` (puskesmas only), `created_by`, `verified_by` (nullable), `reviewed_by` (nullable), `approved_by` (nullable), `distribution` (nullable OneToOne)
+  - Timestamps: `submitted_at`, `verified_at`, `reviewed_at`, `approved_at`
   - Constraints/Indexes: `uq_lplpo_facility_period` unique on `(facility, bulan, tahun)`, `idx_lplpo_facility_period` on `(facility, tahun, bulan)`, `idx_lplpo_status` on `(status)`
+  - Workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> REVIEWED -> APPROVED -> CLOSED`
+  - Rejection loops are `SUBMITTED -> REJECTED_PUSKESMAS` and `REVIEWED -> REJECTED_PIC`
 
 - `lplpo.LPLPOItem` (`lplpo_items`):
   - FKs: `lplpo`, `item`
@@ -318,7 +321,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Computed fields (auto): `persediaan`, `stock_keseluruhan`, `stock_optimum`, `jumlah_kebutuhan`
   - IF fields: `pemberian_jumlah` (nullable), `pemberian_alasan`
   - Audit: `penerimaan_auto_filled`
-  - Create flow auto-fills `stock_awal` from the previous month's LPLPO for the same facility when that prior document exists and is not `REJECTED`
+  - Create flow auto-fills `stock_awal` from the previous month's LPLPO for the same facility when that prior document exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`
 
 ## 5) Stock Mutation Checkpoints
 
@@ -331,10 +334,11 @@ Operational mutation points (from app behavior and admin import logic):
   - `Stock` update/create
   - `Transaction(IN)`
   - Rows are grouped by `document_number`; the first row supplies header-level values, while row-level `sumber_dana_code` and `location_code` can override header defaults
-- LPLPO Finalize creates a Distribution document mapped 1:1.
+- LPLPO approval/finalize creates a Distribution document mapped 1:1, marks the LPLPO `APPROVED`, and closes the LPLPO once the linked Distribution reaches `DISTRIBUTED`.
 - Distribution:
   - verification and distribution validations use `Stock.available_quantity` (`quantity - reserved`) when checking the selected batch
   - prepare phase updates document status only (no stock mutation and no reservation write)
+  - draft/rejected preparation and submission are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
   - distribute phase decreases `Stock.quantity` and posts `Transaction(OUT)`; the current workflow does not automatically increment or clear `stock.reserved`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
