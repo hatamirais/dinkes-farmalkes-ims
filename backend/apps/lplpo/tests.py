@@ -1,6 +1,8 @@
+import importlib
 from datetime import date, datetime
 from decimal import Decimal
 
+from django.apps import apps as django_apps
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
@@ -963,6 +965,33 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			Distribution.objects.filter(distribution_type=Distribution.DistributionType.LPLPO).count(),
 			1,
 		)
+
+	def test_migration_marks_reviewed_lplpo_with_distribution_as_approved(self):
+		distribution = Distribution.objects.create(
+			distribution_type=Distribution.DistributionType.LPLPO,
+			facility=self.facility,
+			request_date=date(2026, 2, 1),
+			status=Distribution.Status.DRAFT,
+			created_by=self.superuser,
+		)
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.REVIEWED,
+			distribution=distribution,
+			created_by=self.staff_user,
+		)
+		lplpo.approved_by = None
+		lplpo.approved_at = None
+		lplpo.save(update_fields=["approved_by", "approved_at", "updated_at"])
+
+		migration = importlib.import_module(
+			"apps.lplpo.migrations.0008_lplpo_approved_at_lplpo_approved_by_and_more"
+		)
+		migration.migrate_legacy_statuses(django_apps, None)
+
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.APPROVED)
+		self.assertEqual(lplpo.approved_by, distribution.created_by)
+		self.assertEqual(lplpo.approved_at, distribution.created_at)
 
 	def test_print_report_uses_current_filters(self):
 		matching = self.create_lplpo(status=LPLPO.Status.SUBMITTED, bulan=4, tahun=2026)

@@ -560,6 +560,20 @@ class DistributionWorkflowTest(TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
 
+    def test_prepare_allocation_verified_to_prepared(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            distribution_type=Distribution.DistributionType.ALLOCATION,
+        )
+
+        response = self.client.post(
+            reverse("distribution:distribution_prepare", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+
     # --- Distribute workflow (stock deduction + transaction) ---
 
     def test_distribute_deducts_stock_and_creates_transaction(self):
@@ -604,6 +618,22 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(dist.status, Distribution.Status.VERIFIED)  # unchanged
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, Decimal("10"))  # unchanged
+
+    def test_distribute_allocation_prepared_deducts_stock_and_creates_transaction(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            distribution_type=Distribution.DistributionType.ALLOCATION,
+        )
+
+        response = self.client.post(
+            reverse("distribution:distribution_distribute", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)
+        self.assertEqual(self.stock.quantity, Decimal("160"))
 
     # --- Reject workflow ---
 
@@ -1184,4 +1214,3 @@ class DistributionWorkflowTest(TestCase):
         item_line.refresh_from_db()
         self.assertEqual(item_line.quantity_requested, Decimal("50"))
         self.assertEqual(item_line.quantity_approved, Decimal("100"))
-

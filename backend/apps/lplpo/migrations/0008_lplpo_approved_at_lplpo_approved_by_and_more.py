@@ -5,9 +5,19 @@ from django.conf import settings
 from django.db import migrations, models
 
 
-def migrate_legacy_rejected_status(apps, schema_editor):
+def migrate_legacy_statuses(apps, schema_editor):
     LPLPO = apps.get_model("lplpo", "LPLPO")
     LPLPO.objects.filter(status="REJECTED").update(status="REJECTED_PUSKESMAS")
+    for lplpo in LPLPO.objects.filter(
+        status="REVIEWED",
+        distribution_id__isnull=False,
+    ).select_related("distribution"):
+        lplpo.status = "APPROVED"
+        if lplpo.approved_at is None and lplpo.distribution_id:
+            lplpo.approved_at = lplpo.distribution.created_at
+        if lplpo.approved_by_id is None and lplpo.distribution_id:
+            lplpo.approved_by_id = lplpo.distribution.created_by_id
+        lplpo.save(update_fields=["status", "approved_at", "approved_by"])
 
 
 class Migration(migrations.Migration):
@@ -39,7 +49,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='verified_lplpos', to=settings.AUTH_USER_MODEL),
         ),
         migrations.RunPython(
-            migrate_legacy_rejected_status,
+            migrate_legacy_statuses,
             migrations.RunPython.noop,
         ),
         migrations.AlterField(

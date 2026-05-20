@@ -553,11 +553,16 @@ def distribution_prepare(request, pk):
             "Hanya petugas yang ditugaskan yang dapat menyiapkan distribusi ini."
         )
 
-    if dist.status not in (Distribution.Status.DRAFT, Distribution.Status.REJECTED):
-        messages.error(
-            request,
-            "Hanya distribusi Draft atau Ditolak yang dapat ditandai siap.",
+    allowed_statuses = {Distribution.Status.DRAFT, Distribution.Status.REJECTED}
+    error_message = "Hanya distribusi Draft atau Ditolak yang dapat ditandai siap."
+    if dist.distribution_type == Distribution.DistributionType.ALLOCATION:
+        allowed_statuses = {Distribution.Status.VERIFIED}
+        error_message = (
+            "Hanya distribusi alokasi berstatus Diverifikasi yang dapat ditandai siap."
         )
+
+    if dist.status not in allowed_statuses:
+        messages.error(request, error_message)
         return _redirect_distribution_detail(pk)
 
     execute_distribution_preparation(dist)
@@ -574,10 +579,18 @@ def distribution_distribute(request, pk):
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
 
-    if dist.status != Distribution.Status.VERIFIED:
-        messages.error(
-            request, "Hanya distribusi berstatus Diverifikasi yang dapat didistribusikan."
+    allowed_statuses = {Distribution.Status.VERIFIED}
+    error_message = (
+        "Hanya distribusi berstatus Diverifikasi yang dapat didistribusikan."
+    )
+    if dist.distribution_type == Distribution.DistributionType.ALLOCATION:
+        allowed_statuses = {Distribution.Status.PREPARED}
+        error_message = (
+            "Hanya distribusi alokasi berstatus Disiapkan yang dapat didistribusikan."
         )
+
+    if dist.status not in allowed_statuses:
+        messages.error(request, error_message)
         return _redirect_distribution_detail(pk)
 
     try:
