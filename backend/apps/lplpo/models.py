@@ -1,3 +1,4 @@
+import calendar
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
@@ -14,6 +15,37 @@ def normalize_whole_number(value):
         return value
     decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
     return int(decimal_value.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def get_active_lplpo_year(server_date=None):
+    """Return the active server-calendar year for LPLPO creation rules."""
+    return (server_date or timezone.localdate()).year
+
+
+def format_lplpo_period_label(bulan, tahun):
+    """Return a human-friendly period label for messages and help text."""
+    return f"{calendar.month_name[bulan]} {tahun}"
+
+
+def get_next_required_lplpo_period(facility, *, server_date=None):
+    """
+    Return the next contiguous month that must be created for a facility.
+
+    The sequence resets every active server-calendar year and always starts
+    from January. Any existing LPLPO in that year counts toward continuity,
+    regardless of workflow status.
+    """
+    active_year = get_active_lplpo_year(server_date)
+    existing_months = set(
+        LPLPO.objects.filter(facility=facility, tahun=active_year).values_list(
+            "bulan", flat=True
+        )
+    )
+
+    for month in range(1, 13):
+        if month not in existing_months:
+            return active_year, month
+    return active_year, None
 
 
 class LPLPO(TimeStampedModel):

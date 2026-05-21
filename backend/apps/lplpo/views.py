@@ -16,13 +16,21 @@ from django.utils import timezone
 from apps.core.decorators import module_scope_required, perm_required
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
-from apps.items.models import Item
+from apps.items.models import Facility, Item
 from apps.stock.models import Stock
 from apps.users.access import has_module_scope
 from apps.users.models import ModuleAccess, User
 
 from .forms import LPLPOCreateForm, LPLPOItemPuskesmasForm, LPLPOItemReviewForm, RejectLPLPOForm
-from .models import LPLPO, LPLPOItem, get_penerimaan_for_facility_period, get_previous_lplpo
+from .models import (
+    LPLPO,
+    LPLPOItem,
+    format_lplpo_period_label,
+    get_active_lplpo_year,
+    get_next_required_lplpo_period,
+    get_penerimaan_for_facility_period,
+    get_previous_lplpo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +99,13 @@ def _check_puskesmas_draft_action_access(request):
 
 def _get_submission_month_choices():
     return [(str(month), calendar.month_name[month]) for month in range(1, 13)]
+
+
+def _resolve_lplpo_create_facility(form, user):
+    facility = getattr(user, "facility", None)
+    if _is_super_admin(user) or not facility:
+        facility = form.cleaned_data.get("facility")
+    return facility
 
 
 def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
@@ -218,9 +233,7 @@ def lplpo_create(request):
             tahun = int(form.cleaned_data["tahun"])
 
             # Determine facility
-            facility = request.user.facility
-            if _is_super_admin(request.user) or not facility:
-                facility = form.cleaned_data.get("facility")
+            facility = _resolve_lplpo_create_facility(form, request.user)
 
             if not facility:
                 messages.error(
@@ -229,17 +242,48 @@ def lplpo_create(request):
                 )
                 return render(request, "lplpo/lplpo_create.html", {"form": form})
 
-            # Check uniqueness
-            if LPLPO.objects.filter(
-                facility=facility, bulan=bulan, tahun=tahun
-            ).exists():
-                messages.error(
-                    request,
-                    f"LPLPO untuk {facility.name} periode {bulan}/{tahun} sudah ada.",
-                )
-                return render(request, "lplpo/lplpo_create.html", {"form": form})
-
             with transaction.atomic():
+                Facility.objects.select_for_update().get(pk=facility.pk)
+
+                server_date = timezone.localdate()
+                active_year = get_active_lplpo_year(server_date)
+                expected_year, expected_month = get_next_required_lplpo_period(
+                    facility, server_date=server_date
+                )
+                if expected_month is None:
+                    form.add_error(
+                        None,
+                        f"Semua LPLPO tahun {active_year} untuk {facility.name} sudah dibuat.",
+                    )
+                    return render(request, "lplpo/lplpo_create.html", {"form": form})
+
+                if tahun != expected_year or bulan != expected_month:
+                    required_period = format_lplpo_period_label(
+                        expected_month, expected_year
+                    )
+                    if tahun != expected_year:
+                        form.add_error(
+                            "tahun",
+                            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {expected_year}.",
+                        )
+                    if bulan != expected_month:
+                        form.add_error(
+                            "bulan",
+                            f"Periode berikutnya yang wajib dibuat adalah {required_period}.",
+                        )
+                    return render(request, "lplpo/lplpo_create.html", {"form": form})
+
+                # Check uniqueness after row lock to avoid double-create races.
+                if LPLPO.objects.filter(
+                    facility=facility, bulan=bulan, tahun=tahun
+                ).exists():
+                    form.add_error(
+                        "bulan",
+                        f"LPLPO untuk {facility.name} periode "
+                        f"{format_lplpo_period_label(bulan, tahun)} sudah ada.",
+                    )
+                    return render(request, "lplpo/lplpo_create.html", {"form": form})
+
                 lplpo = LPLPO.objects.create(
                     facility=facility,
                     bulan=bulan,

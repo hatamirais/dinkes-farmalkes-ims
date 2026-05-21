@@ -2,13 +2,19 @@ import calendar
 import unicodedata
 from decimal import ROUND_HALF_UP
 
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Layout
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 
 from apps.users.models import User
 
-from .models import LPLPOItem
+from .models import (
+    LPLPOItem,
+    format_lplpo_period_label,
+    get_active_lplpo_year,
+    get_next_required_lplpo_period,
+)
 
 
 def _normalize_text_value(value, *, field_label, max_length=None):
@@ -36,7 +42,7 @@ class LPLPOCreateForm(forms.Form):
     tahun = forms.IntegerField(
         min_value=2020,
         max_value=2099,
-        initial=timezone.now().year,
+        initial=get_active_lplpo_year(),
         widget=forms.NumberInput(attrs={"class": "form-control"}),
         label="Tahun",
     )
@@ -59,12 +65,118 @@ class LPLPOCreateForm(forms.Form):
         super().__init__(*args, **kwargs)
         from apps.items.models import Facility
 
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Div("bulan", css_class="mb-3"),
+            Div("tahun", css_class="mb-3"),
+            Div("facility", css_class="mb-3"),
+            Div("notes", css_class="mb-0"),
+        )
+
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type="PUSKESMAS", is_active=True
+        ).order_by("name")
+        self.active_year = get_active_lplpo_year()
+        self.next_required_month = None
+        self.selected_facility = self._resolve_selected_facility()
+
+        self.fields["tahun"].initial = self.active_year
+        self.fields["tahun"].min_value = self.active_year
+        self.fields["tahun"].max_value = self.active_year
+        self.fields["tahun"].error_messages["min_value"] = (
+            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {self.active_year}."
+        )
+        self.fields["tahun"].error_messages["max_value"] = (
+            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {self.active_year}."
+        )
+        self.fields["tahun"].help_text = (
+            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {self.active_year}."
         )
         if user and getattr(user, "role", None) == User.Role.PUSKESMAS:
             self.fields["facility"].widget = forms.HiddenInput()
             self.fields["facility"].required = False
+        else:
+            self.fields["facility"].help_text = (
+                "Pilih puskesmas untuk melihat periode berikutnya yang wajib dibuat."
+            )
+
+        if self.selected_facility:
+            self._apply_period_restrictions(self.selected_facility)
+
+    @property
+    def can_create(self):
+        if self.selected_facility is None:
+            return True
+        return self.next_required_month is not None
+
+    def _resolve_selected_facility(self):
+        if getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            return getattr(self.user, "facility", None)
+
+        facility_field = self.fields["facility"]
+        if self.is_bound:
+            facility_id = self.data.get(self.add_prefix("facility")) or self.data.get(
+                "facility"
+            )
+            if facility_id:
+                try:
+                    return facility_field.queryset.get(pk=facility_id)
+                except (ValueError, TypeError, facility_field.queryset.model.DoesNotExist):
+                    return None
+
+        initial_facility = self.initial.get("facility")
+        if initial_facility is not None:
+            if hasattr(initial_facility, "pk"):
+                return initial_facility
+            try:
+                return facility_field.queryset.get(pk=initial_facility)
+            except facility_field.queryset.model.DoesNotExist:
+                return None
+        return None
+
+    def _apply_period_restrictions(self, facility):
+        active_year, next_month = get_next_required_lplpo_period(facility)
+        self.active_year = active_year
+        self.next_required_month = next_month
+        self.selected_facility = facility
+
+        self.fields["tahun"].initial = active_year
+        self.fields["tahun"].min_value = active_year
+        self.fields["tahun"].max_value = active_year
+        self.fields["tahun"].error_messages["min_value"] = (
+            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {active_year}."
+        )
+        self.fields["tahun"].error_messages["max_value"] = (
+            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {active_year}."
+        )
+        self.fields["tahun"].help_text = (
+            f"Tahun LPLPO terkunci ke tahun server aktif {active_year}."
+        )
+
+        if next_month is None:
+            self.fields["bulan"].choices = []
+            self.fields["bulan"].required = False
+            self.fields["bulan"].help_text = (
+                f"Semua LPLPO tahun {active_year} untuk {facility.name} sudah dibuat."
+            )
+            self.fields["bulan"].widget.attrs["disabled"] = "disabled"
+            self.fields["tahun"].widget.attrs["readonly"] = "readonly"
+            return
+
+        self.fields["bulan"].choices = [
+            (str(next_month), calendar.month_name[next_month]),
+        ]
+        self.fields["bulan"].error_messages["invalid_choice"] = (
+            "Periode berikutnya yang wajib dibuat adalah "
+            f"{format_lplpo_period_label(next_month, active_year)}."
+        )
+        self.fields["bulan"].help_text = (
+            "Periode berikutnya yang wajib dibuat: "
+            f"{format_lplpo_period_label(next_month, active_year)}."
+        )
+        self.fields["tahun"].widget.attrs["readonly"] = "readonly"
 
     def clean_notes(self):
         return _normalize_text_value(
@@ -78,6 +190,50 @@ class LPLPOCreateForm(forms.Form):
         user_role = getattr(self.user, "role", None)
         if user_role != User.Role.PUSKESMAS and not cleaned_data.get("facility"):
             self.add_error("facility", "Fasilitas puskesmas wajib dipilih.")
+            return cleaned_data
+
+        facility = (
+            cleaned_data.get("facility")
+            if user_role != User.Role.PUSKESMAS
+            else getattr(self.user, "facility", None)
+        )
+        if not facility:
+            return cleaned_data
+
+        active_year, next_month = get_next_required_lplpo_period(facility)
+        self.active_year = active_year
+        self.next_required_month = next_month
+        self.selected_facility = facility
+
+        tahun = cleaned_data.get("tahun")
+        bulan = cleaned_data.get("bulan")
+
+        if next_month is None:
+            self.add_error(
+                None,
+                ValidationError(
+                    f"Semua LPLPO tahun {active_year} untuk {facility.name} sudah dibuat."
+                ),
+            )
+            return cleaned_data
+
+        if tahun is not None and tahun != active_year:
+            self.add_error(
+                "tahun",
+                ValidationError(
+                    f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {active_year}."
+                ),
+            )
+
+        if bulan is not None and int(bulan) != next_month:
+            self.add_error(
+                "bulan",
+                ValidationError(
+                    "Periode berikutnya yang wajib dibuat adalah "
+                    f"{format_lplpo_period_label(next_month, active_year)}."
+                ),
+            )
+
         return cleaned_data
 
 

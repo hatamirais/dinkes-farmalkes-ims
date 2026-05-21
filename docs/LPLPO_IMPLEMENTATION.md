@@ -21,6 +21,7 @@ LPLPO is a monthly document submitted by each Puskesmas to Instalasi Farmasi. It
 - LPLPO for **Bulan X** is submitted in **Bulan X+1**
 - Example: LPLPO for January is filled and submitted in February
 - This means when a Puskesmas opens their January LPLPO, the January Distribution records from Instalasi Farmasi already exist and can be used to pre-fill Penerimaan
+- In the live system, creation is locked to the active server calendar year and must be filled contiguously from **Januari**. Even if a facility starts using the app mid-year, it must backfill `Januari -> Februari -> ...` in order for that same server year before later months can be created.
 
 ### 1.3 Workflow (Sequential)
 
@@ -389,13 +390,14 @@ App namespace: `lplpo`
 - Only accessible to PUSKESMAS role (and ADMIN for manual creation on behalf)
 - On GET: show form with bulan/tahun selector
 - On POST:
-  1. Validate no existing LPLPO for same (facility, bulan, tahun)
-  2. Create LPLPO header
-  3. Auto-generate one `LPLPOItem` per active `Item` in the system
-  4. Auto-fill `stock_awal` from previous month's `stock_keseluruhan` if available
-  5. Auto-fill `penerimaan` from Distribution records (set `penerimaan_auto_filled=True`)
-    6. Keep `pemberian_jumlah` empty until Instalasi Farmasi review
-    7. Redirect to detail view
+  1. Validate the requested period matches the active server year and the next contiguous month required for that facility
+  2. Validate no existing LPLPO for same (facility, bulan, tahun)
+  3. Create LPLPO header
+  4. Auto-generate one `LPLPOItem` per active `Item` in the system
+  5. Auto-fill `stock_awal` from previous month's `stock_keseluruhan` if available
+  6. Auto-fill `penerimaan` from Distribution records (set `penerimaan_auto_filled=True`)
+  7. Keep `pemberian_jumlah` empty until Instalasi Farmasi review
+  8. Redirect to detail view
 
 ### 6.2 lplpo_edit
 
@@ -507,6 +509,11 @@ class LPLPOCreateForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
     )
 ```
+
+Current implementation note:
+- the create form narrows the selectable month to the facility's next required month in the active server year whenever the facility is known
+- the year is locked to the active server year
+- the view re-checks the same rule inside a transaction before creating the header
 
 ### 7.2 LPLPOItemPuskesmasForm (for Puskesmas edit)
 
