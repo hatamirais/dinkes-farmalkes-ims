@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -10,6 +11,7 @@ from apps.distribution.forms import DistributionForm, DistributionItemForm
 from apps.distribution.models import Distribution, DistributionItem
 from apps.core.models import SystemSettings
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.lplpo.models import LPLPO
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import User
@@ -106,6 +108,19 @@ class DistributionWorkflowTest(TestCase):
         for user in assigned_users or []:
             dist.staff_assignments.create(user=user)
         return dist
+
+    def _link_lplpo_source(self, distribution, *, status=LPLPO.Status.APPROVED):
+        request_date = distribution.request_date
+        if isinstance(request_date, str):
+            request_date = date.fromisoformat(request_date)
+        return LPLPO.objects.create(
+            facility=distribution.facility,
+            bulan=request_date.month,
+            tahun=request_date.year,
+            status=status,
+            created_by=self.user,
+            distribution=distribution,
+        )
 
     # --- Auto-generated document number ---
 
@@ -375,6 +390,31 @@ class DistributionWorkflowTest(TestCase):
         self.assertEqual(
             form.cleaned_data["distribution_type"],
             Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+
+    def test_distribution_form_edit_keeps_instance_distribution_type_when_hidden(self):
+        dist = self._create_distribution(
+            distribution_type=Distribution.DistributionType.LPLPO,
+        )
+        self._link_lplpo_source(dist)
+
+        form = DistributionForm(
+            data={
+                "document_number": dist.document_number,
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "program": "",
+                "notes": "Direvisi",
+                "assigned_staff": [self.user.pk],
+            },
+            instance=dist,
+            user=self.user,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["distribution_type"],
+            Distribution.DistributionType.LPLPO,
         )
 
     def test_distribution_form_special_request_prefills_preview_number(self):
@@ -799,9 +839,109 @@ class DistributionWorkflowTest(TestCase):
     def test_edit_allowed_for_draft(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)
         response = self.client.get(
-            reverse("distribution:distribution_edit", args=[dist.pk])
+            reverse("distribution:distribution_edit", args=[dist.pk]),
+            secure=True,
+            HTTP_HOST="localhost",
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_generated_lplpo_edit_locks_quantity_fields(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        self._link_lplpo_source(dist)
+
+        response = self.client.get(
+            reverse("distribution:distribution_edit", args=[dist.pk]),
+            secure=True,
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Distribusi ini dibuat dari review LPLPO")
+        self.assertFalse(response.context["allow_item_row_mutation"])
+
+        item_form = response.context["formset"].forms[0]
+        self.assertTrue(item_form.fields["item"].disabled)
+        self.assertTrue(item_form.fields["quantity_requested"].disabled)
+        self.assertTrue(item_form.fields["quantity_approved"].disabled)
+
+    def test_generated_lplpo_edit_post_ignores_quantity_tampering(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        self._link_lplpo_source(dist)
+        item_line = dist.items.get()
+        original_requested = item_line.quantity_requested
+        original_approved = item_line.quantity_approved
+
+        response = self.client.post(
+            reverse("distribution:distribution_edit", args=[dist.pk]),
+            {
+                "document_number": dist.document_number,
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "Batch dipilih",
+                "assigned_staff": [self.user.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "1",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-id": item_line.pk,
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "999",
+                "items-0-quantity_approved": "888",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "Pilih batch utama",
+            },
+            secure=True,
+            HTTP_HOST="localhost",
+        )
+        self.assertEqual(response.status_code, 302)
+
+        item_line.refresh_from_db()
+        dist.refresh_from_db()
+        self.assertEqual(item_line.quantity_requested, original_requested)
+        self.assertEqual(item_line.quantity_approved, original_approved)
+        self.assertEqual(item_line.stock_id, self.stock.pk)
+        self.assertEqual(item_line.notes, "Pilih batch utama")
+        self.assertEqual(dist.notes, "Batch dipilih")
+
+    def test_generated_lplpo_edit_rejects_added_rows(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        self._link_lplpo_source(dist)
+        item_line = dist.items.get()
+
+        response = self.client.post(
+            reverse("distribution:distribution_edit", args=[dist.pk]),
+            {
+                "document_number": dist.document_number,
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "",
+                "assigned_staff": [self.user.pk],
+                "items-TOTAL_FORMS": "2",
+                "items-INITIAL_FORMS": "1",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-id": item_line.pk,
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "50",
+                "items-0-quantity_approved": "40",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "",
+                "items-1-item": self.item.pk,
+                "items-1-quantity_requested": "10",
+                "items-1-quantity_approved": "10",
+                "items-1-stock": self.stock.pk,
+                "items-1-notes": "Baris tambahan",
+            },
+            secure=True,
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Baris distribusi hasil LPLPO tidak dapat ditambah, dihapus, atau diganti pada tahap pemilihan batch.",
+        )
+        self.assertEqual(dist.items.count(), 1)
 
     def test_create_distribution_saves_assigned_staff(self):
         staff = User.objects.create_user(

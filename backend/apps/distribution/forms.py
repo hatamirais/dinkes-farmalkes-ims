@@ -1,7 +1,6 @@
 from django import forms
-from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F
-from django.forms import inlineformset_factory
+from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 from apps.users.models import User
 
@@ -74,6 +73,8 @@ class DistributionForm(forms.ModelForm):
         self.forced_distribution_type = kwargs.pop("forced_distribution_type", None)
         super().__init__(*args, **kwargs)
         self.fields["program"].required = False
+        if self.instance.pk:
+            self.fields["distribution_type"].required = False
         # Remove LPLPO from manual selection unless this is a generated LPLPO distribution
         if not self._is_generated_lplpo_distribution():
             self.fields["distribution_type"].choices = [
@@ -102,20 +103,18 @@ class DistributionForm(forms.ModelForm):
             self.fields["assigned_staff"].initial = [user.pk]
 
     def _is_generated_lplpo_distribution(self):
-        if not self.instance.pk:
-            return False
-        if self.instance.distribution_type != Distribution.DistributionType.LPLPO:
-            return False
-        try:
-            self.instance.lplpo_source
-        except ObjectDoesNotExist:
-            return False
-        return True
+        return bool(
+            self.instance.pk and self.instance.is_generated_lplpo_distribution
+        )
 
     def clean_distribution_type(self):
         if self.forced_distribution_type:
             return self.forced_distribution_type
         distribution_type = self.cleaned_data.get("distribution_type")
+        if distribution_type:
+            return distribution_type
+        if self.instance.pk:
+            return self.instance.distribution_type
         return distribution_type
 
     def _get_effective_distribution_type(self):
@@ -199,6 +198,11 @@ class DistributionForm(forms.ModelForm):
 
 
 class DistributionItemForm(forms.ModelForm):
+    LOCKED_LPLPO_HELP_TEXT = (
+        "Jumlah untuk distribusi hasil review LPLPO dikunci dan hanya dapat diubah "
+        "dari dokumen LPLPO sumber."
+    )
+
     class Meta:
         model = DistributionItem
         fields = ["item", "quantity_requested", "quantity_approved", "stock", "notes"]
@@ -221,6 +225,7 @@ class DistributionItemForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.lock_quantity_fields = kwargs.pop("lock_quantity_fields", False)
         super().__init__(*args, **kwargs)
         self.fields["item"].label_from_instance = lambda obj: obj.picker_label
         if "quantity_approved" in self.fields:
@@ -236,6 +241,15 @@ class DistributionItemForm(forms.ModelForm):
         self.fields["stock"].label_from_instance = lambda obj: (
             f"{obj.batch_lot} | Tersedia: {obj.available_quantity} | Exp: {obj.expiry_date}"
         )
+        if self.lock_quantity_fields:
+            for field_name in ("item", "quantity_requested", "quantity_approved"):
+                self.fields[field_name].disabled = True
+                existing_class = self.fields[field_name].widget.attrs.get("class", "")
+                self.fields[field_name].widget.attrs["class"] = (
+                    f"{existing_class} bg-body-tertiary".strip()
+                )
+            self.fields["quantity_requested"].help_text = self.LOCKED_LPLPO_HELP_TEXT
+            self.fields["quantity_approved"].help_text = self.LOCKED_LPLPO_HELP_TEXT
 
     def clean(self):
         cleaned_data = super().clean()
@@ -270,10 +284,41 @@ class DistributionItemForm(forms.ModelForm):
         return cleaned_data
 
 
+class LockedLPLPODistributionItemFormSet(BaseInlineFormSet):
+    structure_locked_error = (
+        "Baris distribusi hasil LPLPO tidak dapat ditambah, dihapus, atau diganti "
+        "pada tahap pemilihan batch."
+    )
+
+    def clean(self):
+        super().clean()
+
+        if self.total_form_count() != self.initial_form_count():
+            raise forms.ValidationError(self.structure_locked_error)
+
+        if any(self.errors):
+            return
+
+        for form in self.forms:
+            if form.cleaned_data.get("DELETE"):
+                raise forms.ValidationError(self.structure_locked_error)
+            if not form.instance.pk:
+                raise forms.ValidationError(self.structure_locked_error)
+
+
 DistributionItemFormSet = inlineformset_factory(
     Distribution,
     DistributionItem,
     form=DistributionItemForm,
     extra=3,
     can_delete=True,
+)
+
+LockedLPLPODistributionItemFormSet = inlineformset_factory(
+    Distribution,
+    DistributionItem,
+    form=DistributionItemForm,
+    formset=LockedLPLPODistributionItemFormSet,
+    extra=0,
+    can_delete=False,
 )

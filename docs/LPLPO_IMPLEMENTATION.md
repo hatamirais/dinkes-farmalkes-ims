@@ -56,6 +56,8 @@ LPLPO is a monthly document submitted by each Puskesmas to Instalasi Farmasi. It
 [Distribution Preparation]
 19. Assigned staff prepare the linked Distribution from `DRAFT` or `REJECTED`
     → status: PREPARED
+    - For LPLPO-generated draft distributions, item rows plus `quantity_requested`/`quantity_approved`
+      remain locked during edit so staff only choose stock batches, add notes, and adjust staff/header data
 20. Assigned staff submit the prepared Distribution → status: SUBMITTED
 21. Kepala Instalasi verifies or rejects the submission
 22. Verified Distribution is distributed and stock leaves the system
@@ -447,6 +449,7 @@ App namespace: `lplpo`
       quantity_approved=lplpo_item.pemberian_jumlah,
   )
   ```
+- The generated Distribution edit screen must preserve those copied quantities and reject manual line add/delete or quantity edits; the edit step is reserved for batch assignment and preparation metadata only.
 - Links `lplpo.distribution = distribution`
 - Keeps LPLPO in REVIEWED so the Distribution document can continue through
     submit, verify, prepare, and distribute stages normally

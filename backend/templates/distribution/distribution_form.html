@@ -231,16 +231,36 @@
                         {% endfor %}
                     </div>
                     <div class="mb-2 small text-muted">Tip: Periksa stok per batch pada tabel item sebelum menyetujui distribusi.</div>
+                    {% if is_generated_lplpo_distribution %}
+                    <div class="alert alert-info py-2 small">
+                        Distribusi ini dibuat dari review LPLPO. <strong>Kuantitas Diminta</strong> menyalin permintaan Puskesmas dan <strong>Kuantitas Disetujui</strong> menyalin hasil review PIC. Keduanya dikunci di halaman ini agar tahap edit hanya dipakai untuk memilih batch stok, memperbarui catatan, dan menyesuaikan petugas bila diperlukan.
+                    </div>
+                    {% endif %}
 
                     <hr>
                     <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Distribusi</h6>
 
                     {{ formset.management_form }}
 
+                    {% if formset.non_form_errors %}
+                    <div class="alert alert-danger py-2">
+                        {% for error in formset.non_form_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
                     <div class="alert alert-danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
 
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
+                        <span class="text-muted small">
+                            {% if allow_item_row_mutation %}
+                            Minimal satu baris item harus tersedia.
+                            {% else %}
+                            Baris item berasal dari LPLPO sumber dan tidak dapat ditambah atau dihapus pada tahap ini.
+                            {% endif %}
+                        </span>
+                        {% if allow_item_row_mutation %}
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="distribution-items">
                                 <i class="bi bi-trash me-1"></i>Hapus Semua
@@ -249,6 +269,7 @@
                                 <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                             </button>
                         </div>
+                        {% endif %}
                     </div>
 
                     <div class="table-responsive" data-formset="distribution-items" data-formset-prefix="{{ formset.prefix }}">
@@ -279,9 +300,15 @@
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="stock">{{ item_form.stock }}</td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ item_form.notes }}</td>
                                     <td class="text-center">
+                                        {% if allow_item_row_mutation %}
                                         <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
                                             <i class="bi bi-trash"></i>
                                         </button>
+                                        {% else %}
+                                        <span class="text-muted" title="Baris dari LPLPO dikunci pada tahap ini">
+                                            <i class="bi bi-lock"></i>
+                                        </span>
+                                        {% endif %}
                                         <div class="d-none">{{ item_form.DELETE }}</div>
                                     </td>
                                     {{ item_form.id }}
@@ -309,6 +336,7 @@
                         </table>
                     </div>
 
+                    {% if allow_item_row_mutation %}
                     <template id="distribution-items-empty">
                         <tr class="formset-row">
                             <td>{{ formset.empty_form.item }}</td>
@@ -330,6 +358,7 @@
                             {{ formset.empty_form.id }}
                         </tr>
                     </template>
+                    {% endif %}
 
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">

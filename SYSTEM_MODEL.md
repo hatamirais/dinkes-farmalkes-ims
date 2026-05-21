@@ -198,6 +198,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `GENERATED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
   - Current allocation workflow auto-generates child distributions directly in `VERIFIED`; `GENERATED` remains in the enum for compatibility with older rows and migrations, but is not emitted by the active services
   - Current regular/special-request workflow is `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`
+  - Generated LPLPO draft distributions keep the reviewed LPLPO quantities immutable on the distribution edit screen; that edit step is limited to batch selection, notes, staff, and other header metadata
   - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED` or compatibility-only `GENERATED`)
   - Provides `kepala_instalasi` and `petugas` assignments logic for print outputs
   - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank for non-rule types; `LPLPO` and `SPECIAL_REQUEST` use the templates stored in `SystemSettings`), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
@@ -338,6 +339,7 @@ Operational mutation points (from app behavior and admin import logic):
   - `Transaction(IN)`
   - Rows are grouped by `document_number`; the first row supplies header-level values, while row-level `sumber_dana_code` and `location_code` can override header defaults
 - LPLPO approval/finalize creates a Distribution document mapped 1:1, marks the LPLPO `APPROVED`, and closes the LPLPO once the linked Distribution reaches `DISTRIBUTED`.
+- For generated LPLPO draft distributions, the preparation edit UI displays both requested and approved quantities for reference but locks those values and rejects added/deleted rows; users only assign batches and preparation metadata there.
 - Distribution:
   - verification and distribution validations use `Stock.available_quantity` (`quantity - reserved`) when checking the selected batch
   - prepare phase updates document status only (no stock mutation and no reservation write)

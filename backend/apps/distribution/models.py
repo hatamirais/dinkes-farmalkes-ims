@@ -1,5 +1,6 @@
-from django.db import models
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
 from django.utils import timezone
 from apps.core.models import TimeStampedModel
 
@@ -94,6 +95,16 @@ class Distribution(TimeStampedModel):
 
     def __str__(self):
         return f"{self.document_number} → {self.facility}"
+
+    @property
+    def is_generated_lplpo_distribution(self):
+        if self.distribution_type != self.DistributionType.LPLPO:
+            return False
+        try:
+            self.lplpo_source
+        except ObjectDoesNotExist:
+            return False
+        return True
 
     def save(self, *args, **kwargs):
         if not self.document_number:

@@ -313,6 +313,11 @@
         <div class="card content-card">
             <div class="card-header"><span>Daftar Item {{ module_label|default:"Distribusi" }}</span></div>
             <div class="card-body p-0">
+                {% if is_generated_lplpo_distribution %}
+                <div class="alert alert-info border-0 border-bottom rounded-0 mb-0">
+                    Distribusi ini dibuat dari review LPLPO. Kolom <strong>Jumlah {{ module_label|default:"Distribusi" }}</strong> menampilkan kuantitas yang disetujui saat review LPLPO, sedangkan nilai permintaan asal tetap tersimpan pada dokumen distribusi dan ditampilkan terkunci di layar <strong>Ubah</strong>.
+                </div>
+                {% endif %}
                 <div class="table-responsive">
                     <table class="table table-bordered align-middle mb-0">
                         <thead>

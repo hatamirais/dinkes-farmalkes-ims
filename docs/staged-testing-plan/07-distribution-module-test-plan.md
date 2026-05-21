@@ -222,6 +222,8 @@ Prioritas: Menengah
 1. Distribusi tipe `LPLPO` dapat direlasikan ke satu dokumen `LPLPO`.
 2. Relasi `lplpo_source` tidak rusak setelah distribusi melewati workflow normal.
 3. Ketika distribusi terkait dianggap selesai di modul `lplpo`, status distribusi yang sudah `DISTRIBUTED` tetap menjadi sumber kebenaran untuk penutupan alur hilir.
+4. Layar edit untuk distribusi draft hasil LPLPO mengunci item, `quantity_requested`, dan `quantity_approved`, tetapi tetap menerima pemilihan batch stok dan catatan.
+5. Layar edit untuk distribusi draft hasil LPLPO menolak penambahan atau penghapusan baris item.
 
 ## Strategi Data Uji
 
