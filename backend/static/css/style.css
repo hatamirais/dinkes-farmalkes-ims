@@ -429,6 +429,32 @@ body {
     padding: 20px;
 }
 
+.dashboard-movement-progress {
+    width: 100%;
+    height: 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    background-color: #dc3545;
+}
+
+.dashboard-movement-progress::-webkit-progress-bar {
+    background-color: #dc3545;
+    border-radius: 999px;
+}
+
+.dashboard-movement-progress::-webkit-progress-value {
+    background-color: #198754;
+    border-radius: 999px;
+}
+
+.dashboard-movement-progress::-moz-progress-bar {
+    background-color: #198754;
+    border-radius: 999px;
+}
+
 /* Align create form pages with list/table container spacing rhythm */
 .form-page-card {
     margin-bottom: 0;

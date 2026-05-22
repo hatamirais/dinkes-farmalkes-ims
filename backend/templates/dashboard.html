@@ -138,10 +138,11 @@
 
 <div class="row g-3 mb-4">
     <div class="{% if has_quick_actions %}col-lg-8{% else %}col-lg-12{% endif %}">
-        <div class="card content-card h-100">
+        <div class="card content-card h-100 position-relative">
             <div class="card-header">
                 <span><i class="bi bi-arrow-left-right me-2"></i>Pergerakan Stok (30 Hari Terakhir)</span>
                 <small class="text-muted">{{ thirty_days_ago|date:"d/m/Y" }} - {{ today|date:"d/m/Y" }}</small>
+                <a href="{% url 'stock:transaction_list' %}" class="stretched-link" aria-label="Buka log transaksi stok"></a>
             </div>
             <div class="card-body">
                 <div class="row g-3 mb-3">
@@ -158,16 +159,18 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="mb-2 d-flex justify-content-between small">
                     <span>Masuk {{ inbound_percent_30_days }}%</span>
                     <span>Keluar {{ outbound_percent_30_days }}%</span>
                 </div>
-                <div class="progress" role="progressbar" aria-label="Inbound outbound ratio" aria-valuemin="0"
-                    aria-valuemax="100" aria-valuenow="{{ inbound_percent_30_days }}" style="height: 10px;">
-                    <div class="progress-bar bg-success" style="width: {{ inbound_percent_30_days }}%"></div>
-                    <div class="progress-bar bg-danger" style="width: {{ outbound_percent_30_days }}%"></div>
-                </div>
+                <progress
+                    class="dashboard-movement-progress"
+                    aria-label="Inbound outbound ratio"
+                    value="{{ inbound_percent_30_days }}"
+                    max="100"
+                >
+                    {{ inbound_percent_30_days }}
+                </progress>
             </div>
         </div>
     </div>
