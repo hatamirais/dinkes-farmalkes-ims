@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.distribution.forms import DistributionForm, DistributionItemForm
+from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
 from apps.core.models import SystemSettings
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
@@ -17,7 +18,7 @@ from apps.users.access import ensure_default_module_access
 from apps.users.models import User
 
 
-class DistributionWorkflowTest(TestCase):
+class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
     """Tests for the distribution module workflow transitions and stock posting."""
 
     @classmethod
@@ -80,6 +81,7 @@ class DistributionWorkflowTest(TestCase):
         )
 
     def setUp(self):
+        super().setUp()
         self.client.force_login(self.user)
 
     def _create_distribution(

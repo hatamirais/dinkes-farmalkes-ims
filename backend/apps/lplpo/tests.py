@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock
@@ -22,7 +23,8 @@ from apps.lplpo.models import (
 )
 
 
-class LPLPOTestCase(TestCase):
+class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
+
 	@classmethod
 	def setUpTestData(cls):
 		cls.unit = Unit.objects.create(code="TAB", name="Tablet")
@@ -141,6 +143,9 @@ class LPLPOTestCase(TestCase):
 	def set_submitted_at(self, lplpo, year, month, day):
 		lplpo.submitted_at = timezone.make_aware(datetime(year, month, day))
 		lplpo.save(update_fields=["submitted_at", "updated_at"])
+
+	def setUp(self):
+		super().setUp()
 
 
 class LPLPOWorkflowTests(LPLPOTestCase):
