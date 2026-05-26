@@ -57,16 +57,16 @@ Legacy compatibility:
     but new documents should not enter those statuses.
 
 [Distribution Preparation]
-19. Assigned staff prepare the linked Distribution from `DRAFT` or `REJECTED`
+16. Assigned staff prepare the linked Distribution from `DRAFT` or `REJECTED`
     → status: PREPARED
     - For LPLPO-generated draft distributions, item rows plus `quantity_requested`/`quantity_approved`
       remain locked during edit so staff only choose stock batches, add notes, and adjust staff/header data
-20. Assigned staff submit the prepared Distribution → status: SUBMITTED
-21. Kepala Instalasi verifies or rejects the submission
-22. Verified Distribution is distributed and stock leaves the system
+17. Assigned staff submit the prepared Distribution → status: SUBMITTED
+18. Kepala Instalasi verifies or rejects the submission
+19. Verified Distribution is distributed and stock leaves the system
 
 [Next Month Auto-fill]
-14. When Puskesmas opens next month's LPLPO:
+20. When Puskesmas opens next month's LPLPO:
     - Stock Awal = previous month's Stock Keseluruhan (auto-filled)
     - Penerimaan = sum of all Distributions sent that month (auto-filled, confirmable)
 ```

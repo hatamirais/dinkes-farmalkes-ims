@@ -917,7 +917,14 @@ def lplpo_review(request, pk):
                         actor=request.user,
                         processed_at=processed_at,
                     )
-            except (IntegrityError, ValueError) as exc:
+            except IntegrityError:
+                logger.exception("LPLPO distribution creation failed")
+                messages.error(
+                    request,
+                    "Terjadi kesalahan saat memproses LPLPO. Silakan coba lagi.",
+                )
+                return redirect("lplpo:lplpo_detail", pk=pk)
+            except ValueError as exc:
                 messages.error(
                     request,
                     f"Terjadi kesalahan saat memproses LPLPO: {exc}",
@@ -1017,10 +1024,15 @@ def lplpo_finalize(request, pk):
                 processed_at=timezone.now(),
             )
 
-    except (IntegrityError, ValueError) as exc:
+    except IntegrityError:
+        logger.exception("LPLPO distribution creation failed")
         messages.error(
-            request, f"Terjadi kesalahan saat memfinalisasi LPLPO: {exc}"
+            request,
+            "Terjadi kesalahan saat memproses LPLPO. Silakan coba lagi.",
         )
+        return redirect("lplpo:lplpo_detail", pk=pk)
+    except ValueError as exc:
+        messages.error(request, f"Terjadi kesalahan saat memfinalisasi LPLPO: {exc}")
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     messages.success(

@@ -316,7 +316,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Timestamps: `submitted_at`, `verified_at`, `reviewed_at`, `approved_at`
   - Constraints/Indexes: `uq_lplpo_facility_period` unique on `(facility, bulan, tahun)`, `idx_lplpo_facility_period` on `(facility, tahun, bulan)`, `idx_lplpo_status` on `(status)`
   - Workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> APPROVED -> CLOSED` for active documents; `REVIEWED` remains as a legacy compatibility status for older rows.
-  - Rejection loops are `SUBMITTED -> REJECTED_PUSKESMAS` and `REVIEWED -> REJECTED_PIC`
+  - The active rejection loop is `SUBMITTED -> REJECTED_PUSKESMAS`. The legacy `REVIEWED -> REJECTED_PIC` loop remains only for older documents.
   - While the generated distribution is still pending fulfillment, an approved LPLPO may also be returned to `REJECTED_PUSKESMAS` by cancelling its generated distribution with a required rejection reason
 
 - `lplpo.LPLPOItem` (`lplpo_items`):
