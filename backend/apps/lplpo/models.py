@@ -39,7 +39,10 @@ def get_active_lplpo_year(server_date=None):
 
 def get_indonesian_month_name(month):
     """Return the Indonesian month label for 1-12."""
-    return INDONESIAN_MONTH_NAMES[month]
+    try:
+        return INDONESIAN_MONTH_NAMES[month]
+    except KeyError as exc:
+        raise ValueError("Bulan harus berada pada rentang 1-12.") from exc
 
 
 def format_lplpo_period_label(bulan, tahun):

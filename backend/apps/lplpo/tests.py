@@ -20,6 +20,7 @@ from apps.lplpo.models import (
 	LPLPOItem,
 	format_lplpo_period_label,
 	get_active_lplpo_year,
+	get_indonesian_month_name,
 	is_january_bootstrap_period,
 )
 
@@ -301,6 +302,14 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, draft_lplpo.document_number)
 		self.assertContains(response, submitted_lplpo.document_number)
+		self.assertEqual(
+			response.context["submission_month_choices"][0],
+			("1", get_indonesian_month_name(1)),
+		)
+
+	def test_get_indonesian_month_name_rejects_invalid_month(self):
+		with self.assertRaisesMessage(ValueError, "Bulan harus berada pada rentang 1-12."):
+			get_indonesian_month_name(0)
 
 	def test_instalasi_farmasi_list_filters_by_submission_month_and_year(self):
 		march_submission = self.create_lplpo(status=LPLPO.Status.SUBMITTED, bulan=2, tahun=2026)

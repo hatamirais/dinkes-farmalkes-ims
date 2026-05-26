@@ -27,6 +27,7 @@ from .models import (
     LPLPOItem,
     format_lplpo_period_label,
     get_active_lplpo_year,
+    get_indonesian_month_name,
     get_next_required_lplpo_period,
     get_penerimaan_for_facility_period,
     get_previous_lplpo,
@@ -99,10 +100,7 @@ def _check_puskesmas_draft_action_access(request):
 
 
 def _get_submission_month_choices():
-    return [
-        (str(month), format_lplpo_period_label(month, "").strip())
-        for month in range(1, 13)
-    ]
+    return [(str(month), get_indonesian_month_name(month)) for month in range(1, 13)]
 
 
 def _resolve_lplpo_create_facility(form, user):
