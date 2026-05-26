@@ -611,6 +611,42 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		line.refresh_from_db()
 		self.assertIsNone(line.pemberian_jumlah)
 
+	def test_review_creates_distribution_immediately(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED, created_by=self.puskesmas_user)
+		line = LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=self.item_a,
+			permintaan_jumlah=Decimal("12.00"),
+		)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_review", args=[lplpo.pk]),
+			{
+				f"review_{line.pk}-pemberian_jumlah": "9",
+				f"review_{line.pk}-pemberian_alasan": "Disesuaikan dengan stok gudang.",
+			},
+		)
+
+		lplpo.refresh_from_db()
+		distribution = lplpo.distribution
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(
+			response,
+			reverse("distribution:distribution_detail", args=[distribution.pk]),
+		)
+		self.assertEqual(lplpo.status, LPLPO.Status.APPROVED)
+		self.assertEqual(lplpo.reviewed_by, self.gudang_user)
+		self.assertEqual(lplpo.approved_by, self.gudang_user)
+		self.assertEqual(distribution.status, Distribution.Status.DRAFT)
+		self.assertTrue(distribution.staff_assignments.filter(user=self.gudang_user).exists())
+		self.assertEqual(distribution.items.count(), 1)
+		dist_line = distribution.items.get()
+		self.assertEqual(dist_line.item, self.item_a)
+		self.assertEqual(dist_line.quantity_requested, Decimal("12.00"))
+		self.assertEqual(dist_line.quantity_approved, Decimal("9.00"))
+
 	def test_edit_persists_form_and_computed_fields_with_bulk_update(self):
 		lplpo = self.create_lplpo()
 		line = LPLPOItem.objects.create(
@@ -912,7 +948,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.client.force_login(self.puskesmas_user)
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
-		self.assertContains(response, "Disetujui / Menunggu Proses Distribusi")
+		self.assertContains(response, "Siap Distribusi")
 		self.assertNotContains(response, "<strong>Disetujui Kepala</strong>", html=True)
 
 	def test_operate_scope_user_can_verify_submitted_lplpo(self):

@@ -64,7 +64,9 @@
                         {% elif latest_lplpo.status == 'SUBMITTED' %}
                         Menunggu Tinjauan
                         {% elif latest_lplpo.status == 'REVIEWED' %}
-                        Disetujui / Menunggu Proses Distribusi
+                        Ditinjau PIC (Legacy)
+                        {% elif latest_lplpo.status == 'APPROVED' %}
+                        Dokumen Distribusi Diproses
                         {% elif latest_lplpo.status == 'DISTRIBUTED' %}
                         Dokumen Distribusi Dibuat
                         {% elif latest_lplpo.status == 'CLOSED' %}
@@ -103,7 +105,9 @@
                                     {% elif lplpo.status == 'SUBMITTED' %}
                                     Menunggu Tinjauan
                                     {% elif lplpo.status == 'REVIEWED' %}
-                                    Disetujui / Menunggu Proses Distribusi
+                                    Ditinjau PIC (Legacy)
+                                    {% elif lplpo.status == 'APPROVED' %}
+                                    Dokumen Distribusi Diproses
                                     {% elif lplpo.status == 'DISTRIBUTED' %}
                                     Dokumen Distribusi Dibuat
                                     {% elif lplpo.status == 'CLOSED' %}

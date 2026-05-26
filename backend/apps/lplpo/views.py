@@ -47,7 +47,7 @@ def _check_facility_access(request, lplpo_obj):
     Returns None if access is allowed.
     """
     if _is_super_admin(request.user) or request.user.role != User.Role.PUSKESMAS:
-        return None  # Non-puskesmas roles can see all
+        return None
     if not request.user.facility:
         messages.error(request, "Akun Anda belum terhubung ke fasilitas.")
         return redirect("lplpo:lplpo_my_list")
@@ -107,6 +107,54 @@ def _resolve_lplpo_create_facility(form, user):
     if _is_super_admin(user) or not facility:
         facility = form.cleaned_data.get("facility")
     return facility
+
+
+def _create_lplpo_distribution(lplpo_obj, *, actor, processed_at):
+    items_with_pemberian = list(
+        lplpo_obj.items.filter(pemberian_jumlah__gt=0).select_related("item")
+    )
+    if not items_with_pemberian:
+        raise ValueError("Tidak ada item dengan pemberian > 0 untuk dibuatkan distribusi.")
+
+    dist = Distribution.objects.create(
+        distribution_type=Distribution.DistributionType.LPLPO,
+        facility=lplpo_obj.facility,
+        request_date=date(lplpo_obj.tahun, lplpo_obj.bulan, 1),
+        status=Distribution.Status.DRAFT,
+        created_by=actor,
+        notes=f"Dibuat otomatis dari LPLPO {lplpo_obj.document_number}.",
+    )
+
+    DistributionItem.objects.bulk_create(
+        [
+            DistributionItem(
+                distribution=dist,
+                item=li.item,
+                quantity_requested=li.permintaan_jumlah,
+                quantity_approved=li.pemberian_jumlah,
+            )
+            for li in items_with_pemberian
+        ]
+    )
+    assign_default_distribution_staff(dist, actor)
+
+    lplpo_obj.status = LPLPO.Status.APPROVED
+    lplpo_obj.approved_by = actor
+    lplpo_obj.approved_at = processed_at
+    lplpo_obj.rejection_reason = ""
+    lplpo_obj.distribution = dist
+    lplpo_obj.save(
+        update_fields=[
+            "status",
+            "approved_by",
+            "approved_at",
+            "rejection_reason",
+            "distribution",
+            "updated_at",
+        ]
+    )
+
+    return dist
 
 
 def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
@@ -778,14 +826,12 @@ def lplpo_reject(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
 def lplpo_review(request, pk):
-    """PIC fills granted quantities and submits reviewed LPLPO to Kepala."""
+    """PIC fills granted quantities and immediately creates the draft Distribution."""
     denied = _check_instalasi_farmasi_access(request)
     if denied:
         return denied
 
-    lplpo_obj = get_object_or_404(
-        LPLPO.objects.select_related("facility"), pk=pk
-    )
+    lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
 
     if lplpo_obj.status not in (
         LPLPO.Status.PIC_VERIFIED,
@@ -821,57 +867,85 @@ def lplpo_review(request, pk):
         all_valid = True
         forms_data = []
         for li in items_qs:
-            f = LPLPOItemReviewForm(
+            form = LPLPOItemReviewForm(
                 request.POST, instance=li, prefix=f"review_{li.pk}"
             )
-            if f.is_valid():
-                forms_data.append(f)
-            else:
+            if not form.is_valid():
                 all_valid = False
-                forms_data.append(f)
+            forms_data.append(form)
 
         if all_valid:
-            with transaction.atomic():
-                for f in forms_data:
-                    f.save()
+            try:
+                with transaction.atomic():
+                    lplpo_obj = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
+                    if lplpo_obj.status not in (
+                        LPLPO.Status.PIC_VERIFIED,
+                        LPLPO.Status.REJECTED_PIC,
+                    ):
+                        messages.error(
+                            request,
+                            "Hanya LPLPO yang sudah diverifikasi PIC atau sedang revisi PIC yang dapat ditinjau.",
+                        )
+                        return redirect("lplpo:lplpo_detail", pk=pk)
+                    if lplpo_obj.distribution_id:
+                        messages.info(
+                            request,
+                            "Dokumen distribusi untuk LPLPO ini sudah dibuat sebelumnya.",
+                        )
+                        return redirect(
+                            "distribution:distribution_detail",
+                            pk=lplpo_obj.distribution_id,
+                        )
 
-                lplpo_obj.status = LPLPO.Status.REVIEWED
-                lplpo_obj.reviewed_by = request.user
-                lplpo_obj.reviewed_at = timezone.now()
-                lplpo_obj.rejection_reason = ""
-                lplpo_obj.save(
-                    update_fields=[
-                        "status",
-                        "reviewed_by",
-                        "reviewed_at",
-                        "rejection_reason",
-                        "updated_at",
-                    ]
+                    for form in forms_data:
+                        form.save()
+
+                    processed_at = timezone.now()
+                    lplpo_obj.reviewed_by = request.user
+                    lplpo_obj.reviewed_at = processed_at
+                    lplpo_obj.rejection_reason = ""
+                    lplpo_obj.save(
+                        update_fields=[
+                            "reviewed_by",
+                            "reviewed_at",
+                            "rejection_reason",
+                            "updated_at",
+                        ]
+                    )
+                    dist = _create_lplpo_distribution(
+                        lplpo_obj,
+                        actor=request.user,
+                        processed_at=processed_at,
+                    )
+            except (IntegrityError, ValueError) as exc:
+                messages.error(
+                    request,
+                    f"Terjadi kesalahan saat memproses LPLPO: {exc}",
                 )
+                return redirect("lplpo:lplpo_detail", pk=pk)
 
             messages.success(
                 request,
-                f"LPLPO {lplpo_obj.document_number} berhasil ditinjau dan diajukan ke Kepala Instalasi.",
+                f"LPLPO {lplpo_obj.document_number} berhasil ditinjau. "
+                f"Distribusi {dist.document_number} telah dibuat sebagai Draft.",
             )
-            return redirect("lplpo:lplpo_detail", pk=pk)
+            return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
         forms_data = [
             LPLPOItemReviewForm(instance=li, prefix=f"review_{li.pk}")
             for li in items_qs
         ]
 
-    # Build display data with stock
     item_forms = []
-    for li, f in zip(items_qs, forms_data):
+    for li, form in zip(items_qs, forms_data):
         item_forms.append(
             {
                 "item_obj": li,
-                "form": f,
+                "form": form,
                 "stock_gudang": warehouse_stock.get(li.item_id, Decimal("0")),
             }
         )
 
-    # Group by category
     grouped = {}
     for entry in item_forms:
         cat_name = (
@@ -898,14 +972,12 @@ def lplpo_review(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE)
 def lplpo_finalize(request, pk):
-    """Approve a reviewed LPLPO and create its draft Distribution."""
+    """Legacy fallback to finalize older reviewed LPLPO rows."""
     denied = _check_instalasi_farmasi_access(request)
     if denied:
         return denied
 
-    lplpo_obj = get_object_or_404(
-        LPLPO.objects.select_related("facility"), pk=pk
-    )
+    lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
     if request.method != "POST":
         return redirect("lplpo:lplpo_detail", pk=pk)
 
@@ -921,17 +993,6 @@ def lplpo_finalize(request, pk):
             "Dokumen distribusi untuk LPLPO ini sudah dibuat sebelumnya.",
         )
         return redirect("distribution:distribution_detail", pk=lplpo_obj.distribution_id)
-
-    items_with_pemberian = list(
-        lplpo_obj.items.filter(pemberian_jumlah__gt=0).select_related("item")
-    )
-
-    if not items_with_pemberian:
-        messages.error(
-            request,
-            "Tidak ada item dengan pemberian > 0 untuk dibuatkan distribusi.",
-        )
-        return redirect("lplpo:lplpo_detail", pk=pk)
 
     try:
         with transaction.atomic():
@@ -950,43 +1011,10 @@ def lplpo_finalize(request, pk):
                     "distribution:distribution_detail",
                     pk=lplpo_obj.distribution_id,
                 )
-
-            dist = Distribution.objects.create(
-                distribution_type=Distribution.DistributionType.LPLPO,
-                facility=lplpo_obj.facility,
-                request_date=date(lplpo_obj.tahun, lplpo_obj.bulan, 1),
-                status=Distribution.Status.DRAFT,
-                created_by=request.user,
-                notes=f"Dibuat otomatis dari LPLPO {lplpo_obj.document_number}.",
-            )
-
-            DistributionItem.objects.bulk_create(
-                [
-                    DistributionItem(
-                        distribution=dist,
-                        item=li.item,
-                        quantity_requested=li.permintaan_jumlah,
-                        quantity_approved=li.pemberian_jumlah,
-                    )
-                    for li in items_with_pemberian
-                ]
-            )
-            assign_default_distribution_staff(dist, request.user)
-
-            lplpo_obj.status = LPLPO.Status.APPROVED
-            lplpo_obj.approved_by = request.user
-            lplpo_obj.approved_at = timezone.now()
-            lplpo_obj.rejection_reason = ""
-            lplpo_obj.distribution = dist
-            lplpo_obj.save(
-                update_fields=[
-                    "status",
-                    "approved_by",
-                    "approved_at",
-                    "rejection_reason",
-                    "distribution",
-                    "updated_at",
-                ]
+            dist = _create_lplpo_distribution(
+                lplpo_obj,
+                actor=request.user,
+                processed_at=timezone.now(),
             )
 
     except (IntegrityError, ValueError) as exc:

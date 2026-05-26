@@ -67,8 +67,8 @@ class LPLPO(TimeStampedModel):
         PIC_VERIFIED = "PIC_VERIFIED", "Terverifikasi PIC"
         REJECTED_PUSKESMAS = "REJECTED_PUSKESMAS", "Ditolak ke Puskesmas"
         REVIEWED = "REVIEWED", "Ditinjau PIC"
-        REJECTED_PIC = "REJECTED_PIC", "Dikembalikan ke PIC"
-        APPROVED = "APPROVED", "Disetujui Kepala"
+        REJECTED_PIC = "REJECTED_PIC", "Revisi Tinjauan PIC"
+        APPROVED = "APPROVED", "Siap Distribusi"
         DISTRIBUTED = "DISTRIBUTED", "Didistribusikan"
         CLOSED = "CLOSED", "Ditutup"
 

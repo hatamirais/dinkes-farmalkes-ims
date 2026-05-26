@@ -43,12 +43,12 @@
                 {% elif lplpo.status == 'REJECTED_PIC' %}
                 <strong>Sedang Direvisi PIC</strong>
                 {% elif lplpo.status == 'REVIEWED' %}
-                <strong>Menunggu Persetujuan Kepala Instalasi</strong>
+                <strong>Ditinjau PIC (Legacy)</strong>
                 {% elif lplpo.status == 'APPROVED' %}
                 {% if lplpo.distribution %}
                 <strong>Dokumen Distribusi Dibuat / Menunggu Distribusi</strong>
                 {% else %}
-                <strong>Disetujui / Menunggu Proses Distribusi</strong>
+                <strong>Siap Distribusi</strong>
                 {% endif %}
                 {% elif lplpo.status == 'DISTRIBUTED' %}
                 <strong>Dokumen Distribusi Dibuat</strong>
@@ -68,7 +68,7 @@
                 — Alasan: {{ lplpo.rejection_reason }}
                 {% endif %}
                 {% if lplpo.status == 'REJECTED_PIC' and lplpo.rejection_reason %}
-                — Alasan revisi dari Kepala: {{ lplpo.rejection_reason }}
+                — Alasan revisi tinjauan: {{ lplpo.rejection_reason }}
                 {% endif %}
                 {% if lplpo.status == 'APPROVED' and lplpo.distribution %}
                 — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat dan masih mengikuti workflow distribusi.
@@ -117,7 +117,7 @@
                         {% endif %}
 
                         {% if lplpo.approved_by %}
-                        <dt class="col-sm-4">Disetujui Kepala</dt>
+                        <dt class="col-sm-4">Distribusi Dibuat Oleh</dt>
                         <dd class="col-sm-8">{{ lplpo.approved_by }} <span class="text-muted small">{{ lplpo.approved_at|date:"d M Y H:i" }}</span></dd>
                         {% endif %}
 
@@ -131,7 +131,7 @@
                         <dd class="col-sm-8">{{ lplpo.rejection_reason }}</dd>
                         {% endif %}
                         {% if lplpo.status == 'REJECTED_PIC' and lplpo.rejection_reason %}
-                        <dt class="col-sm-4">Alasan Revisi Kepala</dt>
+                        <dt class="col-sm-4">Alasan Revisi Tinjauan</dt>
                         <dd class="col-sm-8">{{ lplpo.rejection_reason }}</dd>
                         {% endif %}
                     </dl>
@@ -285,13 +285,13 @@
                     <form method="post" action="{% url 'lplpo:lplpo_finalize' lplpo.pk %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success w-100" id="finalize-btn"
-                            data-confirm-click="Setujui LPLPO ini dan buat dokumen distribusi?">
-                            <i class="bi bi-check2-all me-1"></i>Setujui & Buat Distribusi
+                            data-confirm-click="Buat dokumen distribusi untuk LPLPO legacy ini?">
+                            <i class="bi bi-check2-all me-1"></i>Buat Distribusi Legacy
                         </button>
                     </form>
                     <button type="button" class="btn btn-outline-danger w-100" id="reject-reviewed-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
-                        <i class="bi bi-x-circle me-1"></i>Kembalikan ke PIC
+                        <i class="bi bi-x-circle me-1"></i>Kembalikan Tinjauan
                     </button>
 
                     {% elif lplpo.distribution and request.user.role != 'PUSKESMAS' %}
@@ -339,7 +339,7 @@
                     {% endif %}
                     {% if lplpo.approved_at %}
                     <li class="list-group-item d-flex justify-content-between">
-                        <span class="text-muted">Disetujui Kepala</span>
+                        <span class="text-muted">Distribusi Dibuat</span>
                         <span>{{ lplpo.approved_at|date:"d M Y H:i" }}</span>
                     </li>
                     {% endif %}
@@ -370,7 +370,7 @@
                         {% if lplpo.status == 'SUBMITTED' %}
                         Isi alasan penolakan agar operator Puskesmas tahu apa yang harus diperbaiki.
                         {% else %}
-                        Isi alasan revisi agar PIC tahu apa yang harus diperbaiki sebelum diajukan ulang ke Kepala.
+                        Isi alasan revisi agar PIC tahu apa yang harus diperbaiki sebelum dibuatkan distribusi.
                         {% endif %}
                     </p>
                     <label for="rejection_reason" class="form-label">Alasan Penolakan</label>

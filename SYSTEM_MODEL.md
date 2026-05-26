@@ -55,6 +55,8 @@ Module highlights:
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
+  - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
+  - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
@@ -313,7 +315,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - FKs: `facility` (puskesmas only), `created_by`, `verified_by` (nullable), `reviewed_by` (nullable), `approved_by` (nullable), `distribution` (nullable OneToOne)
   - Timestamps: `submitted_at`, `verified_at`, `reviewed_at`, `approved_at`
   - Constraints/Indexes: `uq_lplpo_facility_period` unique on `(facility, bulan, tahun)`, `idx_lplpo_facility_period` on `(facility, tahun, bulan)`, `idx_lplpo_status` on `(status)`
-  - Workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> REVIEWED -> APPROVED -> CLOSED`
+  - Workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> APPROVED -> CLOSED` for active documents; `REVIEWED` remains as a legacy compatibility status for older rows.
   - Rejection loops are `SUBMITTED -> REJECTED_PUSKESMAS` and `REVIEWED -> REJECTED_PIC`
   - While the generated distribution is still pending fulfillment, an approved LPLPO may also be returned to `REJECTED_PUSKESMAS` by cancelling its generated distribution with a required rejection reason
 
