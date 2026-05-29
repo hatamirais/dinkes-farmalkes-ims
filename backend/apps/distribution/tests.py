@@ -16,7 +16,7 @@ from apps.items.models import Category, Facility, FundingSource, Item, Location,
 from apps.lplpo.models import LPLPO
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
-from apps.users.models import User
+from apps.users.models import ModuleAccess, User
 
 
 class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
@@ -1278,8 +1278,65 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.get(reverse("distribution:distribution_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, reverse("reports:pengeluaran"))
+        self.assertContains(response, reverse("distribution:distribution_report"))
         self.assertNotContains(response, "Buat Distribusi")
+
+    def test_distribution_report_endpoint_renders_outbound_report(self):
+        response = self.client.get(reverse("distribution:distribution_report"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Laporan Pengeluaran / Distribusi")
+        self.assertContains(response, "Semua Distribusi")
+
+    def test_distribution_report_special_request_endpoint_filters_to_special_request(self):
+        special_request = self._create_distribution(
+            status=Distribution.Status.DISTRIBUTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            with_items=True,
+        )
+        lplpo = self._create_distribution(
+            status=Distribution.Status.DISTRIBUTED,
+            distribution_type=Distribution.DistributionType.LPLPO,
+            with_items=True,
+        )
+
+        response = self.client.get(
+            reverse("distribution:distribution_report_special_request"),
+            {
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, special_request.document_number)
+        self.assertNotContains(response, lplpo.document_number)
+
+    def test_distribution_report_tabs_use_dedicated_distribution_urls(self):
+        response = self.client.get(reverse("distribution:distribution_report"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("distribution:distribution_report"))
+        self.assertContains(response, reverse("distribution:distribution_report_special_request"))
+        self.assertContains(response, reverse("distribution:distribution_report_allocation"))
+        self.assertContains(response, reverse("distribution:distribution_report_lplpo"))
+
+    def test_distribution_report_endpoints_require_reports_permission(self):
+        restricted_user = User.objects.create_user(
+            username="puskesmas_no_reports_view",
+            role=User.Role.PUSKESMAS,
+        )
+        self.client.force_login(restricted_user)
+
+        for url_name in (
+            "distribution:distribution_report",
+            "distribution:distribution_report_special_request",
+            "distribution:distribution_report_allocation",
+            "distribution:distribution_report_lplpo",
+        ):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 403)
 
     def test_distribution_list_requires_view_permission(self):
         restricted_user = User.objects.create_user(
@@ -1292,6 +1349,27 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.get(reverse("distribution:distribution_list"))
 
         self.assertEqual(response.status_code, 403)
+
+    def test_distribution_list_hides_report_button_without_reports_permission(self):
+        restricted_user = User.objects.create_user(
+            username="gudang_without_reports_access",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(restricted_user, overwrite=True)
+        ModuleAccess.objects.filter(
+            user=restricted_user,
+            module=ModuleAccess.Module.REPORTS,
+        ).update(scope=ModuleAccess.Scope.NONE)
+        self.client.force_login(restricted_user)
+
+        response = self.client.get(reverse("distribution:distribution_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(
+            response,
+            reverse("distribution:distribution_report"),
+        )
 
     def test_special_request_list_filters_special_request_records(self):
         special_request = self._create_distribution(

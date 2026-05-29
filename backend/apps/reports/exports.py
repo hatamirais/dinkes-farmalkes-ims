@@ -446,7 +446,13 @@ def export_kadaluarsa_excel(report_data, start_date, end_date):
     )
 
 
-def export_pengeluaran_excel(report_data, start_date, end_date, facility_name='Semua Fasilitas'):
+def export_pengeluaran_excel(
+    report_data,
+    start_date,
+    end_date,
+    facility_name='Semua Fasilitas',
+    distribution_type_label='Semua Distribusi',
+):
     """Export the Pengeluaran (distribution) report to Excel."""
     wb = Workbook()
     ws = wb.active
@@ -468,7 +474,10 @@ def export_pengeluaran_excel(report_data, start_date, end_date, facility_name='S
 
     ws.merge_cells(f"A2:{last_col}2")
     period_cell = ws.cell(row=2, column=1,
-                          value=f"Periode: {start_date} s/d {end_date} | Fasilitas: {facility_name}")
+                          value=(
+                              f"Periode: {start_date} s/d {end_date} | "
+                              f"Fasilitas: {facility_name} | Jenis Distribusi: {distribution_type_label}"
+                          ))
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
 
@@ -523,5 +532,6 @@ def export_pengeluaran_excel(report_data, start_date, end_date, facility_name='S
     val_cell.number_format = IDR_FORMAT
     val_cell.alignment = Alignment(horizontal="right")
 
-    filename = f"Laporan_Pengeluaran_{start_date}_{end_date}.xlsx"
+    safe_distribution_type = distribution_type_label.replace(' ', '_').replace('/', '_')
+    filename = f"Laporan_Pengeluaran_{safe_distribution_type}_{start_date}_{end_date}.xlsx"
     return _make_response(wb, filename)

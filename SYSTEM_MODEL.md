@@ -50,7 +50,7 @@ Module highlights:
 - Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`
 - Receiving plan: `/receiving/plans/*`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
-- Distribution history: `/distribution/`, `/distribution/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
+- Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
 - Special requests: `/distribution/special-requests/`, `/distribution/special-requests/create/`
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
@@ -292,7 +292,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 ### 4.11 Reports
 
-- `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. No bespoke database models, aggregates data from other apps.
+- `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. The combined outbound recap remains available on `/reports/pengeluaran/`, while the distribution module exposes route-based filtered variants for `SPECIAL_REQUEST`, `ALLOCATION`, and `LPLPO` under `/distribution/report/*`. No bespoke database models, aggregates data from other apps.
 
 ### 4.12 Puskesmas
 

@@ -5,6 +5,22 @@ app_name = "distribution"
 
 urlpatterns = [
     path("", views.distribution_list, name="distribution_list"),
+    path("report/", views.distribution_report, name="distribution_report"),
+    path(
+        "report/special-requests/",
+        views.distribution_report_special_request,
+        name="distribution_report_special_request",
+    ),
+    path(
+        "report/allocation/",
+        views.distribution_report_allocation,
+        name="distribution_report_allocation",
+    ),
+    path(
+        "report/lplpo/",
+        views.distribution_report_lplpo,
+        name="distribution_report_lplpo",
+    ),
     path(
         "special-requests/",
         views.special_request_list,

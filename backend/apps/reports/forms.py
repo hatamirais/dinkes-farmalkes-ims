@@ -35,6 +35,17 @@ class InventoryReportFilterForm(forms.Form):
 
 
 class PengeluaranReportFilterForm(InventoryReportFilterForm):
+    distribution_type = forms.ChoiceField(
+        label='Jenis Distribusi',
+        required=False,
+        choices=[
+            ('', 'Semua Distribusi'),
+            (Distribution.DistributionType.SPECIAL_REQUEST, 'Permintaan Khusus'),
+            (Distribution.DistributionType.ALLOCATION, 'Alokasi'),
+            (Distribution.DistributionType.LPLPO, 'LPLPO'),
+        ],
+        widget=forms.HiddenInput(),
+    )
     facility = forms.ModelChoiceField(
         label='Fasilitas',
         queryset=None,
@@ -47,6 +58,12 @@ class PengeluaranReportFilterForm(InventoryReportFilterForm):
         super().__init__(*args, **kwargs)
         from apps.items.models import Facility
         self.fields['facility'].queryset = Facility.objects.filter(is_active=True).order_by('name')
+
+    @classmethod
+    def get_default_initial(cls):
+        initial = super().get_default_initial()
+        initial['distribution_type'] = ''
+        return initial
 
 
 class NumberingHistoryFilterForm(forms.Form):

@@ -15,6 +15,15 @@ from .exports import (
 from apps.stock.models import Transaction, Stock
 from apps.distribution.models import Distribution
 
+
+_PENGELUARAN_REPORT_TAB_URL_NAMES = {
+    '': 'reports:pengeluaran',
+    Distribution.DistributionType.SPECIAL_REQUEST: 'reports:pengeluaran',
+    Distribution.DistributionType.ALLOCATION: 'reports:pengeluaran',
+    Distribution.DistributionType.LPLPO: 'reports:pengeluaran',
+}
+
+
 @login_required
 @perm_required('reports.view_reports')
 def reports_index(request):
@@ -563,17 +572,47 @@ def reports_kadaluarsa(request):
 @login_required
 @perm_required('reports.view_reports')
 def reports_pengeluaran(request):
+    return render_pengeluaran_report(request)
+
+
+def render_pengeluaran_report(
+    request,
+    *,
+    forced_distribution_type='',
+    base_report_url_name='reports:pengeluaran',
+    tab_url_names=None,
+):
     from apps.distribution.models import DistributionItem
     from .forms import PengeluaranReportFilterForm
     from .exports import export_pengeluaran_excel
 
-    form = PengeluaranReportFilterForm(request.GET or PengeluaranReportFilterForm.get_default_initial())
+    initial_data = PengeluaranReportFilterForm.get_default_initial()
+    effective_querydict = request.GET.copy()
+    for key, value in initial_data.items():
+        if not effective_querydict.get(key):
+            effective_querydict[key] = value
+    if forced_distribution_type:
+        effective_querydict['distribution_type'] = forced_distribution_type
+
+    form = PengeluaranReportFilterForm(effective_querydict)
     report_data = []
+    active_distribution_type = forced_distribution_type or effective_querydict.get('distribution_type', '') or ''
+    selected_distribution_type_label = dict(
+        PengeluaranReportFilterForm.base_fields['distribution_type'].choices
+    ).get(active_distribution_type, 'Semua Distribusi')
+    selected_facility_name = 'Semua Fasilitas'
 
     if form.is_valid():
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
+        distribution_type = forced_distribution_type or form.cleaned_data.get('distribution_type')
         facility = form.cleaned_data.get('facility')
+        selected_facility_name = facility.name if facility else 'Semua Fasilitas'
+        active_distribution_type = distribution_type or ''
+        selected_distribution_type_label = dict(form.fields['distribution_type'].choices).get(
+            active_distribution_type,
+            'Semua Distribusi',
+        )
 
         qs = DistributionItem.objects.filter(
             distribution__status='DISTRIBUTED',
@@ -587,6 +626,9 @@ def reports_pengeluaran(request):
 
         if facility:
             qs = qs.filter(distribution__facility=facility)
+
+        if distribution_type:
+            qs = qs.filter(distribution__distribution_type=distribution_type)
 
         for di in qs:
             qty = di.quantity_approved if di.quantity_approved is not None else di.quantity_requested
@@ -606,8 +648,38 @@ def reports_pengeluaran(request):
             })
 
         if request.GET.get('format') == 'excel' and report_data:
-            selected_facility_name = facility.name if facility else 'Semua Fasilitas'
-            return export_pengeluaran_excel(report_data, start_date, end_date, selected_facility_name)
+            return export_pengeluaran_excel(
+                report_data,
+                start_date,
+                end_date,
+                selected_facility_name,
+                selected_distribution_type_label,
+            )
+
+    if tab_url_names is None:
+        tab_url_names = _PENGELUARAN_REPORT_TAB_URL_NAMES
+
+    tab_choices = PengeluaranReportFilterForm.base_fields['distribution_type'].choices
+    tab_base_params = effective_querydict.copy()
+    tab_base_params.pop('format', None)
+    tab_base_params.pop('distribution_type', None)
+    tabs = []
+    for value, label in tab_choices:
+        tab_params = tab_base_params.copy()
+        if value:
+            tab_params['distribution_type'] = value
+        tab_url = reverse(tab_url_names.get(value, base_report_url_name))
+        encoded_params = tab_params.urlencode()
+        if encoded_params:
+            tab_url = f'{tab_url}?{encoded_params}'
+        tabs.append(
+            {
+                'value': value,
+                'label': label,
+                'url': tab_url,
+                'active': value == active_distribution_type,
+            }
+        )
 
     total_quantity = sum(r['quantity'] for r in report_data)
     total_value = sum(r['total_price'] for r in report_data)
@@ -617,5 +689,10 @@ def reports_pengeluaran(request):
         'report_data': report_data,
         'total_quantity': total_quantity,
         'total_value': total_value,
+        'tabs': tabs,
+        'active_distribution_type': active_distribution_type,
+        'selected_distribution_type_label': selected_distribution_type_label,
+        'selected_facility_name': selected_facility_name,
+        'base_report_url_name': base_report_url_name,
     }
     return render(request, 'reports/pengeluaran.html', context)

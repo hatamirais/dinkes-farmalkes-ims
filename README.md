@@ -48,7 +48,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 
 - `core`: dashboard, middleware akses panel admin, pengaturan sistem (label platform login, logo, header dokumen, nama fasilitas, serta template penomoran dokumen distribusi) secara dinamis, placeholder riwayat administrasi terpisah untuk penerimaan serta pengeluaran, dan handler error terpusat untuk `400/403/404/500` plus halaman maintenance `503`.
-- `reports`: halaman ringkasan laporan dengan keluaran `rekap`, `penerimaan hibah`, `pengadaan`, `kadaluarsa`, dan `pengeluaran`.
+- `reports`: halaman ringkasan laporan dengan keluaran `rekap`, `penerimaan hibah`, `pengadaan`, `kadaluarsa`, dan `pengeluaran`; laporan `pengeluaran` tetap tersedia sebagai ringkasan gabungan di `/reports/pengeluaran/`, sedangkan riwayat distribusi menyediakan endpoint khusus di `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, dan `/distribution/report/lplpo/`.
 
 ## Ringkasan Workflow
 

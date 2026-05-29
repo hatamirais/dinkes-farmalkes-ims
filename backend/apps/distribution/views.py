@@ -12,7 +12,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from apps.core.decorators import module_scope_required, perm_required
 from apps.lplpo.forms import RejectLPLPOForm
 from apps.lplpo.models import LPLPO
-from apps.users.access import has_module_scope
+from apps.reports.views import (
+    _PENGELUARAN_REPORT_TAB_URL_NAMES,
+    render_pengeluaran_report,
+)
+from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess, User
 
 from .forms import (
@@ -34,6 +38,15 @@ from .services import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+_DISTRIBUTION_REPORT_TAB_URL_NAMES = {
+    **_PENGELUARAN_REPORT_TAB_URL_NAMES,
+    "": "distribution:distribution_report",
+    Distribution.DistributionType.SPECIAL_REQUEST: "distribution:distribution_report_special_request",
+    Distribution.DistributionType.ALLOCATION: "distribution:distribution_report_allocation",
+    Distribution.DistributionType.LPLPO: "distribution:distribution_report_lplpo",
+}
 
 
 def _redirect_distribution_detail(pk):
@@ -74,6 +87,12 @@ def _can_return_generated_lplpo_to_puskesmas(user, distribution):
             ModuleAccess.Module.LPLPO,
             ModuleAccess.Scope.APPROVE,
         )
+    )
+
+
+def _can_view_reports(user):
+    return user.is_superuser or user.has_perm("reports.view_reports") or has_module_permission(
+        user, "reports.view_reports"
     )
 
 
@@ -184,6 +203,7 @@ def distribution_list(request):
         .exclude(distribution_type__in=["BORROW_RS", "SWAP_RS"])
         .order_by("-request_date")
     )
+    can_view_reports = _can_view_reports(request.user)
 
     return _render_distribution_list(
         request,
@@ -194,8 +214,51 @@ def distribution_list(request):
         empty_state_text="Belum ada riwayat pengeluaran",
         active_pengeluaran_submenu="distribution_history",
         show_type_filter=True,
-        report_url_name="reports:pengeluaran",
-        report_button_label="Laporan Pengeluaran",
+        report_url_name="distribution:distribution_report" if can_view_reports else None,
+        report_button_label="Laporan Pengeluaran" if can_view_reports else None,
+    )
+
+
+@login_required
+@perm_required("reports.view_reports")
+def distribution_report(request):
+    return render_pengeluaran_report(
+        request,
+        base_report_url_name="distribution:distribution_report",
+        tab_url_names=_DISTRIBUTION_REPORT_TAB_URL_NAMES,
+    )
+
+
+@login_required
+@perm_required("reports.view_reports")
+def distribution_report_special_request(request):
+    return render_pengeluaran_report(
+        request,
+        forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        base_report_url_name="distribution:distribution_report",
+        tab_url_names=_DISTRIBUTION_REPORT_TAB_URL_NAMES,
+    )
+
+
+@login_required
+@perm_required("reports.view_reports")
+def distribution_report_allocation(request):
+    return render_pengeluaran_report(
+        request,
+        forced_distribution_type=Distribution.DistributionType.ALLOCATION,
+        base_report_url_name="distribution:distribution_report",
+        tab_url_names=_DISTRIBUTION_REPORT_TAB_URL_NAMES,
+    )
+
+
+@login_required
+@perm_required("reports.view_reports")
+def distribution_report_lplpo(request):
+    return render_pengeluaran_report(
+        request,
+        forced_distribution_type=Distribution.DistributionType.LPLPO,
+        base_report_url_name="distribution:distribution_report",
+        tab_url_names=_DISTRIBUTION_REPORT_TAB_URL_NAMES,
     )
 
 

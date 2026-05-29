@@ -66,7 +66,7 @@ If documentation conflicts with code, code is authoritative until docs are corre
 - `stock_opname`: physical counting workflow
 - `puskesmas`: ad-hoc requests from Puskesmas
 - `lplpo`: monthly reporting and stock requests from Puskesmas
-- `reports`: report index with rekap, hibah receiving, procurement, expiry, outbound reporting views, and document numbering history for LPLPO/Special Request distributions
+- `reports`: report index with rekap, hibah receiving, procurement, expiry, outbound reporting views, and document numbering history for LPLPO/Special Request distributions. The combined outbound report remains on `/reports/pengeluaran/`, while the distribution module owns dedicated route-based report variants at `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, and `/distribution/report/lplpo/`.
 
 ## Permissions Model
 
