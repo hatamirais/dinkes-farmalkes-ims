@@ -22,12 +22,10 @@ class ImportGuideMixin:
             if file_format is SanitizedCSV:
                 sanitized_formats.append(file_format)
                 continue
-            try:
-                if file_format().get_extension() == "csv":
-                    sanitized_formats.append(SanitizedCSV)
-                    continue
-            except Exception:
-                pass
+            extension_getter = getattr(file_format(), "get_extension", None)
+            if callable(extension_getter) and extension_getter() == "csv":
+                sanitized_formats.append(SanitizedCSV)
+                continue
             sanitized_formats.append(file_format)
         return sanitized_formats
 

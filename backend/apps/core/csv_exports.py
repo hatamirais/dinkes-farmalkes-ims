@@ -11,7 +11,9 @@ CSV_DELIMITER = ","
 def escape_csv_formula(value):
     if not isinstance(value, str):
         return value
-    if value.startswith(FORMULA_PREFIXES):
+    if value.startswith("'"):
+        return value
+    if value.lstrip().startswith(FORMULA_PREFIXES):
         return f"'{value}"
     return value
 
@@ -26,7 +28,9 @@ class SanitizedCSV(base_formats.CSV):
         kwargs.setdefault("delimiter", CSV_DELIMITER)
 
         writer = csv.writer(stream, **kwargs)
-        for row in dataset._package(dicts=False):
+        if dataset.headers:
+            writer.writerow(sanitize_csv_row(dataset.headers))
+        for row in dataset:
             writer.writerow(sanitize_csv_row(row))
 
         return stream.getvalue()
