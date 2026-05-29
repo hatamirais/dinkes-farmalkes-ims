@@ -6,6 +6,7 @@ from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.csv_exports import sanitize_csv_row
 from apps.expired.models import Expired
 from apps.stock.models import Transaction
 
@@ -202,47 +203,51 @@ def export_expired_audit_report_csv(report_data):
         writer = csv.writer(_Echo())
         yield "\ufeff"
         yield writer.writerow(
-            [
-                "Outcome Type",
-                "Document Type",
-                "Document Reference",
-                "Kode Barang",
-                "Nama Barang",
-                "Batch / Lot",
-                "Expiry Date",
-                "Quantity",
-                "Unit Price",
-                "Total Price",
-                "Unit",
-                "Location",
-                "Funding Source",
-                "Responsible User",
-                "Timestamp",
-                "Notes / Reason",
-                "Item Reference",
-            ]
+            sanitize_csv_row(
+                [
+                    "Outcome Type",
+                    "Document Type",
+                    "Document Reference",
+                    "Kode Barang",
+                    "Nama Barang",
+                    "Batch / Lot",
+                    "Expiry Date",
+                    "Quantity",
+                    "Unit Price",
+                    "Total Price",
+                    "Unit",
+                    "Location",
+                    "Funding Source",
+                    "Responsible User",
+                    "Timestamp",
+                    "Notes / Reason",
+                    "Item Reference",
+                ]
+            )
         )
         for row in report_data["rows"]:
             yield writer.writerow(
-                [
-                    row["outcome_type"],
-                    row["document_type"],
-                    row["document_reference"],
-                    row["kode_barang"],
-                    row["nama_barang"],
-                    row["batch_lot"],
-                    row["expiry_date"].isoformat() if row["expiry_date"] else "",
-                    row["quantity"],
-                    row["unit_price"],
-                    row["total_price"],
-                    row["unit"],
-                    row["location"],
-                    row["funding_source"],
-                    row["responsible_user"],
-                    row["timestamp"].isoformat() if row["timestamp"] else "",
-                    row["notes"],
-                    row["reference_code"],
-                ]
+                sanitize_csv_row(
+                    [
+                        row["outcome_type"],
+                        row["document_type"],
+                        row["document_reference"],
+                        row["kode_barang"],
+                        row["nama_barang"],
+                        row["batch_lot"],
+                        row["expiry_date"].isoformat() if row["expiry_date"] else "",
+                        row["quantity"],
+                        row["unit_price"],
+                        row["total_price"],
+                        row["unit"],
+                        row["location"],
+                        row["funding_source"],
+                        row["responsible_user"],
+                        row["timestamp"].isoformat() if row["timestamp"] else "",
+                        row["notes"],
+                        row["reference_code"],
+                    ]
+                )
             )
 
     response = StreamingHttpResponse(

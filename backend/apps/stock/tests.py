@@ -1,17 +1,58 @@
 from decimal import Decimal
 from datetime import timedelta
+from datetime import date
 from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.db import IntegrityError
 from django.test import TestCase
 from django.test import SimpleTestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.csv_exports import SanitizedCSV
 from apps.users.models import User
+from apps.stock.admin import StockAdmin, StockResource
 from apps.items.models import Unit, Category, Item, Location, FundingSource
 from apps.stock.models import Stock, StockTransfer, Transaction
 from apps.core.models import SystemSettings
+
+
+class StockAdminCsvExportSecurityTest(TestCase):
+    def setUp(self):
+        self.unit = Unit.objects.create(code='TAB', name='Tablet')
+        self.category = Category.objects.create(code='OBAT', name='Obat', sort_order=1)
+        self.item = Item.objects.create(
+            nama_barang='Paracetamol 500mg',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        self.location = Location.objects.create(code='GUDANG', name='Gudang Utama')
+        self.funding = FundingSource.objects.create(code='APBD', name='APBD')
+
+    def test_stock_admin_uses_sanitized_csv_format(self):
+        admin = StockAdmin(Stock, AdminSite())
+
+        self.assertIn(SanitizedCSV, admin.get_export_formats())
+
+    def test_stock_resource_csv_export_neutralizes_formula_prefixed_values(self):
+        stock = Stock.objects.create(
+            item=self.item,
+            location=self.location,
+            batch_lot='@BATCH-01',
+            expiry_date=date(2027, 1, 1),
+            quantity=Decimal('25'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+
+        dataset = StockResource().export(Stock.objects.filter(pk=stock.pk))
+        csv_output = SanitizedCSV().export_data(dataset)
+
+        self.assertIn("'@BATCH-01", csv_output)
+        self.assertIn(self.item.kode_barang, csv_output)
 
 class StockCardTest(TestCase):
     def setUp(self):

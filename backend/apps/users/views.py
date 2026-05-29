@@ -11,6 +11,8 @@ from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.core.csv_exports import sanitize_csv_row
+
 from .access import ROLE_DEFAULT_SCOPES, has_module_permission
 from .forms import UserCreateForm, UserUpdateForm
 from .models import ModuleAccess, User
@@ -566,23 +568,31 @@ def user_export_csv(request):
     def generate_rows():
         writer = csv.writer(_Echo())
         yield "\ufeff"
-        yield writer.writerow([
-            "Username", "Nama Lengkap", "NIP", "Email",
-            "Jabatan", "Fasilitas", "Status", "Login Terakhir",
-        ])
+        yield writer.writerow(
+            sanitize_csv_row(
+                [
+                    "Username", "Nama Lengkap", "NIP", "Email",
+                    "Jabatan", "Fasilitas", "Status", "Login Terakhir",
+                ]
+            )
+        )
         for user in queryset.iterator(chunk_size=200):
-            yield writer.writerow([
-                user.username,
-                user.full_name,
-                user.nip,
-                user.email,
-                role_map.get(user.role, user.role),
-                user.facility.name if user.facility else (
-                    "Instalasi Farmasi" if user.role != "PUSKESMAS" else ""
-                ),
-                "Aktif" if user.is_active else "Nonaktif",
-                user.last_login.strftime("%Y-%m-%d %H:%M") if user.last_login else "",
-            ])
+            yield writer.writerow(
+                sanitize_csv_row(
+                    [
+                        user.username,
+                        user.full_name,
+                        user.nip,
+                        user.email,
+                        role_map.get(user.role, user.role),
+                        user.facility.name if user.facility else (
+                            "Instalasi Farmasi" if user.role != "PUSKESMAS" else ""
+                        ),
+                        "Aktif" if user.is_active else "Nonaktif",
+                        user.last_login.strftime("%Y-%m-%d %H:%M") if user.last_login else "",
+                    ]
+                )
+            )
 
     response = StreamingHttpResponse(
         generate_rows(),

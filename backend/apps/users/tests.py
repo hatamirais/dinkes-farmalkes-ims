@@ -124,6 +124,25 @@ class UserManagementViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.target.username)
 
+    def test_user_export_csv_neutralizes_formula_prefixed_values(self):
+        User.objects.filter(pk=self.target.pk).update(
+            username="=cmd|' /C calc'!A0",
+            full_name="@full-name",
+            nip="-198801012010011001",
+            email="+user@example.com",
+        )
+
+        response = self.client.get(reverse("users:user_export_csv"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        csv_output = b"".join(response.streaming_content).decode("utf-8")
+        self.assertIn("'=cmd|' /C calc'!A0", csv_output)
+        self.assertIn("'@full-name", csv_output)
+        self.assertIn("'-198801012010011001", csv_output)
+        self.assertIn("'+user@example.com", csv_output)
+        self.assertIn("Aktif", csv_output)
+
     def test_user_create_success(self):
         payload = {
             "username": "auditor01",

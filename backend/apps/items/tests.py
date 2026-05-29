@@ -1,10 +1,37 @@
+from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.csv_exports import SanitizedCSV
+from apps.items.admin import ItemAdmin, ItemResource
 from apps.items.forms import ItemForm
 from apps.items.models import Item, Unit, Category, Program
 from apps.users.models import User
+
+
+class ItemAdminCsvExportSecurityTest(TestCase):
+	def setUp(self):
+		self.unit = Unit.objects.create(code='TAB', name='Tablet')
+		self.category = Category.objects.create(code='OBAT', name='Obat')
+
+	def test_item_admin_uses_sanitized_csv_format(self):
+		admin = ItemAdmin(Item, AdminSite())
+
+		self.assertIn(SanitizedCSV, admin.get_export_formats())
+
+	def test_item_resource_csv_export_neutralizes_formula_prefixed_values(self):
+		item = Item.objects.create(
+			nama_barang='=HYPERLINK("http://example.com")',
+			satuan=self.unit,
+			kategori=self.category,
+		)
+
+		dataset = ItemResource().export(Item.objects.filter(pk=item.pk))
+		csv_output = SanitizedCSV().export_data(dataset)
+
+		self.assertIn("\"'=HYPERLINK", csv_output)
+		self.assertIn(item.kode_barang, csv_output)
 
 
 class LookupModelGuardrailTest(TestCase):

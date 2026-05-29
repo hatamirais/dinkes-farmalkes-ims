@@ -521,6 +521,31 @@ class ExpiredWorkflowTest(TestCase):
         self.assertIn("Total Price", csv_output)
         self.assertNotIn("Distribusi uji", csv_output)
 
+    def test_expired_audit_report_csv_neutralizes_formula_prefixed_values(self):
+        expired_doc = self._create_expired(status=Expired.Status.DISPOSED)
+        expired_doc.disposed_by = self.user
+        expired_doc.disposed_at = timezone.make_aware(timezone.datetime(2026, 3, 18, 9, 0, 0))
+        expired_doc.save(update_fields=["disposed_by", "disposed_at", "updated_at"])
+        expired_doc.items.update(notes="=hapus-semua")
+
+        response = self.client.get(
+            reverse("expired:expired_audit_report"),
+            {
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+                "date_field": "disposed_at",
+                "outcome_type": "BOTH",
+                "location": str(self.location.pk),
+                "item": str(self.item.pk),
+                "funding_source": str(self.funding_source.pk),
+                "format": "csv",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        csv_output = b"".join(response.streaming_content).decode("utf-8")
+        self.assertIn("'=hapus-semua", csv_output)
+
     def test_expired_audit_report_print_endpoint_returns_printable_html(self):
         response = self.client.get(
             reverse("expired:expired_audit_report"),

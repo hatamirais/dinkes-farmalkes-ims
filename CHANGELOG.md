@@ -7,6 +7,10 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Fixed
+
+- Security hardening: neutralized CSV formula injection across custom CSV exports and django-import-export admin CSV downloads by sanitizing formula-prefixed cell values at export time.
+
 ## [1.24.0] - 2026-05-21
 
 ### Added
