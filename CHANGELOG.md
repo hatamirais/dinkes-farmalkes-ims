@@ -13,7 +13,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
-- Distribution: the main distribution history page now exposes a `Buat Distribusi LPLPO` action, while generated LPLPO distributions continue to derive from LPLPO review and keep their source-driven edit locks.
+- Distribution: the LPLPO list page now exposes a `Buat Distribusi LPLPO` action, while generated LPLPO distributions continue to derive from LPLPO review and keep their source-driven edit locks.
 
 ### Fixed
 

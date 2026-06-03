@@ -1676,14 +1676,14 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             reverse("distribution:distribution_distribute", args=[dist.pk])
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 403)
         dist.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)
-        self.assertEqual(dist.approved_by, gudang)
-        self.assertEqual(self.stock.quantity, Decimal("160"))
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertIsNone(dist.approved_by)
+        self.assertEqual(self.stock.quantity, Decimal("200"))
 
-    def test_gudang_sees_distribute_action_for_verified_distribution(self):
+    def test_gudang_does_not_see_distribute_action_for_verified_distribution(self):
         dist = self._create_distribution(status=Distribution.Status.VERIFIED)
         gudang = User.objects.create_user(
             username="gudang_detail_distribute",
@@ -1698,8 +1698,8 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Distribusikan")
-        self.assertContains(response, 'id="distributeModal"')
+        self.assertNotContains(response, "Distribusikan")
+        self.assertNotContains(response, 'id="distributeModal"')
 
     def test_non_assigned_staff_cannot_edit_draft_distribution(self):
         dist = self._create_distribution(
