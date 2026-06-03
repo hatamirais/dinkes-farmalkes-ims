@@ -21,15 +21,23 @@
             <p class="text-muted mb-0">Laporan Pemakaian & Lembar Permintaan Obat fasilitas Anda</p>
             {% endif %}
         </div>
-        {% if request.user.role == 'PUSKESMAS' or can_manage_all_lplpo %}
-        <a href="{% url 'lplpo:lplpo_create' %}" class="btn btn-primary" id="create-lplpo-btn">
-            <i class="bi bi-plus-lg me-1"></i> Buat LPLPO Baru
-        </a>
-        {% elif is_all %}
-        <a href="{% url 'lplpo:lplpo_print_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-secondary" target="_blank" id="print-report-btn">
-            <i class="bi bi-printer me-1"></i> Cetak Laporan
-        </a>
-        {% endif %}
+        <div class="d-flex gap-2">
+            {% if request.user.role == 'PUSKESMAS' or can_manage_all_lplpo %}
+            <a href="{% url 'lplpo:lplpo_create' %}" class="btn btn-primary" id="create-lplpo-btn">
+                <i class="bi bi-plus-lg me-1"></i> Buat LPLPO Baru
+            </a>
+            {% endif %}
+            {% if is_all and can_create_manual_lplpo_distribution %}
+            <a href="{% url 'distribution:manual_lplpo_create' %}" class="btn btn-primary" id="create-manual-lplpo-distribution-btn">
+                <i class="bi bi-plus-lg me-1"></i> Buat Distribusi LPLPO
+            </a>
+            {% endif %}
+            {% if is_all %}
+            <a href="{% url 'lplpo:lplpo_print_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-secondary" target="_blank" id="print-report-btn">
+                <i class="bi bi-printer me-1"></i> Cetak Laporan
+            </a>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Filters -->

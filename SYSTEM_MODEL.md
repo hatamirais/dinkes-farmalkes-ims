@@ -50,7 +50,7 @@ Module highlights:
 - Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`
 - Receiving plan: `/receiving/plans/*`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
-- Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
+- Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/lplpo/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
 - Special requests: `/distribution/special-requests/`, `/distribution/special-requests/create/`
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
@@ -201,6 +201,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Current allocation workflow auto-generates child distributions directly in `VERIFIED`; `GENERATED` remains in the enum for compatibility with older rows and migrations, but is not emitted by the active services
   - Current regular/special-request workflow is `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`
   - Generated LPLPO draft distributions keep the reviewed LPLPO quantities immutable on the distribution edit screen; that edit step is limited to batch selection, notes, staff, and other header metadata
+  - Manual LPLPO distributions can also be created from `/distribution/lplpo/create/` as an operational fallback when monthly LPLPO documents are not yet available. These records still use `distribution_type=LPLPO` and the same numbering/reporting bucket, but they do not have an `lplpo_source` document and therefore remain editable like normal draft distributions.
   - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED` or compatibility-only `GENERATED`)
   - Provides `kepala_instalasi` and `petugas` assignments logic for print outputs
   - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank for non-rule types; `LPLPO` and `SPECIAL_REQUEST` use the templates stored in `SystemSettings`), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`

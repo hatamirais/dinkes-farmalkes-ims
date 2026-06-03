@@ -28,6 +28,11 @@ urlpatterns = [
     ),
     path("create/", views.distribution_create, name="distribution_create"),
     path(
+        "lplpo/create/",
+        views.manual_lplpo_create,
+        name="manual_lplpo_create",
+    ),
+    path(
         "special-requests/create/",
         views.special_request_create,
         name="special_request_create",

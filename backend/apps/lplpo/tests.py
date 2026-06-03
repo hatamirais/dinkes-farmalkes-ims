@@ -269,7 +269,52 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, 'id="create-lplpo-btn"')
-		self.assertNotContains(response, 'id="print-report-btn"')
+		self.assertContains(response, 'id="create-manual-lplpo-distribution-btn"')
+		self.assertContains(response, 'id="print-report-btn"')
+
+	def test_instalasi_farmasi_list_shows_manual_lplpo_distribution_button_and_print(self):
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'id="create-manual-lplpo-distribution-btn"')
+		self.assertContains(response, reverse("distribution:manual_lplpo_create"))
+		self.assertContains(response, 'id="print-report-btn"')
+		self.assertNotContains(response, 'id="create-lplpo-btn"')
+
+	def test_puskesmas_list_hides_manual_lplpo_distribution_button(self):
+		self.client.force_login(self.puskesmas_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_my_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, 'id="create-manual-lplpo-distribution-btn"')
+		self.assertNotContains(response, reverse("distribution:manual_lplpo_create"))
+
+	def test_auditor_lplpo_list_hides_manual_lplpo_distribution_button(self):
+		auditor_user = User.objects.create_user(
+			username="auditor_lplpo_view_only",
+			password="TestPassword123!",
+			role=User.Role.AUDITOR,
+		)
+		ModuleAccess.objects.update_or_create(
+			user=auditor_user,
+			module=ModuleAccess.Module.LPLPO,
+			defaults={"scope": ModuleAccess.Scope.VIEW},
+		)
+		ModuleAccess.objects.update_or_create(
+			user=auditor_user,
+			module=ModuleAccess.Module.DISTRIBUTION,
+			defaults={"scope": ModuleAccess.Scope.VIEW},
+		)
+
+		self.client.force_login(auditor_user)
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, 'id="create-manual-lplpo-distribution-btn"')
+		self.assertNotContains(response, reverse("distribution:manual_lplpo_create"))
 
 	def test_instalasi_farmasi_list_only_shows_submitted_documents(self):
 		draft_lplpo = self.create_lplpo(status=LPLPO.Status.DRAFT)

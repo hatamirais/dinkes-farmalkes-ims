@@ -395,6 +395,64 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             Distribution.DistributionType.SPECIAL_REQUEST,
         )
 
+    def test_distribution_form_forces_manual_lplpo_type(self):
+        form = DistributionForm(
+            data={
+                "document_number": "",
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "program": "",
+                "notes": "Distribusi rollout manual.",
+                "assigned_staff": [self.user.pk],
+            },
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.LPLPO,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["distribution_type"],
+            Distribution.DistributionType.LPLPO,
+        )
+
+    def test_distribution_form_manual_lplpo_uses_auto_numbering_configuration(self):
+        form = DistributionForm(
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.LPLPO,
+        )
+
+        self.assertTrue(form.fields["document_number"].disabled)
+        self.assertEqual(
+            form.fields["document_number"].widget.attrs.get("placeholder"),
+            "Nomor dokumen dibuat otomatis",
+        )
+        self.assertEqual(
+            form.fields["document_number"].widget.attrs.get("readonly"),
+            True,
+        )
+        self.assertIn(
+            "440/{seq}/SBBK.RF/{year}",
+            form.fields["document_number"].help_text,
+        )
+        self.assertEqual(form.fields["document_number_preview"].initial, None)
+
+    def test_distribution_form_manual_lplpo_keeps_blank_document_number_for_auto_generation(self):
+        form = DistributionForm(
+            data={
+                "document_number": "",
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "program": "",
+                "notes": "",
+                "assigned_staff": [self.user.pk],
+            },
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.LPLPO,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["document_number"], "")
+
     def test_distribution_form_edit_keeps_instance_distribution_type_when_hidden(self):
         dist = self._create_distribution(
             distribution_type=Distribution.DistributionType.LPLPO,
@@ -1231,6 +1289,84 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist = Distribution.objects.latest("id")
         self.assertEqual(dist.document_number, "440/1/KD.F/2026")
 
+    def test_manual_lplpo_create_hides_distribution_type_field(self):
+        response = self.client.get(reverse("distribution:manual_lplpo_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Distribution Type")
+        self.assertNotContains(response, "Tipe Distribusi")
+
+    def test_manual_lplpo_create_keeps_item_row_mutation_enabled(self):
+        response = self.client.get(reverse("distribution:manual_lplpo_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["allow_item_row_mutation"])
+        self.assertContains(response, "Tambah Baris")
+        self.assertContains(response, "Hapus Semua")
+        self.assertNotContains(
+            response,
+            "Baris item berasal dari LPLPO sumber dan tidak dapat ditambah atau dihapus pada tahap ini.",
+        )
+
+    def test_manual_lplpo_create_uses_auto_generated_lplpo_numbering(self):
+        response = self.client.get(reverse("distribution:manual_lplpo_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Buat Distribusi LPLPO")
+        self.assertContains(response, "440/{seq}/SBBK.RF/{year}")
+        self.assertNotContains(response, "Konfirmasi Edit Nomor Dokumen")
+        self.assertNotContains(response, "Ubah Nomor")
+        self.assertNotContains(response, "440/1/KD.F/2026")
+
+    def test_manual_lplpo_create_saves_lplpo_distribution_without_source_document(self):
+        response = self.client.post(
+            reverse("distribution:manual_lplpo_create"),
+            {
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "Distribusi manual untuk rollout tengah tahun.",
+                "assigned_staff": [self.user.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "50",
+                "items-0-quantity_approved": "40",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "Batch rollout",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist = Distribution.objects.latest("id")
+        self.assertEqual(dist.distribution_type, Distribution.DistributionType.LPLPO)
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+        self.assertEqual(dist.document_number, "440/1/SBBK.RF/2026")
+        self.assertFalse(dist.is_generated_lplpo_distribution)
+        self.assertEqual(dist.notes, "Distribusi manual untuk rollout tengah tahun.")
+        self.assertFalse(hasattr(dist, "lplpo_source"))
+
+    def test_manual_lplpo_edit_keeps_item_row_mutation_enabled(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+
+        response = self.client.get(
+            reverse("distribution:distribution_edit", args=[dist.pk]),
+            secure=True,
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["allow_item_row_mutation"])
+        self.assertNotContains(response, "Distribusi ini dibuat dari review LPLPO")
+
+    def test_distribution_list_no_longer_shows_manual_lplpo_create_button(self):
+        response = self.client.get(reverse("distribution:distribution_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("distribution:manual_lplpo_create"))
+        self.assertNotContains(response, "Buat Distribusi LPLPO")
+
     def test_edit_distribution_updates_assigned_staff(self):
         dist = self._create_distribution(
             status=Distribution.Status.DRAFT,
@@ -1349,6 +1485,53 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.get(reverse("distribution:distribution_list"))
 
         self.assertEqual(response.status_code, 403)
+
+    def test_manual_lplpo_create_requires_add_permission(self):
+        restricted_user = User.objects.create_user(
+            username="puskesmas_no_manual_lplpo_add",
+            password="secret12345",
+            role=User.Role.PUSKESMAS,
+        )
+        self.client.force_login(restricted_user)
+
+        response = self.client.get(reverse("distribution:manual_lplpo_create"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_manual_lplpo_create_post_requires_add_permission(self):
+        restricted_user = User.objects.create_user(
+            username="puskesmas_no_manual_lplpo_post",
+            password="secret12345",
+            role=User.Role.PUSKESMAS,
+        )
+        self.client.force_login(restricted_user)
+
+        response = self.client.post(
+            reverse("distribution:manual_lplpo_create"),
+            {
+                "request_date": "2026-03-10",
+                "facility": self.facility.pk,
+                "notes": "Unauthorized manual LPLPO attempt.",
+                "assigned_staff": [restricted_user.pk],
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity_requested": "50",
+                "items-0-quantity_approved": "40",
+                "items-0-stock": self.stock.pk,
+                "items-0-notes": "Batch rollout",
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(
+            Distribution.objects.filter(
+                notes="Unauthorized manual LPLPO attempt.",
+                distribution_type=Distribution.DistributionType.LPLPO,
+            ).exists()
+        )
 
     def test_distribution_list_hides_report_button_without_reports_permission(self):
         restricted_user = User.objects.create_user(
@@ -1493,11 +1676,30 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             reverse("distribution:distribution_distribute", args=[dist.pk])
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
-        self.assertEqual(self.stock.quantity, Decimal("200"))
+        self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)
+        self.assertEqual(dist.approved_by, gudang)
+        self.assertEqual(self.stock.quantity, Decimal("160"))
+
+    def test_gudang_sees_distribute_action_for_verified_distribution(self):
+        dist = self._create_distribution(status=Distribution.Status.VERIFIED)
+        gudang = User.objects.create_user(
+            username="gudang_detail_distribute",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Distribusikan")
+        self.assertContains(response, 'id="distributeModal"')
 
     def test_non_assigned_staff_cannot_edit_draft_distribution(self):
         dist = self._create_distribution(
