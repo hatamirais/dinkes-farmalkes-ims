@@ -7,6 +7,14 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Added
+
+- Distribution: added a dedicated manual LPLPO create route at `/distribution/lplpo/create/` so Instalasi Farmasi can issue LPLPO-bucket distributions during mid-year rollout or catch-up without forcing immediate January-to-current Puskesmas backfill.
+
+### Changed
+
+- Distribution: the LPLPO list page now exposes a `Buat Distribusi LPLPO` action, while generated LPLPO distributions continue to derive from LPLPO review and keep their source-driven edit locks.
+
 ### Fixed
 
 - Security hardening: neutralized CSV formula injection across custom CSV exports and django-import-export admin CSV downloads by sanitizing formula-prefixed cell values at export time.

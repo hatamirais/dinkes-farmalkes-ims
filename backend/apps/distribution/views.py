@@ -297,6 +297,12 @@ def special_request_create(request):
     return _save_special_request(request)
 
 
+@login_required
+@perm_required("distribution.add_distribution")
+def manual_lplpo_create(request):
+    return _save_manual_lplpo_distribution(request)
+
+
 def _save_special_request(request):
     if request.method == "POST":
         form = DistributionForm(
@@ -345,6 +351,58 @@ def _save_special_request(request):
                 back_url_name="distribution:special_request_list",
                 active_pengeluaran_submenu="special_request",
                 document_number_warning_enabled=True,
+            ),
+        },
+    )
+
+
+def _save_manual_lplpo_distribution(request):
+    if request.method == "POST":
+        form = DistributionForm(
+            request.POST,
+            user=request.user,
+            forced_distribution_type=Distribution.DistributionType.LPLPO,
+        )
+        formset = DistributionItemFormSet(request.POST, prefix="items")
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                dist = form.save(commit=False)
+                dist.distribution_type = Distribution.DistributionType.LPLPO
+                dist.created_by = request.user
+                dist.status = Distribution.Status.DRAFT
+                dist.save()
+                sync_distribution_staff_assignments(
+                    dist, form.cleaned_data.get("assigned_staff", [])
+                )
+
+                formset.instance = dist
+                formset.save()
+
+            messages.success(
+                request,
+                f"Distribusi LPLPO {dist.document_number} berhasil dibuat.",
+            )
+            return redirect("distribution:distribution_detail", pk=dist.pk)
+    else:
+        form = DistributionForm(
+            user=request.user,
+            forced_distribution_type=Distribution.DistributionType.LPLPO,
+        )
+        formset = DistributionItemFormSet(prefix="items")
+
+    return render(
+        request,
+        "distribution/distribution_form.html",
+        {
+            "form": form,
+            "formset": formset,
+            "is_edit": False,
+            "allow_item_row_mutation": True,
+            **_build_distribution_form_context(
+                title="Buat Distribusi LPLPO",
+                back_url_name="distribution:distribution_list",
+                active_pengeluaran_submenu="distribution_history",
             ),
         },
     )

@@ -368,7 +368,7 @@
 </div>
 
 {# ─── Distribute Confirmation Modal ─── #}
-{% if distribution.status == 'PREPARED' %}
+{% if can_distribute_distribution or is_allocation and distribution.status == 'PREPARED' %}
 <div class="modal fade" id="distributeModal" tabindex="-1" aria-labelledby="distributeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

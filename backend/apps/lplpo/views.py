@@ -18,7 +18,7 @@ from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Facility, Item
 from apps.stock.models import Stock
-from apps.users.access import has_module_scope
+from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess, User
 
 from .forms import LPLPOCreateForm, LPLPOItemPuskesmasForm, LPLPOItemReviewForm, RejectLPLPOForm
@@ -78,6 +78,14 @@ def _has_lplpo_operate_access(user):
 def _has_lplpo_approve_access(user):
     return user.role != User.Role.PUSKESMAS and has_module_scope(
         user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE
+    )
+
+
+def _can_create_manual_lplpo_distribution(user):
+    return bool(
+        getattr(user, "is_superuser", False)
+        or user.has_perm("distribution.add_distribution")
+        or has_module_permission(user, "distribution.add_distribution")
     )
 
 
@@ -225,6 +233,9 @@ def lplpo_list(request):
             **filter_context,
             "is_all": True,
             "can_manage_all_lplpo": _is_super_admin(request.user),
+            "can_create_manual_lplpo_distribution": _can_create_manual_lplpo_distribution(
+                request.user
+            ),
         },
     )
 
@@ -263,6 +274,7 @@ def lplpo_my_list(request):
             "selected_status": status,
             "status_choices": LPLPO.Status.choices,
             "is_all": False,
+            "can_create_manual_lplpo_distribution": False,
         },
     )
 
