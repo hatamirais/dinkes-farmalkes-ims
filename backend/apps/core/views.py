@@ -1,3 +1,4 @@
+import json
 import logging
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
@@ -479,5 +480,33 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
         return (template or "").replace("{seq}", sequence).replace("{year}", year)
 
     def form_valid(self, form):
+        logo = form.cleaned_data.get("logo")
+        if logo and hasattr(logo, "read") and not hasattr(logo, "url"):
+            security_logger.info(
+                json.dumps(
+                    {
+                        "event": "system_settings_logo_upload_succeeded",
+                        "filename": logo.name,
+                        "mime_type": getattr(form, "cleaned_logo_mime_type", "unknown"),
+                        "username": self.request.user.username,
+                    },
+                    sort_keys=True,
+                )
+            )
         messages.success(self.request, "Pengaturan sistem berhasil diperbarui.")
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        if self.request.method == "POST" and self.request.FILES.get("logo"):
+            security_logger.warning(
+                json.dumps(
+                    {
+                        "event": "system_settings_logo_upload_failed",
+                        "errors": json.loads(form.errors.as_json()),
+                        "filename": self.request.FILES["logo"].name,
+                        "username": self.request.user.username,
+                    },
+                    sort_keys=True,
+                )
+            )
+        return super().form_invalid(form)

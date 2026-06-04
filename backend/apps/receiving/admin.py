@@ -1,6 +1,11 @@
+import json
+import logging
+from csv import Error as CSVError
+
 from django.contrib import admin
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.urls import path
 from django import forms
 from django.db import transaction
@@ -20,7 +25,13 @@ from .models import (
     ReceivingTypeOption,
 )
 from apps.items.models import Item, FundingSource, Location, Supplier
+from apps.core.upload_validation import validate_csv_upload, validate_receiving_document_upload
 from apps.stock.models import Stock, Transaction
+
+
+logger = logging.getLogger("security")
+CSV_IMPORT_MAX_SIZE_BYTES = 2 * 1024 * 1024
+RECEIVING_DOCUMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 
 # ── Inlines ────────────────────────────────────────────────
@@ -47,8 +58,34 @@ class ReceivingOrderItemInline(admin.TabularInline):
     raw_id_fields = ("item",)
 
 
+class ReceivingDocumentInlineForm(forms.ModelForm):
+    class Meta:
+        model = ReceivingDocument
+        fields = "__all__"
+
+    def clean_file(self):
+        uploaded_file = self.cleaned_data.get("file")
+        if uploaded_file and not hasattr(uploaded_file, "url"):
+            self.cleaned_file_type = validate_receiving_document_upload(
+                uploaded_file,
+                max_size_bytes=RECEIVING_DOCUMENT_MAX_SIZE_BYTES,
+            )
+        return uploaded_file
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("file")
+        if uploaded_file and not hasattr(uploaded_file, "url"):
+            instance.file_name = uploaded_file.name
+            instance.file_type = getattr(self, "cleaned_file_type", instance.file_type)
+        if commit:
+            instance.save()
+        return instance
+
+
 class ReceivingDocumentInline(admin.TabularInline):
     model = ReceivingDocument
+    form = ReceivingDocumentInlineForm
     extra = 0
     fields = ("file", "file_name", "file_type")
 
@@ -71,6 +108,13 @@ class ReceivingCSVImportForm(forms.Form):
         "supplier_code, sumber_dana_code, location_code, item_code, "
         "quantity, batch_lot, expiry_date, unit_price",
     )
+
+    def clean_csv_file(self):
+        csv_file = self.cleaned_data.get("csv_file")
+        return validate_csv_upload(
+            csv_file,
+            max_size_bytes=CSV_IMPORT_MAX_SIZE_BYTES,
+        )
 
 
 # ── Admin ──────────────────────────────────────────────────
@@ -97,6 +141,30 @@ class ReceivingAdmin(admin.ModelAdmin):
 
     change_list_template = "admin/receiving/receiving_changelist.html"
 
+    def save_formset(self, request, form, formset, change):
+        if formset.model is not ReceivingDocument:
+            return super().save_formset(request, form, formset, change)
+
+        instances = formset.save(commit=False)
+        for deleted in formset.deleted_objects:
+            deleted.delete()
+
+        for instance in instances:
+            is_new = instance.pk is None
+            instance.save()
+            security_logger_payload = {
+                "event": "receiving_document_upload_succeeded",
+                "username": request.user.username,
+                "receiving_id": instance.receiving_id,
+                "document_id": instance.pk,
+                "filename": instance.file_name,
+                "mime_type": instance.file_type,
+                "created": is_new,
+            }
+            logger.info(json.dumps(security_logger_payload, sort_keys=True))
+
+        formset.save_m2m()
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -110,13 +178,39 @@ class ReceivingAdmin(admin.ModelAdmin):
 
     def import_csv_view(self, request):
         """Custom CSV import view for bulk receiving + stock creation."""
+        if not self.has_add_permission(request):
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "receiving_csv_import_denied",
+                        "username": getattr(request.user, "username", "anonymous"),
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise PermissionDenied
+
         if request.method == "POST":
             form = ReceivingCSVImportForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
                     result = self._process_csv(
-                        request.FILES["csv_file"],
+                        form.cleaned_data["csv_file"],
                         request.user,
+                    )
+                    logger.info(
+                        json.dumps(
+                            {
+                                "event": "receiving_csv_import_succeeded",
+                                "filename": form.cleaned_data["csv_file"].name,
+                                "receivings": result["receivings"],
+                                "items": result["items"],
+                                "stock": result["stock"],
+                                "transactions": result["transactions"],
+                                "username": request.user.username,
+                            },
+                            sort_keys=True,
+                        )
                     )
                     messages.success(
                         request,
@@ -125,8 +219,31 @@ class ReceivingAdmin(admin.ModelAdmin):
                         f"{result['transactions']} transaksi dibuat.",
                     )
                     return redirect("..")
-                except Exception as e:
-                    messages.error(request, f"Import gagal: {e}")
+                except (UnicodeDecodeError, CSVError, ValueError) as exc:
+                    logger.warning(
+                        json.dumps(
+                            {
+                                "event": "receiving_csv_import_failed",
+                                "filename": form.cleaned_data["csv_file"].name,
+                                "reason": str(exc),
+                                "username": request.user.username,
+                            },
+                            sort_keys=True,
+                        )
+                    )
+                    messages.error(request, f"Import gagal: {exc}")
+                except Exception:
+                    logger.exception(
+                        json.dumps(
+                            {
+                                "event": "receiving_csv_import_crashed",
+                                "filename": form.cleaned_data["csv_file"].name,
+                                "username": request.user.username,
+                            },
+                            sort_keys=True,
+                        )
+                    )
+                    messages.error(request, "Import gagal karena kesalahan internal.")
         else:
             form = ReceivingCSVImportForm()
 
@@ -391,10 +508,19 @@ class ReceivingAdmin(admin.ModelAdmin):
         if not value:
             return Decimal("0")
         try:
-            return Decimal(value)
+            decimal_value = Decimal(value)
         except (InvalidOperation, ValueError) as exc:
             if row_num is not None:
                 raise ValueError(
                     f"Baris {row_num}: format {field_name} tidak valid: '{value}'"
                 ) from exc
             raise ValueError(f"Format {field_name} tidak valid: '{value}'") from exc
+
+        if not decimal_value.is_finite():
+            if row_num is not None:
+                raise ValueError(
+                    f"Baris {row_num}: {field_name} tidak boleh NaN atau Infinity"
+                )
+            raise ValueError(f"{field_name} tidak boleh NaN atau Infinity")
+
+        return decimal_value

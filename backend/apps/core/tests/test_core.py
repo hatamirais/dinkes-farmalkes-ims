@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -39,6 +40,7 @@ from apps.puskesmas.models import PuskesmasRequest
 from apps.receiving.models import Receiving
 from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess, User
+from PIL import Image
 
 
 class SemanticVersionTests(SimpleTestCase):
@@ -150,6 +152,10 @@ class CsvExportSecurityTests(SimpleTestCase):
 
 
 class SystemSettingsFormTests(SimpleTestCase):
+    @staticmethod
+    def _uploaded_file(name, content, content_type):
+        return SimpleUploadedFile(name, content, content_type)
+
     def test_accepts_valid_numbering_templates(self):
         form = SystemSettingsForm(
             data={
@@ -180,6 +186,77 @@ class SystemSettingsFormTests(SimpleTestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("lplpo_distribution_number_template", form.errors)
+
+    def test_rejects_non_image_logo_with_png_extension(self):
+        form = SystemSettingsForm(
+            data={
+                "platform_label": "Healthcare IMS",
+                "facility_name": "Instalasi Farmasi",
+                "facility_address": "",
+                "facility_phone": "",
+                "header_title": "Dinas Kesehatan",
+                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
+                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
+            },
+            files={
+                "logo": self._uploaded_file(
+                    "logo.png",
+                    b"not-a-real-image",
+                    "image/png",
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("logo", form.errors)
+
+    def test_accepts_existing_logo_without_revalidation(self):
+        with TemporaryDirectory() as temp_dir:
+            logo_path = Path(temp_dir) / "settings" / "logo.png"
+            logo_path.parent.mkdir(parents=True, exist_ok=True)
+            logo_path.write_bytes(b"existing-logo")
+
+            with override_settings(MEDIA_ROOT=temp_dir):
+                form = SystemSettingsForm(
+                    data={
+                        "platform_label": "Healthcare IMS",
+                        "facility_name": "Instalasi Farmasi",
+                        "facility_address": "",
+                        "facility_phone": "",
+                        "header_title": "Dinas Kesehatan",
+                        "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
+                        "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
+                    },
+                    instance=SystemSettings(logo="settings/logo.png"),
+                )
+
+                self.assertTrue(form.is_valid(), form.errors)
+                self.assertEqual(form.cleaned_data["logo"].name, "settings/logo.png")
+
+    @patch("apps.core.upload_validation.Image.open", side_effect=Image.DecompressionBombError("bomb"))
+    def test_rejects_decompression_bomb_logo(self, mocked_image_open):
+        form = SystemSettingsForm(
+            data={
+                "platform_label": "Healthcare IMS",
+                "facility_name": "Instalasi Farmasi",
+                "facility_address": "",
+                "facility_phone": "",
+                "header_title": "Dinas Kesehatan",
+                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
+                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
+            },
+            files={
+                "logo": self._uploaded_file(
+                    "logo.png",
+                    b"not-a-real-image",
+                    "image/png",
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("logo", form.errors)
+        mocked_image_open.assert_called_once()
 
 
 class SystemSettingsModelTests(TestCase):
@@ -752,6 +829,76 @@ class SystemSettingsAccessTests(TestCase):
         self.assertContains(response, "Preview Rule")
         self.assertContains(response, "440/12/SBBK.RF/2026")
         self.assertContains(response, "440/12/KD.F/2026")
+
+    def test_admin_user_logo_upload_is_audit_logged(self):
+        user = User.objects.create_superuser(
+            username="settings-audit-admin",
+            email="settings-audit-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(user)
+
+        image_buffer = BytesIO()
+        from PIL import Image
+
+        Image.new("RGBA", (16, 16), (255, 0, 0, 255)).save(image_buffer, format="PNG")
+        image_buffer.seek(0)
+
+        with self.assertLogs("security", level="INFO") as logs:
+            response = self.client.post(
+                reverse("settings"),
+                {
+                    "platform_label": "Healthcare IMS",
+                    "facility_name": "Instalasi Farmasi",
+                    "facility_address": "",
+                    "facility_phone": "",
+                    "header_title": "Dinas Kesehatan",
+                    "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
+                    "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
+                    "logo": SimpleUploadedFile(
+                        "audit-logo.png",
+                        image_buffer.read(),
+                        content_type="image/png",
+                    ),
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            any("system_settings_logo_upload_succeeded" in message for message in logs.output)
+        )
+
+    def test_invalid_logo_upload_is_audit_logged_as_json(self):
+        user = User.objects.create_superuser(
+            username="settings-audit-fail-admin",
+            email="settings-audit-fail-admin@example.com",
+        )
+        self.client.force_login(user)
+
+        with self.assertLogs("security", level="WARNING") as logs:
+            response = self.client.post(
+                reverse("settings"),
+                {
+                    "platform_label": "Healthcare IMS",
+                    "facility_name": "Instalasi Farmasi",
+                    "facility_address": "",
+                    "facility_phone": "",
+                    "header_title": "Dinas Kesehatan",
+                    "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
+                    "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
+                    "logo": SimpleUploadedFile(
+                        'bad"\nlogo.png',
+                        b"not-a-real-image",
+                        content_type="image/png",
+                    ),
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(logs.output[0].split(":", 2)[2])
+        self.assertEqual(payload["event"], "system_settings_logo_upload_failed")
+        self.assertEqual(payload["filename"], 'bad"logo.png')
+        self.assertIn("logo", payload["errors"])
 
 
 class AdministrationHistoryAccessTests(TestCase):
