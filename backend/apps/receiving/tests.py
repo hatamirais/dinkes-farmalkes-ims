@@ -1,14 +1,16 @@
+from io import BytesIO
 from datetime import date
 from decimal import Decimal
 
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
-from apps.receiving.admin import ReceivingAdmin
+from apps.receiving.admin import ReceivingAdmin, ReceivingCSVImportForm
 from apps.receiving.forms import (
     PlannedReceivingForm,
     ReceivingForm,
@@ -16,6 +18,7 @@ from apps.receiving.forms import (
 )
 from apps.receiving.models import (
     Receiving,
+    ReceivingDocument,
     ReceivingItem,
     ReceivingOrderItem,
     ReceivingTypeOption,
@@ -53,6 +56,40 @@ class ReceivingCSVImportTest(TestCase):
             content.encode("utf-8"),
             content_type="text/csv",
         )
+
+    @staticmethod
+    def _uploaded_file(name, content, content_type="text/plain"):
+        return SimpleUploadedFile(name, content, content_type=content_type)
+
+    def test_csv_import_form_rejects_non_csv_extension(self):
+        form = ReceivingCSVImportForm(
+            data={},
+            files={
+                "csv_file": self._uploaded_file(
+                    "receiving.pdf",
+                    b"%PDF-1.4\n",
+                    content_type="application/pdf",
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("csv_file", form.errors)
+
+    def test_csv_import_form_rejects_non_csv_content(self):
+        form = ReceivingCSVImportForm(
+            data={},
+            files={
+                "csv_file": self._uploaded_file(
+                    "receiving.csv",
+                    b"\x89PNG\r\n\x1a\n",
+                    content_type="text/csv",
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("csv_file", form.errors)
 
     def test_process_csv_applies_defaults_for_empty_optional_fields(self):
         csv_content = (
@@ -111,6 +148,49 @@ class ReceivingCSVImportTest(TestCase):
             ValueError, "Baris 2: format quantity tidak valid: 'sepuluh'"
         ):
             self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+    def test_process_csv_rejects_nan_decimal(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,NaN,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(
+            ValueError, "Baris 2: quantity tidak boleh NaN atau Infinity"
+        ):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+    def test_import_view_requires_add_permission(self):
+        user = User.objects.create_user(
+            username="receiving_staff",
+            password="secret12345",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("admin:receiving_import_csv"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_import_view_logs_success(self):
+        self.client.force_login(self.user)
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertLogs("security", level="INFO") as logs:
+            response = self.client.post(
+                reverse("admin:receiving_import_csv"),
+                {"csv_file": self._csv_file(csv_content)},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            any("receiving_csv_import_succeeded" in message for message in logs.output)
+        )
 
     def test_process_csv_missing_required_header_rejected(self):
         csv_content = (
@@ -220,6 +300,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(trx.reference_type, Transaction.ReferenceType.RECEIVING)
         self.assertEqual(trx.transaction_type, Transaction.TransactionType.IN)
         self.assertEqual(trx.quantity, Decimal("10"))
+
 
     def test_plan_close_blocked_when_remaining_items_not_cancelled(self):
         receiving = Receiving.objects.create(
@@ -671,3 +752,65 @@ class ReceivingWorkflowCleanupTest(TestCase):
             reverse("receiving:receiving_plan_approve", args=[receiving.pk])
         )
         self.assertEqual(response.status_code, 403)
+
+
+class ReceivingDocumentUploadValidationTest(TestCase):
+    def test_receiving_document_form_rejects_invalid_pdf_content(self):
+        from apps.receiving.admin import ReceivingDocumentInlineForm
+
+        form = ReceivingDocumentInlineForm(
+            data={"file_name": "", "file_type": ""},
+            files={
+                "file": SimpleUploadedFile(
+                    "dokumen.pdf",
+                    b"not-a-pdf",
+                    content_type="application/pdf",
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("file", form.errors)
+
+    def test_receiving_document_form_sets_detected_metadata(self):
+        from apps.receiving.admin import ReceivingDocumentInlineForm
+
+        user = User.objects.create_superuser(
+            username="doc-metadata-admin",
+            password="secret12345",
+        )
+        funding = FundingSource.objects.create(code="DOCMETA", name="Doc Metadata")
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-DOCMETA",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=funding,
+            status=Receiving.Status.DRAFT,
+            created_by=user,
+        )
+
+        image_buffer = BytesIO()
+        from PIL import Image
+
+        Image.new("RGB", (10, 10), (255, 255, 255)).save(image_buffer, format="JPEG")
+        image_buffer.seek(0)
+
+        form = ReceivingDocumentInlineForm(
+            data={
+                "receiving": receiving.pk,
+                "file_name": "manual name",
+                "file_type": "manual/type",
+            },
+            files={
+                "file": SimpleUploadedFile(
+                    "dokumen.jpg",
+                    image_buffer.read(),
+                    content_type="image/jpeg",
+                )
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        document = form.save(commit=False)
+        self.assertEqual(document.file_name, "dokumen.jpg")
+        self.assertEqual(document.file_type, "image/jpeg")

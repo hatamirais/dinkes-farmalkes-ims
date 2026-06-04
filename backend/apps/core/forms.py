@@ -1,8 +1,10 @@
 from django import forms
 from .models import SystemSettings
+from .upload_validation import validate_image_upload
 
 
 REQUIRED_NUMBERING_TOKENS = ("{seq}", "{year}")
+LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024
 
 class SystemSettingsForm(forms.ModelForm):
     class Meta:
@@ -31,6 +33,14 @@ class SystemSettingsForm(forms.ModelForm):
         logo = self.cleaned_data.get("logo")
         if logo is not None and logo is not False and not hasattr(logo, "read"):
             raise forms.ValidationError("Logo harus berupa file gambar, bukan URL.")
+        if logo and hasattr(logo, "read"):
+            self.cleaned_logo_mime_type = validate_image_upload(
+                logo,
+                max_size_bytes=LOGO_MAX_SIZE_BYTES,
+                field_label="Logo",
+                allowed_extensions={"png", "jpg", "jpeg", "webp"},
+                allowed_formats={"PNG", "JPEG", "WEBP"},
+            )
         return logo
 
     def clean_lplpo_distribution_number_template(self):
