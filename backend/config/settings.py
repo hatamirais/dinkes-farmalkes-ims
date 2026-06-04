@@ -210,6 +210,12 @@ AXES_RESET_ON_SUCCESS = True  # Reset failed count on successful login
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_LOCKOUT_TEMPLATE = "registration/lockout.html"
 
+# ─── django-ratelimit: Sensitive POST Protection ────────────────────
+USER_BULK_ACTION_RATE_LIMIT = os.getenv("USER_BULK_ACTION_RATE_LIMIT", "10/m")
+USER_MUTATION_RATE_LIMIT = os.getenv("USER_MUTATION_RATE_LIMIT", "20/m")
+USER_PASSWORD_RESET_RATE_LIMIT = os.getenv("USER_PASSWORD_RESET_RATE_LIMIT", "5/m")
+PASSWORD_CHANGE_RATE_LIMIT = os.getenv("PASSWORD_CHANGE_RATE_LIMIT", "5/m")
+
 # ─── Production Security (enabled when DEBUG=False) ──────────────────
 if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True

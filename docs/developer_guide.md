@@ -53,6 +53,10 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `DEBUG`
 - `CSRF_TRUSTED_ORIGINS`
 - `EMAIL_BACKEND`
+- `USER_BULK_ACTION_RATE_LIMIT`
+- `USER_MUTATION_RATE_LIMIT`
+- `USER_PASSWORD_RESET_RATE_LIMIT`
+- `PASSWORD_CHANGE_RATE_LIMIT`
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS`
 - `FEATURE_ALLOCATION_UI_ENABLED`
 - `DJANGO_LOG_LEVEL`
@@ -63,6 +67,7 @@ Catatan:
 - `manage.py`, `config/wsgi.py`, dan `config/asgi.py` sudah default ke `config.settings`, sehingga `DJANGO_SETTINGS_MODULE` tidak perlu diubah untuk setup standar.
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` default `10000` untuk mengakomodasi form LPLPO dan form bulk serupa yang mengirim banyak field dalam satu request.
 - `FEATURE_ALLOCATION_UI_ENABLED` masih dibaca ke Django settings untuk kompatibilitas dan test override, tetapi route/UI runtime Allocation saat ini tidak bercabang pada flag tersebut; akses tetap dikendalikan oleh permission Django + `ModuleAccess`.
+- Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
 
 ### 3. Jalankan infrastruktur
 

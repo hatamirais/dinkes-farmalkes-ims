@@ -22,6 +22,7 @@ from django.urls import reverse, reverse_lazy
 from django.views.generic.edit import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
+from django_ratelimit.exceptions import Ratelimited
 from apps.core.models import SystemSettings
 from apps.core.forms import SystemSettingsForm
 
@@ -116,6 +117,19 @@ def bad_request(request, exception):
 
 @requires_csrf_token
 def permission_denied_handler(request, exception):
+    if isinstance(exception, Ratelimited):
+        _log_error_event(security_logger, "warning", "rate_limited", request, 429, exception)
+        context = _build_error_context(
+            request,
+            429,
+            "Terlalu banyak percobaan pada aksi ini",
+            "Permintaan Anda untuk aksi sensitif ini melebihi batas keamanan sementara. Tunggu sejenak lalu coba lagi.",
+            "bi bi-hourglass-split",
+            "warning",
+            "Batas ini diterapkan untuk mencegah penyalahgunaan pada perubahan akun dan aksi sensitif lain. Jika Anda terus diblokir, periksa kembali apakah langkah yang sama terkirim berulang kali.",
+        )
+        return _render_error_page(request, "429.html", 429, **context)
+
     message = str(exception).strip() if exception and str(exception).strip() else (
         "Hak akses Anda tidak mencukupi untuk membuka halaman ini atau melakukan aksi yang diminta."
     )

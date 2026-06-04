@@ -136,6 +136,7 @@ Apply these principles:
 - Keep `DEBUG=False` production hardening documented and synchronized with settings.
 - Keep import workflow docs aligned with dry-run/confirm semantics from django-import-export.
 - Keep axes backend ordering and middleware placement documented exactly as configured.
+- Keep sensitive POST throttling settings and the centralized `429` behavior documented exactly as configured.
 
 ## Development Commands
 
@@ -163,6 +164,13 @@ Before opening a PR, verify:
 - Env vars in docs exist in `.env.example` or settings usage.
 - Security behavior in docs mirrors `backend/config/settings.py`.
 - CSV column docs match actual import resources/forms/admin parser logic.
+
+## Sensitive POST Throttling
+
+- `django-axes` remains the login brute-force control.
+- Additional authenticated POST throttling uses `django-ratelimit`.
+- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, and `PASSWORD_CHANGE_RATE_LIMIT`.
+- Throttled requests must continue through the centralized error pipeline and render as HTTP `429`.
 
 ## URL Routing Convention
 
