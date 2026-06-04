@@ -2,6 +2,7 @@ from django import forms
 from django.db.models import F
 from django.forms import inlineformset_factory
 
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.stock.models import Stock
 
 from .models import Recall, RecallItem
@@ -76,6 +77,14 @@ class RecallItemForm(forms.ModelForm):
         item = cleaned_data.get('item')
         stock = cleaned_data.get('stock')
         quantity = cleaned_data.get('quantity')
+
+        if quantity is not None:
+            try:
+                quantity = validate_finite_decimal(quantity, field_label='Jumlah')
+                cleaned_data['quantity'] = quantity
+            except forms.ValidationError as exc:
+                self.add_error('quantity', exc)
+                quantity = None
 
         if stock and item and stock.item_id != item.id:
             self.add_error('stock', 'Batch stok harus sesuai dengan barang yang dipilih.')

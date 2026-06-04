@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -151,6 +152,23 @@ class AllocationModelTest(TestCase):
         alloc_item.total_qty_available = Decimal("40")
         alloc_item.save()
         self.assertTrue(alloc_item.is_over_allocated)
+
+    def test_allocation_item_facility_clean_rejects_non_finite_quantity(self):
+        allocation = _create_allocation(self.fixtures)
+        alloc_item = allocation.items.first()
+        facility_allocation = AllocationItemFacility(
+            allocation_item=alloc_item,
+            facility=self.fixtures["facility1"],
+            qty_allocated=Decimal("NaN"),
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            facility_allocation.clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["qty_allocated"],
+            ["Jumlah alokasi tidak boleh NaN atau Infinity."],
+        )
 
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)

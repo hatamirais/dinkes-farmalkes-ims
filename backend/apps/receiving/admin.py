@@ -17,6 +17,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
+from apps.core.decimal_validation import parse_decimal_input
 from .models import (
     Receiving,
     ReceivingItem,
@@ -504,23 +505,9 @@ class ReceivingAdmin(admin.ModelAdmin):
     @staticmethod
     def _parse_decimal(value, row_num=None, field_name="nilai"):
         """Parse decimal value, handling comma as decimal separator."""
-        value = (value or "").strip().replace(",", ".").replace(" ", "")
-        if not value:
-            return Decimal("0")
         try:
-            decimal_value = Decimal(value)
-        except (InvalidOperation, ValueError) as exc:
+            return parse_decimal_input(value, field_label=field_name)
+        except forms.ValidationError as exc:
             if row_num is not None:
-                raise ValueError(
-                    f"Baris {row_num}: format {field_name} tidak valid: '{value}'"
-                ) from exc
-            raise ValueError(f"Format {field_name} tidak valid: '{value}'") from exc
-
-        if not decimal_value.is_finite():
-            if row_num is not None:
-                raise ValueError(
-                    f"Baris {row_num}: {field_name} tidak boleh NaN atau Infinity"
-                )
-            raise ValueError(f"{field_name} tidak boleh NaN atau Infinity")
-
-        return decimal_value
+                raise ValueError(f"Baris {row_num}: {exc.messages[0]}") from exc
+            raise ValueError(exc.messages[0]) from exc

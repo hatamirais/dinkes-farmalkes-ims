@@ -2,6 +2,8 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.core.models import TimeStampedModel
 
 
@@ -293,13 +295,25 @@ class StockTransferItem(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
 
+        errors = {}
+
+        try:
+            self.quantity = validate_finite_decimal(
+                self.quantity,
+                field_label="Jumlah mutasi",
+            )
+        except ValidationError as exc:
+            errors["quantity"] = exc.messages
+            self.quantity = None
+
         if self.quantity is not None and self.quantity <= 0:
-            raise ValidationError({"quantity": "Jumlah mutasi harus lebih dari 0."})
+            errors["quantity"] = "Jumlah mutasi harus lebih dari 0."
 
         if self.stock_id and self.item_id and self.stock.item_id != self.item_id:
-            raise ValidationError(
-                {"item": "Barang tidak sesuai dengan batch stok sumber."}
-            )
+            errors["item"] = "Barang tidak sesuai dengan batch stok sumber."
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return f"{self.transfer.document_number} | {self.item} | {self.quantity}"
