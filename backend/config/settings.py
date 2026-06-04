@@ -210,7 +210,20 @@ AXES_RESET_ON_SUCCESS = True  # Reset failed count on successful login
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_LOCKOUT_TEMPLATE = "registration/lockout.html"
 
+# ─── Cache (Redis) ────────────────────────────────────────────────────
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
+    },
+    "locmem": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
+}
+
 # ─── django-ratelimit: Sensitive POST Protection ────────────────────
+RATELIMIT_USE_CACHE = "default"
+RATELIMIT_FAIL_OPEN = os.getenv("RATELIMIT_FAIL_OPEN", "True") == "True"
 USER_BULK_ACTION_RATE_LIMIT = os.getenv("USER_BULK_ACTION_RATE_LIMIT", "10/m")
 USER_MUTATION_RATE_LIMIT = os.getenv("USER_MUTATION_RATE_LIMIT", "20/m")
 USER_PASSWORD_RESET_RATE_LIMIT = os.getenv("USER_PASSWORD_RESET_RATE_LIMIT", "5/m")

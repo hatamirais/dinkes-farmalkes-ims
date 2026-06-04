@@ -196,6 +196,7 @@ def user_list(request):
 
 
 @login_required
+@user_mutation_ratelimit
 def user_create(request):
     _require_user_access(
         request.user,
@@ -229,6 +230,7 @@ def user_create(request):
 
 
 @login_required
+@user_mutation_ratelimit
 def user_update(request, pk):
     _require_user_access(
         request.user,

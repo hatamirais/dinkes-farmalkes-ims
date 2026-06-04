@@ -362,7 +362,7 @@ class UserManagementViewsTest(TestCase):
             status_code=403,
         )
 
-    @override_settings(PASSWORD_CHANGE_RATE_LIMIT="1/m")
+    @override_settings(PASSWORD_CHANGE_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
     def test_password_change_returns_429_when_rate_limited(self):
         first_response = self.client.post(
             reverse("password_change"),
@@ -388,7 +388,7 @@ class UserManagementViewsTest(TestCase):
         self.assertEqual(response.status_code, 429)
         self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
 
-    @override_settings(USER_PASSWORD_RESET_RATE_LIMIT="1/m")
+    @override_settings(USER_PASSWORD_RESET_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
     def test_user_reset_password_returns_429_when_rate_limited(self):
         first_response = self.client.post(
             reverse("users:user_reset_password", args=[self.target.pk]),
@@ -470,7 +470,7 @@ class UserManagementViewsTest(TestCase):
             },
         )
 
-    @override_settings(USER_MUTATION_RATE_LIMIT="1/m")
+    @override_settings(USER_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
     def test_toggle_active_returns_429_when_rate_limited(self):
         first_response = self.client.post(
             reverse("users:user_toggle_active", args=[self.target.pk]),
@@ -483,6 +483,59 @@ class UserManagementViewsTest(TestCase):
             secure=True,
         )
 
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+    @override_settings(USER_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_user_create_returns_429_when_rate_limited(self):
+        payload = {
+            "username": "ratelimit_created_1",
+            "full_name": "Rate Limited Creator 1",
+            "nip": "198001012010011001",
+            "email": "rl_create1@example.com",
+            "role": User.Role.GUDANG,
+            "is_active": "on",
+            "password1": "VeryStrongPass123!",
+            "password2": "VeryStrongPass123!",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        first_response = self.client.post(
+            reverse("users:user_create"), payload, secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        payload["username"] = "ratelimit_created_2"
+        payload["email"] = "rl_create2@example.com"
+        response = self.client.post(
+            reverse("users:user_create"), payload, secure=True,
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+    @override_settings(USER_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_user_update_returns_429_when_rate_limited(self):
+        payload = {
+            "username": self.target.username,
+            "full_name": "Updated Name 1",
+            "nip": "198505052010011004",
+            "email": "updated1@example.com",
+            "role": User.Role.ADMIN_UMUM,
+            "is_active": "on",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        first_response = self.client.post(
+            reverse("users:user_update", args=[self.target.pk]),
+            payload, secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        payload["full_name"] = "Updated Name 2"
+        response = self.client.post(
+            reverse("users:user_update", args=[self.target.pk]),
+            payload, secure=True,
+        )
         self.assertEqual(response.status_code, 429)
         self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
 
@@ -1192,7 +1245,7 @@ class ProtectedUserManagementGuardsTest(TestCase):
             )
         )
 
-    @override_settings(USER_BULK_ACTION_RATE_LIMIT="1/m")
+    @override_settings(USER_BULK_ACTION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
     def test_bulk_action_returns_429_when_rate_limited(self):
         response = self.client.post(
             reverse("users:user_bulk_action"),

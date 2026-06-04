@@ -169,8 +169,11 @@ Before opening a PR, verify:
 
 - `django-axes` remains the login brute-force control.
 - Additional authenticated POST throttling uses `django-ratelimit`.
+- Counters use a shared Redis cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are consistent across gunicorn workers.
+- `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully when Redis is unavailable.
 - Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, and `PASSWORD_CHANGE_RATE_LIMIT`.
 - Throttled requests must continue through the centralized error pipeline and render as HTTP `429`.
+- `@user_mutation_ratelimit` covers all user mutation endpoints: create, update, toggle-active, and delete.
 
 ## URL Routing Convention
 
