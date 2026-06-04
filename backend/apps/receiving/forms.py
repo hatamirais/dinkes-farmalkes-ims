@@ -4,6 +4,8 @@ from django import forms
 from django.db.utils import OperationalError, ProgrammingError
 from django.forms import inlineformset_factory
 
+from apps.core.decimal_validation import validate_finite_decimal
+
 from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
 
 
@@ -143,6 +145,7 @@ class ReceivingItemForm(forms.ModelForm):
 
     def clean_quantity(self):
         quantity = self.cleaned_data.get("quantity")
+        quantity = validate_finite_decimal(quantity, field_label="Jumlah")
         if quantity is not None and quantity <= 0:
             raise forms.ValidationError("Jumlah harus lebih dari 0.")
         return quantity
@@ -180,6 +183,7 @@ class ReceivingOrderItemForm(forms.ModelForm):
 
     def clean_planned_quantity(self):
         quantity = self.cleaned_data.get("planned_quantity")
+        quantity = validate_finite_decimal(quantity, field_label="Jumlah rencana")
         if quantity is not None and quantity <= 0:
             raise forms.ValidationError("Jumlah rencana harus lebih dari 0.")
         return quantity
@@ -190,6 +194,7 @@ class ReceivingOrderItemForm(forms.ModelForm):
 
     def clean_unit_price(self):
         unit_price = self.cleaned_data.get("unit_price")
+        unit_price = validate_finite_decimal(unit_price, field_label="Harga satuan")
         if unit_price is None or unit_price <= 0:
             raise forms.ValidationError("Harga satuan harus lebih dari 0.")
         return unit_price
@@ -304,8 +309,36 @@ class ReceivingReceiptItemForm(forms.ModelForm):
         cleaned = super().clean()
         order_item = cleaned.get("order_item")
         quantity = cleaned.get("quantity")
+        quantity_invalid = False
+
+        if quantity not in (None, ""):
+            try:
+                quantity = validate_finite_decimal(quantity, field_label="Jumlah")
+                cleaned["quantity"] = quantity
+            except forms.ValidationError as exc:
+                self.add_error("quantity", exc)
+                cleaned["quantity"] = None
+                quantity = None
+                quantity_invalid = True
+
+        unit_price = cleaned.get("unit_price")
+        if unit_price not in (None, ""):
+            try:
+                cleaned["unit_price"] = validate_finite_decimal(
+                    unit_price,
+                    field_label="Harga satuan",
+                )
+            except forms.ValidationError as exc:
+                self.add_error("unit_price", exc)
+                cleaned["unit_price"] = None
+
         if not order_item or quantity is None:
-            if self.lock_order_item and order_item and quantity in (None, ""):
+            if (
+                not quantity_invalid
+                and self.lock_order_item
+                and order_item
+                and quantity in (None, "")
+            ):
                 cleaned["quantity"] = 0
                 return cleaned
             return cleaned

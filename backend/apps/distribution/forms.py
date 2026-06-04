@@ -2,6 +2,8 @@ from django import forms
 from django.db.models import F
 from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
+
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.users.models import User
 
 from .models import Distribution, DistributionItem
@@ -257,6 +259,28 @@ class DistributionItemForm(forms.ModelForm):
         stock = cleaned_data.get("stock")
         quantity_requested = cleaned_data.get("quantity_requested")
         quantity_approved = cleaned_data.get("quantity_approved")
+
+        if quantity_requested is not None:
+            try:
+                quantity_requested = validate_finite_decimal(
+                    quantity_requested,
+                    field_label="Jumlah",
+                )
+                cleaned_data["quantity_requested"] = quantity_requested
+            except forms.ValidationError as exc:
+                self.add_error("quantity_requested", exc)
+                quantity_requested = None
+
+        if quantity_approved is not None:
+            try:
+                quantity_approved = validate_finite_decimal(
+                    quantity_approved,
+                    field_label="Jumlah disetujui",
+                )
+                cleaned_data["quantity_approved"] = quantity_approved
+            except forms.ValidationError as exc:
+                self.add_error("quantity_approved", exc)
+                quantity_approved = None
 
         if stock and item and stock.item_id != item.id:
             self.add_error(

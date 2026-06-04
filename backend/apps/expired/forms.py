@@ -7,6 +7,7 @@ from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.recall.forms import StockByItemSelect
 from apps.items.models import FundingSource, Item, Location
 from apps.stock.models import Stock
@@ -66,6 +67,14 @@ class ExpiredItemForm(forms.ModelForm):
         item = cleaned_data.get('item')
         stock = cleaned_data.get('stock')
         quantity = cleaned_data.get('quantity')
+
+        if quantity is not None:
+            try:
+                quantity = validate_finite_decimal(quantity, field_label='Jumlah')
+                cleaned_data['quantity'] = quantity
+            except forms.ValidationError as exc:
+                self.add_error('quantity', exc)
+                quantity = None
 
         if stock and item and stock.item_id != item.id:
             self.add_error('stock', 'Batch stok harus sesuai dengan barang yang dipilih.')

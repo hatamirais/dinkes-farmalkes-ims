@@ -306,6 +306,27 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
 
+    def test_distribution_item_form_rejects_non_finite_quantities(self):
+        form = DistributionItemForm(
+            data={
+                "item": self.item.pk,
+                "quantity_requested": "NaN",
+                "quantity_approved": "Infinity",
+                "stock": self.stock.pk,
+                "notes": "",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            form.errors["quantity_requested"],
+            ["Masukkan sebuah bilangan."],
+        )
+        self.assertEqual(
+            form.errors["quantity_approved"],
+            ["Masukkan sebuah bilangan."],
+        )
+
     def test_distribution_item_form_rejects_approved_quantity_above_available_stock(self):
         self.stock.quantity = Decimal("8")
         self.stock.save(update_fields=["quantity", "updated_at"])

@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.core.models import TimeStampedModel
 
 
@@ -263,6 +264,15 @@ class AllocationItemFacility(models.Model):
 
     def clean(self):
         errors = {}
+
+        try:
+            self.qty_allocated = validate_finite_decimal(
+                self.qty_allocated,
+                field_label="Jumlah alokasi",
+            )
+        except ValidationError as exc:
+            errors["qty_allocated"] = exc.messages
+            self.qty_allocated = None
 
         if self.qty_allocated is not None and self.qty_allocated <= 0:
             errors["qty_allocated"] = "Jumlah alokasi harus lebih dari 0."

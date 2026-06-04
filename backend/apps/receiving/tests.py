@@ -315,6 +315,33 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(trx.transaction_type, Transaction.TransactionType.IN)
         self.assertEqual(trx.quantity, Decimal("10"))
 
+    def test_regular_receiving_create_rejects_non_finite_quantity(self):
+        response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": Receiving.ReceivingType.GRANT,
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "NaN",
+                "items-0-batch_lot": "BATCH-001",
+                "items-0-expiry_date": "2030-01-01",
+                "items-0-unit_price": "1500",
+                "items-0-location": self.location.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Masukkan sebuah bilangan.")
+        self.assertEqual(Receiving.objects.count(), 0)
+
 
     def test_plan_close_blocked_when_remaining_items_not_cancelled(self):
         receiving = Receiving.objects.create(
@@ -742,6 +769,22 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(
             form.errors["unit_price"],
             ["Harga satuan harus lebih dari 0."],
+        )
+
+    def test_receiving_order_item_form_rejects_infinite_unit_price(self):
+        form = ReceivingOrderItemForm(
+            data={
+                "item": self.item.pk,
+                "planned_quantity": "5",
+                "unit_price": "Infinity",
+                "notes": "",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            form.errors["unit_price"],
+            ["Masukkan sebuah bilangan."],
         )
 
     def test_gudang_cannot_approve_receiving_plan(self):

@@ -1,5 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
+
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.items.models import Facility, Item
 from apps.users.models import User
 
@@ -80,6 +82,7 @@ class PuskesmasRequestItemForm(forms.ModelForm):
 
     def clean_quantity_requested(self):
         qty = self.cleaned_data.get("quantity_requested")
+        qty = validate_finite_decimal(qty, field_label="Jumlah")
         if qty is not None and qty <= 0:
             raise forms.ValidationError("Jumlah harus lebih dari 0.")
         return qty

@@ -4,6 +4,7 @@ from datetime import date
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 from django.test import SimpleTestCase
@@ -14,7 +15,7 @@ from apps.core.csv_exports import SanitizedCSV
 from apps.users.models import User
 from apps.stock.admin import StockAdmin, StockResource
 from apps.items.models import Unit, Category, Item, Location, FundingSource
-from apps.stock.models import Stock, StockTransfer, Transaction
+from apps.stock.models import Stock, StockTransfer, StockTransferItem, Transaction
 from apps.core.models import SystemSettings
 
 
@@ -369,3 +370,14 @@ class StockTransferModelTests(SimpleTestCase):
 
         self.assertEqual(mock_save.call_count, 2)
         self.assertEqual(transfer.document_number, "TRF-2026-00002")
+
+    def test_stock_transfer_item_clean_rejects_non_finite_quantity(self):
+        transfer_item = StockTransferItem(quantity=Decimal("-Infinity"))
+
+        with self.assertRaises(ValidationError) as exc:
+            transfer_item.clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["quantity"],
+            ["Jumlah mutasi tidak boleh NaN atau Infinity."],
+        )
