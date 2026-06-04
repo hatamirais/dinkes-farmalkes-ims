@@ -66,6 +66,15 @@ def validate_csv_upload(uploaded_file, *, max_size_bytes):
         field_label="File CSV",
     )
 
+    content_type = (
+        (getattr(uploaded_file, "content_type", "") or "")
+        .split(";", 1)[0]
+        .strip()
+        .lower()
+    )
+    if content_type not in {"text/csv", "application/csv", "application/vnd.ms-excel"}:
+        raise ValidationError("Tipe file CSV tidak valid.")
+
     try:
         sample = uploaded_file.read(min(uploaded_file.size, 4096))
     finally:
@@ -114,7 +123,7 @@ def validate_image_upload(
         uploaded_file.seek(0)
         with Image.open(uploaded_file) as image:
             image_format = (image.format or "").upper()
-    except (UnidentifiedImageError, OSError) as exc:
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError) as exc:
         raise ValidationError(f"{field_label} harus berupa file gambar yang valid.") from exc
     finally:
         uploaded_file.seek(0)

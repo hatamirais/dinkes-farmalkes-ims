@@ -3,7 +3,6 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
@@ -84,6 +83,21 @@ class ReceivingCSVImportTest(TestCase):
                     "receiving.csv",
                     b"\x89PNG\r\n\x1a\n",
                     content_type="text/csv",
+                )
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("csv_file", form.errors)
+
+    def test_csv_import_form_rejects_non_csv_mime_type(self):
+        form = ReceivingCSVImportForm(
+            data={},
+            files={
+                "csv_file": self._uploaded_file(
+                    "receiving.csv",
+                    b"document_number,receiving_type\nRCV-1,GRANT\n",
+                    content_type="application/octet-stream",
                 )
             },
         )
@@ -814,3 +828,39 @@ class ReceivingDocumentUploadValidationTest(TestCase):
         document = form.save(commit=False)
         self.assertEqual(document.file_name, "dokumen.jpg")
         self.assertEqual(document.file_type, "image/jpeg")
+
+    def test_receiving_document_form_accepts_existing_file_without_revalidation(self):
+        from apps.receiving.admin import ReceivingDocumentInlineForm
+
+        user = User.objects.create_superuser(
+            username="doc-existing-admin",
+        )
+        funding = FundingSource.objects.create(code="DOCEXIST", name="Doc Existing")
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-DOCEXIST",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=funding,
+            status=Receiving.Status.DRAFT,
+            created_by=user,
+        )
+        document = ReceivingDocument.objects.create(
+            receiving=receiving,
+            file="receiving/2026/06/dokumen.pdf",
+            file_name="dokumen.pdf",
+            file_type="application/pdf",
+        )
+
+        form = ReceivingDocumentInlineForm(
+            data={
+                "receiving": receiving.pk,
+                "file_name": document.file_name,
+                "file_type": document.file_type,
+            },
+            instance=document,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        saved_document = form.save(commit=False)
+        self.assertEqual(saved_document.file_name, "dokumen.pdf")
+        self.assertEqual(saved_document.file_type, "application/pdf")

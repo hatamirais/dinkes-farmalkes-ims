@@ -1,3 +1,4 @@
+import json
 import logging
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
@@ -480,13 +481,16 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
 
     def form_valid(self, form):
         logo = form.cleaned_data.get("logo")
-        if logo and hasattr(logo, "read"):
+        if logo and hasattr(logo, "read") and not hasattr(logo, "url"):
             security_logger.info(
-                'event="system_settings_logo_upload_succeeded" username="%s" filename="%s" mime_type="%s"'
-                % (
-                    self.request.user.username,
-                    logo.name,
-                    getattr(form, "cleaned_logo_mime_type", "unknown"),
+                json.dumps(
+                    {
+                        "event": "system_settings_logo_upload_succeeded",
+                        "filename": logo.name,
+                        "mime_type": getattr(form, "cleaned_logo_mime_type", "unknown"),
+                        "username": self.request.user.username,
+                    },
+                    sort_keys=True,
                 )
             )
         messages.success(self.request, "Pengaturan sistem berhasil diperbarui.")
@@ -495,11 +499,14 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
     def form_invalid(self, form):
         if self.request.method == "POST" and self.request.FILES.get("logo"):
             security_logger.warning(
-                'event="system_settings_logo_upload_failed" username="%s" filename="%s" errors="%s"'
-                % (
-                    self.request.user.username,
-                    self.request.FILES["logo"].name,
-                    form.errors.as_json(),
+                json.dumps(
+                    {
+                        "event": "system_settings_logo_upload_failed",
+                        "errors": json.loads(form.errors.as_json()),
+                        "filename": self.request.FILES["logo"].name,
+                        "username": self.request.user.username,
+                    },
+                    sort_keys=True,
                 )
             )
         return super().form_invalid(form)

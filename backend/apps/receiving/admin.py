@@ -65,19 +65,17 @@ class ReceivingDocumentInlineForm(forms.ModelForm):
 
     def clean_file(self):
         uploaded_file = self.cleaned_data.get("file")
-        if not uploaded_file:
-            return uploaded_file
-
-        self.cleaned_file_type = validate_receiving_document_upload(
-            uploaded_file,
-            max_size_bytes=RECEIVING_DOCUMENT_MAX_SIZE_BYTES,
-        )
+        if uploaded_file and not hasattr(uploaded_file, "url"):
+            self.cleaned_file_type = validate_receiving_document_upload(
+                uploaded_file,
+                max_size_bytes=RECEIVING_DOCUMENT_MAX_SIZE_BYTES,
+            )
         return uploaded_file
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         uploaded_file = self.cleaned_data.get("file")
-        if uploaded_file:
+        if uploaded_file and not hasattr(uploaded_file, "url"):
             instance.file_name = uploaded_file.name
             instance.file_type = getattr(self, "cleaned_file_type", instance.file_type)
         if commit:

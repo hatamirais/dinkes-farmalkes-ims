@@ -33,7 +33,7 @@ class SystemSettingsForm(forms.ModelForm):
         logo = self.cleaned_data.get("logo")
         if logo is not None and logo is not False and not hasattr(logo, "read"):
             raise forms.ValidationError("Logo harus berupa file gambar, bukan URL.")
-        if logo and hasattr(logo, "read"):
+        if logo and hasattr(logo, "read") and not hasattr(logo, "url"):
             self.cleaned_logo_mime_type = validate_image_upload(
                 logo,
                 max_size_bytes=LOGO_MAX_SIZE_BYTES,
