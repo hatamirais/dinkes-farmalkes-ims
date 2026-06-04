@@ -233,6 +233,10 @@ class SystemSettingsFormTests(SimpleTestCase):
 
                 self.assertTrue(form.is_valid(), form.errors)
                 self.assertEqual(form.cleaned_data["logo"].name, "settings/logo.png")
+                if form.cleaned_data.get("logo"):
+                    form.cleaned_data["logo"].close()
+                if form.instance and form.instance.logo:
+                    form.instance.logo.close()
 
     @patch("apps.core.upload_validation.Image.open", side_effect=Image.DecompressionBombError("bomb"))
     def test_rejects_decompression_bomb_logo(self, mocked_image_open):

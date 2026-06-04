@@ -215,7 +215,10 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "healthcare-ims-cache",
-    }
+    },
+    "locmem": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
 }
 
 # ─── django-ratelimit: Sensitive POST Protection ────────────────────
