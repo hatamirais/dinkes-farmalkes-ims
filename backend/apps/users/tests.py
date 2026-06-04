@@ -1,10 +1,12 @@
 from unittest import mock
 
 from django.contrib.auth.models import Permission
+from django.core.cache import cache
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.test import override_settings
 from django.urls import reverse
 
 from apps.items.models import Facility
@@ -37,6 +39,7 @@ class UserManagementViewsTest(TestCase):
             is_active=True,
         )
         self.client.force_login(self.admin)
+        cache.clear()
 
     def _module_scope_payload(self, scope=ModuleAccess.Scope.NONE):
         payload = {}
@@ -359,6 +362,58 @@ class UserManagementViewsTest(TestCase):
             status_code=403,
         )
 
+    @override_settings(PASSWORD_CHANGE_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_password_change_returns_429_when_rate_limited(self):
+        first_response = self.client.post(
+            reverse("password_change"),
+            {
+                "old_password": "secret12345",
+                "new_password1": "ChangedPass123!",
+                "new_password2": "ChangedPass123!",
+            },
+            secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        response = self.client.post(
+            reverse("password_change"),
+            {
+                "old_password": "ChangedPass123!",
+                "new_password1": "ChangedAgain123!",
+                "new_password2": "ChangedAgain123!",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+    @override_settings(USER_PASSWORD_RESET_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_user_reset_password_returns_429_when_rate_limited(self):
+        first_response = self.client.post(
+            reverse("users:user_reset_password", args=[self.target.pk]),
+            {
+                "password1": "UpdatedPass123!",
+                "password2": "UpdatedPass123!",
+            },
+            secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        response = self.client.post(
+            reverse("users:user_reset_password", args=[self.target.pk]),
+            {
+                "password1": "AnotherPass123!",
+                "password2": "AnotherPass123!",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+        self.target.refresh_from_db()
+        self.assertTrue(self.target.check_password("UpdatedPass123!"))
+
     def test_user_list_shows_nip(self):
         response = self.client.get(reverse("users:user_list"))
         self.assertEqual(response.status_code, 200)
@@ -414,6 +469,75 @@ class UserManagementViewsTest(TestCase):
                 "status_text": "Nonaktif",
             },
         )
+
+    @override_settings(USER_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_toggle_active_returns_429_when_rate_limited(self):
+        first_response = self.client.post(
+            reverse("users:user_toggle_active", args=[self.target.pk]),
+            secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        response = self.client.post(
+            reverse("users:user_toggle_active", args=[self.target.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+    @override_settings(USER_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_user_create_returns_429_when_rate_limited(self):
+        payload = {
+            "username": "ratelimit_created_1",
+            "full_name": "Rate Limited Creator 1",
+            "nip": "198001012010011001",
+            "email": "rl_create1@example.com",
+            "role": User.Role.GUDANG,
+            "is_active": "on",
+            "password1": "VeryStrongPass123!",
+            "password2": "VeryStrongPass123!",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        first_response = self.client.post(
+            reverse("users:user_create"), payload, secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        payload["username"] = "ratelimit_created_2"
+        payload["email"] = "rl_create2@example.com"
+        response = self.client.post(
+            reverse("users:user_create"), payload, secure=True,
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+    @override_settings(USER_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_user_update_returns_429_when_rate_limited(self):
+        payload = {
+            "username": self.target.username,
+            "full_name": "Updated Name 1",
+            "nip": "198505052010011004",
+            "email": "updated1@example.com",
+            "role": User.Role.ADMIN_UMUM,
+            "is_active": "on",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        first_response = self.client.post(
+            reverse("users:user_update", args=[self.target.pk]),
+            payload, secure=True,
+        )
+        self.assertEqual(first_response.status_code, 302)
+
+        payload["full_name"] = "Updated Name 2"
+        response = self.client.post(
+            reverse("users:user_update", args=[self.target.pk]),
+            payload, secure=True,
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Terlalu banyak percobaan pada aksi ini", status_code=429)
 
     def test_toggle_active_ajax_blocks_self_deactivation(self):
         response = self.client.post(
@@ -949,6 +1073,7 @@ class HybridUserAuthorizationTest(TestCase):
 
 class ProtectedUserManagementGuardsTest(TestCase):
     def setUp(self):
+        cache.clear()
         self.super_admin = User.objects.create_superuser(
             username="super_admin",
             email="super_admin@example.com",
@@ -1118,4 +1243,32 @@ class ProtectedUserManagementGuardsTest(TestCase):
                 in message
                 for message in messages
             )
+        )
+
+    @override_settings(USER_BULK_ACTION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_bulk_action_returns_429_when_rate_limited(self):
+        response = self.client.post(
+            reverse("users:user_bulk_action"),
+            {
+                "action": "activate",
+                "selected_users": [self.standard_user.pk],
+            },
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        throttled = self.client.post(
+            reverse("users:user_bulk_action"),
+            {
+                "action": "activate",
+                "selected_users": [self.standard_user.pk],
+            },
+            secure=True,
+        )
+
+        self.assertEqual(throttled.status_code, 429)
+        self.assertContains(
+            throttled,
+            "Terlalu banyak percobaan pada aksi ini",
+            status_code=429,
         )

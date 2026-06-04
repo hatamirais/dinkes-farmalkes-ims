@@ -19,6 +19,7 @@ from django.test import override_settings
 from django.template import Context, Template
 from django.urls import resolve, reverse
 from django.utils import timezone
+from django_ratelimit.exceptions import Ratelimited
 
 from apps.core.admin_mixins import ImportGuideMixin
 from apps.core.context_processors import nav_notifications
@@ -1011,6 +1012,19 @@ class ErrorHandlerTests(SimpleTestCase):
             response,
             "Hanya operator Puskesmas yang dapat membuat LPLPO.",
             status_code=403,
+        )
+
+    def test_permission_denied_handler_returns_429_for_ratelimit_exception(self):
+        request = self.factory.post("/users/bulk-action/")
+        request.user = AnonymousUser()
+
+        response = permission_denied_handler(request, Ratelimited())
+
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(
+            response,
+            "Terlalu banyak percobaan pada aksi ini",
+            status_code=429,
         )
 
     def test_maintenance_mode_logs_through_core_logger(self):

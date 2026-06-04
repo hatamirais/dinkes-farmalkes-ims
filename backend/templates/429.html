@@ -1,0 +1,9 @@
+{% extends "errors/status.html" %}
+
+{% block page_title %}429 - Terlalu Banyak Permintaan{% endblock %}
+{% block status_code %}429{% endblock %}
+{% block title %}Terlalu banyak percobaan pada aksi ini{% endblock %}
+{% block tone %}warning{% endblock %}
+{% block icon %}bi bi-hourglass-split{% endblock %}
+{% block message %}{{ message|default:"Permintaan Anda untuk aksi sensitif ini melebihi batas keamanan sementara. Tunggu sejenak lalu coba lagi." }}{% endblock %}
+{% block help_text %}{{ help_text|default:"Batas ini diterapkan untuk mencegah penyalahgunaan pada perubahan akun dan aksi sensitif lain. Jika Anda terus diblokir, periksa kembali apakah langkah yang sama terkirim berulang kali." }}{% endblock %}

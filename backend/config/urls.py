@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 
+from apps.users.views import RateLimitedPasswordChangeView
 from apps.core.views import (
     SystemSettingsUpdateView,
     administration_distribution_history,
@@ -39,7 +40,7 @@ urlpatterns = [
     # Password change
     path(
         "password/change/",
-        auth_views.PasswordChangeView.as_view(
+        RateLimitedPasswordChangeView.as_view(
             template_name="registration/password_change.html",
         ),
         name="password_change",

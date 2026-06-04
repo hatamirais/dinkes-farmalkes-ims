@@ -17,7 +17,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Antarmuka | Django Templates + Bootstrap 5 |
 | Form | django-crispy-forms + crispy-bootstrap5 |
 | Import Data | django-import-export |
-| Keamanan | django-axes |
+| Keamanan | django-axes + django-ratelimit |
 
 ## Kapabilitas Utama
 
@@ -78,6 +78,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 ## Keamanan
 
 - Perlindungan brute-force login menggunakan `django-axes`.
+- Rate limiting untuk endpoint POST sensitif seperti perubahan password dan aksi manajemen pengguna menggunakan `django-ratelimit`.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.

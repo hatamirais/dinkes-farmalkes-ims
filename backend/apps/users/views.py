@@ -2,6 +2,7 @@ import csv
 
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -10,8 +11,15 @@ from django.db.models import ProtectedError
 from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.decorators import method_decorator
 
 from apps.core.csv_exports import sanitize_csv_row
+from apps.core.rate_limits import (
+    password_change_ratelimit,
+    user_bulk_action_ratelimit,
+    user_mutation_ratelimit,
+    user_password_reset_ratelimit,
+)
 
 from .access import ROLE_DEFAULT_SCOPES, has_module_permission
 from .forms import UserCreateForm, UserUpdateForm
@@ -188,6 +196,7 @@ def user_list(request):
 
 
 @login_required
+@user_mutation_ratelimit
 def user_create(request):
     _require_user_access(
         request.user,
@@ -221,6 +230,7 @@ def user_create(request):
 
 
 @login_required
+@user_mutation_ratelimit
 def user_update(request, pk):
     _require_user_access(
         request.user,
@@ -265,6 +275,7 @@ def user_update(request, pk):
 
 
 @login_required
+@user_mutation_ratelimit
 def user_toggle_active(request, pk):
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
@@ -313,6 +324,7 @@ def user_toggle_active(request, pk):
 
 
 @login_required
+@user_mutation_ratelimit
 def user_delete(request, pk):
     _require_user_access(
         request.user,
@@ -377,6 +389,7 @@ def user_detail(request, pk):
 
 
 @login_required
+@user_bulk_action_ratelimit
 def user_bulk_action(request):
     if request.method != "POST":
         return redirect("users:user_list")
@@ -476,6 +489,7 @@ def user_bulk_action(request):
 
 
 @login_required
+@user_password_reset_ratelimit
 def user_reset_password(request, pk):
     _require_user_access(
         request.user,
@@ -516,6 +530,11 @@ def user_reset_password(request, pk):
         request, f"Password untuk {target_user.username} berhasil direset."
     )
     return redirect("users:user_update", pk=pk)
+
+
+@method_decorator(password_change_ratelimit, name="dispatch")
+class RateLimitedPasswordChangeView(auth_views.PasswordChangeView):
+    pass
 
 
 class _Echo:
