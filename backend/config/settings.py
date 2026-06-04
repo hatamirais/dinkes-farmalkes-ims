@@ -210,15 +210,12 @@ AXES_RESET_ON_SUCCESS = True  # Reset failed count on successful login
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_LOCKOUT_TEMPLATE = "registration/lockout.html"
 
-# ─── Cache (Redis) ────────────────────────────────────────────────────
+# ─── Cache (Local Memory) ─────────────────────────────────────────────
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
-    },
-    "locmem": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-    },
+        "LOCATION": "healthcare-ims-cache",
+    }
 }
 
 # ─── django-ratelimit: Sensitive POST Protection ────────────────────

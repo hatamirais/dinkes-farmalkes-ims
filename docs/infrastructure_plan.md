@@ -15,11 +15,9 @@ Verification sources: `docker-compose.yml`, `.env.example`, `backend/config/sett
 ### Containerized services
 
 - PostgreSQL 16 (`postgres:16-alpine`) via Docker Compose
-- Redis 7 (`redis:7-alpine`) via Docker Compose
 
 ### Notes
 
-- Redis is available and configured but current codebase does not yet run active Celery workers in default local workflow.
 - `reports` module exists as route and view entry, but model layer is still placeholder.
 
 ## 2) Current docker-compose Baseline
@@ -30,9 +28,6 @@ From `docker-compose.yml`:
   - env: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
   - host port `5432`
   - persistent volume `postgres_data`
-- Service `redis`
-  - host port `6379`
-  - persistent volume `redis_data`
 
 No backend container is defined in current compose file.
 
@@ -46,7 +41,6 @@ Documented in `.env.example` and consumed by settings:
 - `DJANGO_SECRET_KEY`
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
 - `ALLOWED_HOSTS`
-- `REDIS_URL`
 - `SECURE_SSL_REDIRECT`
 
 ### Security posture in settings
@@ -67,7 +61,6 @@ Planned direction (not fully implemented in repo):
 
 - Gunicorn for Django process management
 - Nginx reverse proxy and static/media serving
-- Celery worker for async jobs and periodic checks
 - Optional split frontend/API architecture if React + API layer is introduced later
 
 Important implementation note:

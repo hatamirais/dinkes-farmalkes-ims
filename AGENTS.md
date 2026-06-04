@@ -13,7 +13,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 | Python | 3.13+ |
 | Django | 6.0.5 |
 | Database | PostgreSQL 16 |
-| Cache/Broker | Redis 7 |
+| Cache/Broker | None (In-Memory / LocMemCache) |
 | UI | Django templates + Bootstrap 5 |
 | Auth model | `apps.users.User` |
 | Settings | `backend/config/settings.py` |
@@ -169,8 +169,8 @@ Before opening a PR, verify:
 
 - `django-axes` remains the login brute-force control.
 - Additional authenticated POST throttling uses `django-ratelimit`.
-- Counters use a shared Redis cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are consistent across gunicorn workers.
-- `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully when Redis is unavailable.
+- Counters use a local memory cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are tracked in-process.
+- `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully if there are issues with the cache.
 - Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, and `PASSWORD_CHANGE_RATE_LIMIT`.
 - Throttled requests must continue through the centralized error pipeline and render as HTTP `429`.
 - `@user_mutation_ratelimit` covers all user mutation endpoints: create, update, toggle-active, and delete.

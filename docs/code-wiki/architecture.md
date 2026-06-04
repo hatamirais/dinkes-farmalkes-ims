@@ -5,7 +5,7 @@
 - Framework: Django 6 monolith
 - UI: Django templates plus Bootstrap 5
 - Database: PostgreSQL
-- Cache and broker: Redis
+- Cache: Local memory (LocMemCache)
 - Auth model: `apps.users.User`
 - Root settings: `backend/config/settings.py`
 - Root routes: `backend/config/urls.py`

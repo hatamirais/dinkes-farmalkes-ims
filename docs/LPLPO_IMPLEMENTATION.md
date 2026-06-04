@@ -716,6 +716,6 @@ Follow all existing project conventions from `AGENTS.md` and `.github/copilot-in
 
 - Puskesmas portal login page (use existing login, just filter by role)
 - Excel/PDF export of LPLPO (can be added later)
-- Celery task for LPLPO reminders (can be added later)
+- Scheduled task or cron job for LPLPO reminders (can be added later)
 - API endpoints for LPLPO (React frontend planned separately)
 - Editing LPLPO after SUBMITTED status from Puskesmas side

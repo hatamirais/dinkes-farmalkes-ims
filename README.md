@@ -13,7 +13,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Bahasa | Python 3.13+ |
 | Framework | Django 6.0.5 |
 | Database | PostgreSQL 16 |
-| Cache/Broker | Redis 7 |
+| Cache/Broker | None (In-Memory / LocMemCache) |
 | Antarmuka | Django Templates + Bootstrap 5 |
 | Form | django-crispy-forms + crispy-bootstrap5 |
 | Import Data | django-import-export |

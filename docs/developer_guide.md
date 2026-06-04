@@ -4,7 +4,7 @@ Dokumen ini menampung instruksi teknis dan operasional untuk pengembang yang bek
 
 ## Ringkasan
 
-Healthcare IMS dibangun dengan Django 6, PostgreSQL, dan Redis untuk mendukung proses inventaris kesehatan yang membutuhkan keterlacakan stok, workflow dokumen, dan kontrol akses yang konsisten.
+Healthcare IMS dibangun dengan Django 6 dan PostgreSQL untuk mendukung proses inventaris kesehatan yang membutuhkan keterlacakan stok, workflow dokumen, dan kontrol akses yang konsisten.
 
 ## Struktur Repositori
 
