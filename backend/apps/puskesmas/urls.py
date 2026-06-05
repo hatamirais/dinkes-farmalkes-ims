@@ -14,4 +14,9 @@ urlpatterns = [
     path("permintaan/<int:pk>/approve/", views.request_approve, name="request_approve"),
     path("permintaan/<int:pk>/reject/", views.request_reject, name="request_reject"),
     path("permintaan/<int:pk>/reset-draft/", views.request_reset_draft, name="request_reset_draft"),
+    # Laporan Puskesmas
+    path("laporan/penerimaan/", views.puskesmas_report_penerimaan, name="report_penerimaan"),
+    path("laporan/pemakaian/", views.puskesmas_report_pemakaian, name="report_pemakaian"),
+    path("laporan/persediaan/", views.puskesmas_report_persediaan, name="report_persediaan"),
 ]
+

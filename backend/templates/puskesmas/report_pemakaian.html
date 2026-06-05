@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load number_format %}
+
+{% block title %}Riwayat Pemakaian Puskesmas — Healthcare IMS{% endblock %}
+{% block page_title %}Riwayat Pemakaian (Data LPLPO){% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-print-sheet {
+        color: #111;
+        font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .report-print-header {
+        display: flex;
+        align-items: center;
+        border-bottom: 3px double #111;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .report-print-logo {
+        width: 80px; height: 100px;
+        background-color: #f8f9fa; border: 2px dashed #ccc;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center; font-size: 11px; color: #666;
+        margin-right: 20px; font-weight: bold;
+    }
+    .report-print-title { flex-grow: 1; text-align: center; line-height: 1.35; }
+    .report-print-title h4 { margin: 0; font-weight: 700; font-size: 18px; }
+    .report-print-title h5 { margin: 0; font-weight: 700; font-size: 20px; }
+    .report-print-title p { margin: 0; font-size: 13px; }
+    .report-print-meta { text-align: center; margin-bottom: 20px; font-weight: 700; font-size: 16px; }
+
+    @media print {
+        .main-content { padding: 0 !important; }
+        .report-print-sheet { max-width: none; padding: 0 5mm; }
+        .card { border: none !important; box-shadow: none !important; }
+        .card-body { padding: 0 !important; }
+        .table-light th {
+            background-color: #f8f9fa !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        @page { size: landscape; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="row mb-4 d-print-none">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body bg-light">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-auto">
+                        {{ form.year.label_tag }}
+                        {{ form.year }}
+                    </div>
+                    <div class="col-md-auto">
+                        {{ form.month.label_tag }}
+                        {{ form.month }}
+                    </div>
+                    {% if all_facilities %}
+                    <div class="col-md-auto">
+                        <label for="id_facility" class="form-label">Fasilitas</label>
+                        <select name="facility" id="id_facility" class="form-select">
+                            <option value="">Semua Fasilitas</option>
+                            {% for f in all_facilities %}
+                            <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>
+                                {{ f.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col d-flex flex-wrap align-items-end gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter"></i> Terapkan Filter
+                        </button>
+                        <a href="{% url 'puskesmas:report_pemakaian' %}" class="btn btn-outline-secondary">Reset</a>
+                        <button type="button" class="btn btn-dark" data-action="print">
+                            <i class="bi bi-printer"></i> Cetak Laporan
+                        </button>
+                        <button type="submit" name="format" value="excel" class="btn btn-success">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </form>
+                {% if form.errors %}
+                <div class="mt-2 text-danger small">
+                    {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
+                    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info alert about data source -->
+<div class="row mb-3 d-print-none">
+    <div class="col-12">
+        <div class="alert alert-info alert-dismissible fade show py-2 small mb-0" role="alert">
+            <i class="bi bi-info-circle me-1"></i>
+            Data pemakaian berasal dari LPLPO yang telah <strong>Didistribusi</strong> atau <strong>Ditutup</strong>.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Print Header -->
+<div class="d-none d-print-block report-print-sheet">
+    <div class="report-print-header">
+        <div class="report-print-logo" style="border: none; background: transparent;">
+            {% if system_settings and system_settings.logo %}
+                {% with logo_url=system_settings.logo.url|safe_media_url %}
+                {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo" style="max-width: 100%; max-height: 100%;">
+                {% else %}
+                <div style="border: 2px dashed #ccc; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">[LOGO<br>INSTANSI]</div>
+                {% endif %}
+                {% endwith %}
+            {% else %}
+                <div style="border: 2px dashed #ccc; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">[LOGO<br>INSTANSI]</div>
+            {% endif %}
+        </div>
+        <div class="report-print-title">
+            <h4>{{ system_settings.header_title|default:"[NAMA PEMERINTAH DAERAH / KOTA]" }}</h4>
+            <h5>{{ system_settings.facility_name|default:"[NAMA FASILITAS KESEHATAN / INSTALASI FARMASI]" }}</h5>
+            <p>{{ system_settings.facility_address|default:"[Alamat Instansi / Kop Surat]" }}</p>
+        </div>
+        <div style="width: 100px;"></div>
+    </div>
+    <div class="report-print-meta">
+        RIWAYAT PEMAKAIAN PUSKESMAS (DATA LPLPO FINAL)<br>
+        FASILITAS: {{ selected_facility_name }}<br>
+        TAHUN: {{ form.year.value|default:"-" }}
+        {% if form.month.value %}| BULAN: {{ form.month.value }}{% endif %}
+    </div>
+</div>
+
+<!-- Report Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                {% if not all_facilities and facility %}
+                <div class="mb-2 text-muted small">
+                    <i class="bi bi-geo-alt"></i> Fasilitas: <strong>{{ facility.name }}</strong>
+                </div>
+                {% endif %}
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-0">
+                        <thead class="table-light text-center">
+                            <tr>
+                                <th style="width: 50px;">NO</th>
+                                <th style="width: 120px;">PERIODE</th>
+                                <th>NAMA BARANG</th>
+                                <th style="width: 80px;">SATUAN</th>
+                                <th style="width: 100px;">STOK AWAL</th>
+                                <th style="width: 100px;">PENERIMAAN</th>
+                                <th style="width: 100px;">PEMAKAIAN</th>
+                                <th style="width: 100px;">STOK AKHIR</th>
+                                <th style="width: 100px;">PERMINTAAN</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if report_data %}
+                                {% for row in report_data %}
+                                <tr>
+                                    <td class="text-center">{{ forloop.counter }}</td>
+                                    <td class="text-center">{{ row.period_display }}</td>
+                                    <td>{{ row.nama_barang }}</td>
+                                    <td class="text-center">{{ row.satuan }}</td>
+                                    <td class="text-end">{{ row.stock_awal|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.penerimaan|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.pemakaian|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.stock_keseluruhan|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.permintaan_jumlah|id_decimal:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    Tidak ada data pemakaian LPLPO yang telah final untuk periode ini.
+                                    {% if not facility %}
+                                    <div class="mt-1 small">Pilih fasilitas untuk melihat data.</div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -198,7 +198,7 @@
                 <div class="sidebar-section-title">Puskesmas</div>
                 {% if can_view_puskesmas %}
                 <a href="{% url 'puskesmas:request_list' %}"
-                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and 'lplpo' not in request.resolver_match.url_name %}active{% endif %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and 'lplpo' not in request.resolver_match.url_name and 'report_' not in request.resolver_match.url_name %}active{% endif %}"
                     data-label="Permintaan Barang"
                     title="Permintaan Barang">
                     <i class="bi bi-file-earmark-arrow-up"></i><span>Permintaan Barang</span>
@@ -212,7 +212,40 @@
                     <i class="bi bi-file-earmark-medical"></i><span>LPLPO</span>
                 </a>
                 {% endif %}
+                {% if can_view_puskesmas and request.user.role == 'PUSKESMAS' %}
+                <button class="sidebar-link sidebar-dropdown-toggle {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
+                    data-label="Laporan Puskesmas"
+                    title="Laporan Puskesmas"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#sidebar-puskesmas-laporan"
+                    aria-expanded="{% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}true{% else %}false{% endif %}"
+                    type="button">
+                    <i class="bi bi-bar-chart-line"></i><span>Laporan Puskesmas</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </button>
+                <div class="collapse sidebar-submenu {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}show{% endif %}" id="sidebar-puskesmas-laporan">
+                    <a href="{% url 'puskesmas:report_penerimaan' %}"
+                        class="sidebar-link {% if request.resolver_match.url_name == 'report_penerimaan' %}active{% endif %}"
+                        data-label="Riwayat Penerimaan"
+                        title="Riwayat Penerimaan">
+                        <i class="bi bi-inbox-arrow-down"></i><span>Riwayat Penerimaan</span>
+                    </a>
+                    <a href="{% url 'puskesmas:report_pemakaian' %}"
+                        class="sidebar-link {% if request.resolver_match.url_name == 'report_pemakaian' %}active{% endif %}"
+                        data-label="Riwayat Pemakaian"
+                        title="Riwayat Pemakaian">
+                        <i class="bi bi-clipboard-data"></i><span>Riwayat Pemakaian</span>
+                    </a>
+                    <a href="{% url 'puskesmas:report_persediaan' %}"
+                        class="sidebar-link {% if request.resolver_match.url_name == 'report_persediaan' %}active{% endif %}"
+                        data-label="Laporan Persediaan"
+                        title="Laporan Persediaan">
+                        <i class="bi bi-boxes"></i><span>Laporan Persediaan</span>
+                    </a>
+                </div>
                 {% endif %}
+                {% endif %}
+
 
                 {% if can_view_reports %}
                 <div class="sidebar-section-title">Laporan</div>

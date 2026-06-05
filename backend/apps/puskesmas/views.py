@@ -487,3 +487,412 @@ def request_delete(request, pk):
     req.delete()
     messages.success(request, f"Permintaan {doc_num} berhasil dihapus.")
     return redirect("puskesmas:request_list")
+
+
+# ──────────────────────── Puskesmas Reports ────────────────────────
+
+
+def _resolve_report_facility(request, fallback_facility_id=None):
+    """Return the facility to scope a Puskesmas report to.
+
+    For PUSKESMAS role: always returns the user's own facility (enforced).
+    For super admin: returns the facility identified by GET param 'facility'
+    if provided; otherwise returns None (meaning all facilities for admin).
+
+    Returns (facility_obj_or_None, error_response_or_None).
+    """
+    if getattr(request.user, "role", None) == "PUSKESMAS":
+        facility = getattr(request.user, "facility", None)
+        if not facility:
+            messages.error(request, "Akun Anda belum terhubung ke fasilitas puskesmas.")
+            return None, redirect("puskesmas:request_list")
+        return facility, None
+
+    # Super admin / staff path — optional facility filter
+    from apps.items.models import Facility as FacilityModel
+
+    facility_id = fallback_facility_id or request.GET.get("facility", "")
+    if facility_id:
+        try:
+            facility = FacilityModel.objects.get(
+                pk=int(facility_id),
+                facility_type=FacilityModel.FacilityType.PUSKESMAS,
+                is_active=True,
+            )
+            return facility, None
+        except (FacilityModel.DoesNotExist, ValueError, TypeError):
+            pass
+    return None, None
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasrequest")
+def puskesmas_report_penerimaan(request):
+    """Riwayat Penerimaan — all DISTRIBUTED distributions sent to the Puskesmas facility.
+
+    Facility isolation enforced at ORM level. PUSKESMAS users see only their own
+    facility's data. Super admin may optionally scope via ?facility=<id>.
+    """
+    from apps.distribution.models import DistributionItem
+    from apps.items.models import Facility as FacilityModel
+
+    from .forms import PuskesmasReceivingFilterForm
+    from .exports import export_puskesmas_penerimaan_excel
+
+    facility, err = _resolve_report_facility(request)
+    if err:
+        return err
+
+    initial = PuskesmasReceivingFilterForm.get_default_initial()
+    effective_get = request.GET.copy()
+    for key, value in initial.items():
+        if not effective_get.get(key):
+            effective_get[key] = value
+
+    form = PuskesmasReceivingFilterForm(effective_get)
+    report_data = []
+    selected_facility_name = facility.name if facility else "Semua Fasilitas"
+
+    if form.is_valid():
+        start_date = form.cleaned_data["start_date"]
+        end_date = form.cleaned_data["end_date"]
+        distribution_type = form.cleaned_data.get("distribution_type", "")
+
+        qs = DistributionItem.objects.filter(
+            distribution__status=Distribution.Status.DISTRIBUTED,
+            distribution__distributed_date__range=[start_date, end_date],
+        ).select_related(
+            "distribution",
+            "distribution__facility",
+            "item",
+            "item__satuan",
+        ).order_by(
+            "distribution__distributed_date",
+            "distribution__document_number",
+            "item__nama_barang",
+        )
+
+        # Facility isolation — always applied for PUSKESMAS role
+        if facility:
+            qs = qs.filter(distribution__facility=facility)
+
+        if distribution_type:
+            qs = qs.filter(distribution__distribution_type=distribution_type)
+
+        dist_type_labels = dict(Distribution.DistributionType.choices)
+        for di in qs:
+            qty = di.quantity_approved if di.quantity_approved is not None else di.quantity_requested
+            report_data.append(
+                {
+                    "document_number": di.distribution.document_number,
+                    "distributed_date": di.distribution.distributed_date,
+                    "distribution_type_label": dist_type_labels.get(
+                        di.distribution.distribution_type, di.distribution.distribution_type
+                    ),
+                    "nama_barang": di.item.nama_barang,
+                    "satuan": di.item.satuan.name if di.item.satuan else "-",
+                    "issued_batch_lot": di.issued_batch_lot or "-",
+                    "quantity": qty,
+                    "issued_unit_price": di.issued_unit_price,
+                }
+            )
+
+        if request.GET.get("format") == "excel" and report_data:
+            return export_puskesmas_penerimaan_excel(
+                report_data, start_date, end_date, selected_facility_name
+            )
+
+    # Facility chooser for super admin
+    all_facilities = []
+    if not getattr(request.user, "role", None) == "PUSKESMAS":
+        all_facilities = FacilityModel.objects.filter(
+            facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
+        ).order_by("name")
+
+    total_quantity = sum(r["quantity"] or 0 for r in report_data)
+
+    return render(
+        request,
+        "puskesmas/report_penerimaan.html",
+        {
+            "form": form,
+            "report_data": report_data,
+            "total_quantity": total_quantity,
+            "facility": facility,
+            "selected_facility_name": selected_facility_name,
+            "all_facilities": all_facilities,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasrequest")
+def puskesmas_report_pemakaian(request):
+    """Riwayat Pemakaian — consumption data derived from finalized (DISTRIBUTED/CLOSED) LPLPOs.
+
+    Only DISTRIBUTED and CLOSED LPLPOs are included so that consumption data is
+    from finalized documents only. Facility isolation enforced at ORM level.
+    """
+    from apps.items.models import Facility as FacilityModel
+    from apps.lplpo.models import LPLPO, LPLPOItem, get_indonesian_month_name
+
+    from .forms import PuskesmasPemakaianFilterForm
+    from .exports import export_puskesmas_pemakaian_excel
+
+    facility, err = _resolve_report_facility(request)
+    if err:
+        return err
+
+    initial = PuskesmasPemakaianFilterForm.get_default_initial()
+    effective_get = request.GET.copy()
+    for key, value in initial.items():
+        if not effective_get.get(key):
+            effective_get[key] = value
+
+    form = PuskesmasPemakaianFilterForm(effective_get)
+    report_data = []
+    selected_facility_name = facility.name if facility else "Semua Fasilitas"
+
+    # Finalized LPLPO statuses only
+    FINALIZED_STATUSES = [LPLPO.Status.DISTRIBUTED, LPLPO.Status.CLOSED]
+
+    if form.is_valid():
+        year = form.cleaned_data["year"]
+        month_raw = form.cleaned_data.get("month", "")
+        month = int(month_raw) if month_raw else None
+
+        qs = LPLPOItem.objects.filter(
+            lplpo__tahun=year,
+            lplpo__status__in=FINALIZED_STATUSES,
+        ).select_related(
+            "lplpo",
+            "lplpo__facility",
+            "item",
+            "item__satuan",
+            "item__kategori",
+        ).order_by(
+            "lplpo__bulan",
+            "item__kategori__sort_order",
+            "item__nama_barang",
+        )
+
+        # Facility isolation
+        if facility:
+            qs = qs.filter(lplpo__facility=facility)
+
+        if month:
+            qs = qs.filter(lplpo__bulan=month)
+
+        for li in qs:
+            report_data.append(
+                {
+                    "period_display": li.lplpo.period_display,
+                    "bulan": li.lplpo.bulan,
+                    "tahun": li.lplpo.tahun,
+                    "nama_barang": li.item.nama_barang,
+                    "satuan": li.item.satuan.name if li.item.satuan else "-",
+                    "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
+                    "stock_awal": li.stock_awal,
+                    "penerimaan": li.penerimaan,
+                    "pemakaian": li.pemakaian,
+                    "stock_keseluruhan": li.stock_keseluruhan,
+                    "permintaan_jumlah": li.permintaan_jumlah,
+                }
+            )
+
+        month_label = get_indonesian_month_name(month) if month else "Semua Bulan"
+
+        if request.GET.get("format") == "excel" and report_data:
+            return export_puskesmas_pemakaian_excel(
+                report_data, year, month_label, selected_facility_name
+            )
+
+    # Facility chooser for super admin
+    all_facilities = []
+    if not getattr(request.user, "role", None) == "PUSKESMAS":
+        all_facilities = FacilityModel.objects.filter(
+            facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
+        ).order_by("name")
+
+    return render(
+        request,
+        "puskesmas/report_pemakaian.html",
+        {
+            "form": form,
+            "report_data": report_data,
+            "facility": facility,
+            "selected_facility_name": selected_facility_name,
+            "all_facilities": all_facilities,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasrequest")
+def puskesmas_report_persediaan(request):
+    """Laporan Persediaan Puskesmas — PLACEHOLDER.
+
+    Mirrors the Instalasi Farmasi 'Laporan Persediaan (Rincian)' report structure
+    using Transaction data. This is a structural placeholder; the Puskesmas-specific
+    source of truth (LPLPO stock_keseluruhan vs. Transaction-based) will be
+    determined and refined in a follow-up.
+
+    Facility isolation is enforced at the ORM level by filtering Transactions
+    to only those linked to distributions for this facility.
+    """
+    from apps.items.models import Facility as FacilityModel
+    from apps.stock.models import Transaction, Stock
+    from django.db import models as db_models
+    from django.db.models import Sum, Case, When, F
+    from django.db.models.functions import Coalesce
+
+    from .forms import PuskesmasPersediaanFilterForm
+    from .exports import export_puskesmas_persediaan_excel
+
+    facility, err = _resolve_report_facility(request)
+    if err:
+        return err
+
+    initial = PuskesmasPersediaanFilterForm.get_default_initial()
+    effective_get = request.GET.copy()
+    for key, value in initial.items():
+        if not effective_get.get(key):
+            effective_get[key] = value
+
+    form = PuskesmasPersediaanFilterForm(effective_get)
+    report_data = []
+    selected_facility_name = facility.name if facility else "Semua Fasilitas"
+
+    if form.is_valid():
+        start_date = form.cleaned_data["start_date"]
+        end_date = form.cleaned_data["end_date"]
+
+        # Subquery to get expiry_date from Stock
+        from django.db.models import OuterRef, Subquery
+        expiry_sq = Stock.objects.filter(
+            item=OuterRef("item"),
+            batch_lot=OuterRef("batch_lot"),
+            sumber_dana=OuterRef("sumber_dana"),
+        ).values("expiry_date")[:1]
+
+        qs = Transaction.objects.values(
+            "item__kategori__name",
+            "item__kategori__sort_order",
+            "item__nama_barang",
+            "item__satuan__name",
+            "batch_lot",
+            "sumber_dana__name",
+            "unit_price",
+        ).annotate(
+            expiry_date=Subquery(expiry_sq),
+            initial_stock=Coalesce(
+                Sum(
+                    Case(
+                        When(created_at__date__lt=start_date, transaction_type="IN", then=F("quantity")),
+                        When(created_at__date__lt=start_date, transaction_type="OUT", then=-F("quantity")),
+                        default=0,
+                        output_field=db_models.DecimalField(),
+                    )
+                ),
+                0,
+                output_field=db_models.DecimalField(),
+            ),
+            received=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            created_at__date__range=[start_date, end_date],
+                            reference_type__in=["RECEIVING", "INITIAL_IMPORT"],
+                            transaction_type="IN",
+                            then=F("quantity"),
+                        ),
+                        default=0,
+                        output_field=db_models.DecimalField(),
+                    )
+                ),
+                0,
+                output_field=db_models.DecimalField(),
+            ),
+            distributed=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            created_at__date__range=[start_date, end_date],
+                            reference_type__in=["DISTRIBUTION", "RECALL"],
+                            transaction_type="OUT",
+                            then=F("quantity"),
+                        ),
+                        default=0,
+                        output_field=db_models.DecimalField(),
+                    )
+                ),
+                0,
+                output_field=db_models.DecimalField(),
+            ),
+            expired=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            created_at__date__range=[start_date, end_date],
+                            reference_type="EXPIRED",
+                            transaction_type="OUT",
+                            then=F("quantity"),
+                        ),
+                        default=0,
+                        output_field=db_models.DecimalField(),
+                    )
+                ),
+                0,
+                output_field=db_models.DecimalField(),
+            ),
+        ).order_by(
+            "item__kategori__sort_order",
+            "item__kategori__name",
+            "item__nama_barang",
+            "batch_lot",
+        )
+
+        # NOTE: Transaction model does not have a facility FK directly.
+        # This placeholder currently shows Instalasi stock data (same as reports_index).
+        # A follow-up will scope this to Puskesmas-specific data via LPLPO or
+        # a Puskesmas stock ledger.
+
+        for row in qs:
+            row["ending_stock"] = (
+                row["initial_stock"]
+                + row["received"]
+                - row["distributed"]
+                - row["expired"]
+            )
+            if (
+                row["initial_stock"] != 0
+                or row["received"] != 0
+                or row["distributed"] != 0
+                or row["expired"] != 0
+            ):
+                report_data.append(row)
+
+        if request.GET.get("format") == "excel" and report_data:
+            return export_puskesmas_persediaan_excel(
+                report_data, start_date, end_date, selected_facility_name
+            )
+
+    # Facility chooser for super admin
+    all_facilities = []
+    if not getattr(request.user, "role", None) == "PUSKESMAS":
+        all_facilities = FacilityModel.objects.filter(
+            facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
+        ).order_by("name")
+
+    return render(
+        request,
+        "puskesmas/report_persediaan.html",
+        {
+            "form": form,
+            "report_data": report_data,
+            "facility": facility,
+            "selected_facility_name": selected_facility_name,
+            "all_facilities": all_facilities,
+        },
+    )
+
