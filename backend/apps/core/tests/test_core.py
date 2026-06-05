@@ -801,6 +801,7 @@ class ErrorPageTemplateTests(TestCase):
 
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class SystemSettingsAccessTests(TestCase):
     def test_anonymous_user_is_redirected_to_login(self):
         response = self.client.get(reverse("settings"))
@@ -906,6 +907,7 @@ class SystemSettingsAccessTests(TestCase):
         self.assertIn("logo", payload["errors"])
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class AdministrationHistoryAccessTests(TestCase):
     def test_anonymous_user_is_redirected_to_login(self):
         response = self.client.get(reverse("administration_receiving_history"))
@@ -1472,6 +1474,28 @@ class NavNotificationsContextProcessorTests(TestCase):
 
 
 class SafeMediaUrlIntegrationTests(TestCase):
+    """
+    Integration tests for safe_media_url template filter.
+
+    MEDIA_ROOT is overridden to an isolated temp directory so that logo
+    writes do not touch the real backend/media/settings/ path.  This
+    prevents PermissionError on Windows-managed workspaces where the
+    production media directory may be restricted.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._media_temp = TemporaryDirectory()
+        cls._override = override_settings(MEDIA_ROOT=cls._media_temp.name)
+        cls._override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._override.disable()
+        cls._media_temp.cleanup()
+        super().tearDownClass()
+
     @classmethod
     def setUpTestData(cls):
         img = BytesIO()
