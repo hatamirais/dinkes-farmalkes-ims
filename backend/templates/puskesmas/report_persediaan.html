@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% load number_format %}
+
+{% block title %}Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
+{% block page_title %}Laporan Persediaan Puskesmas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-print-sheet {
+        color: #111;
+        font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .report-print-header {
+        display: flex;
+        align-items: center;
+        border-bottom: 3px double #111;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .report-print-logo {
+        width: 80px; height: 100px;
+        background-color: #f8f9fa; border: 2px dashed #ccc;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center; font-size: 11px; color: #666;
+        margin-right: 20px; font-weight: bold;
+    }
+    .report-print-title { flex-grow: 1; text-align: center; line-height: 1.35; }
+    .report-print-title h4 { margin: 0; font-weight: 700; font-size: 18px; }
+    .report-print-title h5 { margin: 0; font-weight: 700; font-size: 20px; }
+    .report-print-title p { margin: 0; font-size: 13px; }
+    .report-print-meta { text-align: center; margin-bottom: 20px; font-weight: 700; font-size: 16px; }
+    .category-row { background-color: #e2e3e5; font-weight: bold; }
+
+    @media print {
+        .main-content { padding: 0 !important; }
+        .report-print-sheet { max-width: none; padding: 0 5mm; }
+        .card { border: none !important; box-shadow: none !important; }
+        .card-body { padding: 0 !important; }
+        .table-light th {
+            background-color: #f8f9fa !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .category-row {
+            background-color: #e2e3e5 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        @page { size: landscape; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Placeholder warning -->
+<div class="row mb-3 d-print-none">
+    <div class="col-12">
+        <div class="alert alert-warning py-2 small mb-0" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>Placeholder:</strong> Laporan ini sementara menggunakan data transaksi stok Instalasi Farmasi.
+            Sumber data spesifik Puskesmas akan ditentukan pada pembaruan berikutnya.
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="row mb-4 d-print-none">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body bg-light">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-auto">
+                        {{ form.start_date.label_tag }}
+                        {{ form.start_date }}
+                    </div>
+                    <div class="col-md-auto">
+                        {{ form.end_date.label_tag }}
+                        {{ form.end_date }}
+                    </div>
+                    {% if all_facilities %}
+                    <div class="col-md-auto">
+                        <label for="id_facility" class="form-label">Fasilitas</label>
+                        <select name="facility" id="id_facility" class="form-select">
+                            <option value="">Semua Fasilitas</option>
+                            {% for f in all_facilities %}
+                            <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>
+                                {{ f.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col d-flex flex-wrap align-items-end gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter"></i> Terapkan Filter
+                        </button>
+                        <a href="{% url 'puskesmas:report_persediaan' %}" class="btn btn-outline-secondary">Reset</a>
+                        <button type="button" class="btn btn-dark" data-action="print">
+                            <i class="bi bi-printer"></i> Cetak Laporan
+                        </button>
+                        <button type="submit" name="format" value="excel" class="btn btn-success">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </form>
+                {% if form.errors %}
+                <div class="mt-2 text-danger small">
+                    {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
+                    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Header -->
+<div class="d-none d-print-block report-print-sheet">
+    <div class="report-print-header">
+        <div class="report-print-logo" style="border: none; background: transparent;">
+            {% if system_settings and system_settings.logo %}
+                {% with logo_url=system_settings.logo.url|safe_media_url %}
+                {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo" style="max-width: 100%; max-height: 100%;">
+                {% else %}
+                <div style="border: 2px dashed #ccc; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">[LOGO<br>INSTANSI]</div>
+                {% endif %}
+                {% endwith %}
+            {% else %}
+                <div style="border: 2px dashed #ccc; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">[LOGO<br>INSTANSI]</div>
+            {% endif %}
+        </div>
+        <div class="report-print-title">
+            <h4>{{ system_settings.header_title|default:"[NAMA PEMERINTAH DAERAH / KOTA]" }}</h4>
+            <h5>{{ system_settings.facility_name|default:"[NAMA FASILITAS KESEHATAN / INSTALASI FARMASI]" }}</h5>
+            <p>{{ system_settings.facility_address|default:"[Alamat Instansi / Kop Surat]" }}</p>
+        </div>
+        <div style="width: 100px;"></div>
+    </div>
+    <div class="report-print-meta">
+        LAPORAN PERSEDIAAN PUSKESMAS<br>
+        FASILITAS: {{ selected_facility_name }}<br>
+        PERIODE: {{ form.start_date.value|default:"-" }} s/d {{ form.end_date.value|default:"-" }}
+    </div>
+</div>
+
+<!-- Report Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                {% if not all_facilities and facility %}
+                <div class="mb-2 text-muted small">
+                    <i class="bi bi-geo-alt"></i> Fasilitas: <strong>{{ facility.name }}</strong>
+                </div>
+                {% endif %}
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-0">
+                        <thead class="table-light text-center">
+                            <tr>
+                                <th style="width: 50px;">NO</th>
+                                <th>NAMA BARANG</th>
+                                <th style="width: 80px;">SATUAN</th>
+                                <th style="width: 110px;">BATCH</th>
+                                <th style="width: 110px;">KEDALUWARSA</th>
+                                <th style="width: 130px;">SUMBER DANA</th>
+                                <th style="width: 130px;">HARGA SATUAN</th>
+                                <th style="width: 100px;">STOK AWAL</th>
+                                <th style="width: 100px;">DITERIMA</th>
+                                <th style="width: 100px;">DIDISTRIBUSI</th>
+                                <th style="width: 100px;">ED/RUSAK</th>
+                                <th style="width: 100px;">STOK AKHIR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if report_data %}
+                                {% regroup report_data by item__kategori__name as by_category %}
+                                {% for category in by_category %}
+                                <tr class="category-row">
+                                    <td colspan="12">{{ category.grouper|default:"Lainnya" }}</td>
+                                </tr>
+                                {% for row in category.list %}
+                                <tr>
+                                    <td class="text-center">{{ forloop.counter }}</td>
+                                    <td>{{ row.item__nama_barang }}</td>
+                                    <td class="text-center">{{ row.item__satuan__name }}</td>
+                                    <td>{{ row.batch_lot|default:"-" }}</td>
+                                    <td class="text-center">{{ row.expiry_date|date:"d/m/Y"|default:"-" }}</td>
+                                    <td>{{ row.sumber_dana__name|default:"-" }}</td>
+                                    <td class="text-end">Rp {{ row.unit_price|id_decimal:2 }}</td>
+                                    <td class="text-end">{{ row.initial_stock|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.received|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.distributed|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.expired|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.ending_stock|id_decimal:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="12" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    Tidak ada data persediaan untuk periode ini.
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
