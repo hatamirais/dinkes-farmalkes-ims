@@ -230,15 +230,18 @@ def export_puskesmas_pemakaian_excel(report_data, year, month_label, facility_na
     return _make_response(wb, filename)
 
 
-def export_puskesmas_persediaan_excel(report_data, start_date, end_date, facility_name):
+def export_puskesmas_persediaan_excel(report_data, year, month_label, facility_name):
     """Export Laporan Persediaan Puskesmas report to Excel.
 
-    Placeholder — mirrors the Instalasi Farmasi persediaan (rincian) column layout.
-    The Puskesmas-specific data source will be refined in a follow-up.
+    Stock data is sourced from the latest LPLPO (stock_keseluruhan) with
+    dynamic adjustments for newer distributions. Batch/lot, expiry, funding
+    source, and unit price are not tracked in LPLPO and are excluded.
 
     Args:
-        report_data: list of dicts with keys matching the Instalasi rincian report
-        start_date, end_date: date objects
+        report_data: list of dicts with keys:
+            nama_barang, satuan, kategori, stock_keseluruhan
+        year: int
+        month_label: str — e.g. "Semua Bulan" or "Januari"
         facility_name: str
     """
     wb = Workbook()
@@ -247,19 +250,12 @@ def export_puskesmas_persediaan_excel(report_data, start_date, end_date, facilit
 
     headers = [
         "No",
+        "Kategori",
         "Nama Barang",
         "Satuan",
-        "Batch",
-        "Kedaluwarsa",
-        "Sumber Dana",
-        "Harga Satuan",
-        "Stok Awal",
-        "Diterima",
-        "Didistribusi",
-        "ED/Rusak",
-        "Stok Akhir",
+        "Stok Tersedia",
     ]
-    col_widths = [6, 30, 10, 15, 14, 18, 18, 14, 14, 14, 14, 14]
+    col_widths = [6, 24, 36, 10, 16]
     col_count = len(headers)
     last_col = get_column_letter(col_count)
 
@@ -268,7 +264,7 @@ def export_puskesmas_persediaan_excel(report_data, start_date, end_date, facilit
     title_cell = ws.cell(
         row=1,
         column=1,
-        value="LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS (PLACEHOLDER)",
+        value="LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS",
     )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
@@ -277,7 +273,7 @@ def export_puskesmas_persediaan_excel(report_data, start_date, end_date, facilit
     period_cell = ws.cell(
         row=2,
         column=1,
-        value=f"Fasilitas: {facility_name} | Periode: {start_date} s/d {end_date}",
+        value=f"Fasilitas: {facility_name} | Tahun: {year} | Bulan: {month_label}",
     )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
@@ -285,50 +281,114 @@ def export_puskesmas_persediaan_excel(report_data, start_date, end_date, facilit
     _apply_header_row(ws, 4, headers, col_widths)
 
     row_num = 5
-    current_category = None
-    item_counter = 0
-
-    for row in report_data:
-        cat = row.get("item__kategori__name", "Lainnya") or "Lainnya"
-        if cat != current_category:
-            current_category = cat
-            item_counter = 0
-            # Category row
-            ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=col_count)
-            cat_cell = ws.cell(row=row_num, column=1, value=cat)
-            cat_cell.font = Font(bold=True, size=11)
-            from openpyxl.styles import PatternFill as PF
-            cat_cell.fill = PF(start_color="E2E3E5", end_color="E2E3E5", fill_type="solid")
-            _apply_border(ws, row_num, col_count)
-            row_num += 1
-
-        item_counter += 1
-        expiry = row.get("expiry_date")
-        expiry_str = expiry.strftime("%d/%m/%Y") if expiry and hasattr(expiry, "strftime") else "-"
-
+    for idx, row in enumerate(report_data, 1):
         values = [
-            item_counter,
-            row.get("item__nama_barang", ""),
-            row.get("item__satuan__name", ""),
-            row.get("batch_lot", ""),
-            expiry_str,
-            row.get("sumber_dana__name", ""),
-            float(row.get("unit_price", 0) or 0),
-            float(row.get("initial_stock", 0) or 0),
-            float(row.get("received", 0) or 0),
-            float(row.get("distributed", 0) or 0),
-            float(row.get("expired", 0) or 0),
-            float(row.get("ending_stock", 0) or 0),
+            idx,
+            row.get("kategori", "Lainnya"),
+            row.get("nama_barang", ""),
+            row.get("satuan", ""),
+            int(row.get("stock_keseluruhan", 0) or 0),
         ]
         for col_idx, val in enumerate(values, 1):
             cell = ws.cell(row=row_num, column=col_idx, value=val)
             cell.border = THIN_BORDER
-            if col_idx >= 7:
-                cell.number_format = IDR_FORMAT
-                cell.alignment = Alignment(horizontal="right")
-            elif col_idx == 1:
+            if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
+            elif col_idx == 5:
+                cell.number_format = NUMBER_FORMAT
+                cell.alignment = Alignment(horizontal="right")
         row_num += 1
 
-    filename = f"Laporan_Persediaan_{facility_name}_{start_date}_{end_date}.xlsx"
+    filename = f"Laporan_Persediaan_{facility_name}_{year}_{month_label}.xlsx"
     return _make_response(wb, filename)
+
+
+def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, month_label, facility_name):
+    """Export Rekap Laporan Persediaan Puskesmas to Excel.
+
+    Year-to-date summary per item using LPLPO data:
+      Stok Awal (January), Penerimaan (accumulated), Pemakaian (accumulated), Stok Akhir.
+
+    Args:
+        rekap_data: list of dicts with keys:
+            nama_barang, satuan, kategori, stok_awal, penerimaan, pemakaian, stok_akhir
+        totals: dict with grand total sums of the 4 numeric fields
+        year: int
+        month_label: str
+        facility_name: str
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Rekap Persediaan"
+
+    headers = [
+        "No",
+        "Kategori",
+        "Nama Barang",
+        "Satuan",
+        "Stok Awal\n(Januari)",
+        "Penerimaan\n(s.d. Bulan ini)",
+        "Pemakaian\n(s.d. Bulan ini)",
+        "Stok Akhir",
+    ]
+    col_widths = [6, 24, 36, 10, 16, 20, 20, 16]
+    col_count = len(headers)
+    last_col = get_column_letter(col_count)
+
+    ws.merge_cells(f"A1:{last_col}1")
+    title_cell = ws.cell(
+        row=1, column=1,
+        value="REKAPITULASI LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS",
+    )
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal="center")
+
+    ws.merge_cells(f"A2:{last_col}2")
+    period_cell = ws.cell(
+        row=2, column=1,
+        value=f"Fasilitas: {facility_name} | Tahun: {year} | s.d. Bulan: {month_label}",
+    )
+    period_cell.font = Font(bold=True, size=11)
+    period_cell.alignment = Alignment(horizontal="center")
+
+    _apply_header_row(ws, 4, headers, col_widths)
+    ws.row_dimensions[4].height = 30
+
+    row_num = 5
+    for idx, row in enumerate(rekap_data, 1):
+        values = [
+            idx,
+            row.get("kategori", "Lainnya"),
+            row.get("nama_barang", ""),
+            row.get("satuan", ""),
+            int(row.get("stok_awal", 0) or 0),
+            int(row.get("penerimaan", 0) or 0),
+            int(row.get("pemakaian", 0) or 0),
+            int(row.get("stok_akhir", 0) or 0),
+        ]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell.border = THIN_BORDER
+            if col_idx == 1:
+                cell.alignment = Alignment(horizontal="center")
+            elif col_idx >= 5:
+                cell.number_format = NUMBER_FORMAT
+                cell.alignment = Alignment(horizontal="right")
+        row_num += 1
+
+    # Totals row
+    for col_idx in range(1, col_count + 1):
+        cell = ws.cell(row=row_num, column=col_idx)
+        cell.font = Font(bold=True)
+        cell.fill = TOTAL_FILL
+        cell.border = THIN_BORDER
+    ws.cell(row=row_num, column=3, value="TOTAL").font = Font(bold=True)
+    for col_idx, key in zip([5, 6, 7, 8], ["stok_awal", "penerimaan", "pemakaian", "stok_akhir"]):
+        c = ws.cell(row=row_num, column=col_idx, value=int(totals.get(key, 0)))
+        c.number_format = NUMBER_FORMAT
+        c.alignment = Alignment(horizontal="right")
+        c.font = Font(bold=True)
+
+    filename = f"Rekap_Persediaan_{facility_name}_{year}_{month_label}.xlsx"
+    return _make_response(wb, filename)
+

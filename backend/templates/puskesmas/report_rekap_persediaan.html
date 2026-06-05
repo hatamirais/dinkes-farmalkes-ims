@@ -1,34 +1,27 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
-{% block page_title %}Laporan Persediaan Puskesmas{% endblock %}
+{% block title %}Rekap Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
+{% block page_title %}Rekap Laporan Persediaan Puskesmas{% endblock %}
 
 {% block extra_css %}
 <style>
-    .report-print-sheet {
-        color: #111;
-        font-family: "Segoe UI", Arial, sans-serif;
-    }
+    .report-print-sheet { color: #111; font-family: "Segoe UI", Arial, sans-serif; }
     .report-print-header {
-        display: flex;
-        align-items: center;
-        border-bottom: 3px double #111;
-        padding-bottom: 15px;
-        margin-bottom: 20px;
+        display: flex; align-items: center;
+        border-bottom: 3px double #111; padding-bottom: 15px; margin-bottom: 20px;
     }
     .report-print-logo {
-        width: 80px; height: 100px;
-        background-color: #f8f9fa; border: 2px dashed #ccc;
+        width: 80px; height: 100px; background-color: #f8f9fa; border: 2px dashed #ccc;
         display: flex; align-items: center; justify-content: center;
-        text-align: center; font-size: 11px; color: #666;
-        margin-right: 20px; font-weight: bold;
+        text-align: center; font-size: 11px; color: #666; margin-right: 20px; font-weight: bold;
     }
     .report-print-title { flex-grow: 1; text-align: center; line-height: 1.35; }
     .report-print-title h4 { margin: 0; font-weight: 700; font-size: 18px; }
     .report-print-title h5 { margin: 0; font-weight: 700; font-size: 20px; }
     .report-print-title p { margin: 0; font-size: 13px; }
     .report-print-meta { text-align: center; margin-bottom: 20px; font-weight: 700; font-size: 16px; }
+    tfoot tr td { font-weight: bold; background-color: #fff3cd !important; }
 
     @media print {
         .main-content { padding: 0 !important; }
@@ -37,9 +30,9 @@
         .card-body { padding: 0 !important; }
         .table-light th {
             background-color: #f8f9fa !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
         }
+        tfoot tr td { background-color: #fff3cd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         @page { size: portrait; }
     }
 </style>
@@ -66,9 +59,7 @@
                         <select name="facility" id="id_facility" class="form-select">
                             <option value="">Semua Fasilitas</option>
                             {% for f in all_facilities %}
-                            <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>
-                                {{ f.name }}
-                            </option>
+                            <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -77,7 +68,7 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-filter"></i> Terapkan Filter
                         </button>
-                        <a href="{% url 'puskesmas:report_persediaan' %}" class="btn btn-outline-secondary">Reset</a>
+                        <a href="{% url 'puskesmas:report_rekap_persediaan' %}" class="btn btn-outline-secondary">Reset</a>
                         <button type="button" class="btn btn-dark" data-action="print">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
@@ -121,69 +112,95 @@
         <div style="width: 100px;"></div>
     </div>
     <div class="report-print-meta">
-        LAPORAN PERSEDIAAN PUSKESMAS<br>
+        REKAPITULASI LAPORAN PERSEDIAAN PUSKESMAS<br>
         FASILITAS: {{ selected_facility_name }}<br>
-        PERIODE: {{ month_label }} {{ form.year.value|default:"-" }}
+        TAHUN: {{ form.year.value|default:"-" }}
+        {% if month_label and month_label != "Semua Bulan" %} — S.D. {{ month_label }}{% endif %}
     </div>
 </div>
+
+<!-- Info Badge -->
+{% if rekap_data %}
+<div class="row mb-3 d-print-none">
+    <div class="col-12">
+        <div class="alert alert-info py-2 small mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Stok Awal</strong> diambil dari LPLPO Januari. <strong>Penerimaan</strong> dan <strong>Pemakaian</strong>
+            diakumulasi dari seluruh LPLPO yang tersedia s.d.
+            <strong>{% if month_label and month_label != "Semua Bulan" %}{{ month_label }} {{ form.year.value }}{% else %}akhir tahun {{ form.year.value }}{% endif %}</strong>.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Facility label for scoped users -->
+{% if not all_facilities and facility %}
+<div class="mb-2 text-muted small d-print-none">
+    <i class="bi bi-geo-alt"></i> Fasilitas: <strong>{{ facility.name }}</strong>
+</div>
+{% endif %}
 
 <!-- Report Table -->
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body">
-                {% if not all_facilities and facility %}
-                <div class="mb-2 text-muted small">
-                    <i class="bi bi-geo-alt"></i> Fasilitas: <strong>{{ facility.name }}</strong>
-                </div>
-                {% endif %}
-                {% if report_data %}
-                <div class="mb-2 text-muted small">
-                    <i class="bi bi-info-circle"></i>
-                    Stok dihitung dari LPLPO terakhir yang tersedia
-                    {% if month_label and month_label != "Semua Bulan" %}
-                    sampai dengan <strong>{{ month_label }} {{ form.year.value }}</strong>
-                    {% endif %}
-                    ditambah distribusi yang diterima setelahnya.
-                </div>
-                {% endif %}
                 <div class="table-responsive">
                     <table class="table table-bordered align-middle mb-0">
                         <thead class="table-light text-center">
                             <tr>
                                 <th style="width: 50px;">NO</th>
                                 <th>NAMA BARANG</th>
-                                <th style="width: 90px;">SATUAN</th>
-                                <th style="width: 130px;">STOK TERSEDIA</th>
+                                <th style="width: 80px;">SAT</th>
+                                <th style="width: 115px;">STOK AWAL<br><small class="fw-normal">(Januari)</small></th>
+                                <th style="width: 115px;">PENERIMAAN<br><small class="fw-normal">(s.d. Bulan ini)</small></th>
+                                <th style="width: 115px;">PEMAKAIAN<br><small class="fw-normal">(s.d. Bulan ini)</small></th>
+                                <th style="width: 115px;">STOK AKHIR</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% if report_data %}
-                                {% regroup report_data by kategori as by_category %}
+                            {% if rekap_data %}
+                                {% regroup rekap_data by kategori as by_category %}
                                 {% for category in by_category %}
                                 <tr class="table-secondary">
-                                    <td colspan="4" class="fw-bold">{{ category.grouper|default:"Lainnya" }}</td>
+                                    <td colspan="7" class="fw-bold">{{ category.grouper|default:"Lainnya" }}</td>
                                 </tr>
                                 {% for row in category.list %}
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
                                     <td>{{ row.nama_barang }}</td>
                                     <td class="text-center">{{ row.satuan }}</td>
-                                    <td class="text-end {% if row.stock_keseluruhan < 0 %}text-danger fw-bold{% endif %}">
-                                        {{ row.stock_keseluruhan|id_decimal:0 }}
+                                    <td class="text-end">{{ row.stok_awal|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.penerimaan|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.pemakaian|id_decimal:0 }}</td>
+                                    <td class="text-end {% if row.stok_akhir < 0 %}text-danger fw-bold{% endif %}">
+                                        {{ row.stok_akhir|id_decimal:0 }}
                                     </td>
                                 </tr>
                                 {% endfor %}
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">
+                                <td colspan="7" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
-                                    Tidak ada data persediaan untuk periode ini.
+                                    Tidak ada data untuk periode ini. Pastikan LPLPO Januari telah dibuat.
                                 </td>
                             </tr>
                             {% endif %}
                         </tbody>
+                        {% if rekap_data %}
+                        <tfoot>
+                            <tr class="table-warning">
+                                <td colspan="3" class="text-end fw-bold">TOTAL</td>
+                                <td class="text-end">{{ totals.stok_awal|id_decimal:0 }}</td>
+                                <td class="text-end">{{ totals.penerimaan|id_decimal:0 }}</td>
+                                <td class="text-end">{{ totals.pemakaian|id_decimal:0 }}</td>
+                                <td class="text-end {% if totals.stok_akhir < 0 %}text-danger{% endif %}">
+                                    {{ totals.stok_akhir|id_decimal:0 }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
                     </table>
                 </div>
             </div>
