@@ -821,16 +821,63 @@ class PuskesmasReportViewTests(TestCase):
 		periods = [r["period_display"] for r in report_data]
 		self.assertIn("Februari 2026", periods)
 
-	# ────────────── Persediaan placeholder check ──────────────
+	# ────────────── Persediaan LPLPO-based check ──────────────
 
-	def test_persediaan_returns_200_with_form(self):
+	def test_persediaan_returns_200_with_form_for_operator(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
 		self.assertEqual(response.status_code, 200)
 		self.assertIn("form", response.context)
 
-	def test_persediaan_shows_placeholder_warning(self):
-		self.client.force_login(self.operator)
+	def test_persediaan_returns_200_with_form_for_admin(self):
+		self.client.force_login(self.admin)
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
-		self.assertContains(response, "Placeholder")
+		self.assertEqual(response.status_code, 200)
+		self.assertIn("form", response.context)
+
+	def test_persediaan_isolates_facility_via_lplpo(self):
+		"""Operator sees only their facility's LPLPO stock, not other facilities."""
+		from apps.items.models import Item, Unit, Category
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		lplpo_own = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_own,
+			item=self.item,
+			stock_awal=50,
+			penerimaan=20,
+			pemakaian=10,
+		)
+
+		lplpo_other = LPLPO.objects.create(
+			facility=self.other_facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_other,
+			item=self.item,
+			stock_awal=999,
+			penerimaan=999,
+			pemakaian=0,
+		)
+
+		self.client.force_login(self.operator)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"),
+			{"year": "2026", "month": "4"},
+		)
+		self.assertEqual(response.status_code, 200)
+		report_data = response.context["report_data"]
+		# Only one item row, from operator's facility LPLPO (stock_keseluruhan = 50+20-10=60)
+		self.assertEqual(len(report_data), 1)
+		self.assertEqual(report_data[0]["stock_keseluruhan"], 60)
 

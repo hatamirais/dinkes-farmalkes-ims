@@ -730,24 +730,27 @@ def puskesmas_report_pemakaian(request):
 @login_required
 @perm_required("puskesmas.view_puskesmasrequest")
 def puskesmas_report_persediaan(request):
-    """Laporan Persediaan Puskesmas — PLACEHOLDER.
+    """Laporan Persediaan Puskesmas — LPLPO-based with dynamic stock calculation.
 
-    Mirrors the Instalasi Farmasi 'Laporan Persediaan (Rincian)' report structure
-    using Transaction data. This is a structural placeholder; the Puskesmas-specific
-    source of truth (LPLPO stock_keseluruhan vs. Transaction-based) will be
-    determined and refined in a follow-up.
+    Stock for each item is computed as:
+      stock_keseluruhan from the latest non-rejected LPLPO for the facility
+      in or before the requested period, plus any additional distributions
+      received after that LPLPO's closing month up to the end of the
+      requested period.
 
-    Facility isolation is enforced at the ORM level by filtering Transactions
-    to only those linked to distributions for this facility.
+    Facility isolation is strictly enforced: PUSKESMAS users only see their
+    own facility; super admin may optionally scope via ?facility=<id>.
     """
+    from apps.distribution.models import Distribution, DistributionItem
     from apps.items.models import Facility as FacilityModel
-    from apps.stock.models import Transaction, Stock
-    from django.db import models as db_models
-    from django.db.models import Sum, Case, When, F
-    from django.db.models.functions import Coalesce
+    from apps.lplpo.models import LPLPO, LPLPOItem, get_indonesian_month_name
+    from django.db.models import Sum
 
     from .forms import PuskesmasPersediaanFilterForm
     from .exports import export_puskesmas_persediaan_excel
+
+    import logging
+    logger = logging.getLogger(__name__)
 
     facility, err = _resolve_report_facility(request)
     if err:
@@ -762,119 +765,161 @@ def puskesmas_report_persediaan(request):
     form = PuskesmasPersediaanFilterForm(effective_get)
     report_data = []
     selected_facility_name = facility.name if facility else "Semua Fasilitas"
+    month_label = ""
+
+    # Statuses that represent a non-rejected, usable LPLPO
+    USABLE_STATUSES = [
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.SUBMITTED,
+        LPLPO.Status.PIC_VERIFIED,
+        LPLPO.Status.REVIEWED,
+        LPLPO.Status.APPROVED,
+        LPLPO.Status.DISTRIBUTED,
+        LPLPO.Status.CLOSED,
+    ]
 
     if form.is_valid():
-        start_date = form.cleaned_data["start_date"]
-        end_date = form.cleaned_data["end_date"]
+        year = form.cleaned_data["year"]
+        month_raw = form.cleaned_data.get("month", "")
+        month = int(month_raw) if month_raw else None
+        month_label = get_indonesian_month_name(month) if month else "Semua Bulan"
 
-        # Subquery to get expiry_date from Stock
-        from django.db.models import OuterRef, Subquery
-        expiry_sq = Stock.objects.filter(
-            item=OuterRef("item"),
-            batch_lot=OuterRef("batch_lot"),
-            sumber_dana=OuterRef("sumber_dana"),
-        ).values("expiry_date")[:1]
-
-        qs = Transaction.objects.values(
-            "item__kategori__name",
-            "item__kategori__sort_order",
-            "item__nama_barang",
-            "item__satuan__name",
-            "batch_lot",
-            "sumber_dana__name",
-            "unit_price",
-        ).annotate(
-            expiry_date=Subquery(expiry_sq),
-            initial_stock=Coalesce(
-                Sum(
-                    Case(
-                        When(created_at__date__lt=start_date, transaction_type="IN", then=F("quantity")),
-                        When(created_at__date__lt=start_date, transaction_type="OUT", then=-F("quantity")),
-                        default=0,
-                        output_field=db_models.DecimalField(),
-                    )
-                ),
-                0,
-                output_field=db_models.DecimalField(),
-            ),
-            received=Coalesce(
-                Sum(
-                    Case(
-                        When(
-                            created_at__date__range=[start_date, end_date],
-                            reference_type__in=["RECEIVING", "INITIAL_IMPORT"],
-                            transaction_type="IN",
-                            then=F("quantity"),
-                        ),
-                        default=0,
-                        output_field=db_models.DecimalField(),
-                    )
-                ),
-                0,
-                output_field=db_models.DecimalField(),
-            ),
-            distributed=Coalesce(
-                Sum(
-                    Case(
-                        When(
-                            created_at__date__range=[start_date, end_date],
-                            reference_type__in=["DISTRIBUTION", "RECALL"],
-                            transaction_type="OUT",
-                            then=F("quantity"),
-                        ),
-                        default=0,
-                        output_field=db_models.DecimalField(),
-                    )
-                ),
-                0,
-                output_field=db_models.DecimalField(),
-            ),
-            expired=Coalesce(
-                Sum(
-                    Case(
-                        When(
-                            created_at__date__range=[start_date, end_date],
-                            reference_type="EXPIRED",
-                            transaction_type="OUT",
-                            then=F("quantity"),
-                        ),
-                        default=0,
-                        output_field=db_models.DecimalField(),
-                    )
-                ),
-                0,
-                output_field=db_models.DecimalField(),
-            ),
-        ).order_by(
-            "item__kategori__sort_order",
-            "item__kategori__name",
-            "item__nama_barang",
-            "batch_lot",
+        # Resolve which facilities to query
+        facilities_to_query = [facility] if facility else list(
+            FacilityModel.objects.filter(
+                facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
+            )
         )
 
-        # NOTE: Transaction model does not have a facility FK directly.
-        # This placeholder currently shows Instalasi stock data (same as reports_index).
-        # A follow-up will scope this to Puskesmas-specific data via LPLPO or
-        # a Puskesmas stock ledger.
+        # --- Dynamic stock calculation ---
+        # For each facility, find the latest usable LPLPO in or before the
+        # requested period, then add distributions that arrived after it.
+        item_stock_map = {}  # {(item_id, item_name, satuan_name, kategori_name, sort_order): stock}
 
-        for row in qs:
-            row["ending_stock"] = (
-                row["initial_stock"]
-                + row["received"]
-                - row["distributed"]
-                - row["expired"]
+        for fac in facilities_to_query:
+            # Get the most recent usable LPLPO up to (year, month)
+            lplpo_qs = LPLPO.objects.filter(
+                facility=fac,
+                tahun=year,
+                status__in=USABLE_STATUSES,
             )
-            if (
-                row["initial_stock"] != 0
-                or row["received"] != 0
-                or row["distributed"] != 0
-                or row["expired"] != 0
-            ):
-                report_data.append(row)
+            if month:
+                lplpo_qs = lplpo_qs.filter(bulan__lte=month)
+
+            latest_lplpo = lplpo_qs.order_by("-bulan").first()
+
+            if latest_lplpo:
+                # Collect stock_keseluruhan per item from this LPLPO
+                lplpo_items = LPLPOItem.objects.filter(
+                    lplpo=latest_lplpo
+                ).select_related(
+                    "item", "item__satuan", "item__kategori"
+                )
+
+                for li in lplpo_items:
+                    key = (
+                        li.item_id,
+                        li.item.nama_barang,
+                        li.item.satuan.name if li.item.satuan else "-",
+                        li.item.kategori.name if li.item.kategori else "Lainnya",
+                        li.item.kategori.sort_order if li.item.kategori else 9999,
+                    )
+                    item_stock_map[key] = item_stock_map.get(key, 0) + li.stock_keseluruhan
+
+                # Add distributions received AFTER the LPLPO's closing month
+                # (i.e., month > latest_lplpo.bulan, same year or next year)
+                # Only count DISTRIBUTED distributions
+                newer_dist_filter = {
+                    "distribution__facility": fac,
+                    "distribution__status": Distribution.Status.DISTRIBUTED,
+                }
+                if month:
+                    # Distributions in the same year, strictly after LPLPO month,
+                    # up to and including the queried month
+                    newer_dist_filter["distribution__distributed_date__year"] = year
+                    newer_dist_filter["distribution__distributed_date__month__gt"] = latest_lplpo.bulan
+                    newer_dist_filter["distribution__distributed_date__month__lte"] = month
+                else:
+                    # No month filter: take everything after LPLPO month in same year
+                    newer_dist_filter["distribution__distributed_date__year"] = year
+                    newer_dist_filter["distribution__distributed_date__month__gt"] = latest_lplpo.bulan
+
+                newer_items = (
+                    DistributionItem.objects.filter(**newer_dist_filter)
+                    .select_related(
+                        "item", "item__satuan", "item__kategori"
+                    )
+                    .values(
+                        "item_id",
+                        "item__nama_barang",
+                        "item__satuan__name",
+                        "item__kategori__name",
+                        "item__kategori__sort_order",
+                    )
+                    .annotate(total_received=Sum("quantity_approved"))
+                )
+
+                for di in newer_items:
+                    key = (
+                        di["item_id"],
+                        di["item__nama_barang"],
+                        di["item__satuan__name"] or "-",
+                        di["item__kategori__name"] or "Lainnya",
+                        di["item__kategori__sort_order"] or 9999,
+                    )
+                    extra = int(di["total_received"] or 0)
+                    item_stock_map[key] = item_stock_map.get(key, 0) + extra
+
+            else:
+                # No LPLPO found: fall back to distribution-only data for the period
+                logger.info(
+                    "puskesmas_report_persediaan: no usable LPLPO found for facility=%s year=%s month=%s; "
+                    "using distribution-only fallback.",
+                    fac.pk, year, month,
+                )
+                dist_filter = {
+                    "distribution__facility": fac,
+                    "distribution__status": Distribution.Status.DISTRIBUTED,
+                    "distribution__distributed_date__year": year,
+                }
+                if month:
+                    dist_filter["distribution__distributed_date__month__lte"] = month
+
+                fallback_items = (
+                    DistributionItem.objects.filter(**dist_filter)
+                    .select_related("item", "item__satuan", "item__kategori")
+                    .values(
+                        "item_id",
+                        "item__nama_barang",
+                        "item__satuan__name",
+                        "item__kategori__name",
+                        "item__kategori__sort_order",
+                    )
+                    .annotate(total_received=Sum("quantity_approved"))
+                )
+                for di in fallback_items:
+                    key = (
+                        di["item_id"],
+                        di["item__nama_barang"],
+                        di["item__satuan__name"] or "-",
+                        di["item__kategori__name"] or "Lainnya",
+                        di["item__kategori__sort_order"] or 9999,
+                    )
+                    item_stock_map[key] = item_stock_map.get(key, 0) + int(di["total_received"] or 0)
+
+        # Build sorted report_data list
+        for key, stock_qty in sorted(item_stock_map.items(), key=lambda x: (x[0][4], x[0][3], x[0][1])):
+            _, nama_barang, satuan, kategori, _ = key
+            report_data.append({
+                "nama_barang": nama_barang,
+                "satuan": satuan,
+                "kategori": kategori,
+                "stock_keseluruhan": stock_qty,
+            })
 
         if request.GET.get("format") == "excel" and report_data:
             return export_puskesmas_persediaan_excel(
-                report_data, start_date, end_date, selected_facility_name
+                report_data, year, month_label, selected_facility_name
             )
 
     # Facility chooser for super admin
@@ -893,6 +938,167 @@ def puskesmas_report_persediaan(request):
             "facility": facility,
             "selected_facility_name": selected_facility_name,
             "all_facilities": all_facilities,
+            "month_label": month_label,
         },
     )
 
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasrequest")
+def puskesmas_report_rekap_persediaan(request):
+    """Rekap Laporan Persediaan Puskesmas — LPLPO-based year-to-date summary.
+
+    Per-item breakdown for the requested year and up-to month:
+      - Stok Awal  : stock_awal from January LPLPO of that year
+      - Penerimaan : sum of penerimaan across all usable LPLPOs Jan to selected month
+      - Pemakaian  : sum of pemakaian across all usable LPLPOs Jan to selected month
+      - Stok Akhir : Stok Awal + Penerimaan - Pemakaian
+
+    Facility isolation: PUSKESMAS role always sees their own facility only.
+    """
+    from apps.items.models import Facility as FacilityModel
+    from apps.lplpo.models import LPLPO, LPLPOItem, get_indonesian_month_name
+
+    from .exports import export_puskesmas_rekap_persediaan_excel
+    from .forms import PuskesmasPersediaanFilterForm
+
+    facility, err = _resolve_report_facility(request)
+    if err:
+        return err
+
+    initial = PuskesmasPersediaanFilterForm.get_default_initial()
+    effective_get = request.GET.copy()
+    for key, value in initial.items():
+        if not effective_get.get(key):
+            effective_get[key] = value
+
+    form = PuskesmasPersediaanFilterForm(effective_get)
+    rekap_data = []
+    totals = {"stok_awal": 0, "penerimaan": 0, "pemakaian": 0, "stok_akhir": 0}
+    selected_facility_name = facility.name if facility else "Semua Fasilitas"
+    month_label = ""
+
+    USABLE_STATUSES = [
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.SUBMITTED,
+        LPLPO.Status.PIC_VERIFIED,
+        LPLPO.Status.REVIEWED,
+        LPLPO.Status.APPROVED,
+        LPLPO.Status.DISTRIBUTED,
+        LPLPO.Status.CLOSED,
+    ]
+
+    if form.is_valid():
+        year = form.cleaned_data["year"]
+        month_raw = form.cleaned_data.get("month", "")
+        month = int(month_raw) if month_raw else None
+        month_label = get_indonesian_month_name(month) if month else "Semua Bulan"
+
+        facilities_to_query = [facility] if facility else list(
+            FacilityModel.objects.filter(
+                facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
+            )
+        )
+
+        # item_id -> {stok_awal, penerimaan, pemakaian, nama, satuan, kategori, sort}
+        item_map = {}
+
+        for fac in facilities_to_query:
+            # --- Stok Awal: from January LPLPO of this year ---
+            jan_lplpo = LPLPO.objects.filter(
+                facility=fac,
+                tahun=year,
+                bulan=1,
+                status__in=USABLE_STATUSES,
+            ).first()
+
+            if jan_lplpo:
+                for li in LPLPOItem.objects.filter(
+                    lplpo=jan_lplpo
+                ).select_related("item", "item__satuan", "item__kategori"):
+                    key = li.item_id
+                    if key not in item_map:
+                        item_map[key] = {
+                            "nama_barang": li.item.nama_barang,
+                            "satuan": li.item.satuan.name if li.item.satuan else "-",
+                            "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
+                            "sort_order": li.item.kategori.sort_order if li.item.kategori else 9999,
+                            "stok_awal": 0,
+                            "penerimaan": 0,
+                            "pemakaian": 0,
+                        }
+                    item_map[key]["stok_awal"] += li.stock_awal
+
+            # --- Penerimaan & Pemakaian: accumulate Jan to selected month ---
+            lplpo_range_qs = LPLPO.objects.filter(
+                facility=fac,
+                tahun=year,
+                status__in=USABLE_STATUSES,
+            )
+            if month:
+                lplpo_range_qs = lplpo_range_qs.filter(bulan__lte=month)
+
+            for lplpo in lplpo_range_qs:
+                for li in LPLPOItem.objects.filter(
+                    lplpo=lplpo
+                ).select_related("item", "item__satuan", "item__kategori"):
+                    key = li.item_id
+                    if key not in item_map:
+                        item_map[key] = {
+                            "nama_barang": li.item.nama_barang,
+                            "satuan": li.item.satuan.name if li.item.satuan else "-",
+                            "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
+                            "sort_order": li.item.kategori.sort_order if li.item.kategori else 9999,
+                            "stok_awal": 0,
+                            "penerimaan": 0,
+                            "pemakaian": 0,
+                        }
+                    item_map[key]["penerimaan"] += li.penerimaan
+                    item_map[key]["pemakaian"] += li.pemakaian
+
+        # Build sorted report list
+        for _key, row in sorted(
+            item_map.items(),
+            key=lambda x: (x[1]["sort_order"], x[1]["kategori"], x[1]["nama_barang"]),
+        ):
+            stok_akhir = row["stok_awal"] + row["penerimaan"] - row["pemakaian"]
+            entry = {
+                "nama_barang": row["nama_barang"],
+                "satuan": row["satuan"],
+                "kategori": row["kategori"],
+                "stok_awal": row["stok_awal"],
+                "penerimaan": row["penerimaan"],
+                "pemakaian": row["pemakaian"],
+                "stok_akhir": stok_akhir,
+            }
+            rekap_data.append(entry)
+            totals["stok_awal"] += row["stok_awal"]
+            totals["penerimaan"] += row["penerimaan"]
+            totals["pemakaian"] += row["pemakaian"]
+            totals["stok_akhir"] += stok_akhir
+
+        if request.GET.get("format") == "excel" and rekap_data:
+            return export_puskesmas_rekap_persediaan_excel(
+                rekap_data, totals, year, month_label, selected_facility_name
+            )
+
+    all_facilities = []
+    if not getattr(request.user, "role", None) == "PUSKESMAS":
+        all_facilities = FacilityModel.objects.filter(
+            facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
+        ).order_by("name")
+
+    return render(
+        request,
+        "puskesmas/report_rekap_persediaan.html",
+        {
+            "form": form,
+            "rekap_data": rekap_data,
+            "totals": totals,
+            "facility": facility,
+            "selected_facility_name": selected_facility_name,
+            "all_facilities": all_facilities,
+            "month_label": month_label,
+        },
+    )

@@ -763,7 +763,15 @@ class DashboardViewTests(TestCase):
         self.assertNotContains(response, "Buat Mutasi Lokasi")
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class ErrorPageTemplateTests(TestCase):
+    def test_login_page_renders_for_anonymous_user(self):
+        response = self.client.get(reverse("login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/login.html")
+        self.assertContains(response, "<form", status_code=200)
+
     def test_404_page_renders_back_and_fallback_actions(self):
         response = self.client.get("/halaman-yang-tidak-ada/")
 

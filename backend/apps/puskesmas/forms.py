@@ -220,45 +220,42 @@ class PuskesmasPemakaianFilterForm(forms.Form):
 class PuskesmasPersediaanFilterForm(forms.Form):
     """Filter form for Laporan Persediaan Puskesmas.
 
-    Placeholder — mirrors Instalasi Farmasi's Laporan Persediaan date-range filter.
-    The Puskesmas-specific data source will be refined in a follow-up.
+    Filters by month/year to align with the monthly nature of LPLPO data.
+    Stock is calculated dynamically from the latest LPLPO plus any newer
+    distributions received after that LPLPO period.
     """
 
-    start_date = forms.DateField(
-        label="Tanggal Mulai",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    year = forms.IntegerField(
+        label="Tahun",
+        min_value=2000,
+        max_value=2099,
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "placeholder": "Contoh: 2026"}
+        ),
     )
-    end_date = forms.DateField(
-        label="Tanggal Akhir",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    month = forms.ChoiceField(
+        label="Bulan",
+        required=False,
+        choices=[
+            ("", "Semua Bulan (Stok Kumulatif)"),
+            ("1", "Januari"),
+            ("2", "Februari"),
+            ("3", "Maret"),
+            ("4", "April"),
+            ("5", "Mei"),
+            ("6", "Juni"),
+            ("7", "Juli"),
+            ("8", "Agustus"),
+            ("9", "September"),
+            ("10", "Oktober"),
+            ("11", "November"),
+            ("12", "Desember"),
+        ],
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        start = cleaned_data.get("start_date")
-        end = cleaned_data.get("end_date")
-        if start and end and start > end:
-            raise forms.ValidationError(
-                "Tanggal mulai tidak boleh lebih dari tanggal akhir."
-            )
-        return cleaned_data
-
-    def clean_start_date(self):
-        val = self.cleaned_data.get("start_date")
-        if val and not (1000 <= val.year <= 9999):
-            raise forms.ValidationError("Tahun tanggal tidak valid.")
-        return val
-
-    def clean_end_date(self):
-        val = self.cleaned_data.get("end_date")
-        if val and not (1000 <= val.year <= 9999):
-            raise forms.ValidationError("Tahun tanggal tidak valid.")
-        return val
 
     @classmethod
     def get_default_initial(cls):
         now = timezone.now().date()
-        return {
-            "start_date": now.replace(day=1),
-            "end_date": now,
-        }
+        return {"year": now.year, "month": str(now.month)}
+

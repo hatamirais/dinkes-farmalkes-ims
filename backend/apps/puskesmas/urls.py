@@ -18,5 +18,6 @@ urlpatterns = [
     path("laporan/penerimaan/", views.puskesmas_report_penerimaan, name="report_penerimaan"),
     path("laporan/pemakaian/", views.puskesmas_report_pemakaian, name="report_pemakaian"),
     path("laporan/persediaan/", views.puskesmas_report_persediaan, name="report_persediaan"),
+    path("laporan/rekap-persediaan/", views.puskesmas_report_rekap_persediaan, name="report_rekap_persediaan"),
 ]
 
