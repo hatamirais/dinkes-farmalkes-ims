@@ -8,11 +8,10 @@ function recalcRow(row) {
     var stockAwalInput = row.querySelector('[name*="stock_awal"]');
     var stockAwal = stockAwalInput ? parseFloat(stockAwalInput.value) || 0 : 0;
     var penerimaan = getVal('[name*="penerimaan"]');
-    var pembelianPuskesmas = getVal('[name*="pembelian_puskesmas"]');
     var pemakaian = getVal('[name*="pemakaian"]');
     var waktuKosong = getVal('[name*="waktu_kosong"]');
 
-    var persediaan = stockAwal + penerimaan + pembelianPuskesmas;
+    var persediaan = stockAwal + penerimaan;
     var stockKeseluruhan = persediaan - pemakaian;
     var stockOptimum = pemakaian * 1.2;
     var requiredReplenishment = Math.max(stockOptimum - stockKeseluruhan, 0);

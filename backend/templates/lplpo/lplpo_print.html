@@ -73,14 +73,13 @@
                 <th rowspan="2" style="width:3%">No</th>
                 <th rowspan="2" style="width:16%">Nama Obat / Barang</th>
                 <th rowspan="2" style="width:4%">Satuan</th>
-                <th colspan="6">PEMAKAIAN</th>
+                <th colspan="5">PEMAKAIAN</th>
                 <th colspan="3">PERMINTAAN</th>
                 <th colspan="2">PEMBERIAN</th>
             </tr>
             <tr>
                 <th>Stock Awal</th>
                 <th>Penerimaan</th>
-                <th>Pembelian Puskesmas</th>
                 <th>Persediaan</th>
                 <th>Pemakaian</th>
                 <th>Sisa Stok</th>
@@ -92,7 +91,7 @@
             </tr>
         </thead>
             <tbody>
-            <tr class="cat-header"><td colspan="14">{{ cat_name }}</td></tr>
+            <tr class="cat-header"><td colspan="13">{{ cat_name }}</td></tr>
             {% for li in cat_items %}
             <tr>
                 <td class="num">{{ forloop.counter }}</td>
@@ -100,7 +99,6 @@
                 <td style="text-align:center">{{ li.item.satuan.code }}</td>
                 <td class="num">{{ li.stock_awal|floatformat:"0" }}</td>
                 <td class="num">{{ li.penerimaan|floatformat:"0" }}</td>
-                <td class="num">{{ li.pembelian_puskesmas|floatformat:"0" }}</td>
                 <td class="num">{{ li.persediaan|floatformat:"0" }}</td>
                 <td class="num">{{ li.pemakaian|floatformat:"0" }}</td>
                 <td class="num">{{ li.stock_keseluruhan|floatformat:"0" }}</td>

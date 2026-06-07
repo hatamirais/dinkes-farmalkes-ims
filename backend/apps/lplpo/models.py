@@ -2,6 +2,8 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import models
+from django.db.models import DecimalField, ExpressionWrapper, F, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.core.models import TimeStampedModel
@@ -231,17 +233,25 @@ class LPLPOItem(models.Model):
     )
 
     # === Filled by Puskesmas ===
-    stock_awal = models.PositiveIntegerField(
+    stock_awal = models.IntegerField(
         default=0,
-        help_text="Manual on first LPLPO, auto-filled from previous month Stock Keseluruhan",
+        help_text=(
+            "Manual on first LPLPO, auto-filled from previous month Stock "
+            "Keseluruhan and may be negative when the prior month closed below zero"
+        ),
     )
     penerimaan = models.PositiveIntegerField(
         default=0,
         help_text="Auto-filled from Distribution records, confirmable by Puskesmas",
     )
-    pembelian_puskesmas = models.PositiveIntegerField(
+    harga_satuan = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
         default=0,
-        help_text="Jumlah pembelian mandiri Puskesmas pada periode ini",
+        help_text=(
+            "Manual for January bootstrap; later periods auto-fill from distributed "
+            "batch values or carry forward the previous month's price"
+        ),
     )
     pemakaian = models.PositiveIntegerField(
         default=0,
@@ -265,9 +275,9 @@ class LPLPOItem(models.Model):
     )
 
     # === Computed Fields (auto-calculated, stored) ===
-    persediaan = models.PositiveIntegerField(
+    persediaan = models.IntegerField(
         default=0,
-        help_text="stock_awal + penerimaan + pembelian_puskesmas",
+        help_text="stock_awal + penerimaan",
     )
     stock_keseluruhan = models.IntegerField(
         default=0,
@@ -320,7 +330,6 @@ class LPLPOItem(models.Model):
         self.persediaan = (
             safe_int(self.stock_awal)
             + safe_int(self.penerimaan)
-            + safe_int(self.pembelian_puskesmas)
         )
         self.stock_keseluruhan = self.persediaan - safe_int(self.pemakaian)
         # Stok optimum follows the consumption method: monthly usage plus a
@@ -332,6 +341,24 @@ class LPLPOItem(models.Model):
             required_replenishment = Decimal("0")
         self.jumlah_kebutuhan = required_replenishment + Decimal(
             safe_int(self.waktu_kosong)
+        )
+
+    @property
+    def nilai_stok_awal(self):
+        return Decimal(self.stock_awal or 0) * (self.harga_satuan or Decimal("0"))
+
+    @property
+    def nilai_penerimaan(self):
+        return Decimal(self.penerimaan or 0) * (self.harga_satuan or Decimal("0"))
+
+    @property
+    def nilai_pemakaian(self):
+        return Decimal(self.pemakaian or 0) * (self.harga_satuan or Decimal("0"))
+
+    @property
+    def nilai_stock_keseluruhan(self):
+        return Decimal(self.stock_keseluruhan or 0) * (
+            self.harga_satuan or Decimal("0")
         )
 
     def save(self, *args, **kwargs):
@@ -365,6 +392,46 @@ def get_penerimaan_for_facility_period(facility, bulan, tahun):
     )
     for row in items:
         result[row["item_id"]] = normalize_whole_number(row["total"])
+    return result
+
+
+def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
+    """Return weighted-average incoming prices per item for a facility/month."""
+    from apps.distribution.models import DistributionItem
+
+    value_expression = ExpressionWrapper(
+        Coalesce(F("quantity_approved"), Value(0))
+        * Coalesce(F("issued_unit_price"), Value(0)),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
+    rows = (
+        DistributionItem.objects.filter(
+            distribution__facility=facility,
+            distribution__status="DISTRIBUTED",
+            distribution__distributed_date__year=tahun,
+            distribution__distributed_date__month=bulan,
+        )
+        .values("item_id")
+        .annotate(
+            total_quantity=Coalesce(
+                Sum("quantity_approved"),
+                Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
+            ),
+            total_value=Coalesce(
+                Sum(value_expression),
+                Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
+            ),
+        )
+    )
+
+    result = {}
+    for row in rows:
+        total_quantity = row["total_quantity"] or Decimal("0")
+        if total_quantity <= 0:
+            continue
+        result[row["item_id"]] = (
+            (row["total_value"] or Decimal("0")) / total_quantity
+        ).quantize(Decimal("0.01"))
     return result
 
 

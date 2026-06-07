@@ -421,7 +421,6 @@ erDiagram
         bigint item_id FK
         int stock_awal
         int penerimaan
-        int pembelian_puskesmas
         int pemakaian
         int stock_gudang_puskesmas
         smallint waktu_kosong

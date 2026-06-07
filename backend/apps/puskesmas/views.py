@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -730,7 +732,7 @@ def puskesmas_report_pemakaian(request):
 @login_required
 @perm_required("puskesmas.view_puskesmasrequest")
 def puskesmas_report_persediaan(request):
-    """Laporan Persediaan Puskesmas — LPLPO-based with dynamic stock calculation.
+    """Rincian Laporan Persediaan Puskesmas — LPLPO-based with dynamic stock calculation.
 
     Stock for each item is computed as:
       stock_keseluruhan from the latest non-rejected LPLPO for the facility
@@ -743,7 +745,7 @@ def puskesmas_report_persediaan(request):
     """
     from apps.distribution.models import Distribution, DistributionItem
     from apps.items.models import Facility as FacilityModel
-    from apps.lplpo.models import LPLPO, LPLPOItem, get_indonesian_month_name
+    from apps.lplpo.models import LPLPO, LPLPOItem
     from django.db.models import Sum
 
     from .forms import PuskesmasPersediaanFilterForm
@@ -765,7 +767,7 @@ def puskesmas_report_persediaan(request):
     form = PuskesmasPersediaanFilterForm(effective_get)
     report_data = []
     selected_facility_name = facility.name if facility else "Semua Fasilitas"
-    month_label = ""
+    period_label = ""
 
     # Statuses that represent a non-rejected, usable LPLPO
     USABLE_STATUSES = [
@@ -780,9 +782,10 @@ def puskesmas_report_persediaan(request):
 
     if form.is_valid():
         year = form.cleaned_data["year"]
-        month_raw = form.cleaned_data.get("month", "")
-        month = int(month_raw) if month_raw else None
-        month_label = get_indonesian_month_name(month) if month else "Semua Bulan"
+        period = form.cleaned_data["period"]
+        _start_month, end_month, period_label = (
+            PuskesmasPersediaanFilterForm.get_period_bounds(period)
+        )
 
         # Resolve which facilities to query
         facilities_to_query = [facility] if facility else list(
@@ -797,14 +800,13 @@ def puskesmas_report_persediaan(request):
         item_stock_map = {}  # {(item_id, item_name, satuan_name, kategori_name, sort_order): stock}
 
         for fac in facilities_to_query:
-            # Get the most recent usable LPLPO up to (year, month)
+            # Get the most recent usable LPLPO up to the selected period end.
             lplpo_qs = LPLPO.objects.filter(
                 facility=fac,
                 tahun=year,
                 status__in=USABLE_STATUSES,
             )
-            if month:
-                lplpo_qs = lplpo_qs.filter(bulan__lte=month)
+            lplpo_qs = lplpo_qs.filter(bulan__lte=end_month)
 
             latest_lplpo = lplpo_qs.order_by("-bulan").first()
 
@@ -833,16 +835,11 @@ def puskesmas_report_persediaan(request):
                     "distribution__facility": fac,
                     "distribution__status": Distribution.Status.DISTRIBUTED,
                 }
-                if month:
-                    # Distributions in the same year, strictly after LPLPO month,
-                    # up to and including the queried month
-                    newer_dist_filter["distribution__distributed_date__year"] = year
-                    newer_dist_filter["distribution__distributed_date__month__gt"] = latest_lplpo.bulan
-                    newer_dist_filter["distribution__distributed_date__month__lte"] = month
-                else:
-                    # No month filter: take everything after LPLPO month in same year
-                    newer_dist_filter["distribution__distributed_date__year"] = year
-                    newer_dist_filter["distribution__distributed_date__month__gt"] = latest_lplpo.bulan
+                # Distributions in the same year, strictly after LPLPO month,
+                # up to and including the selected period end month.
+                newer_dist_filter["distribution__distributed_date__year"] = year
+                newer_dist_filter["distribution__distributed_date__month__gt"] = latest_lplpo.bulan
+                newer_dist_filter["distribution__distributed_date__month__lte"] = end_month
 
                 newer_items = (
                     DistributionItem.objects.filter(**newer_dist_filter)
@@ -875,15 +872,14 @@ def puskesmas_report_persediaan(request):
                 logger.info(
                     "puskesmas_report_persediaan: no usable LPLPO found for facility=%s year=%s month=%s; "
                     "using distribution-only fallback.",
-                    fac.pk, year, month,
+                    fac.pk, year, end_month,
                 )
                 dist_filter = {
                     "distribution__facility": fac,
                     "distribution__status": Distribution.Status.DISTRIBUTED,
                     "distribution__distributed_date__year": year,
                 }
-                if month:
-                    dist_filter["distribution__distributed_date__month__lte"] = month
+                dist_filter["distribution__distributed_date__month__lte"] = end_month
 
                 fallback_items = (
                     DistributionItem.objects.filter(**dist_filter)
@@ -919,7 +915,7 @@ def puskesmas_report_persediaan(request):
 
         if request.GET.get("format") == "excel" and report_data:
             return export_puskesmas_persediaan_excel(
-                report_data, year, month_label, selected_facility_name
+                report_data, year, period_label, selected_facility_name
             )
 
     # Facility chooser for super admin
@@ -938,7 +934,7 @@ def puskesmas_report_persediaan(request):
             "facility": facility,
             "selected_facility_name": selected_facility_name,
             "all_facilities": all_facilities,
-            "month_label": month_label,
+            "period_label": period_label,
         },
     )
 
@@ -947,18 +943,19 @@ def puskesmas_report_persediaan(request):
 @login_required
 @perm_required("puskesmas.view_puskesmasrequest")
 def puskesmas_report_rekap_persediaan(request):
-    """Rekap Laporan Persediaan Puskesmas — LPLPO-based year-to-date summary.
+    """Rekap Laporan Persediaan Puskesmas — year-to-date valuation by category.
 
-    Per-item breakdown for the requested year and up-to month:
-      - Stok Awal  : stock_awal from January LPLPO of that year
-      - Penerimaan : sum of penerimaan across all usable LPLPOs Jan to selected month
-      - Pemakaian  : sum of pemakaian across all usable LPLPOs Jan to selected month
-      - Stok Akhir : Stok Awal + Penerimaan - Pemakaian
+    The report summarizes LPLPO valuation into category rows (`Uraian`) for
+    the requested year and selected period:
+      - Saldo Awal   : opening month stock_awal * opening month harga_satuan
+      - Nilai Terima : accumulated penerimaan within the selected period
+      - Nilai Keluar : accumulated pemakaian within the selected period
+      - Saldo Akhir  : latest stock_keseluruhan * latest harga_satuan in period
 
     Facility isolation: PUSKESMAS role always sees their own facility only.
     """
     from apps.items.models import Facility as FacilityModel
-    from apps.lplpo.models import LPLPO, LPLPOItem, get_indonesian_month_name
+    from apps.lplpo.models import LPLPO, LPLPOItem
 
     from .exports import export_puskesmas_rekap_persediaan_excel
     from .forms import PuskesmasPersediaanFilterForm
@@ -975,9 +972,14 @@ def puskesmas_report_rekap_persediaan(request):
 
     form = PuskesmasPersediaanFilterForm(effective_get)
     rekap_data = []
-    totals = {"stok_awal": 0, "penerimaan": 0, "pemakaian": 0, "stok_akhir": 0}
+    totals = {
+        "saldo_awal": Decimal("0"),
+        "nilai_terima": Decimal("0"),
+        "nilai_keluar": Decimal("0"),
+        "saldo_akhir": Decimal("0"),
+    }
     selected_facility_name = facility.name if facility else "Semua Fasilitas"
-    month_label = ""
+    period_label = ""
 
     USABLE_STATUSES = [
         LPLPO.Status.DRAFT,
@@ -991,96 +993,120 @@ def puskesmas_report_rekap_persediaan(request):
 
     if form.is_valid():
         year = form.cleaned_data["year"]
-        month_raw = form.cleaned_data.get("month", "")
-        month = int(month_raw) if month_raw else None
-        month_label = get_indonesian_month_name(month) if month else "Semua Bulan"
-
-        facilities_to_query = [facility] if facility else list(
-            FacilityModel.objects.filter(
-                facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
-            )
+        period = form.cleaned_data["period"]
+        start_month, end_month, period_label = (
+            PuskesmasPersediaanFilterForm.get_period_bounds(period)
         )
 
-        # item_id -> {stok_awal, penerimaan, pemakaian, nama, satuan, kategori, sort}
-        item_map = {}
+        facilities_to_query = FacilityModel.objects.filter(
+            facility_type=FacilityModel.FacilityType.PUSKESMAS,
+            is_active=True,
+        )
+        if facility:
+            facilities_to_query = facilities_to_query.filter(pk=facility.pk)
+        facilities_to_query = list(facilities_to_query)
 
-        for fac in facilities_to_query:
-            # --- Stok Awal: from January LPLPO of this year ---
-            jan_lplpo = LPLPO.objects.filter(
-                facility=fac,
-                tahun=year,
-                bulan=1,
-                status__in=USABLE_STATUSES,
-            ).first()
-
-            if jan_lplpo:
-                for li in LPLPOItem.objects.filter(
-                    lplpo=jan_lplpo
-                ).select_related("item", "item__satuan", "item__kategori"):
-                    key = li.item_id
-                    if key not in item_map:
-                        item_map[key] = {
-                            "nama_barang": li.item.nama_barang,
-                            "satuan": li.item.satuan.name if li.item.satuan else "-",
-                            "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
-                            "sort_order": li.item.kategori.sort_order if li.item.kategori else 9999,
-                            "stok_awal": 0,
-                            "penerimaan": 0,
-                            "pemakaian": 0,
-                        }
-                    item_map[key]["stok_awal"] += li.stock_awal
-
-            # --- Penerimaan & Pemakaian: accumulate Jan to selected month ---
-            lplpo_range_qs = LPLPO.objects.filter(
-                facility=fac,
-                tahun=year,
-                status__in=USABLE_STATUSES,
+        facility_item_map = {}
+        lplpo_items_qs = (
+            LPLPOItem.objects.filter(
+                lplpo__facility__in=facilities_to_query,
+                lplpo__tahun=year,
+                lplpo__status__in=USABLE_STATUSES,
             )
-            if month:
-                lplpo_range_qs = lplpo_range_qs.filter(bulan__lte=month)
+            .select_related("lplpo", "item", "item__satuan", "item__kategori")
+            .order_by(
+                "lplpo__facility_id",
+                "item__kategori__sort_order",
+                "item__nama_barang",
+                "lplpo__bulan",
+            )
+        )
+        lplpo_items_qs = lplpo_items_qs.filter(
+            lplpo__bulan__gte=start_month,
+            lplpo__bulan__lte=end_month,
+        )
 
-            for lplpo in lplpo_range_qs:
-                for li in LPLPOItem.objects.filter(
-                    lplpo=lplpo
-                ).select_related("item", "item__satuan", "item__kategori"):
-                    key = li.item_id
-                    if key not in item_map:
-                        item_map[key] = {
-                            "nama_barang": li.item.nama_barang,
-                            "satuan": li.item.satuan.name if li.item.satuan else "-",
-                            "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
-                            "sort_order": li.item.kategori.sort_order if li.item.kategori else 9999,
-                            "stok_awal": 0,
-                            "penerimaan": 0,
-                            "pemakaian": 0,
-                        }
-                    item_map[key]["penerimaan"] += li.penerimaan
-                    item_map[key]["pemakaian"] += li.pemakaian
+        for li in lplpo_items_qs:
+            key = (li.lplpo.facility_id, li.item_id)
+            row = facility_item_map.setdefault(
+                key,
+                {
+                    "nama_barang": li.item.nama_barang,
+                    "satuan": li.item.satuan.name if li.item.satuan else "-",
+                    "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
+                    "sort_order": li.item.kategori.sort_order
+                    if li.item.kategori
+                    else 9999,
+                    "stok_awal": 0,
+                    "penerimaan": 0,
+                    "pemakaian": 0,
+                    "nilai_stok_awal": Decimal("0"),
+                    "nilai_penerimaan": Decimal("0"),
+                    "nilai_pemakaian": Decimal("0"),
+                    "latest_month": 0,
+                    "latest_harga_satuan": Decimal("0"),
+                    "latest_stok_akhir": 0,
+                    "nilai_stok_akhir": Decimal("0"),
+                },
+            )
 
-        # Build sorted report list
+            harga_satuan = li.harga_satuan or Decimal("0")
+            if li.lplpo.bulan == start_month:
+                row["stok_awal"] += li.stock_awal
+                row["nilai_stok_awal"] += Decimal(li.stock_awal or 0) * harga_satuan
+
+            row["penerimaan"] += li.penerimaan
+            row["pemakaian"] += li.pemakaian
+            row["nilai_penerimaan"] += Decimal(li.penerimaan or 0) * harga_satuan
+            row["nilai_pemakaian"] += Decimal(li.pemakaian or 0) * harga_satuan
+
+            if li.lplpo.bulan >= row["latest_month"]:
+                row["latest_month"] = li.lplpo.bulan
+                row["latest_harga_satuan"] = harga_satuan
+                row["latest_stok_akhir"] = li.stock_keseluruhan
+                row["nilai_stok_akhir"] = (
+                    Decimal(li.stock_keseluruhan or 0) * harga_satuan
+                )
+
+        category_map = {}
+        for row in facility_item_map.values():
+            key = row["kategori"], row["sort_order"]
+            aggregated = category_map.setdefault(
+                key,
+                {
+                    "kategori": row["kategori"],
+                    "sort_order": row["sort_order"],
+                    "saldo_awal": Decimal("0"),
+                    "nilai_terima": Decimal("0"),
+                    "nilai_keluar": Decimal("0"),
+                    "saldo_akhir": Decimal("0"),
+                },
+            )
+            aggregated["saldo_awal"] += row["nilai_stok_awal"]
+            aggregated["nilai_terima"] += row["nilai_penerimaan"]
+            aggregated["nilai_keluar"] += row["nilai_pemakaian"]
+            aggregated["saldo_akhir"] += row["nilai_stok_akhir"]
+
         for _key, row in sorted(
-            item_map.items(),
-            key=lambda x: (x[1]["sort_order"], x[1]["kategori"], x[1]["nama_barang"]),
+            category_map.items(),
+            key=lambda x: (x[1]["sort_order"], x[1]["kategori"]),
         ):
-            stok_akhir = row["stok_awal"] + row["penerimaan"] - row["pemakaian"]
             entry = {
-                "nama_barang": row["nama_barang"],
-                "satuan": row["satuan"],
                 "kategori": row["kategori"],
-                "stok_awal": row["stok_awal"],
-                "penerimaan": row["penerimaan"],
-                "pemakaian": row["pemakaian"],
-                "stok_akhir": stok_akhir,
+                "saldo_awal": row["saldo_awal"],
+                "nilai_terima": row["nilai_terima"],
+                "nilai_keluar": row["nilai_keluar"],
+                "saldo_akhir": row["saldo_akhir"],
             }
             rekap_data.append(entry)
-            totals["stok_awal"] += row["stok_awal"]
-            totals["penerimaan"] += row["penerimaan"]
-            totals["pemakaian"] += row["pemakaian"]
-            totals["stok_akhir"] += stok_akhir
+            totals["saldo_awal"] += row["saldo_awal"]
+            totals["nilai_terima"] += row["nilai_terima"]
+            totals["nilai_keluar"] += row["nilai_keluar"]
+            totals["saldo_akhir"] += row["saldo_akhir"]
 
         if request.GET.get("format") == "excel" and rekap_data:
             return export_puskesmas_rekap_persediaan_excel(
-                rekap_data, totals, year, month_label, selected_facility_name
+                rekap_data, totals, year, period_label, selected_facility_name
             )
 
     all_facilities = []
@@ -1099,6 +1125,6 @@ def puskesmas_report_rekap_persediaan(request):
             "facility": facility,
             "selected_facility_name": selected_facility_name,
             "all_facilities": all_facilities,
-            "month_label": month_label,
+            "period_label": period_label,
         },
     )

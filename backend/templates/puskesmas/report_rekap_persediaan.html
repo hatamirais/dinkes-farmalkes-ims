@@ -21,7 +21,14 @@
     .report-print-title h5 { margin: 0; font-weight: 700; font-size: 20px; }
     .report-print-title p { margin: 0; font-size: 13px; }
     .report-print-meta { text-align: center; margin-bottom: 20px; font-weight: 700; font-size: 16px; }
-    tfoot tr td { font-weight: bold; background-color: #fff3cd !important; }
+    .rekap-persediaan-table th {
+        background-color: #92d050;
+        color: #111;
+    }
+    .rekap-persediaan-table tfoot td {
+        background-color: #b8c6dc !important;
+    }
+    tfoot tr td { font-weight: bold; }
 
     @media print {
         .main-content { padding: 0 !important; }
@@ -32,7 +39,11 @@
             background-color: #f8f9fa !important;
             -webkit-print-color-adjust: exact; print-color-adjust: exact;
         }
-        tfoot tr td { background-color: #fff3cd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .rekap-persediaan-table tfoot td {
+            background-color: #b8c6dc !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
         @page { size: portrait; }
     }
 </style>
@@ -50,8 +61,8 @@
                         {{ form.year }}
                     </div>
                     <div class="col-md-auto">
-                        {{ form.month.label_tag }}
-                        {{ form.month }}
+                        {{ form.period.label_tag }}
+                        {{ form.period }}
                     </div>
                     {% if all_facilities %}
                     <div class="col-md-auto">
@@ -114,8 +125,7 @@
     <div class="report-print-meta">
         REKAPITULASI LAPORAN PERSEDIAAN PUSKESMAS<br>
         FASILITAS: {{ selected_facility_name }}<br>
-        TAHUN: {{ form.year.value|default:"-" }}
-        {% if month_label and month_label != "Semua Bulan" %} — S.D. {{ month_label }}{% endif %}
+        TAHUN: {{ form.year.value|default:"-" }} — {{ period_label }}
     </div>
 </div>
 
@@ -125,9 +135,10 @@
     <div class="col-12">
         <div class="alert alert-info py-2 small mb-0">
             <i class="bi bi-info-circle me-1"></i>
-            <strong>Stok Awal</strong> diambil dari LPLPO Januari. <strong>Penerimaan</strong> dan <strong>Pemakaian</strong>
-            diakumulasi dari seluruh LPLPO yang tersedia s.d.
-            <strong>{% if month_label and month_label != "Semua Bulan" %}{{ month_label }} {{ form.year.value }}{% else %}akhir tahun {{ form.year.value }}{% endif %}</strong>.
+            <strong>Saldo Awal</strong> memakai nilai stok awal LPLPO Januari. <strong>Nilai Terima</strong> dan <strong>Nilai Keluar</strong>
+            diakumulasi dari seluruh LPLPO yang tersedia pada
+            <strong>{{ period_label }} {{ form.year.value }}</strong>.
+            Rekap ini diringkas per <strong>kategori</strong> menggunakan <strong>harga satuan LPLPO</strong>: Januari diisi manual, bulan berikutnya mengikuti autofill nilai distribusi atau carry-forward bulan sebelumnya.
         </div>
     </div>
 </div>
@@ -146,42 +157,32 @@
         <div class="card shadow-sm border-0">
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead class="table-light text-center">
+                    <table class="table table-bordered align-middle mb-0 rekap-persediaan-table">
+                        <thead class="text-center">
                             <tr>
                                 <th style="width: 50px;">NO</th>
-                                <th>NAMA BARANG</th>
-                                <th style="width: 80px;">SAT</th>
-                                <th style="width: 115px;">STOK AWAL<br><small class="fw-normal">(Januari)</small></th>
-                                <th style="width: 115px;">PENERIMAAN<br><small class="fw-normal">(s.d. Bulan ini)</small></th>
-                                <th style="width: 115px;">PEMAKAIAN<br><small class="fw-normal">(s.d. Bulan ini)</small></th>
-                                <th style="width: 115px;">STOK AKHIR</th>
+                                <th>URAIAN</th>
+                                <th style="width: 180px;">SALDO AWAL {{ form.year.value|default:"" }}</th>
+                                <th style="width: 180px;">NILAI TERIMA {{ form.year.value|default:"" }}</th>
+                                <th style="width: 180px;">NILAI KELUAR {{ form.year.value|default:"" }}</th>
+                                <th style="width: 180px;">SALDO AKHIR {{ form.year.value|default:"" }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% if rekap_data %}
-                                {% regroup rekap_data by kategori as by_category %}
-                                {% for category in by_category %}
-                                <tr class="table-secondary">
-                                    <td colspan="7" class="fw-bold">{{ category.grouper|default:"Lainnya" }}</td>
-                                </tr>
-                                {% for row in category.list %}
+                                {% for row in rekap_data %}
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
-                                    <td>{{ row.nama_barang }}</td>
-                                    <td class="text-center">{{ row.satuan }}</td>
-                                    <td class="text-end">{{ row.stok_awal|id_decimal:0 }}</td>
-                                    <td class="text-end">{{ row.penerimaan|id_decimal:0 }}</td>
-                                    <td class="text-end">{{ row.pemakaian|id_decimal:0 }}</td>
-                                    <td class="text-end {% if row.stok_akhir < 0 %}text-danger fw-bold{% endif %}">
-                                        {{ row.stok_akhir|id_decimal:0 }}
-                                    </td>
+                                    <td class="fw-semibold">{{ row.kategori|default:"Lainnya" }}</td>
+                                    <td class="text-end">Rp {{ row.saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ row.nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ row.nilai_keluar|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ row.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
-                                {% endfor %}
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="6" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data untuk periode ini. Pastikan LPLPO Januari telah dibuat.
                                 </td>
@@ -190,14 +191,13 @@
                         </tbody>
                         {% if rekap_data %}
                         <tfoot>
-                            <tr class="table-warning">
-                                <td colspan="3" class="text-end fw-bold">TOTAL</td>
-                                <td class="text-end">{{ totals.stok_awal|id_decimal:0 }}</td>
-                                <td class="text-end">{{ totals.penerimaan|id_decimal:0 }}</td>
-                                <td class="text-end">{{ totals.pemakaian|id_decimal:0 }}</td>
-                                <td class="text-end {% if totals.stok_akhir < 0 %}text-danger{% endif %}">
-                                    {{ totals.stok_akhir|id_decimal:0 }}
-                                </td>
+                            <tr>
+                                <td></td>
+                                <td class="text-center fw-bold">Total</td>
+                                <td class="text-end">Rp {{ totals.saldo_awal|id_decimal:2 }}</td>
+                                <td class="text-end">Rp {{ totals.nilai_terima|id_decimal:2 }}</td>
+                                <td class="text-end">Rp {{ totals.nilai_keluar|id_decimal:2 }}</td>
+                                <td class="text-end">Rp {{ totals.saldo_akhir|id_decimal:2 }}</td>
                             </tr>
                         </tfoot>
                         {% endif %}

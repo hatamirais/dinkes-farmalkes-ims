@@ -296,6 +296,8 @@ This section reflects model code in `backend/apps/*/models.py`.
 ### 4.11 Reports
 
 - `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. The combined outbound recap remains available on `/reports/pengeluaran/`, while the distribution module exposes route-based filtered variants for `SPECIAL_REQUEST`, `ALLOCATION`, and `LPLPO` under `/distribution/report/*`. No bespoke database models, aggregates data from other apps.
+  The Puskesmas-side rekap persediaan view now also aggregates valuation data from `lplpo.LPLPOItem.harga_satuan` into category-level summary rows.
+  The Puskesmas-side rincian/rekap persediaan filters use yearly, quarterly (`Triwulan I-IV`), and semester (`Semester I-II`) period selectors.
 
 ### 4.12 Puskesmas
 
@@ -324,14 +326,15 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `lplpo.LPLPOItem` (`lplpo_items`):
   - FKs: `lplpo`, `item`
-  - Puskesmas fields: `stock_awal`, `penerimaan`, `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
-  - Computed fields (auto): `persediaan`, `stock_keseluruhan`, `stock_optimum`, `jumlah_kebutuhan`
+  - Puskesmas fields: `stock_awal`, `penerimaan`, `harga_satuan`, `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
+  - Computed fields (auto): `persediaan` (`stock_awal + penerimaan`), `stock_keseluruhan`, `stock_optimum`, `jumlah_kebutuhan`
   - IF fields: `pemberian_jumlah` (nullable), `pemberian_alasan`
   - Audit: `penerimaan_auto_filled`
   - Create flow is locked to the active server-calendar year and must be contiguous from January; each facility can only create the earliest missing month for that year
   - The first January document in the active server year is the annual bootstrap baseline; the create/edit UI explains that `stock_awal` is entered manually from facility opening records
-  - That same January bootstrap keeps `penerimaan` manual and leaves `penerimaan_auto_filled=False`
-  - February onward auto-fills `stock_awal` from the previous month's LPLPO for the same facility when that prior document exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`
+  - That same January bootstrap keeps `penerimaan` manual, leaves `penerimaan_auto_filled=False`, and requires manual `harga_satuan` entry as the asset-value baseline
+  - February onward auto-fills `stock_awal` from the previous month's LPLPO for the same facility when that prior document exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`; negative closing balances are carried forward as-is so operators can see and correct underreported stock
+  - February onward derives `harga_satuan` from the weighted-average distributed `DistributionItem.issued_unit_price` for the same facility/month and falls back to the previous month's LPLPO unit price when there is no new receipt
 
 ## 5) Stock Mutation Checkpoints
 

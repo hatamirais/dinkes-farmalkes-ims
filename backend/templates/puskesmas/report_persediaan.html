@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
-{% block page_title %}Laporan Persediaan Puskesmas{% endblock %}
+{% block title %}Rincian Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
+{% block page_title %}Rincian Laporan Persediaan Puskesmas{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -57,8 +57,8 @@
                         {{ form.year }}
                     </div>
                     <div class="col-md-auto">
-                        {{ form.month.label_tag }}
-                        {{ form.month }}
+                        {{ form.period.label_tag }}
+                        {{ form.period }}
                     </div>
                     {% if all_facilities %}
                     <div class="col-md-auto">
@@ -121,9 +121,9 @@
         <div style="width: 100px;"></div>
     </div>
     <div class="report-print-meta">
-        LAPORAN PERSEDIAAN PUSKESMAS<br>
+        RINCIAN LAPORAN PERSEDIAAN PUSKESMAS<br>
         FASILITAS: {{ selected_facility_name }}<br>
-        PERIODE: {{ month_label }} {{ form.year.value|default:"-" }}
+        PERIODE: {{ period_label }} {{ form.year.value|default:"-" }}
     </div>
 </div>
 
@@ -141,9 +141,7 @@
                 <div class="mb-2 text-muted small">
                     <i class="bi bi-info-circle"></i>
                     Stok dihitung dari LPLPO terakhir yang tersedia
-                    {% if month_label and month_label != "Semua Bulan" %}
-                    sampai dengan <strong>{{ month_label }} {{ form.year.value }}</strong>
-                    {% endif %}
+                    sampai dengan <strong>{{ period_label }} {{ form.year.value }}</strong>
                     ditambah distribusi yang diterima setelahnya.
                 </div>
                 {% endif %}
