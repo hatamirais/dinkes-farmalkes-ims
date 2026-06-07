@@ -1,11 +1,12 @@
 import unicodedata
-from decimal import ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Div, Layout
 from django import forms
 from django.core.exceptions import ValidationError
 
+from apps.core.decimal_validation import validate_finite_decimal
 from apps.users.models import User
 
 from .models import (
@@ -252,7 +253,6 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["stock_awal"].required = False
-        self.fields["pembelian_puskesmas"].required = False
 
     def clean_stock_awal(self):
         value = self.cleaned_data.get("stock_awal")
@@ -260,11 +260,18 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
             return 0
         return value
 
-    def clean_pembelian_puskesmas(self):
-        value = self.cleaned_data.get("pembelian_puskesmas")
+    def clean_harga_satuan(self):
+        value = self.cleaned_data.get("harga_satuan")
         if value in (None, ""):
-            return 0
-        return value
+            return self.instance.harga_satuan or Decimal("0")
+
+        decimal_value = validate_finite_decimal(
+            value,
+            field_label="Harga satuan",
+        )
+        if decimal_value < 0:
+            raise ValidationError("Harga satuan tidak boleh negatif.")
+        return decimal_value.quantize(Decimal("0.01"))
 
     def clean_permintaan_alasan(self):
         return _normalize_text_value(
@@ -278,7 +285,7 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
         fields = [
             "stock_awal",
             "penerimaan",
-            "pembelian_puskesmas",
+            "harga_satuan",
             "pemakaian",
             "stock_gudang_puskesmas",
             "waktu_kosong",
@@ -286,9 +293,9 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
             "permintaan_alasan",
         ]
         widgets = {
-            "stock_awal": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "stock_awal": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1"}),
             "penerimaan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
-            "pembelian_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "harga_satuan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "0.01", "min": "0"}),
             "pemakaian": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
             "stock_gudang_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
             "waktu_kosong": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),

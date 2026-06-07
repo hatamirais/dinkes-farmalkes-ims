@@ -218,12 +218,35 @@ class PuskesmasPemakaianFilterForm(forms.Form):
 
 
 class PuskesmasPersediaanFilterForm(forms.Form):
-    """Filter form for Laporan Persediaan Puskesmas.
+    """Filter form for persediaan reports using yearly/quarterly/semester periods."""
 
-    Filters by month/year to align with the monthly nature of LPLPO data.
-    Stock is calculated dynamically from the latest LPLPO plus any newer
-    distributions received after that LPLPO period.
-    """
+    PERIOD_YEARLY = "yearly"
+    PERIOD_Q1 = "q1"
+    PERIOD_Q2 = "q2"
+    PERIOD_Q3 = "q3"
+    PERIOD_Q4 = "q4"
+    PERIOD_S1 = "s1"
+    PERIOD_S2 = "s2"
+
+    PERIOD_CHOICES = [
+        (PERIOD_YEARLY, "Tahunan"),
+        (PERIOD_Q1, "Triwulan I (Januari - Maret)"),
+        (PERIOD_Q2, "Triwulan II (April - Juni)"),
+        (PERIOD_Q3, "Triwulan III (Juli - September)"),
+        (PERIOD_Q4, "Triwulan IV (Oktober - Desember)"),
+        (PERIOD_S1, "Semester I (Januari - Juni)"),
+        (PERIOD_S2, "Semester II (Juli - Desember)"),
+    ]
+
+    PERIOD_BOUNDS = {
+        PERIOD_YEARLY: (1, 12, "Tahunan"),
+        PERIOD_Q1: (1, 3, "Triwulan I"),
+        PERIOD_Q2: (4, 6, "Triwulan II"),
+        PERIOD_Q3: (7, 9, "Triwulan III"),
+        PERIOD_Q4: (10, 12, "Triwulan IV"),
+        PERIOD_S1: (1, 6, "Semester I"),
+        PERIOD_S2: (7, 12, "Semester II"),
+    }
 
     year = forms.IntegerField(
         label="Tahun",
@@ -233,29 +256,19 @@ class PuskesmasPersediaanFilterForm(forms.Form):
             attrs={"class": "form-control", "placeholder": "Contoh: 2026"}
         ),
     )
-    month = forms.ChoiceField(
-        label="Bulan",
-        required=False,
-        choices=[
-            ("", "Semua Bulan (Stok Kumulatif)"),
-            ("1", "Januari"),
-            ("2", "Februari"),
-            ("3", "Maret"),
-            ("4", "April"),
-            ("5", "Mei"),
-            ("6", "Juni"),
-            ("7", "Juli"),
-            ("8", "Agustus"),
-            ("9", "September"),
-            ("10", "Oktober"),
-            ("11", "November"),
-            ("12", "Desember"),
-        ],
+    period = forms.ChoiceField(
+        label="Periode",
+        required=True,
+        choices=PERIOD_CHOICES,
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     @classmethod
+    def get_period_bounds(cls, period_code):
+        return cls.PERIOD_BOUNDS[period_code]
+
+    @classmethod
     def get_default_initial(cls):
         now = timezone.now().date()
-        return {"year": now.year, "month": str(now.month)}
+        return {"year": now.year, "period": cls.PERIOD_YEARLY}
 

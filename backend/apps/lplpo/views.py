@@ -30,6 +30,7 @@ from .models import (
     get_indonesian_month_name,
     get_next_required_lplpo_period,
     get_penerimaan_for_facility_period,
+    get_penerimaan_unit_prices_for_facility_period,
     get_previous_lplpo,
     is_january_bootstrap_period,
 )
@@ -360,18 +361,26 @@ def lplpo_create(request):
                 # must be entered manually from facility opening records.
                 prev_lplpo = get_previous_lplpo(facility, bulan, tahun)
                 prev_stock = {}
+                prev_unit_prices = {}
                 if prev_lplpo and not is_january_bootstrap_period(
                     bulan, tahun, server_date=server_date
                 ):
-                    for pi in prev_lplpo.items.only("item_id", "stock_keseluruhan").all():
+                    for pi in prev_lplpo.items.only(
+                        "item_id", "stock_keseluruhan", "harga_satuan"
+                    ).all():
                         prev_stock[pi.item_id] = pi.stock_keseluruhan
+                        prev_unit_prices[pi.item_id] = pi.harga_satuan
 
                 # January bootstrap must keep penerimaan manual instead of
                 # trusting distribution autofill.
                 if is_january_bootstrap_period(bulan, tahun, server_date=server_date):
                     penerimaan_data = {}
+                    harga_satuan_data = {}
                 else:
                     penerimaan_data = get_penerimaan_for_facility_period(
+                        facility, bulan, tahun
+                    )
+                    harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
                         facility, bulan, tahun
                     )
 
@@ -385,12 +394,17 @@ def lplpo_create(request):
                     stock_awal = prev_stock.get(item.pk, 0)
                     penerimaan = penerimaan_data.get(item.pk, 0)
                     has_auto_fill = item.pk in penerimaan_data
+                    harga_satuan = harga_satuan_data.get(
+                        item.pk,
+                        prev_unit_prices.get(item.pk, Decimal("0")),
+                    )
 
                     li = LPLPOItem(
                         lplpo=lplpo,
                         item=item,
                         stock_awal=stock_awal,
                         penerimaan=penerimaan,
+                        harga_satuan=harga_satuan,
                         penerimaan_auto_filled=has_auto_fill,
                     )
                     li.compute_fields()
@@ -461,14 +475,21 @@ def api_prefill_penerimaan(request):
 
     if is_january_bootstrap_period(bulan, tahun):
         data = {}
+        unit_price_data = {}
     else:
         data = get_penerimaan_for_facility_period(facility, bulan, tahun)
+        unit_price_data = get_penerimaan_unit_prices_for_facility_period(
+            facility, bulan, tahun
+        )
     return JsonResponse(
         {
             "facility_id": facility.pk,
             "bulan": bulan,
             "tahun": tahun,
             "items": {str(item_id): str(total) for item_id, total in data.items()},
+            "unit_prices": {
+                str(item_id): str(total) for item_id, total in unit_price_data.items()
+            },
         }
     )
 
@@ -595,7 +616,7 @@ def lplpo_edit(request, pk):
                     fields=[
                         "stock_awal",
                         "penerimaan",
-                        "pembelian_puskesmas",
+                        "harga_satuan",
                         "pemakaian",
                         "stock_gudang_puskesmas",
                         "waktu_kosong",

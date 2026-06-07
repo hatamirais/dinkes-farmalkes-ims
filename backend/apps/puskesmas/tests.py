@@ -1,7 +1,9 @@
 from decimal import Decimal
+from io import BytesIO
 
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, Item, Unit
@@ -873,11 +875,216 @@ class PuskesmasReportViewTests(TestCase):
 		self.client.force_login(self.operator)
 		response = self.client.get(
 			reverse("puskesmas:report_persediaan"),
-			{"year": "2026", "month": "4"},
+			{"year": "2026", "period": "q2"},
+			follow=True,
 		)
 		self.assertEqual(response.status_code, 200)
 		report_data = response.context["report_data"]
 		# Only one item row, from operator's facility LPLPO (stock_keseluruhan = 50+20-10=60)
 		self.assertEqual(len(report_data), 1)
 		self.assertEqual(report_data[0]["stock_keseluruhan"], 60)
+		self.assertEqual(response.context["period_label"], "Triwulan II")
+
+	def test_persediaan_period_filter_uses_period_end_month(self):
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		march = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=3,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=march,
+			item=self.item,
+			stock_awal=10,
+			penerimaan=5,
+			pemakaian=2,
+		)
+
+		june = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=6,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=june,
+			item=self.item,
+			stock_awal=13,
+			penerimaan=4,
+			pemakaian=3,
+		)
+
+		self.client.force_login(self.operator)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"),
+			{"year": "2026", "period": "q1"},
+			follow=True,
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["period_label"], "Triwulan I")
+		self.assertEqual(response.context["report_data"][0]["stock_keseluruhan"], 13)
+
+	def test_rekap_persediaan_aggregates_asset_valuation_by_category(self):
+		from apps.lplpo.models import LPLPO, LPLPOItem
+		other_category = Category.objects.create(
+			code="RGN",
+			name="Reagen",
+			sort_order=2,
+		)
+		item_same_category = Item.objects.create(
+			nama_barang="Paracetamol 500 mg",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		item_other_category = Item.objects.create(
+			nama_barang="Reagen A",
+			satuan=self.unit,
+			kategori=other_category,
+			is_active=True,
+		)
+
+		january = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=1,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=january,
+			item=self.item,
+			stock_awal=10,
+			penerimaan=0,
+			harga_satuan=Decimal("1000.00"),
+			pemakaian=4,
+		)
+		LPLPOItem.objects.create(
+			lplpo=january,
+			item=item_same_category,
+			stock_awal=5,
+			penerimaan=0,
+			harga_satuan=Decimal("2000.00"),
+			pemakaian=1,
+		)
+		LPLPOItem.objects.create(
+			lplpo=january,
+			item=item_other_category,
+			stock_awal=3,
+			penerimaan=1,
+			harga_satuan=Decimal("500.00"),
+			pemakaian=1,
+		)
+
+		february = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=february,
+			item=self.item,
+			stock_awal=6,
+			penerimaan=5,
+			harga_satuan=Decimal("1200.00"),
+			pemakaian=3,
+		)
+		LPLPOItem.objects.create(
+			lplpo=february,
+			item=item_same_category,
+			stock_awal=4,
+			penerimaan=2,
+			harga_satuan=Decimal("2500.00"),
+			pemakaian=1,
+		)
+		LPLPOItem.objects.create(
+			lplpo=february,
+			item=item_other_category,
+			stock_awal=3,
+			penerimaan=2,
+			harga_satuan=Decimal("700.00"),
+			pemakaian=1,
+		)
+
+		self.client.force_login(self.operator)
+		response = self.client.get(
+			reverse("puskesmas:report_rekap_persediaan"),
+			{"year": "2026", "period": "q1"},
+			follow=True,
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(response.context["rekap_data"]), 2)
+		obat_row = response.context["rekap_data"][0]
+		reagen_row = response.context["rekap_data"][1]
+		self.assertEqual(obat_row["kategori"], self.category.name)
+		self.assertEqual(obat_row["saldo_awal"], Decimal("20000.00"))
+		self.assertEqual(obat_row["nilai_terima"], Decimal("11000.00"))
+		self.assertEqual(obat_row["nilai_keluar"], Decimal("12100.00"))
+		self.assertEqual(obat_row["saldo_akhir"], Decimal("22100.00"))
+		self.assertEqual(reagen_row["kategori"], other_category.name)
+		self.assertEqual(reagen_row["saldo_awal"], Decimal("1500.00"))
+		self.assertEqual(reagen_row["nilai_terima"], Decimal("1900.00"))
+		self.assertEqual(reagen_row["nilai_keluar"], Decimal("1200.00"))
+		self.assertEqual(reagen_row["saldo_akhir"], Decimal("2800.00"))
+		self.assertEqual(response.context["totals"]["saldo_awal"], Decimal("21500.00"))
+		self.assertEqual(response.context["totals"]["nilai_terima"], Decimal("12900.00"))
+		self.assertEqual(response.context["totals"]["nilai_keluar"], Decimal("13300.00"))
+		self.assertEqual(response.context["totals"]["saldo_akhir"], Decimal("24900.00"))
+		self.assertContains(response, "URAIAN")
+		self.assertContains(response, "SALDO AWAL 2026")
+		self.assertContains(response, "Rp 22.100,00")
+		self.assertContains(response, "Triwulan I")
+
+	def test_rekap_persediaan_excel_export_uses_category_summary_headers(self):
+		from apps.puskesmas.exports import export_puskesmas_rekap_persediaan_excel
+
+		response = export_puskesmas_rekap_persediaan_excel(
+			rekap_data=[
+				{
+					"kategori": self.category.name,
+					"saldo_awal": Decimal("10000.00"),
+					"nilai_terima": Decimal("6000.00"),
+					"nilai_keluar": Decimal("7600.00"),
+					"saldo_akhir": Decimal("9600.00"),
+				}
+			],
+			totals={
+				"saldo_awal": Decimal("10000.00"),
+				"nilai_terima": Decimal("6000.00"),
+				"nilai_keluar": Decimal("7600.00"),
+				"saldo_akhir": Decimal("9600.00"),
+			},
+			year=2026,
+			period_label="Triwulan I",
+			facility_name=self.facility.name,
+		)
+
+		self.assertEqual(
+			response["Content-Type"],
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		)
+		workbook = load_workbook(BytesIO(response.content))
+		sheet = workbook.active
+		headers = [sheet.cell(row=4, column=idx).value for idx in range(1, 7)]
+		self.assertEqual(
+			headers,
+			[
+				"No",
+				"Uraian",
+				"Saldo Awal 2026\n(Rp)",
+				"Nilai Terima 2026\n(Rp)",
+				"Nilai Keluar 2026\n(Rp)",
+				"Saldo Akhir 2026\n(Rp)",
+			],
+		)
+		self.assertEqual(sheet.cell(row=5, column=2).value, self.category.name)
+		self.assertEqual(sheet.cell(row=6, column=2).value, "TOTAL")
 

@@ -32,14 +32,18 @@ LPLPO is a monthly document submitted by each Puskesmas to Instalasi Farmasi. It
 3. System auto-fills Penerimaan from all LPLPO-type and SPECIAL_REQUEST Distributions
    sent to that Puskesmas in that bulan/tahun, except for the active-year January
    bootstrap which keeps `penerimaan` manual
-4. Puskesmas fills: Stock Awal (month 1 only), Pemakaian, Stock Gudang Puskesmas,
+4. System manages `harga_satuan` per line for asset valuation:
+   - January bootstrap: manual baseline input by the Puskesmas operator
+   - February onward: weighted average of distributed `issued_unit_price` for the same
+     facility/month, with fallback to the previous month's stored `harga_satuan`
+5. Puskesmas fills: Stock Awal (month 1 only), Pemakaian, Stock Gudang Puskesmas,
    Waktu Kosong, Permintaan Jumlah, Permintaan Alasan
-5. All computed fields are calculated automatically (see formulas)
-6. Puskesmas submits LPLPO → status: SUBMITTED
-7. PIC Gudang verifies incoming LPLPO → status: PIC_VERIFIED
-8. PIC Gudang can reject submitted LPLPO back to Puskesmas with a required rejection reason
+6. All computed fields are calculated automatically (see formulas)
+7. Puskesmas submits LPLPO → status: SUBMITTED
+8. PIC Gudang verifies incoming LPLPO → status: PIC_VERIFIED
+9. PIC Gudang can reject submitted LPLPO back to Puskesmas with a required rejection reason
    → status: REJECTED_PUSKESMAS
-9. Puskesmas revises rejected LPLPO and re-submits it when ready
+10. Puskesmas revises rejected LPLPO and re-submits it when ready
 
 [Instalasi Farmasi Operator]
 10. PIC Gudang reviews verified LPLPO
@@ -69,6 +73,7 @@ Legacy compatibility:
 20. When Puskesmas opens next month's LPLPO:
     - Stock Awal = previous month's Stock Keseluruhan (auto-filled)
     - Penerimaan = sum of all Distributions sent that month (auto-filled, confirmable)
+    - Harga Satuan = weighted average of distributed batch values that month, else previous month's stored price
 ```
 
 ### 1.4 Item List
@@ -95,6 +100,11 @@ Distribution.objects.filter(
 ```
 
 Then aggregate `quantity_approved` per `item` across all matching `DistributionItem` records.
+
+Harga Satuan on the LPLPO for non-January months uses the same distribution source-of-truth:
+- aggregate `quantity_approved * issued_unit_price` per `item`
+- divide by total `quantity_approved` to get a weighted-average monthly unit price
+- if no matching distribution exists for an item in that month, carry forward the previous month's `harga_satuan`
 
 ### 1.6 Stock Awal Logic
 
@@ -228,9 +238,9 @@ class LPLPOItem(models.Model):
         default=0,
         help_text='Auto-filled from Distribution records, confirmable by Puskesmas'
     )
-    pembelian_puskesmas = models.PositiveIntegerField(
-        default=0,
-        help_text='Jumlah pembelian mandiri Puskesmas pada periode ini'
+    harga_satuan = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        help_text='Manual for January bootstrap; later periods auto-fill from distributed batch values or carry forward the previous month'
     )
     pemakaian = models.PositiveIntegerField(
         default=0,
@@ -256,7 +266,7 @@ class LPLPOItem(models.Model):
     # === Computed Fields (auto-calculated, stored) ===
     persediaan = models.PositiveIntegerField(
         default=0,
-        help_text='stock_awal + penerimaan + pembelian_puskesmas'
+        help_text='stock_awal + penerimaan'
     )
     stock_keseluruhan = models.IntegerField(
         default=0,
@@ -408,9 +418,9 @@ App namespace: `lplpo`
 ### 6.2 lplpo_edit
 
 - Only DRAFT status allowed
-- Puskesmas can edit: `stock_awal` (only if no previous LPLPO), `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
+- Puskesmas can edit: `stock_awal` (only if no previous LPLPO), `penerimaan`, `harga_satuan`, `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
   - In the live system, the active year's January LPLPO is treated as a bootstrap/onboarding step: create/edit pages explain that `stock_awal` must be entered manually from opening stock records and becomes the year's baseline
-- Puskesmas can confirm/override `penerimaan` (even if auto-filled), while January bootstrap starts with manual `penerimaan`
+- Puskesmas can confirm/override `penerimaan` and `harga_satuan` (even if auto-filled), while January bootstrap starts with both values manual
 - Computed fields recalculate on save
 - `pemberian_jumlah` suggestion is shown only in review form initial data and is not persisted before review
 
@@ -525,7 +535,7 @@ Current implementation note:
 
 ### 7.2 LPLPOItemPuskesmasForm (for Puskesmas edit)
 
-Fields: `stock_awal`, `penerimaan`, `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
+Fields: `stock_awal`, `penerimaan`, `harga_satuan`, `pemakaian`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, `permintaan_alasan`
 
 Lock `stock_awal` if previous LPLPO exists (readonly widget), except for the active-year January bootstrap document which remains manually editable.
 Lock `penerimaan` display but allow override with confirmation flag.

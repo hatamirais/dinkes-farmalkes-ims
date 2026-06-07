@@ -33,6 +33,9 @@
             <div class="small mb-0">
                 Isi <strong>Stock Awal</strong> dan <strong>Penerimaan</strong> Januari yang <strong>diisi manual</strong> berdasarkan stok pembuka serta catatan administrasi fasilitas. Mulai Februari, <strong>Stock Awal</strong> akan dikunci mengikuti <strong>Sisa Stok</strong> bulan sebelumnya dan <strong>Penerimaan</strong> kembali mengikuti autofill distribusi.
             </div>
+            <div class="small mt-1 mb-0">
+                Isi <strong>Harga Satuan</strong> Januari secara manual sebagai baseline nilai aset tahunan. Setelah itu sistem akan mengisi harga dari distribusi bulan berjalan, atau membawa harga bulan sebelumnya bila tidak ada penerimaan baru.
+            </div>
         </div>
         {% endif %}
 
@@ -57,7 +60,7 @@
                                 <th rowspan="2" class="text-center" style="width:50px">Satuan</th>
                                 <th class="text-center" style="width:90px">Stock Awal</th>
                                 <th class="text-center" style="width:90px">Penerimaan</th>
-                                <th class="text-center" style="width:110px">Pembelian Puskesmas</th>
+                                <th class="text-center" style="width:120px">Harga Satuan</th>
                                 <th class="text-center computed-cell" style="width:90px">Persediaan</th>
                                 <th class="text-center" style="width:90px">Pemakaian</th>
                                 <th class="text-center computed-cell" style="width:90px">Sisa Stok</th>
@@ -105,7 +108,7 @@
                                     <small class="text-warning"><i class="bi bi-lightning-fill" title="Auto-filled"></i></small>
                                     {% endif %}
                                 </td>
-                                <td>{{ f.pembelian_puskesmas }}</td>
+                                <td>{{ f.harga_satuan }}</td>
                                 <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"0" }}</td>
                                 <td>{{ f.pemakaian }}</td>
                                 <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"0" }}</td>

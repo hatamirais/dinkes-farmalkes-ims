@@ -25,7 +25,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Pencatatan stok per batch dengan pendekatan FEFO agar distribusi lebih terkendali dan masa kedaluwarsa lebih mudah dipantau.
 - Alur kerja end-to-end untuk penerimaan, distribusi, recall, barang kedaluwarsa, transfer stok, dan stock opname.
 - Dukungan tipe penerimaan bawaan dan tipe kustom melalui `ReceivingTypeOption`, termasuk quick-create dari form penerimaan.
-- Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, dengan pembuatan dokumen yang terkunci berurutan dari Januari pada tahun server aktif. Januari diperlakukan sebagai bootstrap tahunan: `stock_awal` dan `penerimaan` diisi manual, sedangkan bulan berikutnya membawa carry-over `sisa stok` bulan sebelumnya ke `stock_awal` dan kembali memakai autofill distribusi untuk `penerimaan`.
+- Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, dengan pembuatan dokumen yang terkunci berurutan dari Januari pada tahun server aktif. Januari diperlakukan sebagai bootstrap tahunan: `stock_awal`, `penerimaan`, dan `harga_satuan` diisi manual, sedangkan bulan berikutnya membawa carry-over `sisa stok` bulan sebelumnya ke `stock_awal` termasuk bila bernilai negatif, mengisi `harga_satuan` dari nilai distribusi bulan berjalan bila ada, lalu fallback ke harga bulan sebelumnya bila tidak ada penerimaan baru.
 - Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
 - Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
 - Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`.
@@ -43,7 +43,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
 - `stock_opname`: proses hitung fisik dan cetak laporan selisih.
 - `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas.
-- `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas.
+- `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas, termasuk pelacakan `harga_satuan` per baris untuk valuasi aset pada rekap persediaan.
   Super Admin dapat mengelola LPLPO lintas fasilitas, sementara operator Puskesmas tetap dibatasi ke fasilitasnya sendiri.
 - `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 
@@ -62,6 +62,9 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Stock opname: `DRAFT -> IN_PROGRESS -> COMPLETED`
 - Distribution: `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`. Petugas yang ditugaskan menyiapkan dokumen, lalu approver memverifikasi dan akhirnya mendistribusikan stok. Distribution hasil approval Allocation tetap langsung dibuat pada status `VERIFIED`. Untuk distribution draft hasil LPLPO, nilai `quantity_requested` dan `quantity_approved` tetap mengikuti hasil LPLPO sumber selama tahap edit; pengguna hanya memilih batch stok dan melengkapi metadata persiapan. Distribusi LPLPO manual yang dibuat dari modul distribution tetap mengikuti workflow distribusi biasa dan tetap bisa diedit selama masih draft/ditolak karena tidak membawa dokumen sumber LPLPO.
 - LPLPO: `DRAFT -> SUBMITTED -> PIC_VERIFIED -> APPROVED -> CLOSED` untuk alur aktif. Setelah PIC Gudang meninjau dan menetapkan `pemberian`, sistem langsung membuat dokumen Distribution LPLPO draft dan menandai LPLPO siap distribusi. Status `REVIEWED` dan `REJECTED_PIC` dipertahankan hanya sebagai kompatibilitas untuk dokumen lama yang belum selesai pada alur sebelumnya. Selama distribusi hasil tinjauan itu belum selesai, approver masih dapat membatalkan distribusi tersebut dan mengembalikan LPLPO ke `REJECTED_PUSKESMAS` dengan alasan revisi.
+  `Rekap Laporan Persediaan` Puskesmas kini merangkum dimensi nilai aset per kategori dari `harga_satuan` LPLPO.
+  Filter `Rincian` dan `Rekap Laporan Persediaan` Puskesmas memakai periode tahunan, triwulan, atau semester.
+  LPLPO tidak lagi memakai kolom `pembelian_puskesmas`; `persediaan` dihitung dari `stock_awal + penerimaan`, sehingga sisa stok negatif menjadi indikator langsung bila input stok tidak konsisten.
 - Puskesmas Request: `DRAFT -> SUBMITTED -> APPROVED -> REJECTED`
 
 ## Model Data Singkat
