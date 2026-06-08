@@ -73,6 +73,8 @@
 
 19. Create Kartu Stok for Puskesmas
 
+20. Import feature for LPLPO complete with acceptable template
+
 ## Version 2
 
 1. Mobile clients, whether dedicated mobile apps or PWA
