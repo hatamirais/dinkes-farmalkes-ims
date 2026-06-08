@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 ### Fixed
 
 - Security hardening: neutralized CSV formula injection across custom CSV exports and django-import-export admin CSV downloads by sanitizing formula-prefixed cell values at export time.
+- Security hardening: restricted Puskesmas report cross-facility scope to superusers and aligned distribution reset-to-draft, step-back, and delete with the existing assignee-aware object authorization rule.
 
 ## [1.24.0] - 2026-05-21
 

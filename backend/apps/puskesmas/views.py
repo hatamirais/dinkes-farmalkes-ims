@@ -500,31 +500,41 @@ def _resolve_report_facility(request, fallback_facility_id=None):
     For PUSKESMAS role: always returns the user's own facility (enforced).
     For super admin: returns the facility identified by GET param 'facility'
     if provided; otherwise returns None (meaning all facilities for admin).
+    For any other non-superuser role: always returns the user's linked
+    facility and never allows query-driven widening to all facilities.
 
     Returns (facility_obj_or_None, error_response_or_None).
     """
+    if getattr(request.user, "is_superuser", False):
+        from apps.items.models import Facility as FacilityModel
+
+        facility_id = fallback_facility_id or request.GET.get("facility", "")
+        if facility_id:
+            try:
+                facility = FacilityModel.objects.get(
+                    pk=int(facility_id),
+                    facility_type=FacilityModel.FacilityType.PUSKESMAS,
+                    is_active=True,
+                )
+                return facility, None
+            except (FacilityModel.DoesNotExist, ValueError, TypeError):
+                pass
+        return None, None
+
     if getattr(request.user, "role", None) == "PUSKESMAS":
         facility = getattr(request.user, "facility", None)
         if not facility:
-            messages.error(request, "Akun Anda belum terhubung ke fasilitas puskesmas.")
-            return None, redirect("puskesmas:request_list")
+            raise PermissionDenied(
+                "Akun Anda belum terhubung ke fasilitas puskesmas."
+            )
         return facility, None
 
-    # Super admin / staff path — optional facility filter
-    from apps.items.models import Facility as FacilityModel
-
-    facility_id = fallback_facility_id or request.GET.get("facility", "")
-    if facility_id:
-        try:
-            facility = FacilityModel.objects.get(
-                pk=int(facility_id),
-                facility_type=FacilityModel.FacilityType.PUSKESMAS,
-                is_active=True,
-            )
-            return facility, None
-        except (FacilityModel.DoesNotExist, ValueError, TypeError):
-            pass
-    return None, None
+    facility = getattr(request.user, "facility", None)
+    if not facility:
+        raise PermissionDenied(
+            "Akun Anda belum terhubung ke fasilitas puskesmas."
+        )
+    return facility, None
 
 
 @login_required

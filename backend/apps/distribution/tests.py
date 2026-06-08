@@ -828,6 +828,48 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)  # unchanged
 
+    def test_assigned_staff_can_reset_to_draft_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.SUBMITTED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+
+    def test_non_assigned_staff_cannot_reset_to_draft_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.SUBMITTED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.other_preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+
+    def test_approve_scope_fallback_can_reset_without_assignments(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        self.client.force_login(self.kepala_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+
     # --- Step-back workflow ---
 
     def test_step_back_submitted_to_draft(self):
@@ -881,6 +923,48 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)  # unchanged
+
+    def test_assigned_staff_can_step_back_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.SUBMITTED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_step_back", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+
+    def test_non_assigned_staff_cannot_step_back_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.SUBMITTED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.other_preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_step_back", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+
+    def test_approve_scope_fallback_can_step_back_without_assignments(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        self.client.force_login(self.kepala_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_step_back", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
 
     # --- Delete workflow ---
 
@@ -936,6 +1020,45 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Distribution.objects.filter(pk=dist.pk).exists())
+
+    def test_assigned_staff_can_delete_draft_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_delete", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Distribution.objects.filter(pk=dist.pk).exists())
+
+    def test_non_assigned_staff_cannot_delete_draft_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.other_preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_delete", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Distribution.objects.filter(pk=dist.pk).exists())
+
+    def test_approve_scope_fallback_can_delete_without_assignments(self):
+        dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        self.client.force_login(self.kepala_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_delete", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Distribution.objects.filter(pk=dist.pk).exists())
 
     def test_generated_lplpo_distribution_can_be_returned_to_puskesmas(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)

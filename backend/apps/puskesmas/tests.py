@@ -5,10 +5,12 @@ from django.test import TestCase
 from django.urls import reverse
 from openpyxl import load_workbook
 
+from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, Item, Unit
 from apps.puskesmas.forms import PuskesmasRequestForm, PuskesmasRequestItemForm
 from apps.puskesmas.models import PuskesmasRequest, PuskesmasRequestItem
+from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
 
@@ -549,10 +551,11 @@ class PuskesmasRequestApprovalTests(TestCase):
 		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
 
 
-class PuskesmasReportViewTests(TestCase):
-	"""Tests for the three Puskesmas report views (penerimaan, pemakaian, persediaan)."""
+class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
+	"""Tests for the Puskesmas report views and facility isolation rules."""
 
 	def setUp(self):
+		super().setUp()
 		self.unit = Unit.objects.create(code="TAB", name="Tablet")
 		self.category = Category.objects.create(code="OBT", name="Obat", sort_order=1)
 		self.facility = Facility.objects.create(
@@ -591,6 +594,19 @@ class PuskesmasReportViewTests(TestCase):
 			email="admin-report@example.com",
 			password="TestPassword123!",
 		)
+		self.staff_with_facility = User.objects.create_user(
+			username="gudang-report",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
+			facility=self.facility,
+		)
+		ensure_default_module_access(self.staff_with_facility, overwrite=True)
+		self.staff_without_facility = User.objects.create_user(
+			username="gudang-no-facility",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
+		)
+		ensure_default_module_access(self.staff_without_facility, overwrite=True)
 		# Non-puskesmas user without puskesmas perm (AUDITOR with NONE scope)
 		self.auditor = User.objects.create_user(
 			username="auditor-report",
@@ -652,10 +668,92 @@ class PuskesmasReportViewTests(TestCase):
 
 	def test_admin_can_access_all_three_reports(self):
 		self.client.force_login(self.admin)
-		for url_name in ("report_penerimaan", "report_pemakaian", "report_persediaan"):
+		for url_name in (
+			"report_penerimaan",
+			"report_pemakaian",
+			"report_persediaan",
+			"report_rekap_persediaan",
+		):
 			with self.subTest(url_name=url_name):
 				response = self.client.get(reverse(f"puskesmas:{url_name}"))
 				self.assertEqual(response.status_code, 200)
+
+	def test_non_superuser_report_scope_defaults_to_linked_facility(self):
+		from apps.distribution.models import DistributionItem
+		from datetime import date as dt
+
+		dist_own = self._make_distribution(
+			self.facility, Distribution.Status.DISTRIBUTED, distributed_date=dt(2026, 3, 15)
+		)
+		DistributionItem.objects.create(
+			distribution=dist_own, item=self.item,
+			quantity_requested=10, quantity_approved=10,
+		)
+		dist_other = self._make_distribution(
+			self.other_facility, Distribution.Status.DISTRIBUTED, distributed_date=dt(2026, 3, 15)
+		)
+		DistributionItem.objects.create(
+			distribution=dist_other, item=self.item,
+			quantity_requested=5, quantity_approved=5,
+		)
+
+		self.client.force_login(self.staff_with_facility)
+		response = self.client.get(
+			reverse("puskesmas:report_penerimaan"),
+			{"start_date": "2026-03-01", "end_date": "2026-03-31"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["selected_facility_name"], self.facility.name)
+		document_numbers = [row["document_number"] for row in response.context["report_data"]]
+		self.assertEqual(document_numbers, [dist_own.document_number])
+
+	def test_non_superuser_report_scope_ignores_mismatched_facility_query(self):
+		from apps.distribution.models import DistributionItem
+		from datetime import date as dt
+
+		dist_own = self._make_distribution(
+			self.facility, Distribution.Status.DISTRIBUTED, distributed_date=dt(2026, 3, 15)
+		)
+		DistributionItem.objects.create(
+			distribution=dist_own, item=self.item,
+			quantity_requested=10, quantity_approved=10,
+		)
+		dist_other = self._make_distribution(
+			self.other_facility, Distribution.Status.DISTRIBUTED, distributed_date=dt(2026, 3, 15)
+		)
+		DistributionItem.objects.create(
+			distribution=dist_other, item=self.item,
+			quantity_requested=5, quantity_approved=5,
+		)
+
+		self.client.force_login(self.staff_with_facility)
+		response = self.client.get(
+			reverse("puskesmas:report_penerimaan"),
+			{
+				"facility": str(self.other_facility.pk),
+				"start_date": "2026-03-01",
+				"end_date": "2026-03-31",
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["selected_facility_name"], self.facility.name)
+		document_numbers = [row["document_number"] for row in response.context["report_data"]]
+		self.assertEqual(document_numbers, [dist_own.document_number])
+
+	def test_non_superuser_without_linked_facility_gets_403_on_all_reports(self):
+		self.client.force_login(self.staff_without_facility)
+
+		for url_name in (
+			"report_penerimaan",
+			"report_pemakaian",
+			"report_persediaan",
+			"report_rekap_persediaan",
+		):
+			with self.subTest(url_name=url_name):
+				response = self.client.get(reverse(f"puskesmas:{url_name}"))
+				self.assertEqual(response.status_code, 403)
 
 	# ────────────── Penerimaan data correctness ──────────────
 
