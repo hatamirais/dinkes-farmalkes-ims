@@ -86,7 +86,7 @@ Special rule:
 
 - For `users.*` permissions, non-view actions require `MANAGE` scope.
 - `lplpo` facility isolation applies only to `PUSKESMAS` users; Super Admin users (`is_superuser`) can access and mutate LPLPO across all facilities.
-- Puskesmas report facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
+- Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
 

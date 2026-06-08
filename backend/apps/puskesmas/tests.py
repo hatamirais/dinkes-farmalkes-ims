@@ -582,6 +582,18 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=self.facility,
 		)
+		self.report_operator = User.objects.create_user(
+			username="operator-report-enabled",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.facility,
+		)
+		ensure_default_module_access(self.report_operator, overwrite=True)
+		ModuleAccess.objects.update_or_create(
+			user=self.report_operator,
+			module=ModuleAccess.Module.REPORTS,
+			defaults={"scope": ModuleAccess.Scope.VIEW},
+		)
 		# Operator from a different facility
 		self.other_operator = User.objects.create_user(
 			username="operator-other-report",
@@ -652,20 +664,43 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
 		self.assertEqual(response.status_code, 403)
 
-	def test_puskesmas_operator_can_access_penerimaan(self):
+	def test_puskesmas_operator_without_reports_scope_cannot_access_penerimaan(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_penerimaan"))
-		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.status_code, 403)
 
-	def test_puskesmas_operator_can_access_pemakaian(self):
+	def test_puskesmas_operator_without_reports_scope_cannot_access_pemakaian(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_pemakaian"))
-		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.status_code, 403)
 
-	def test_puskesmas_operator_can_access_persediaan(self):
+	def test_puskesmas_operator_without_reports_scope_cannot_access_persediaan(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
+		self.assertEqual(response.status_code, 403)
+
+	def test_report_enabled_puskesmas_operator_can_access_all_four_reports(self):
+		self.client.force_login(self.report_operator)
+		for url_name in (
+			"report_penerimaan",
+			"report_pemakaian",
+			"report_persediaan",
+			"report_rekap_persediaan",
+		):
+			with self.subTest(url_name=url_name):
+				response = self.client.get(reverse(f"puskesmas:{url_name}"))
+				self.assertEqual(response.status_code, 200)
+
+	def test_puskesmas_report_sidebar_requires_reports_scope(self):
+		self.client.force_login(self.operator)
+		response = self.client.get(reverse("puskesmas:request_list"))
 		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, "Laporan Puskesmas")
+
+		self.client.force_login(self.report_operator)
+		response = self.client.get(reverse("puskesmas:request_list"))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Laporan Puskesmas")
 
 	def test_admin_can_access_all_three_reports(self):
 		self.client.force_login(self.admin)
@@ -698,7 +733,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			quantity_requested=5, quantity_approved=5,
 		)
 
-		self.client.force_login(self.staff_with_facility)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_penerimaan"),
 			{"start_date": "2026-03-01", "end_date": "2026-03-31"},
@@ -728,7 +763,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			quantity_requested=5, quantity_approved=5,
 		)
 
-		self.client.force_login(self.staff_with_facility)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_penerimaan"),
 			{
@@ -754,6 +789,19 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		):
 			with self.subTest(url_name=url_name):
 				response = self.client.get(reverse(f"puskesmas:{url_name}"))
+				self.assertEqual(response.status_code, 403)
+
+	def test_report_endpoints_deny_excel_exports_without_reports_scope(self):
+		self.client.force_login(self.operator)
+
+		for url_name, query in (
+			("report_penerimaan", {"format": "excel"}),
+			("report_pemakaian", {"format": "excel"}),
+			("report_persediaan", {"format": "excel"}),
+			("report_rekap_persediaan", {"format": "excel"}),
+		):
+			with self.subTest(url_name=url_name):
+				response = self.client.get(reverse(f"puskesmas:{url_name}"), query)
 				self.assertEqual(response.status_code, 403)
 
 	# ────────────── Penerimaan data correctness ──────────────
@@ -792,7 +840,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			quantity_requested=5, quantity_approved=5,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_penerimaan"),
 			{"start_date": "2026-03-01", "end_date": "2026-03-31"},
@@ -823,7 +871,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			quantity_requested=5, quantity_approved=5,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_penerimaan"),
 			{"start_date": "2026-03-01", "end_date": "2026-03-31"},
@@ -865,7 +913,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			pemakaian=20, stock_awal=30,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_pemakaian"),
 			{"year": "2026"},
@@ -890,7 +938,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			pemakaian=200, stock_awal=100,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_pemakaian"),
 			{"year": "2026"},
@@ -912,7 +960,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			pemakaian=60, stock_awal=80,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_pemakaian"),
 			{"year": "2026"},
@@ -925,7 +973,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 	# ────────────── Persediaan LPLPO-based check ──────────────
 
 	def test_persediaan_returns_200_with_form_for_operator(self):
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
 		self.assertEqual(response.status_code, 200)
 		self.assertIn("form", response.context)
@@ -971,7 +1019,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			pemakaian=0,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_persediaan"),
 			{"year": "2026", "period": "q2"},
@@ -1017,7 +1065,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			pemakaian=3,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_persediaan"),
 			{"year": "2026", "period": "q1"},
@@ -1112,7 +1160,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			pemakaian=1,
 		)
 
-		self.client.force_login(self.operator)
+		self.client.force_login(self.report_operator)
 		response = self.client.get(
 			reverse("puskesmas:report_rekap_persediaan"),
 			{"year": "2026", "period": "q1"},

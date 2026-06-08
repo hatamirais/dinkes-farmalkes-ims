@@ -538,7 +538,7 @@ def _resolve_report_facility(request, fallback_facility_id=None):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmasrequest")
+@perm_required("reports.view_reports")
 def puskesmas_report_penerimaan(request):
     """Riwayat Penerimaan — all DISTRIBUTED distributions sent to the Puskesmas facility.
 
@@ -638,7 +638,7 @@ def puskesmas_report_penerimaan(request):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmasrequest")
+@perm_required("reports.view_reports")
 def puskesmas_report_pemakaian(request):
     """Riwayat Pemakaian — consumption data derived from finalized (DISTRIBUTED/CLOSED) LPLPOs.
 
@@ -740,7 +740,7 @@ def puskesmas_report_pemakaian(request):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmasrequest")
+@perm_required("reports.view_reports")
 def puskesmas_report_persediaan(request):
     """Rincian Laporan Persediaan Puskesmas — LPLPO-based with dynamic stock calculation.
 
@@ -951,7 +951,7 @@ def puskesmas_report_persediaan(request):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmasrequest")
+@perm_required("reports.view_reports")
 def puskesmas_report_rekap_persediaan(request):
     """Rekap Laporan Persediaan Puskesmas — year-to-date valuation by category.
 
