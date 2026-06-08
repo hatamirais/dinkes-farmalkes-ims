@@ -1,8 +1,12 @@
+from io import BytesIO
+
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.reports.exports import export_numbering_history_excel, export_pengeluaran_excel
 from apps.stock.models import Stock
 from apps.users.models import User
 
@@ -105,6 +109,36 @@ class NumberingHistoryReportTests(TestCase):
 			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 		)
 		self.assertIn('Riwayat_Penomoran_2026.xlsx', response['Content-Disposition'])
+
+	def test_numbering_history_excel_neutralizes_formula_prefixed_strings(self):
+		response = export_numbering_history_excel(
+			[
+				{
+					"document_number": "=DOC-001",
+					"distribution_type": "+LPLPO",
+					"status": "@Draft",
+					"facility_name": "-Facility",
+					"source_label": "=LPLPO",
+					"source_document_number": "=SRC-001",
+					"created_at": None,
+					"item_count": 1,
+				}
+			],
+			2026,
+			"=Semua Dokumen",
+		)
+
+		workbook = load_workbook(BytesIO(response.content))
+		sheet = workbook.active
+
+		self.assertEqual(sheet["A2"].value, "Tahun: 2026 | Jenis Dokumen: =Semua Dokumen")
+		self.assertEqual(sheet["B5"].value, "'=DOC-001")
+		self.assertEqual(sheet["C5"].value, "'+LPLPO")
+		self.assertEqual(sheet["D5"].value, "'@Draft")
+		self.assertEqual(sheet["E5"].value, "'-Facility")
+		self.assertEqual(sheet["F5"].value, "'=LPLPO: =SRC-001")
+		self.assertEqual(sheet["A2"].data_type, "s")
+		self.assertEqual(sheet["B5"].data_type, "s")
 
 
 class PengeluaranReportTests(TestCase):
@@ -306,3 +340,46 @@ class PengeluaranReportTests(TestCase):
 		self.assertIn('distribution_type=ALLOCATION', allocation_tab['url'])
 		self.assertIn('start_date=2026-04-01', allocation_tab['url'])
 		self.assertIn('end_date=2026-04-30', allocation_tab['url'])
+
+	def test_pengeluaran_excel_neutralizes_formula_prefixed_text_and_keeps_numeric_cells(self):
+		response = export_pengeluaran_excel(
+			[
+				{
+					"document_number": "=DOC-OUT-1",
+					"facility_name": "+Puskesmas Formula",
+					"nama_barang": "@Amoxicillin",
+					"satuan": "-Botol",
+					"batch_lot": "=BATCH-01",
+					"expiry_date": None,
+					"sumber_dana": "=DAU",
+					"unit_price": 2500,
+					"quantity": 5,
+					"total_price": 12500,
+				}
+			],
+			"2026-04-01",
+			"2026-04-30",
+			facility_name="=Semua Fasilitas",
+			distribution_type_label="+Semua Distribusi",
+		)
+
+		workbook = load_workbook(BytesIO(response.content))
+		sheet = workbook.active
+
+		self.assertEqual(
+			sheet["A2"].value,
+			"Periode: 2026-04-01 s/d 2026-04-30 | Fasilitas: =Semua Fasilitas | Jenis Distribusi: +Semua Distribusi",
+		)
+		self.assertEqual(sheet["B5"].value, "'=DOC-OUT-1")
+		self.assertEqual(sheet["C5"].value, "'+Puskesmas Formula")
+		self.assertEqual(sheet["D5"].value, "'@Amoxicillin")
+		self.assertEqual(sheet["E5"].value, "'-Botol")
+		self.assertEqual(sheet["F5"].value, "'=BATCH-01")
+		self.assertEqual(sheet["H5"].value, "'=DAU")
+		self.assertEqual(sheet["A2"].data_type, "s")
+		self.assertEqual(sheet["I5"].value, 2500)
+		self.assertEqual(sheet["J5"].value, 5)
+		self.assertEqual(sheet["K5"].value, 12500)
+		self.assertEqual(sheet["I5"].data_type, "n")
+		self.assertEqual(sheet["J5"].data_type, "n")
+		self.assertEqual(sheet["K5"].data_type, "n")

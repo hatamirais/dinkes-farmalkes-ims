@@ -5,6 +5,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, numbers
 from openpyxl.utils import get_column_letter
 
+from apps.core.xlsx_exports import escape_xlsx_formula
+
 
 # Shared styles
 HEADER_FONT = Font(bold=True, size=11)
@@ -21,10 +23,14 @@ THIN_BORDER = Border(
 IDR_FORMAT = '#,##0.00'
 
 
+def _cell_value(value):
+    return escape_xlsx_formula(value)
+
+
 def _apply_header_row(ws, row_num, values, col_widths=None):
     """Apply header styling to a row."""
     for col_idx, val in enumerate(values, 1):
-        cell = ws.cell(row=row_num, column=col_idx, value=val)
+        cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
         cell.font = HEADER_FONT
         cell.fill = HEADER_FILL
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -58,12 +64,20 @@ def export_rincian_excel(report_data, start_date, end_date):
 
     # Title rows
     ws.merge_cells("A1:L1")
-    title_cell = ws.cell(row=1, column=1, value="LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN (RINCIAN)")
+    title_cell = ws.cell(
+        row=1,
+        column=1,
+        value=_cell_value("LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN (RINCIAN)"),
+    )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
     ws.merge_cells("A2:L2")
-    period_cell = ws.cell(row=2, column=1, value=f"Periode: {start_date} s/d {end_date}")
+    period_cell = ws.cell(
+        row=2,
+        column=1,
+        value=_cell_value(f"Periode: {start_date} s/d {end_date}"),
+    )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
 
@@ -87,7 +101,11 @@ def export_rincian_excel(report_data, start_date, end_date):
             item_counter = 0
             # Category row
             ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=12)
-            cat_cell = ws.cell(row=row_num, column=1, value=cat or "KATEGORI TIDAK DIKETAHUI")
+            cat_cell = ws.cell(
+                row=row_num,
+                column=1,
+                value=_cell_value(cat or "KATEGORI TIDAK DIKETAHUI"),
+            )
             cat_cell.font = Font(bold=True, size=11)
             cat_cell.fill = CATEGORY_FILL
             _apply_border(ws, row_num, 12)
@@ -115,7 +133,7 @@ def export_rincian_excel(report_data, start_date, end_date):
             float(row.get('ending_stock', 0)),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx >= 7:  # Numeric columns
                 cell.number_format = IDR_FORMAT
@@ -136,12 +154,20 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
 
     # Title rows
     ws.merge_cells("A1:G1")
-    title_cell = ws.cell(row=1, column=1, value="LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN (REKAP)")
+    title_cell = ws.cell(
+        row=1,
+        column=1,
+        value=_cell_value("LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN (REKAP)"),
+    )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
     ws.merge_cells("A2:G2")
-    period_cell = ws.cell(row=2, column=1, value=f"Periode: {start_date} s/d {end_date}")
+    period_cell = ws.cell(
+        row=2,
+        column=1,
+        value=_cell_value(f"Periode: {start_date} s/d {end_date}"),
+    )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
 
@@ -166,7 +192,7 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
             float(sd_group['subtotal_saldo_akhir']),
         ]
         for col_idx, val in enumerate(sd_values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.font = Font(bold=True)
             cell.fill = SD_HEADER_FILL
             cell.border = THIN_BORDER
@@ -187,7 +213,7 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
                 float(cat['saldo_akhir']),
             ]
             for col_idx, val in enumerate(cat_values, 1):
-                cell = ws.cell(row=row_num, column=col_idx, value=val)
+                cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
                 cell.border = THIN_BORDER
                 if col_idx >= 3:
                     cell.number_format = IDR_FORMAT
@@ -207,7 +233,7 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
         float(grand_totals.get('saldo_akhir', 0)),
     ]
     for col_idx, val in enumerate(total_values, 1):
-        cell = ws.cell(row=row_num, column=col_idx, value=val)
+        cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
         cell.font = Font(bold=True)
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
@@ -231,7 +257,7 @@ def export_numbering_history_excel(history_rows, year, distribution_type_label):
     title_cell = ws.cell(
         row=1,
         column=1,
-        value="LAPORAN RIWAYAT PENOMORAN DOKUMEN",
+        value=_cell_value("LAPORAN RIWAYAT PENOMORAN DOKUMEN"),
     )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
@@ -240,7 +266,7 @@ def export_numbering_history_excel(history_rows, year, distribution_type_label):
     filter_text = f"Tahun: {year}"
     if distribution_type_label:
         filter_text += f" | Jenis Dokumen: {distribution_type_label}"
-    period_cell = ws.cell(row=2, column=1, value=filter_text)
+    period_cell = ws.cell(row=2, column=1, value=_cell_value(filter_text))
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
 
@@ -270,7 +296,7 @@ def export_numbering_history_excel(history_rows, year, distribution_type_label):
             row.get("item_count", 0),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx in (1, 8):
                 cell.alignment = Alignment(horizontal="center")
@@ -292,12 +318,16 @@ def _export_penerimaan_excel(report_data, start_date, end_date, title, filename_
 
     # Title rows
     ws.merge_cells(f"A1:{last_col}1")
-    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell = ws.cell(row=1, column=1, value=_cell_value(title))
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
     ws.merge_cells(f"A2:{last_col}2")
-    period_cell = ws.cell(row=2, column=1, value=f"Periode: {start_date} s/d {end_date}")
+    period_cell = ws.cell(
+        row=2,
+        column=1,
+        value=_cell_value(f"Periode: {start_date} s/d {end_date}"),
+    )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
 
@@ -310,7 +340,7 @@ def _export_penerimaan_excel(report_data, start_date, end_date, title, filename_
     for idx, row in enumerate(report_data, 1):
         values = row_builder(idx, row)
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             # Last two cols are numeric (qty + total Rp), unit_price is third-to-last
             if col_idx >= col_count - 2:
@@ -328,8 +358,8 @@ def _export_penerimaan_excel(report_data, start_date, end_date, title, filename_
         cell.font = Font(bold=True)
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
-    ws.cell(row=row_num, column=1, value="").font = Font(bold=True)
-    ws.cell(row=row_num, column=2, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row_num, column=1, value=_cell_value("")).font = Font(bold=True)
+    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
     qty_cell = ws.cell(row=row_num, column=col_count - 1, value=total_qty)
     qty_cell.number_format = IDR_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
@@ -468,16 +498,23 @@ def export_pengeluaran_excel(
 
     # Title rows
     ws.merge_cells(f"A1:{last_col}1")
-    title_cell = ws.cell(row=1, column=1, value="LAPORAN PENGELUARAN / DISTRIBUSI")
+    title_cell = ws.cell(
+        row=1,
+        column=1,
+        value=_cell_value("LAPORAN PENGELUARAN / DISTRIBUSI"),
+    )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
     ws.merge_cells(f"A2:{last_col}2")
-    period_cell = ws.cell(row=2, column=1,
-                          value=(
-                              f"Periode: {start_date} s/d {end_date} | "
-                              f"Fasilitas: {facility_name} | Jenis Distribusi: {distribution_type_label}"
-                          ))
+    period_cell = ws.cell(
+        row=2,
+        column=1,
+        value=_cell_value(
+            f"Periode: {start_date} s/d {end_date} | "
+            f"Fasilitas: {facility_name} | Jenis Distribusi: {distribution_type_label}"
+        ),
+    )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
 
@@ -507,7 +544,7 @@ def export_pengeluaran_excel(
             float(row.get('total_price', 0)),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx >= col_count - 2:
                 cell.number_format = IDR_FORMAT
@@ -524,7 +561,7 @@ def export_pengeluaran_excel(
         cell.font = Font(bold=True)
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
-    ws.cell(row=row_num, column=2, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
     qty_cell = ws.cell(row=row_num, column=col_count - 1, value=total_qty)
     qty_cell.number_format = IDR_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
