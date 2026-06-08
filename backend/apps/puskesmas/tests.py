@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, Item, Unit
+from apps.puskesmas.exports import export_puskesmas_penerimaan_excel
 from apps.puskesmas.forms import PuskesmasRequestForm, PuskesmasRequestItemForm
 from apps.puskesmas.models import PuskesmasRequest, PuskesmasRequestItem
 from apps.users.access import ensure_default_module_access
@@ -1185,4 +1186,43 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		)
 		self.assertEqual(sheet.cell(row=5, column=2).value, self.category.name)
 		self.assertEqual(sheet.cell(row=6, column=2).value, "TOTAL")
+
+	def test_penerimaan_excel_neutralizes_formula_prefixed_text_and_keeps_numeric_cells(self):
+		response = export_puskesmas_penerimaan_excel(
+			[
+				{
+					"distributed_date": None,
+					"document_number": "=DIST-001",
+					"distribution_type_label": "+LPLPO",
+					"nama_barang": "@Amoxicillin 500 mg",
+					"satuan": "-Tablet",
+					"issued_batch_lot": "=BATCH-01",
+					"quantity": Decimal("5"),
+					"issued_unit_price": Decimal("2500"),
+				}
+			],
+			"2026-03-01",
+			"2026-03-31",
+			"=Puskesmas Formula",
+		)
+
+		workbook = load_workbook(BytesIO(response.content))
+		sheet = workbook.active
+
+		self.assertEqual(
+			sheet["A2"].value,
+			"Fasilitas: =Puskesmas Formula | Periode: 2026-03-01 s/d 2026-03-31",
+		)
+		self.assertEqual(sheet["C5"].value, "'=DIST-001")
+		self.assertEqual(sheet["D5"].value, "'+LPLPO")
+		self.assertEqual(sheet["E5"].value, "'@Amoxicillin 500 mg")
+		self.assertEqual(sheet["F5"].value, "'-Tablet")
+		self.assertEqual(sheet["G5"].value, "'=BATCH-01")
+		self.assertEqual(sheet["A2"].data_type, "s")
+		self.assertEqual(sheet["H5"].value, 5)
+		self.assertEqual(sheet["I5"].value, 2500)
+		self.assertEqual(sheet["J5"].value, 12500)
+		self.assertEqual(sheet["H5"].data_type, "n")
+		self.assertEqual(sheet["I5"].data_type, "n")
+		self.assertEqual(sheet["J5"].data_type, "n")
 

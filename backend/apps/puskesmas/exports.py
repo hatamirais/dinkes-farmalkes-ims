@@ -6,6 +6,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
+from apps.core.xlsx_exports import escape_xlsx_formula
+
 
 # Shared styles (mirrors reports/exports.py style)
 HEADER_FONT = Font(bold=True, size=11)
@@ -21,10 +23,14 @@ IDR_FORMAT = "#,##0.00"
 NUMBER_FORMAT = "#,##0"
 
 
+def _cell_value(value):
+    return escape_xlsx_formula(value)
+
+
 def _apply_header_row(ws, row_num, values, col_widths=None):
     """Apply header styling to a row."""
     for col_idx, val in enumerate(values, 1):
-        cell = ws.cell(row=row_num, column=col_idx, value=val)
+        cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
         cell.font = HEADER_FONT
         cell.fill = HEADER_FILL
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -82,7 +88,11 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
 
     # Title rows
     ws.merge_cells(f"A1:{last_col}1")
-    title_cell = ws.cell(row=1, column=1, value="RIWAYAT PENERIMAAN DARI INSTALASI FARMASI")
+    title_cell = ws.cell(
+        row=1,
+        column=1,
+        value=_cell_value("RIWAYAT PENERIMAAN DARI INSTALASI FARMASI"),
+    )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
@@ -90,7 +100,7 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
     period_cell = ws.cell(
         row=2,
         column=1,
-        value=f"Fasilitas: {facility_name} | Periode: {start_date} s/d {end_date}",
+        value=_cell_value(f"Fasilitas: {facility_name} | Periode: {start_date} s/d {end_date}"),
     )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
@@ -121,7 +131,7 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
             float(total_price),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
@@ -142,7 +152,7 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
         cell.font = Font(bold=True)
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
-    ws.cell(row=row_num, column=2, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
     qty_cell = ws.cell(row=row_num, column=8, value=float(total_qty))
     qty_cell.number_format = NUMBER_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
@@ -188,7 +198,11 @@ def export_puskesmas_pemakaian_excel(report_data, year, month_label, facility_na
 
     # Title rows
     ws.merge_cells(f"A1:{last_col}1")
-    title_cell = ws.cell(row=1, column=1, value="RIWAYAT PEMAKAIAN PUSKESMAS (DARI DATA LPLPO)")
+    title_cell = ws.cell(
+        row=1,
+        column=1,
+        value=_cell_value("RIWAYAT PEMAKAIAN PUSKESMAS (DARI DATA LPLPO)"),
+    )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
@@ -196,7 +210,7 @@ def export_puskesmas_pemakaian_excel(report_data, year, month_label, facility_na
     period_cell = ws.cell(
         row=2,
         column=1,
-        value=f"Fasilitas: {facility_name} | Tahun: {year} | Bulan: {month_label}",
+        value=_cell_value(f"Fasilitas: {facility_name} | Tahun: {year} | Bulan: {month_label}"),
     )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
@@ -217,7 +231,7 @@ def export_puskesmas_pemakaian_excel(report_data, year, month_label, facility_na
             int(row.get("permintaan_jumlah", 0) or 0),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
@@ -264,7 +278,7 @@ def export_puskesmas_persediaan_excel(report_data, year, period_label, facility_
     title_cell = ws.cell(
         row=1,
         column=1,
-        value="RINCIAN LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS",
+        value=_cell_value("RINCIAN LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS"),
     )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
@@ -273,7 +287,7 @@ def export_puskesmas_persediaan_excel(report_data, year, period_label, facility_
     period_cell = ws.cell(
         row=2,
         column=1,
-        value=f"Fasilitas: {facility_name} | Tahun: {year} | Periode: {period_label}",
+        value=_cell_value(f"Fasilitas: {facility_name} | Tahun: {year} | Periode: {period_label}"),
     )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
@@ -290,7 +304,7 @@ def export_puskesmas_persediaan_excel(report_data, year, period_label, facility_
             int(row.get("stock_keseluruhan", 0) or 0),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
@@ -335,7 +349,7 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
     ws.merge_cells(f"A1:{last_col}1")
     title_cell = ws.cell(
         row=1, column=1,
-        value="REKAPITULASI LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS",
+        value=_cell_value("REKAPITULASI LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS"),
     )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
@@ -343,7 +357,7 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
     ws.merge_cells(f"A2:{last_col}2")
     period_cell = ws.cell(
         row=2, column=1,
-        value=f"Fasilitas: {facility_name} | Tahun: {year} | Periode: {period_label}",
+        value=_cell_value(f"Fasilitas: {facility_name} | Tahun: {year} | Periode: {period_label}"),
     )
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
@@ -362,7 +376,7 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
             float(Decimal(str(row.get("saldo_akhir", 0) or 0))),
         ]
         for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=val)
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
@@ -377,7 +391,7 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
         cell.font = Font(bold=True)
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
-    ws.cell(row=row_num, column=2, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
     total_columns = [
         (3, "saldo_awal", IDR_FORMAT, float),
         (4, "nilai_terima", IDR_FORMAT, float),

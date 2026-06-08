@@ -26,6 +26,7 @@ from apps.core.context_processors import nav_notifications
 from apps.core.csv_exports import SanitizedCSV, escape_csv_formula
 from apps.core.forms import SystemSettingsForm
 from apps.core.models import SystemSettings
+from apps.core.xlsx_exports import escape_xlsx_formula
 from apps.core.templatetags.number_format import safe_media_url
 from apps.core.views import (
     bad_request,
@@ -150,6 +151,22 @@ class CsvExportSecurityTests(SimpleTestCase):
             pass
 
         self.assertEqual(TestAdmin().get_export_formats(), [SanitizedCSV, NonCsvFormat])
+
+
+class XlsxExportSecurityTests(SimpleTestCase):
+    def test_escape_xlsx_formula_escapes_leading_whitespace_formulae(self):
+        for value in (" =SUM(A1:A2)", "\t=SUM(A1:A2)", "\r=SUM(A1:A2)", " @cmd"):
+            with self.subTest(value=value):
+                self.assertEqual(escape_xlsx_formula(value), f"'{value}")
+
+    def test_escape_xlsx_formula_does_not_double_escape_existing_apostrophe(self):
+        value = "'=SUM(A1:A2)"
+
+        self.assertEqual(escape_xlsx_formula(value), value)
+
+    def test_escape_xlsx_formula_leaves_normal_text_and_non_strings_unchanged(self):
+        self.assertEqual(escape_xlsx_formula("Paracetamol"), "Paracetamol")
+        self.assertEqual(escape_xlsx_formula(Decimal("12.50")), Decimal("12.50"))
 
 
 class SystemSettingsFormTests(SimpleTestCase):
