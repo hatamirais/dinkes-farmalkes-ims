@@ -89,6 +89,35 @@
             </div>
         </div>
     </div>
+
+    {% if documents %}
+    <div class="col-12">
+        <div class="card content-card">
+            <div class="card-header"><span>Lampiran Dokumen</span></div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for document in documents %}
+                    <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                        <div>
+                            <div class="fw-semibold">{{ document.file_name }}</div>
+                            <small class="text-muted">
+                                {{ document.file_type|default:"Tipe file tidak diketahui" }} ·
+                                {{ document.uploaded_at|date:"d/m/Y H:i" }}
+                            </small>
+                        </div>
+                        <a
+                            href="{% url 'receiving:receiving_document_download' receiving.pk document.pk %}"
+                            class="btn btn-sm btn-outline-primary"
+                        >
+                            <i class="bi bi-download me-1"></i>Unduh
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <div class="mt-3">

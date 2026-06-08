@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from apps.core.models import TimeStampedModel
+from .storage import ReceivingDocumentStorage
 
 
 class ReceivingTypeOption(TimeStampedModel):
@@ -225,7 +226,10 @@ class ReceivingDocument(models.Model):
         on_delete=models.CASCADE,
         related_name="documents",
     )
-    file = models.FileField(upload_to="receiving/%Y/%m/")
+    file = models.FileField(
+        upload_to="receiving/%Y/%m/",
+        storage=ReceivingDocumentStorage(),
+    )
     file_name = models.CharField(max_length=255)
     file_type = models.CharField(max_length=50, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)

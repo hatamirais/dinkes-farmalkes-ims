@@ -63,6 +63,9 @@ class ReceivingDocumentInlineForm(forms.ModelForm):
     class Meta:
         model = ReceivingDocument
         fields = "__all__"
+        widgets = {
+            "file": forms.FileInput(),
+        }
 
     def clean_file(self):
         uploaded_file = self.cleaned_data.get("file")

@@ -1,10 +1,12 @@
 from io import BytesIO
+import shutil
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 from django.contrib.admin.sites import AdminSite
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.distribution.models import Distribution, DistributionItem
@@ -907,3 +909,127 @@ class ReceivingDocumentUploadValidationTest(TestCase):
         saved_document = form.save(commit=False)
         self.assertEqual(saved_document.file_name, "dokumen.pdf")
         self.assertEqual(saved_document.file_type, "application/pdf")
+
+
+class ReceivingDocumentAccessTest(TestCase):
+    def setUp(self):
+        temp_root = Path(__file__).resolve().parents[3] / "test_storage"
+        self.media_dir = temp_root / "media"
+        self.private_media_dir = temp_root / "private_media"
+        shutil.rmtree(temp_root, ignore_errors=True)
+        self.media_dir.mkdir(parents=True, exist_ok=True)
+        self.private_media_dir.mkdir(parents=True, exist_ok=True)
+        self.settings_override = override_settings(
+            ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"],
+            MEDIA_ROOT=str(self.media_dir),
+            PRIVATE_MEDIA_ROOT=str(self.private_media_dir),
+            SECURE_SSL_REDIRECT=False,
+        )
+        self.settings_override.enable()
+        self.addCleanup(self.settings_override.disable)
+        self.addCleanup(lambda: shutil.rmtree(temp_root, ignore_errors=True))
+
+        self.user = User.objects.create_superuser(
+            username="receiving-doc-admin",
+            password="secret12345",
+        )
+        self.client.force_login(self.user)
+        self.funding = FundingSource.objects.create(code="DOCAUTH", name="Doc Auth")
+        self.receiving = Receiving.objects.create(
+            document_number="RCV-2026-DOCAUTH",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+        self.document = ReceivingDocument.objects.create(
+            receiving=self.receiving,
+            file=SimpleUploadedFile(
+                "surat hibah.pdf",
+                b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF",
+                content_type="application/pdf",
+            ),
+            file_name="surat hibah.pdf",
+            file_type="application/pdf",
+        )
+
+    def test_receiving_document_uses_private_storage_root(self):
+        stored_path = Path(self.document.file.path)
+
+        self.assertTrue(stored_path.exists())
+        self.assertTrue(
+            stored_path.is_relative_to(self.private_media_dir)
+        )
+        self.assertFalse(stored_path.is_relative_to(self.media_dir))
+
+    def test_receiving_detail_shows_document_download_link(self):
+        response = self.client.get(
+            reverse("receiving:receiving_detail", args=[self.receiving.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lampiran Dokumen")
+        self.assertContains(response, self.document.file_name)
+        self.assertContains(
+            response,
+            reverse(
+                "receiving:receiving_document_download",
+                args=[self.receiving.pk, self.document.pk],
+            ),
+        )
+
+    def test_receiving_document_download_requires_login(self):
+        self.client.logout()
+
+        response = self.client.get(
+            reverse(
+                "receiving:receiving_document_download",
+                args=[self.receiving.pk, self.document.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login/", response.url)
+
+    def test_receiving_document_download_requires_view_permission(self):
+        restricted_user = User.objects.create_user(
+            username="receiving-doc-puskesmas",
+            password="secret12345",
+            role=User.Role.PUSKESMAS,
+        )
+        self.client.force_login(restricted_user)
+
+        response = self.client.get(
+            reverse(
+                "receiving:receiving_document_download",
+                args=[self.receiving.pk, self.document.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_receiving_document_download_returns_attachment_and_logs(self):
+        with self.assertLogs("security", level="INFO") as logs:
+            response = self.client.get(
+                reverse(
+                    "receiving:receiving_document_download",
+                    args=[self.receiving.pk, self.document.pk],
+                )
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn('filename="surat hibah.pdf"', response["Content-Disposition"])
+        self.assertEqual(
+            b"".join(response.streaming_content),
+            b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF",
+        )
+        self.assertTrue(
+            any(
+                "receiving_document_download_succeeded" in message
+                for message in logs.output
+            )
+        )

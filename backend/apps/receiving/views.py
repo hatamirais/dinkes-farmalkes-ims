@@ -1,19 +1,31 @@
+import json
+import logging
+from pathlib import PurePath
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q, F
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.upload_validation import sanitize_uploaded_filename
 from apps.items.models import Supplier, FundingSource
 from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess
-from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
+from .models import (
+    Receiving,
+    ReceivingDocument,
+    ReceivingItem,
+    ReceivingOrderItem,
+    ReceivingTypeOption,
+)
 from .forms import (
     build_planned_receipt_item_formset,
     ReceivingForm,
@@ -24,6 +36,15 @@ from .forms import (
     ReceivingCloseForm,
     ReceivingOrderCloseItemFormSet,
 )
+
+logger = logging.getLogger("security")
+
+
+def _safe_download_filename(document):
+    try:
+        return sanitize_uploaded_filename(document.file_name)
+    except ValidationError:
+        return PurePath(document.file.name).name or f"receiving-{document.pk}"
 
 
 def _create_verified_receiving(request, form, formset):
@@ -253,19 +274,62 @@ def receiving_detail(request, pk):
     receiving = get_object_or_404(
         Receiving.objects.select_related(
             "supplier", "facility", "sumber_dana", "created_by", "verified_by"
-        ).exclude(receiving_type="RETURN_RS"),
+        )
+        .prefetch_related("documents")
+        .exclude(receiving_type="RETURN_RS"),
         pk=pk,
         is_planned=False,
     )
     items = receiving.items.select_related("item", "item__satuan")
+    documents = receiving.documents.all()
 
     return render(
         request,
         "receiving/receiving_detail.html",
         {
+            "documents": documents,
             "receiving": receiving,
             "items": items,
         },
+    )
+
+
+@login_required
+@perm_required("receiving.view_receiving")
+def receiving_document_download(request, pk, document_pk):
+    document = get_object_or_404(
+        ReceivingDocument.objects.select_related("receiving"),
+        pk=document_pk,
+        receiving_id=pk,
+        receiving__is_planned=False,
+    )
+
+    if not document.file.name:
+        raise Http404("Lampiran tidak ditemukan.")
+
+    try:
+        file_handle = document.file.open("rb")
+    except FileNotFoundError as exc:
+        raise Http404("Lampiran tidak ditemukan.") from exc
+
+    logger.info(
+        json.dumps(
+            {
+                "document_id": document.pk,
+                "event": "receiving_document_download_succeeded",
+                "filename": document.file_name,
+                "mime_type": document.file_type,
+                "receiving_id": document.receiving_id,
+                "username": request.user.username,
+            },
+            sort_keys=True,
+        )
+    )
+    return FileResponse(
+        file_handle,
+        as_attachment=True,
+        filename=_safe_download_filename(document),
+        content_type=document.file_type or None,
     )
 
 
