@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-06-04
+Last verified: 2026-06-08
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`
 
 ## 1) Domain Overview
@@ -48,7 +48,7 @@ Module highlights:
 
 - Stock card: `/stock/stock-card/`, `/stock/stock-card/<item_id>/`
 - Stock transfer: `/stock/transfers/*`
-- Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`
+- Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`, `/receiving/<pk>/documents/<document_pk>/download/`
 - Receiving plan: `/receiving/plans/*`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
 - Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/lplpo/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
@@ -191,6 +191,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `receiving.ReceivingDocument` (`receiving_documents`):
   - FK: `receiving`
   - File fields: `file`, `file_name`, `file_type`, `uploaded_at`
+  - `file` uses private filesystem storage rooted at `PRIVATE_MEDIA_ROOT`; user access is mediated by the authenticated receiving download route rather than `MEDIA_URL`
 
 - `receiving.ReceivingOrderItem` (`receiving_order_items`):
   - FKs: `receiving`, `item`
@@ -379,6 +380,7 @@ From `backend/config/settings.py`:
 - `AUTHENTICATION_BACKENDS` order:
   1. `axes.backends.AxesStandaloneBackend`
   2. `django.contrib.auth.backends.ModelBackend`
+- `PRIVATE_MEDIA_ROOT` is environment-configurable and defaults to `backend/private_media`; receiving attachments are stored here instead of the public `MEDIA_ROOT` tree
 - `axes.middleware.AxesMiddleware` included after standard auth/session middleware
 - `AXES_FAILURE_LIMIT = 5`, `AXES_COOLOFF_TIME = 0.5`, `AXES_RESET_ON_SUCCESS = True`
 - Sensitive POST throttling uses `django-ratelimit` with settings-backed defaults:

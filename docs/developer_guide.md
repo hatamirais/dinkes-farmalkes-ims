@@ -53,6 +53,7 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `DEBUG`
 - `CSRF_TRUSTED_ORIGINS`
 - `EMAIL_BACKEND`
+- `PRIVATE_MEDIA_ROOT`
 - `USER_BULK_ACTION_RATE_LIMIT`
 - `USER_MUTATION_RATE_LIMIT`
 - `USER_PASSWORD_RESET_RATE_LIMIT`
@@ -68,6 +69,7 @@ Catatan:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` default `10000` untuk mengakomodasi form LPLPO dan form bulk serupa yang mengirim banyak field dalam satu request.
 - `FEATURE_ALLOCATION_UI_ENABLED` masih dibaca ke Django settings untuk kompatibilitas dan test override, tetapi route/UI runtime Allocation saat ini tidak bercabang pada flag tersebut; akses tetap dikendalikan oleh permission Django + `ModuleAccess`.
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
+- Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
 
 ### 3. Jalankan infrastruktur
 
