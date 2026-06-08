@@ -787,6 +787,10 @@ def distribution_reset_to_draft(request, pk):
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Anda tidak memiliki akses untuk mengubah distribusi ini."
+        )
 
     resettable_statuses = {
         Distribution.Status.SUBMITTED,
@@ -821,6 +825,10 @@ def distribution_step_back(request, pk):
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Anda tidak memiliki akses untuk mengubah distribusi ini."
+        )
 
     previous_status = get_distribution_step_back_target(dist)
     if previous_status is None:
@@ -850,6 +858,10 @@ def distribution_delete(request, pk):
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Anda tidak memiliki akses untuk mengubah distribusi ini."
+        )
 
     if dist.is_generated_lplpo_distribution:
         messages.error(

@@ -61,6 +61,7 @@ Module highlights:
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
+  - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` are all-facility only for superusers; every non-superuser request is forced to the request user's linked facility.
 - Allocation: `/allocation/`, `/allocation/create/`, `/allocation/<pk>/`, `/allocation/<pk>/edit/`, `/allocation/<pk>/delete/`, `/allocation/<pk>/reset-to-draft/`, `/allocation/<pk>/submit/`, `/allocation/<pk>/approve/`, `/allocation/<pk>/step-back/`, `/allocation/<pk>/reject/`, `/allocation/<pk>/distributions/<dist_pk>/prepare/`, `/allocation/<pk>/distributions/<dist_pk>/deliver/`
 - Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`
 
@@ -85,6 +86,7 @@ Special rule:
 
 - For `users.*` permissions, non-view actions require `MANAGE` scope.
 - `lplpo` facility isolation applies only to `PUSKESMAS` users; Super Admin users (`is_superuser`) can access and mutate LPLPO across all facilities.
+- Puskesmas report facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
 
@@ -353,6 +355,7 @@ Operational mutation points (from app behavior and admin import logic):
   - verification and distribution validations use `Stock.available_quantity` (`quantity - reserved`) when checking the selected batch
   - prepare phase updates document status only (no stock mutation and no reservation write)
   - draft/rejected preparation and submission are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
+  - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
   - distribute phase decreases `Stock.quantity` and posts `Transaction(OUT)`; the current workflow does not automatically increment or clear `stock.reserved`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
