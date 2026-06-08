@@ -212,7 +212,7 @@
                     <i class="bi bi-file-earmark-medical"></i><span>LPLPO</span>
                 </a>
                 {% endif %}
-                {% if can_view_puskesmas and request.user.role == 'PUSKESMAS' %}
+                {% if can_view_puskesmas and can_view_reports and request.user.role == 'PUSKESMAS' %}
                 <button class="sidebar-link sidebar-dropdown-toggle {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
                     data-label="Laporan Puskesmas"
                     title="Laporan Puskesmas"

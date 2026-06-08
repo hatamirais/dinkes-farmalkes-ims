@@ -91,7 +91,7 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 
 - `OPERATOR PUSKESMAS` role uses `facility` matching. Views in `puskesmas` and `lplpo` enforce strict facility isolation so that operators from one facility cannot read/write another facility's documents.
 - Super Admin (`is_superuser` / role `ADMIN`) is exempt from facility scoping in `lplpo` and may create, edit, submit, and delete LPLPO across all Puskesmas facilities.
-- Puskesmas report routes are superuser-wide only; any non-superuser user is forced to their linked `facility` on those report querysets and receives `403` when no facility is linked.
+- Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback). Superusers may query all facilities; any non-superuser user is forced to their linked `facility` on those report querysets and receives `403` when no facility is linked.
 
 ## Workflow and Data Mutation Rules
 
