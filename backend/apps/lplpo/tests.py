@@ -78,6 +78,18 @@ class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
 			username="gudang",
 			password="TestPassword123!",
 			role=User.Role.GUDANG,
+			facility=cls.facility,
+		)
+		cls.other_gudang_user = User.objects.create_user(
+			username="gudang_other_facility",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
+			facility=cls.other_facility,
+		)
+		cls.gudang_without_facility = User.objects.create_user(
+			username="gudang_tanpa_fasilitas",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
 		)
 		cls.staff_user = User.objects.create_superuser(
 			username="staff",
@@ -94,6 +106,8 @@ class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
 			(cls.puskesmas_user, ModuleAccess.Scope.OPERATE),
 			(cls.other_puskesmas_user, ModuleAccess.Scope.OPERATE),
 			(cls.gudang_user, ModuleAccess.Scope.OPERATE),
+			(cls.other_gudang_user, ModuleAccess.Scope.OPERATE),
+			(cls.gudang_without_facility, ModuleAccess.Scope.OPERATE),
 			(cls.staff_user, ModuleAccess.Scope.MANAGE),
 		):
 			ModuleAccess.objects.update_or_create(
@@ -303,6 +317,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			username="auditor_lplpo_view_only",
 			password="TestPassword123!",
 			role=User.Role.AUDITOR,
+			facility=self.facility,
 		)
 		ModuleAccess.objects.update_or_create(
 			user=auditor_user,
@@ -1037,8 +1052,47 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.client.force_login(self.puskesmas_user)
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
-		self.assertEqual(response.status_code, 302)
-		self.assertRedirects(response, reverse("lplpo:lplpo_my_list"))
+		self.assertEqual(response.status_code, 403)
+
+	def test_non_superuser_without_facility_cannot_view_lplpo_list(self):
+		self.client.force_login(self.gudang_without_facility)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 403)
+
+	def test_non_superuser_list_is_scoped_to_linked_facility(self):
+		matching = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.SUBMITTED,
+		)
+		self.set_submitted_at(matching, 2026, 4, 18)
+		other = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			bulan=5,
+			tahun=2026,
+			status=LPLPO.Status.SUBMITTED,
+		)
+		self.set_submitted_at(other, 2026, 5, 2)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, matching.document_number)
+		self.assertNotContains(response, other.document_number)
+
+	def test_non_superuser_cannot_view_other_facility_lplpo(self):
+		lplpo = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+		)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 403)
 
 	def test_puskesmas_cannot_access_review(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED)
@@ -1431,6 +1485,30 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertContains(response, matching.document_number)
 		self.assertNotContains(response, non_matching.document_number)
 
+	def test_non_superuser_print_report_is_scoped_to_linked_facility(self):
+		matching = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.SUBMITTED,
+			bulan=4,
+			tahun=2026,
+		)
+		self.set_submitted_at(matching, 2026, 4, 18)
+		other = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			bulan=5,
+			tahun=2026,
+			status=LPLPO.Status.SUBMITTED,
+		)
+		self.set_submitted_at(other, 2026, 5, 2)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_print_report"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, matching.document_number)
+		self.assertNotContains(response, other.document_number)
+
 	def test_super_admin_print_report_still_only_shows_submitted_documents(self):
 		draft_lplpo = self.create_lplpo(status=LPLPO.Status.DRAFT)
 		submitted_lplpo = self.create_lplpo(
@@ -1490,6 +1568,55 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(
 			response.json()["unit_prices"][str(self.item_a.pk)],
 			"1400.00",
+		)
+
+	def test_non_superuser_prefill_uses_linked_facility_even_with_other_facility_param(self):
+		self.create_distribution(
+			facility=self.facility,
+			distributed_date=date(2026, 2, 11),
+			item_quantities=[(self.item_a, Decimal("4.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1400.00")},
+		)
+		self.create_distribution(
+			facility=self.other_facility,
+			distributed_date=date(2026, 2, 15),
+			item_quantities=[(self.item_a, Decimal("99.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("2500.00")},
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(
+			reverse("lplpo:api_prefill_penerimaan"),
+			{
+				"bulan": 2,
+				"tahun": 2026,
+				"facility": self.other_facility.pk,
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json()["facility_id"], self.facility.pk)
+		self.assertEqual(
+			response.json()["items"][str(self.item_a.pk)],
+			"4",
+		)
+		self.assertEqual(
+			response.json()["unit_prices"][str(self.item_a.pk)],
+			"1400.00",
+		)
+
+	def test_non_superuser_without_facility_prefill_returns_403(self):
+		self.client.force_login(self.gudang_without_facility)
+
+		response = self.client.get(
+			reverse("lplpo:api_prefill_penerimaan"),
+			{"bulan": 2, "tahun": 2026},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		self.assertEqual(
+			response.json()["detail"],
+			"Akun Anda belum terhubung ke fasilitas.",
 		)
 
 	def test_api_prefill_penerimaan_returns_empty_for_january_bootstrap(self):
@@ -1658,6 +1785,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			{
 				f"item_{line.pk}-stock_awal": "1.00",
 				f"item_{line.pk}-penerimaan": "2.00",
+				f"item_{line.pk}-harga_satuan": "0.00",
 				f"item_{line.pk}-pemakaian": "1.00",
 				f"item_{line.pk}-stock_gudang_puskesmas": "0.00",
 				f"item_{line.pk}-waktu_kosong": "0.00",

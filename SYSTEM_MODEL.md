@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-06-08
+Last verified: 2026-06-09
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`
 
 ## 1) Domain Overview
@@ -59,8 +59,10 @@ Module highlights:
   - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
+  - Every non-superuser request to `/lplpo/`, detail/print pages, review/finalize actions, and the prefill endpoint must have a linked `user.facility` and is forced to that facility's data.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
+  - Superusers may work across facilities, while every non-superuser request is forced to the linked `user.facility` and receives `403` when no facility is linked or the object belongs to another facility.
   - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` are all-facility only for superusers; every non-superuser request is forced to the request user's linked facility.
 - Allocation: `/allocation/`, `/allocation/create/`, `/allocation/<pk>/`, `/allocation/<pk>/edit/`, `/allocation/<pk>/delete/`, `/allocation/<pk>/reset-to-draft/`, `/allocation/<pk>/submit/`, `/allocation/<pk>/approve/`, `/allocation/<pk>/step-back/`, `/allocation/<pk>/reject/`, `/allocation/<pk>/distributions/<dist_pk>/prepare/`, `/allocation/<pk>/distributions/<dist_pk>/deliver/`
 - Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`
@@ -85,7 +87,7 @@ Permission denials are expected to raise `PermissionDenied` so the centralized 4
 Special rule:
 
 - For `users.*` permissions, non-view actions require `MANAGE` scope.
-- `lplpo` facility isolation applies only to `PUSKESMAS` users; Super Admin users (`is_superuser`) can access and mutate LPLPO across all facilities.
+- `lplpo` and `puskesmas` facility isolation now applies to every non-superuser account; Super Admin users (`is_superuser`) are the only users who can access and mutate records across all facilities.
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.

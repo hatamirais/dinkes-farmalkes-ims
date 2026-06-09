@@ -9,6 +9,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Added
 
+- Security hardening: tightened `puskesmas` and `lplpo` facility tenancy so only superusers may cross facility boundaries; all other operational queue/detail/print/review/prefill surfaces now require a linked facility and return `403` on mismatch or missing linkage.
 - Distribution: added a dedicated manual LPLPO create route at `/distribution/lplpo/create/` so Instalasi Farmasi can issue LPLPO-bucket distributions during mid-year rollout or catch-up without forcing immediate January-to-current Puskesmas backfill.
 
 ### Changed

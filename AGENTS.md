@@ -64,8 +64,8 @@ If documentation conflicts with code, code is authoritative until docs are corre
 - `recall`: supplier return workflow
 - `expired`: expired/disposal workflow and alerts page
 - `stock_opname`: physical counting workflow
-- `puskesmas`: ad-hoc requests from Puskesmas
-- `lplpo`: monthly reporting and stock requests from Puskesmas
+- `puskesmas`: ad-hoc requests from Puskesmas. All operational and report-facing surfaces now require a linked `user.facility` for every non-superuser account and enforce same-facility object access.
+- `lplpo`: monthly reporting and stock requests from Puskesmas. All non-superuser queue, detail, print, verification, review, reject, finalize, and prefill surfaces now require a linked `user.facility` and are scoped to that facility.
 - `reports`: report index with rekap, hibah receiving, procurement, expiry, outbound reporting views, and document numbering history for LPLPO/Special Request distributions. The combined outbound report remains on `/reports/pengeluaran/`, while the distribution module owns dedicated route-based report variants at `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, and `/distribution/report/lplpo/`.
   Puskesmas-side `Rekap Laporan Persediaan` also carries an LPLPO-derived asset valuation dimension summarized per kategori from per-line `harga_satuan`.
   Puskesmas-side `Rincian` and `Rekap Laporan Persediaan` filters use yearly, triwulan, and semester periods rather than a raw month selector.
@@ -90,7 +90,8 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 ### Specialized Roles (e.g. OPERATOR PUSKESMAS)
 
 - `OPERATOR PUSKESMAS` role uses `facility` matching. Views in `puskesmas` and `lplpo` enforce strict facility isolation so that operators from one facility cannot read/write another facility's documents.
-- Super Admin (`is_superuser` / role `ADMIN`) is exempt from facility scoping in `lplpo` and may create, edit, submit, and delete LPLPO across all Puskesmas facilities.
+- Every non-superuser account using `puskesmas` or `lplpo` operational surfaces must have a linked `facility`; otherwise the request is denied with `403`.
+- Super Admin (`is_superuser` / role `ADMIN`) is the only role exempt from `puskesmas` and `lplpo` facility scoping and may cross facility boundaries on those modules.
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback). Superusers may query all facilities; any non-superuser user is forced to their linked `facility` on those report querysets and receives `403` when no facility is linked.
 
 ## Workflow and Data Mutation Rules

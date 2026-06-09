@@ -72,8 +72,9 @@ class PuskesmasRequestFormTests(TestCase):
 		self.assertEqual(form.fields["item"].label_from_instance(self.item), "Haloperidol 5 mg")
 
 
-class PuskesmasRequestCreateViewTests(TestCase):
+class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
 	def setUp(self):
+		super().setUp()
 		self.unit = Unit.objects.create(code="TAB", name="Tablet")
 		self.category = Category.objects.create(code="OBT", name="Obat", sort_order=1)
 		self.facility = Facility.objects.create(
@@ -109,6 +110,13 @@ class PuskesmasRequestCreateViewTests(TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=self.other_facility,
 		)
+		self.staff_facility_user = User.objects.create_user(
+			username="admin-umum-facility",
+			password="TestPassword123!",
+			role=User.Role.ADMIN_UMUM,
+			facility=self.facility,
+		)
+		ensure_default_module_access(self.staff_facility_user, overwrite=True)
 
 	def test_create_binds_request_to_logged_in_facility(self):
 		self.client.force_login(self.user)
@@ -222,7 +230,7 @@ class PuskesmasRequestCreateViewTests(TestCase):
 		self.assertContains(response, own_request.document_number)
 		self.assertNotContains(response, other_request.document_number)
 
-	def test_detail_redirects_when_operator_accesses_other_facility_request(self):
+	def test_detail_returns_403_when_operator_accesses_other_facility_request(self):
 		other_request = PuskesmasRequest.objects.create(
 			facility=self.other_facility,
 			created_by=self.other_user,
@@ -233,10 +241,9 @@ class PuskesmasRequestCreateViewTests(TestCase):
 			reverse("puskesmas:request_detail", args=[other_request.pk])
 		)
 
-		self.assertEqual(response.status_code, 302)
-		self.assertRedirects(response, reverse("puskesmas:request_list"))
+		self.assertEqual(response.status_code, 403)
 
-	def test_edit_redirects_when_operator_accesses_other_facility_request(self):
+	def test_edit_returns_403_when_operator_accesses_other_facility_request(self):
 		other_request = PuskesmasRequest.objects.create(
 			facility=self.other_facility,
 			created_by=self.other_user,
@@ -247,10 +254,9 @@ class PuskesmasRequestCreateViewTests(TestCase):
 			reverse("puskesmas:request_edit", args=[other_request.pk])
 		)
 
-		self.assertEqual(response.status_code, 302)
-		self.assertRedirects(response, reverse("puskesmas:request_list"))
+		self.assertEqual(response.status_code, 403)
 
-	def test_submit_redirects_when_operator_accesses_other_facility_request(self):
+	def test_submit_returns_403_when_operator_accesses_other_facility_request(self):
 		other_request = PuskesmasRequest.objects.create(
 			facility=self.other_facility,
 			status=PuskesmasRequest.Status.DRAFT,
@@ -267,12 +273,11 @@ class PuskesmasRequestCreateViewTests(TestCase):
 			reverse("puskesmas:request_submit", args=[other_request.pk])
 		)
 
-		self.assertEqual(response.status_code, 302)
-		self.assertRedirects(response, reverse("puskesmas:request_list"))
+		self.assertEqual(response.status_code, 403)
 		other_request.refresh_from_db()
 		self.assertEqual(other_request.status, PuskesmasRequest.Status.DRAFT)
 
-	def test_kepala_with_missing_module_rows_can_still_view_request_list(self):
+	def test_non_superuser_without_facility_cannot_view_request_list(self):
 		kepala = User.objects.create_user(
 			username="kepala-legacy",
 			password="TestPassword123!",
@@ -287,10 +292,9 @@ class PuskesmasRequestCreateViewTests(TestCase):
 		self.client.force_login(kepala)
 		response = self.client.get(reverse("puskesmas:request_list"))
 
-		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "Permintaan Barang Puskesmas")
+		self.assertEqual(response.status_code, 403)
 
-	def test_admin_umum_with_missing_module_rows_can_view_request_detail(self):
+	def test_non_superuser_without_facility_cannot_view_request_detail(self):
 		admin_umum = User.objects.create_user(
 			username="admin-umum-legacy",
 			password="TestPassword123!",
@@ -305,8 +309,35 @@ class PuskesmasRequestCreateViewTests(TestCase):
 		self.client.force_login(admin_umum)
 		response = self.client.get(reverse("puskesmas:request_detail", args=[req.pk]))
 
+		self.assertEqual(response.status_code, 403)
+
+	def test_non_superuser_with_facility_list_is_scoped(self):
+		own_request = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			created_by=self.user,
+		)
+		other_request = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			created_by=self.other_user,
+		)
+
+		self.client.force_login(self.staff_facility_user)
+		response = self.client.get(reverse("puskesmas:request_list"))
+
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, req.document_number)
+		self.assertContains(response, own_request.document_number)
+		self.assertNotContains(response, other_request.document_number)
+
+	def test_non_superuser_with_facility_cannot_view_other_facility_request(self):
+		other_request = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			created_by=self.other_user,
+		)
+
+		self.client.force_login(self.staff_facility_user)
+		response = self.client.get(reverse("puskesmas:request_detail", args=[other_request.pk]))
+
+		self.assertEqual(response.status_code, 403)
 
 	def test_explicit_none_scope_cannot_view_request_list(self):
 		auditor = User.objects.create_user(
@@ -326,8 +357,9 @@ class PuskesmasRequestCreateViewTests(TestCase):
 		self.assertEqual(response.status_code, 403)
 
 
-class PuskesmasRequestApprovalTests(TestCase):
+class PuskesmasRequestApprovalTests(SecureClientDefaultsMixin, TestCase):
 	def setUp(self):
+		super().setUp()
 		self.unit = Unit.objects.create(code="TAB", name="Tablet")
 		self.category = Category.objects.create(code="OBT", name="Obat", sort_order=1)
 		self.facility = Facility.objects.create(
@@ -351,6 +383,7 @@ class PuskesmasRequestApprovalTests(TestCase):
 			username="approver-root",
 			password="TestPassword123!",
 			role=User.Role.KEPALA,
+			facility=self.facility,
 		)
 		self.manager = User.objects.create_superuser(
 			username="manager-puskesmas",
@@ -366,6 +399,17 @@ class PuskesmasRequestApprovalTests(TestCase):
 			user=self.manager,
 			module=ModuleAccess.Module.PUSKESMAS,
 			defaults={"scope": ModuleAccess.Scope.MANAGE},
+		)
+		self.other_facility = Facility.objects.create(
+			code="PKM-02",
+			name="Puskesmas Dua",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.other_requester = User.objects.create_user(
+			username="operator-submit-other",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.other_facility,
 		)
 
 	def test_approve_creates_distribution_with_requested_and_approved_quantities(self):
@@ -550,6 +594,30 @@ class PuskesmasRequestApprovalTests(TestCase):
 		self.assertEqual(response.status_code, 302)
 		req.refresh_from_db()
 		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+
+	def test_approver_cannot_approve_other_facility_request(self):
+		req = PuskesmasRequest.objects.create(
+			facility=self.other_facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.other_requester,
+		)
+		item_line = PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("8.00"),
+		)
+
+		self.client.force_login(self.approver)
+		response = self.client.post(
+			reverse("puskesmas:request_approve", args=[req.pk]),
+			{f"approve_{item_line.pk}-quantity_approved": "5.00"},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+		self.assertIsNone(req.distribution)
 
 
 class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
