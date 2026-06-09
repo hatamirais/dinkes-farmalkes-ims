@@ -7,19 +7,33 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-06-09
+
 ### Added
 
-- Security hardening: tightened `puskesmas` and `lplpo` facility tenancy so only superusers may cross facility boundaries; all other operational queue/detail/print/review/prefill surfaces now require a linked facility and return `403` on mismatch or missing linkage.
-- Distribution: added a dedicated manual LPLPO create route at `/distribution/lplpo/create/` so Instalasi Farmasi can issue LPLPO-bucket distributions during mid-year rollout or catch-up without forcing immediate January-to-current Puskesmas backfill.
+- Distribution: added a dedicated manual LPLPO create route at `/distribution/lplpo/create/` so Instalasi Farmasi can issue LPLPO-bucket distributions during rollout or catch-up work without forcing immediate backfill of historical Puskesmas documents.
+- Puskesmas: added and expanded operational reporting and request-management surfaces, including dedicated views for penerimaan, pemakaian, persediaan, and rekap persediaan.
+- LPLPO/reporting: added an asset-valuation dimension derived from `harga_satuan`, improving stock-value visibility in Puskesmas-side reporting.
+- Security hardening: added configurable rate limiting for sensitive authenticated POST endpoints, with throttled requests routed through the centralized `429` error page.
 
 ### Changed
 
-- Distribution: the LPLPO list page now exposes a `Buat Distribusi LPLPO` action, while generated LPLPO distributions continue to derive from LPLPO review and keep their source-driven edit locks.
+- Security hardening: tightened `puskesmas` and `lplpo` facility tenancy so all non-superusers now require a linked `facility` on affected operational, review, print, prefill, and reporting surfaces, while cross-facility access remains restricted to superusers.
+- LPLPO/distribution workflow: tightened the review handoff and downstream distribution coordination, while keeping LPLPO-generated draft distributions source-driven and quantity-locked where intended.
+- Distribution: the LPLPO list page now exposes a `Buat Distribusi LPLPO` action, and generated LPLPO distributions now support the intended operational fallback and reversal flow back to Puskesmas when needed.
+- Reporting UX: improved outbound reporting filters, tab behavior, and print readability across the dedicated distribution report variants.
+- Dashboard: refreshed the inbound/outbound movement visualization and cleaned up transfer-related movement metrics in summary cards.
+- Platform/docs: updated to Django `6.0.6`, normalized `backend/requirements.txt`, and expanded developer/internal documentation for the current stack and workflows.
 
 ### Fixed
 
-- Security hardening: neutralized CSV formula injection across custom CSV exports and django-import-export admin CSV downloads by sanitizing formula-prefixed cell values at export time.
-- Security hardening: restricted Puskesmas report cross-facility scope to superusers and aligned distribution reset-to-draft, step-back, and delete with the existing assignee-aware object authorization rule.
+- Security hardening: neutralized CSV and XLSX formula injection risks across custom exports and django-import-export admin downloads by sanitizing formula-prefixed cell values.
+- Security hardening: moved receiving document attachments behind authenticated private access and tightened upload validation plus audit logging around file-handling paths.
+- Security hardening: restricted Puskesmas report export cross-facility scope to superusers and aligned distribution reset-to-draft, step-back, and delete with the existing assignee-aware object authorization rule.
+- LPLPO/Puskesmas authorization: closed facility-scoping gaps across queue, detail, print, review, and prefill surfaces, including follow-up DRY/CodeQL cleanup and ADMIN-role exemption fixes.
+- Stock/data validation: rejected non-finite decimal values earlier in stock-affecting workflows before business-rule comparisons and calculations run.
+- Distribution/reporting: corrected transfer movement noise, distribution form regressions, and related LPLPO-driven workflow edge cases.
+- Quality: expanded automated test coverage substantially across `core`, `distribution`, `lplpo`, `puskesmas`, `receiving`, `reports`, and `users` to lock in the updated behavior.
 
 ## [1.24.0] - 2026-05-21
 
