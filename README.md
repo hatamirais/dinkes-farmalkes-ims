@@ -42,9 +42,9 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
 - `stock_opname`: proses hitung fisik dan cetak laporan selisih.
-- `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas.
+- `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas. Seluruh surface operasional modul ini sekarang mewajibkan `facility` pada akun untuk semua non-superuser dan selalu membatasi akses objek ke fasilitas akun tersebut.
 - `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas, termasuk pelacakan `harga_satuan` per baris untuk valuasi aset pada rekap persediaan.
-  Super Admin dapat mengelola LPLPO lintas fasilitas, sementara operator Puskesmas tetap dibatasi ke fasilitasnya sendiri.
+  Super Admin dapat mengelola LPLPO lintas fasilitas, sedangkan semua pengguna non-superuser kini wajib punya `facility` terhubung dan selalu dibatasi ke fasilitasnya sendiri pada queue, detail, print, verifikasi, review, reject, finalize, dan prefill.
 - Laporan Puskesmas (`Riwayat Penerimaan`, `Riwayat Pemakaian`, `Rincian Persediaan`, dan `Rekap Persediaan`) kini hanya mendukung cakupan lintas fasilitas untuk superuser. Pengguna non-superuser selalu dipaksa ke `facility` akun mereka sendiri dan akan ditolak bila akun belum terhubung ke fasilitas.
 - `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 

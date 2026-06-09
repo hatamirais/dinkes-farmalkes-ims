@@ -23,11 +23,27 @@ from .forms import (
 from .models import PuskesmasRequest, PuskesmasRequestItem
 
 
+def _is_super_admin(user):
+    return bool(getattr(user, "is_superuser", False))
+
+
+def _get_required_facility(user):
+    if _is_super_admin(user):
+        return None
+
+    facility = getattr(user, "facility", None)
+    if not facility:
+        raise PermissionDenied(
+            "Akun Anda belum terhubung ke fasilitas puskesmas."
+        )
+    return facility
+
+
 def _can_review_request(user):
     if not getattr(user, "is_authenticated", False):
         return False
 
-    if user.is_superuser:
+    if _is_super_admin(user):
         return True
 
     if getattr(user, "role", None) == "PUSKESMAS":
@@ -46,13 +62,18 @@ def _can_manage_request(user, req=None):
     if not getattr(user, "is_authenticated", False):
         return False
 
-    if user.is_superuser:
+    if _is_super_admin(user):
         return True
 
+    facility = getattr(user, "facility", None)
+    if not facility:
+        return False
+
+    if req is not None and req.facility_id != facility.pk:
+        return False
+
     if getattr(user, "role", None) == "PUSKESMAS":
-        if not user.facility_id:
-            return False
-        return req is None or req.facility_id == user.facility_id
+        return True
 
     return has_module_permission(
         user, "puskesmas.change_puskesmasrequest"
@@ -74,16 +95,12 @@ def _can_reset_request_to_draft(user, req):
 
 
 def _check_request_facility_access(request, req):
-    if getattr(request.user, "role", None) != "PUSKESMAS":
+    if _is_super_admin(request.user):
         return None
 
-    if not request.user.facility_id:
-        messages.error(request, "Akun Anda belum terhubung ke fasilitas puskesmas.")
-        return redirect("puskesmas:request_list")
-
-    if req.facility_id != request.user.facility_id:
-        messages.error(request, "Anda tidak memiliki akses ke permintaan ini.")
-        return redirect("puskesmas:request_list")
+    facility = _get_required_facility(request.user)
+    if req.facility_id != facility.pk:
+        raise PermissionDenied("Anda tidak memiliki akses ke permintaan ini.")
 
     return None
 
@@ -104,11 +121,9 @@ def request_list(request):
         "facility", "created_by", "program"
     ).order_by("-request_date")
 
-    if getattr(request.user, "role", None) == "PUSKESMAS":
-        if request.user.facility_id:
-            queryset = queryset.filter(facility_id=request.user.facility_id)
-        else:
-            queryset = queryset.none()
+    if not _is_super_admin(request.user):
+        facility = _get_required_facility(request.user)
+        queryset = queryset.filter(facility_id=facility.pk)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -318,6 +333,9 @@ def request_approve(request, pk):
         raise PermissionDenied("Operator Puskesmas tidak dapat menyetujui permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
 
@@ -420,6 +438,9 @@ def request_reject(request, pk):
         raise PermissionDenied("Operator Puskesmas tidak dapat menolak permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
+    denied = _check_request_facility_access(request, req)
+    if denied:
+        return denied
     if request.method != "POST":
         return redirect("puskesmas:request_detail", pk=pk)
 
@@ -616,7 +637,7 @@ def puskesmas_report_penerimaan(request):
 
     # Facility chooser for super admin
     all_facilities = []
-    if not getattr(request.user, "role", None) == "PUSKESMAS":
+    if _is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -721,7 +742,7 @@ def puskesmas_report_pemakaian(request):
 
     # Facility chooser for super admin
     all_facilities = []
-    if not getattr(request.user, "role", None) == "PUSKESMAS":
+    if _is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -930,7 +951,7 @@ def puskesmas_report_persediaan(request):
 
     # Facility chooser for super admin
     all_facilities = []
-    if not getattr(request.user, "role", None) == "PUSKESMAS":
+    if _is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -1120,7 +1141,7 @@ def puskesmas_report_rekap_persediaan(request):
             )
 
     all_facilities = []
-    if not getattr(request.user, "role", None) == "PUSKESMAS":
+    if _is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")

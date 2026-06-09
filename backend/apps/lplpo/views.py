@@ -42,20 +42,26 @@ def _is_super_admin(user):
     return bool(getattr(user, "is_superuser", False))
 
 
+def _get_required_facility(user):
+    if _is_super_admin(user):
+        return None
+
+    facility = getattr(user, "facility", None)
+    if not facility:
+        raise PermissionDenied("Akun Anda belum terhubung ke fasilitas.")
+    return facility
+
+
 def _check_facility_access(request, lplpo_obj):
     """
-    Returns a redirect response if the current PUSKESMAS user is trying
-    to access an LPLPO that belongs to a different facility.
-    Returns None if access is allowed.
+    Enforce per-facility access for every non-superuser.
     """
-    if _is_super_admin(request.user) or request.user.role != User.Role.PUSKESMAS:
+    if _is_super_admin(request.user):
         return None
-    if not request.user.facility:
-        messages.error(request, "Akun Anda belum terhubung ke fasilitas.")
-        return redirect("lplpo:lplpo_my_list")
-    if lplpo_obj.facility_id != request.user.facility_id:
-        messages.error(request, "Anda tidak memiliki akses ke LPLPO ini.")
-        return redirect("lplpo:lplpo_my_list")
+
+    facility = _get_required_facility(request.user)
+    if lplpo_obj.facility_id != facility.pk:
+        raise PermissionDenied("Anda tidak memiliki akses ke LPLPO ini.")
     return None
 
 
@@ -197,6 +203,10 @@ def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
     submitted_year = request.GET.get("submitted_year", "").strip()
     if submitted_year:
         queryset = queryset.filter(submitted_at__year=submitted_year)
+
+    if not _is_super_admin(request.user):
+        facility = _get_required_facility(request.user)
+        queryset = queryset.filter(facility=facility)
 
     return queryset, {
         "search": q,
@@ -442,21 +452,29 @@ def api_prefill_penerimaan(request):
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     facility = request.user.facility
-    if request.user.role != User.Role.PUSKESMAS:
-        if not has_module_scope(
-            request.user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE
-        ):
-            return JsonResponse({"detail": "Insufficient permissions."}, status=403)
+    if _is_super_admin(request.user):
         facility_id = request.GET.get("facility")
         if facility_id:
-            from apps.items.models import Facility
-
             facility = get_object_or_404(
                 Facility,
                 pk=facility_id,
                 facility_type="PUSKESMAS",
                 is_active=True,
             )
+    elif request.user.role != User.Role.PUSKESMAS:
+        if not has_module_scope(
+            request.user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE
+        ):
+            return JsonResponse({"detail": "Insufficient permissions."}, status=403)
+        try:
+            facility = _get_required_facility(request.user)
+        except PermissionDenied as exc:
+            return JsonResponse({"detail": str(exc)}, status=403)
+    else:
+        try:
+            facility = _get_required_facility(request.user)
+        except PermissionDenied as exc:
+            return JsonResponse({"detail": str(exc)}, status=403)
 
     if not facility:
         return JsonResponse(
@@ -764,6 +782,9 @@ def lplpo_verify(request, pk):
             LPLPO.objects.select_for_update(),
             pk=pk,
         )
+        denied = _check_facility_access(request, lplpo_obj)
+        if denied:
+            return denied
 
         if lplpo_obj.status != LPLPO.Status.SUBMITTED:
             messages.error(
@@ -814,6 +835,9 @@ def lplpo_reject(request, pk):
             LPLPO.objects.select_for_update(),
             pk=pk,
         )
+        denied = _check_facility_access(request, lplpo_obj)
+        if denied:
+            return denied
 
         if lplpo_obj.status == LPLPO.Status.SUBMITTED:
             if not _has_lplpo_operate_access(request.user):
@@ -866,6 +890,9 @@ def lplpo_review(request, pk):
         return denied
 
     lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
+    denied = _check_facility_access(request, lplpo_obj)
+    if denied:
+        return denied
 
     if lplpo_obj.status not in (
         LPLPO.Status.PIC_VERIFIED,
@@ -1019,6 +1046,9 @@ def lplpo_finalize(request, pk):
         return denied
 
     lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
+    denied = _check_facility_access(request, lplpo_obj)
+    if denied:
+        return denied
     if request.method != "POST":
         return redirect("lplpo:lplpo_detail", pk=pk)
 
