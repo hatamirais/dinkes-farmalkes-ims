@@ -13,7 +13,7 @@ from apps.core.decorators import module_scope_required, perm_required
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.users.access import has_module_permission, has_module_scope
-from apps.users.models import ModuleAccess
+from apps.users.models import ModuleAccess, User
 
 from .forms import (
     ApprovalItemForm,
@@ -24,7 +24,7 @@ from .models import PuskesmasRequest, PuskesmasRequestItem
 
 
 def _is_super_admin(user):
-    return bool(getattr(user, "is_superuser", False))
+    return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
 
 
 def _get_required_facility(user):

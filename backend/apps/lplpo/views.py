@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 def _is_super_admin(user):
-    return bool(getattr(user, "is_superuser", False))
+    return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
 
 
 def _get_required_facility(user):
@@ -451,7 +451,7 @@ def api_prefill_penerimaan(request):
     if request.method != "GET":
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
-    facility = request.user.facility
+    facility = None
     if _is_super_admin(request.user):
         facility_id = request.GET.get("facility")
         if facility_id:
@@ -461,20 +461,16 @@ def api_prefill_penerimaan(request):
                 facility_type="PUSKESMAS",
                 is_active=True,
             )
-    elif request.user.role != User.Role.PUSKESMAS:
-        if not has_module_scope(
-            request.user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE
-        ):
-            return JsonResponse({"detail": "Insufficient permissions."}, status=403)
-        try:
-            facility = _get_required_facility(request.user)
-        except PermissionDenied as exc:
-            return JsonResponse({"detail": str(exc)}, status=403)
     else:
+        if request.user.role != User.Role.PUSKESMAS:
+            if not has_module_scope(
+                request.user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE
+            ):
+                return JsonResponse({"detail": "Insufficient permissions."}, status=403)
         try:
             facility = _get_required_facility(request.user)
-        except PermissionDenied as exc:
-            return JsonResponse({"detail": str(exc)}, status=403)
+        except PermissionDenied:
+            return JsonResponse({"detail": "Akun Anda belum terhubung ke fasilitas."}, status=403)
 
     if not facility:
         return JsonResponse(
