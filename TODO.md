@@ -73,7 +73,9 @@
 
 19. Create Kartu Stok for Puskesmas
 
-20. Import feature for LPLPO complete with acceptable template
+20. Import feature for puskesmas's LPLPO complete with acceptable template
+
+21. Feature for inputting receivement and consumption on puskesmas, which the data will be auto-used for LPLPO
 
 ## Version 2
 
