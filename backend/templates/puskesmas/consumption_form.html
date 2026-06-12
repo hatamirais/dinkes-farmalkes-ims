@@ -144,6 +144,11 @@
         {% endif %}
 
         <div class="d-flex gap-2">
+            {% if not is_edit and request.user.is_superuser %}
+            <button type="submit" name="action" value="load_matrix" class="btn btn-outline-primary">
+                <i class="bi bi-layout-text-window-reverse me-1"></i>Muat Matriks
+            </button>
+            {% endif %}
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Pemakaian{% endif %}
             </button>

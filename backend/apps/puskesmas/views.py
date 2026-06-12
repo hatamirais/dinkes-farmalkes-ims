@@ -266,6 +266,10 @@ def _build_consumption_form_rows(form, *, items, subunits):
     return rows
 
 
+def _request_has_consumption_matrix_input(request):
+    return any(key.startswith("qty_") for key in request.POST.keys())
+
+
 # ──────────────────────────── SBBK CRUD ────────────────────────────
 
 
@@ -467,7 +471,27 @@ def consumption_create(request):
             items=items,
         )
         if form.is_valid():
-            if not subunits:
+            should_load_matrix = (
+                _is_super_admin(request.user)
+                and request.POST.get("action") == "load_matrix"
+            )
+            if should_load_matrix:
+                selected_facility = form.cleaned_data.get("facility") or facility
+                facility = selected_facility
+                subunits = _get_consumption_subunits(facility) if facility else []
+                form = PuskesmasConsumptionMatrixForm(
+                    request.POST,
+                    user=request.user,
+                    subunits=subunits,
+                    items=items,
+                )
+                form.is_valid()
+            elif not _request_has_consumption_matrix_input(request):
+                form.add_error(
+                    None,
+                    "Muat matriks pemakaian terlebih dahulu sebelum menyimpan dokumen.",
+                )
+            elif not subunits:
                 form.add_error(
                     None,
                     "Tambahkan minimal 1 subunit aktif sebelum menyimpan pemakaian.",
@@ -480,6 +504,7 @@ def consumption_create(request):
                             facility=consumption.facility,
                             bulan=consumption.bulan,
                             tahun=consumption.tahun,
+                            lock=True,
                         )
                         Facility.objects.select_for_update().get(pk=consumption.facility_id)
                         if PuskesmasConsumption.objects.filter(
@@ -623,6 +648,7 @@ def consumption_edit(request, pk):
                             facility=consumption.facility,
                             bulan=consumption.bulan,
                             tahun=consumption.tahun,
+                            lock=True,
                         )
                         consumption = PuskesmasConsumption.objects.select_for_update().get(
                             pk=consumption.pk
@@ -700,6 +726,7 @@ def consumption_delete(request, pk):
                 facility=consumption.facility,
                 bulan=consumption.bulan,
                 tahun=consumption.tahun,
+                lock=True,
             )
             facility = consumption.facility
             bulan = consumption.bulan

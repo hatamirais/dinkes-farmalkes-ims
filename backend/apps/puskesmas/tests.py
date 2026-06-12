@@ -29,6 +29,7 @@ from apps.puskesmas.models import (
 	PuskesmasSBBKItem,
 	PuskesmasSubunit,
 )
+from apps.puskesmas.services import assert_consumption_month_mutable
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 from apps.lplpo.models import LPLPO, LPLPOItem
@@ -314,6 +315,35 @@ class PuskesmasConsumptionFormTests(TestCase):
 
 		self.assertFalse(form.is_valid())
 		self.assertIn(f"qty_{self.item.pk}_{self.subunit.pk}", form.errors)
+
+	def test_assert_consumption_month_mutable_uses_row_lock_when_requested(self):
+		lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			status=LPLPO.Status.DRAFT,
+			created_by=self.user,
+		)
+
+		with patch("apps.puskesmas.services.LPLPO.objects.filter") as mocked_filter:
+			mocked_queryset = mocked_filter.return_value
+			mocked_queryset.select_for_update.return_value = mocked_queryset
+			mocked_queryset.only.return_value.first.return_value = lplpo
+
+			result = assert_consumption_month_mutable(
+				facility=self.facility,
+				bulan=2,
+				tahun=2026,
+				lock=True,
+			)
+
+		mocked_filter.assert_called_once_with(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+		)
+		mocked_queryset.select_for_update.assert_called_once_with()
+		self.assertEqual(result, lplpo)
 
 
 class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
@@ -1163,6 +1193,11 @@ class PuskesmasConsumptionViewTests(SecureClientDefaultsMixin, TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=self.other_facility,
 		)
+		self.admin = User.objects.create_superuser(
+			username="admin-consumption",
+			email="admin-consumption@example.com",
+			password="TestPassword123!",
+		)
 
 	def _create_lplpo(self, status=LPLPO.Status.DRAFT):
 		lplpo = LPLPO.objects.create(
@@ -1256,6 +1291,29 @@ class PuskesmasConsumptionViewTests(SecureClientDefaultsMixin, TestCase):
 			second_response,
 			"Terlalu banyak percobaan pada aksi ini",
 			status_code=429,
+		)
+
+	def test_superuser_load_matrix_does_not_create_blank_consumption(self):
+		self.client.force_login(self.admin)
+
+		response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			{
+				"facility": str(self.facility.pk),
+				"bulan": "2",
+				"tahun": "2026",
+				"notes": "",
+				"action": "load_matrix",
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(PuskesmasConsumption.objects.count(), 0)
+		self.assertContains(response, self.subunit.name)
+		self.assertContains(
+			response,
+			f'qty_{self.item.pk}_{self.subunit.pk}',
+			html=False,
 		)
 
 

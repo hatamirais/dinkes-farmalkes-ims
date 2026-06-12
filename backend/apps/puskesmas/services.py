@@ -46,17 +46,16 @@ def sync_sbbk_month(*, facility, received_date):
         )
 
 
-def assert_consumption_month_mutable(*, facility, bulan, tahun):
+def assert_consumption_month_mutable(*, facility, bulan, tahun, lock=False):
     """Ensure detailed consumption can still change the target facility/month."""
-    lplpo = (
-        LPLPO.objects.filter(
+    queryset = LPLPO.objects.filter(
             facility=facility,
             bulan=bulan,
             tahun=tahun,
         )
-        .only("status", "document_number")
-        .first()
-    )
+    if lock:
+        queryset = queryset.select_for_update()
+    lplpo = queryset.only("status", "document_number").first()
     if lplpo and lplpo.status not in EDITABLE_LPLPO_STATUSES:
         raise ValidationError(
             "Pemakaian untuk periode ini tidak dapat diubah karena LPLPO sudah diajukan atau diproses."
