@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Subunit Puskesmas – Healthcare IMS{% endblock %}
+{% block page_title %}Subunit Puskesmas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="mb-1">Subunit Puskesmas</h4>
+            <p class="text-muted mb-0">Kelola ruang tindakan dan Puskesmas pembantu yang menjadi kolom dinamis pemakaian rinci.</p>
+        </div>
+        {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
+        <a href="{% url 'puskesmas:subunit_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Subunit
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nama subunit / puskesmas..." class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <select name="subunit_type" class="form-select">
+                        <option value="">Semua Jenis</option>
+                        {% for value, label in subunit_type_choices %}
+                        <option value="{{ value }}" {% if selected_subunit_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-primary">Cari</button>
+                    <a href="{% url 'puskesmas:subunit_list' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nama</th>
+                            <th>Puskesmas</th>
+                            <th>Jenis</th>
+                            <th>Urutan</th>
+                            <th>Status</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subunit in subunits %}
+                        <tr>
+                            <td class="fw-semibold">{{ subunit.name }}</td>
+                            <td>{{ subunit.facility.name }}</td>
+                            <td>{{ subunit.get_subunit_type_display }}</td>
+                            <td>{{ subunit.sort_order }}</td>
+                            <td>
+                                {% if subunit.is_active %}
+                                <span class="badge text-bg-success">Aktif</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary">Nonaktif</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
+                                <a href="{% url 'puskesmas:subunit_edit' subunit.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <form method="post" action="{% url 'puskesmas:subunit_delete' subunit.pk %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">Belum ada subunit Puskesmas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -13,17 +13,23 @@ from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, Item, Unit
 from apps.puskesmas.exports import export_puskesmas_penerimaan_excel
 from apps.puskesmas.forms import (
+	PuskesmasConsumptionMatrixForm,
 	PuskesmasRequestForm,
 	PuskesmasRequestItemForm,
 	PuskesmasSBBKForm,
 	PuskesmasSBBKItemForm,
+	PuskesmasSubunitForm,
 )
 from apps.puskesmas.models import (
+	PuskesmasConsumption,
+	PuskesmasConsumptionEntry,
 	PuskesmasRequest,
 	PuskesmasRequestItem,
 	PuskesmasSBBK,
 	PuskesmasSBBKItem,
+	PuskesmasSubunit,
 )
+from apps.puskesmas.services import assert_consumption_month_mutable
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 from apps.lplpo.models import LPLPO, LPLPOItem
@@ -243,6 +249,140 @@ class PuskesmasSBBKFormTests(TestCase):
 
 		with self.assertRaises(ValidationError):
 			item.full_clean()
+
+
+class PuskesmasConsumptionFormTests(TestCase):
+	def setUp(self):
+		self.unit = Unit.objects.create(code="TAB", name="Tablet")
+		self.category = Category.objects.create(code="OBT", name="Obat", sort_order=1)
+		self.facility = Facility.objects.create(
+			code="PKM-CNS-01",
+			name="Puskesmas Konsumsi",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.item = Item.objects.create(
+			nama_barang="Paracetamol",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		self.subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Umum",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		self.user = User.objects.create_user(
+			username="operator-consumption-form",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.facility,
+		)
+
+	def test_subunit_form_ignores_posted_other_facility(self):
+		other_facility = Facility.objects.create(
+			code="PKM-CNS-02",
+			name="Puskesmas Lain",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		form = PuskesmasSubunitForm(
+			data={
+				"facility": other_facility.pk,
+				"name": "  Poli Gigi  ",
+				"subunit_type": PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+				"sort_order": "0",
+				"is_active": "on",
+			},
+			user=self.user,
+		)
+
+		self.assertTrue(form.is_valid())
+		self.assertEqual(form.cleaned_data["facility"], self.facility)
+		self.assertEqual(form.cleaned_data["name"], "Poli Gigi")
+
+	def test_subunit_form_rejects_facility_change_after_consumption_history_exists(self):
+		admin = User.objects.create_superuser(
+			username="admin-subunit-form",
+			email="admin-subunit-form@example.com",
+			password="TestPassword123!",
+		)
+		other_facility = Facility.objects.create(
+			code="PKM-CNS-03",
+			name="Puskesmas Pindah",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			created_by=self.user,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=self.item,
+			subunit=self.subunit,
+			quantity=3,
+		)
+
+		form = PuskesmasSubunitForm(
+			data={
+				"facility": other_facility.pk,
+				"name": self.subunit.name,
+				"subunit_type": self.subunit.subunit_type,
+				"sort_order": str(self.subunit.sort_order),
+				"is_active": "on",
+			},
+			instance=self.subunit,
+			user=admin,
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn("facility", form.errors)
+
+	def test_consumption_form_rejects_fractional_matrix_quantity(self):
+		form = PuskesmasConsumptionMatrixForm(
+			data={
+				"facility": self.facility.pk,
+				"bulan": "2",
+				"tahun": "2026",
+				"notes": "",
+				f"qty_{self.item.pk}_{self.subunit.pk}": "1.50",
+			},
+			user=self.user,
+			subunits=[self.subunit],
+			items=[self.item],
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn(f"qty_{self.item.pk}_{self.subunit.pk}", form.errors)
+
+	def test_assert_consumption_month_mutable_uses_row_lock_when_requested(self):
+		lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			status=LPLPO.Status.DRAFT,
+			created_by=self.user,
+		)
+
+		with patch("apps.puskesmas.services.LPLPO.objects.filter") as mocked_filter:
+			mocked_queryset = mocked_filter.return_value
+			mocked_queryset.select_for_update.return_value = mocked_queryset
+			mocked_queryset.only.return_value.first.return_value = lplpo
+
+			result = assert_consumption_month_mutable(
+				facility=self.facility,
+				bulan=2,
+				tahun=2026,
+				lock=True,
+			)
+
+		mocked_filter.assert_called_once_with(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+		)
+		mocked_queryset.select_for_update.assert_called_once_with()
+		self.assertEqual(result, lplpo)
 
 
 class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
@@ -1048,6 +1188,267 @@ class PuskesmasRequestApprovalTests(SecureClientDefaultsMixin, TestCase):
 		req.refresh_from_db()
 		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
 		self.assertIsNone(req.distribution)
+
+class PuskesmasConsumptionViewTests(SecureClientDefaultsMixin, TestCase):
+	def setUp(self):
+		super().setUp()
+		self.unit = Unit.objects.create(code="TAB", name="Tablet")
+		self.category = Category.objects.create(code="OBT", name="Obat", sort_order=1)
+		self.facility = Facility.objects.create(
+			code="PKM-CON-01",
+			name="Puskesmas Pemakaian",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.other_facility = Facility.objects.create(
+			code="PKM-CON-02",
+			name="Puskesmas Pemakaian Lain",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.item = Item.objects.create(
+			nama_barang="Amoxicillin 500 mg",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		self.subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Umum",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		self.other_subunit = PuskesmasSubunit.objects.create(
+			facility=self.other_facility,
+			name="Pustu A",
+			subunit_type=PuskesmasSubunit.SubunitType.HELPER_SITE,
+		)
+		self.operator = User.objects.create_user(
+			username="operator-consumption-view",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.facility,
+		)
+		self.other_operator = User.objects.create_user(
+			username="operator-consumption-other",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.other_facility,
+		)
+		self.admin = User.objects.create_superuser(
+			username="admin-consumption",
+			email="admin-consumption@example.com",
+			password="TestPassword123!",
+		)
+
+	def _create_lplpo(self, status=LPLPO.Status.DRAFT):
+		lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			status=status,
+			created_by=self.operator,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=self.item,
+			stock_awal=Decimal("10.00"),
+			penerimaan=Decimal("5.00"),
+			harga_satuan=Decimal("1000.00"),
+		)
+		return lplpo
+
+	def _payload(self, quantity="7"):
+		return {
+			"facility": str(self.facility.pk),
+			"bulan": "2",
+			"tahun": "2026",
+			"notes": "  Catatan konsumsi  ",
+			f"qty_{self.item.pk}_{self.subunit.pk}": quantity,
+		}
+
+	def test_create_consumption_syncs_editable_lplpo(self):
+		lplpo = self._create_lplpo()
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			self._payload(quantity="7"),
+		)
+
+		self.assertEqual(response.status_code, 302)
+		consumption = PuskesmasConsumption.objects.get()
+		self.assertEqual(consumption.notes, "Catatan konsumsi")
+		line = lplpo.items.get(item=self.item)
+		self.assertEqual(line.pemakaian, Decimal("7.00"))
+		self.assertEqual(line.stock_keseluruhan, Decimal("8.00"))
+
+	def test_create_consumption_is_blocked_when_lplpo_submitted(self):
+		self._create_lplpo(status=LPLPO.Status.SUBMITTED)
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			self._payload(quantity="7"),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Pemakaian untuk periode ini tidak dapat diubah")
+		self.assertEqual(PuskesmasConsumption.objects.count(), 0)
+
+	def test_cross_facility_consumption_detail_gets_403(self):
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.other_facility,
+			bulan=2,
+			tahun=2026,
+			created_by=self.other_operator,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=self.item,
+			subunit=self.other_subunit,
+			quantity=3,
+		)
+
+		self.client.force_login(self.operator)
+		response = self.client.get(reverse("puskesmas:consumption_detail", args=[consumption.pk]))
+
+		self.assertEqual(response.status_code, 403)
+
+	@override_settings(PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+	def test_create_consumption_returns_429_when_rate_limited(self):
+		self.client.force_login(self.operator)
+		first_response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			self._payload(quantity="1"),
+		)
+		second_response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			self._payload(quantity="2"),
+		)
+
+		self.assertEqual(first_response.status_code, 302)
+		self.assertEqual(second_response.status_code, 429)
+		self.assertContains(
+			second_response,
+			"Terlalu banyak percobaan pada aksi ini",
+			status_code=429,
+		)
+
+	def test_superuser_load_matrix_does_not_create_blank_consumption(self):
+		self.client.force_login(self.admin)
+
+		response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			{
+				"facility": str(self.facility.pk),
+				"bulan": "2",
+				"tahun": "2026",
+				"notes": "",
+				"action": "load_matrix",
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(PuskesmasConsumption.objects.count(), 0)
+		self.assertContains(response, self.subunit.name)
+		self.assertContains(
+			response,
+			f'qty_{self.item.pk}_{self.subunit.pk}',
+			html=False,
+		)
+
+	def test_edit_preserves_existing_inactive_item_entry(self):
+		lplpo = self._create_lplpo()
+		inactive_item = Item.objects.create(
+			nama_barang="Item Nonaktif",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			notes="Catatan awal",
+			created_by=self.operator,
+			updated_by=self.operator,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=self.item,
+			subunit=self.subunit,
+			quantity=7,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=inactive_item,
+			subunit=self.subunit,
+			quantity=4,
+		)
+		inactive_item.is_active = False
+		inactive_item.save(update_fields=["is_active", "updated_at"])
+		LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=inactive_item,
+			stock_awal=Decimal("3.00"),
+			penerimaan=Decimal("0.00"),
+			harga_satuan=Decimal("500.00"),
+		)
+
+		self.client.force_login(self.operator)
+		response = self.client.post(
+			reverse("puskesmas:consumption_edit", args=[consumption.pk]),
+			{
+				"facility": str(self.facility.pk),
+				"bulan": "2",
+				"tahun": "2026",
+				"notes": "Catatan diperbarui",
+				f"qty_{self.item.pk}_{self.subunit.pk}": "8",
+				f"qty_{inactive_item.pk}_{self.subunit.pk}": "4",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		consumption.refresh_from_db()
+		self.assertEqual(consumption.notes, "Catatan diperbarui")
+		self.assertTrue(
+			consumption.entries.filter(
+				item=inactive_item,
+				subunit=self.subunit,
+				quantity=4,
+			).exists()
+		)
+		self.assertEqual(lplpo.items.get(item=self.item).pemakaian, Decimal("8.00"))
+		self.assertEqual(
+			lplpo.items.get(item=inactive_item).pemakaian,
+			Decimal("4.00"),
+		)
+
+	def test_detail_shows_existing_inactive_item_entry(self):
+		inactive_item = Item.objects.create(
+			nama_barang="Vitamin C",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			created_by=self.operator,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=inactive_item,
+			subunit=self.subunit,
+			quantity=5,
+		)
+		inactive_item.is_active = False
+		inactive_item.save(update_fields=["is_active", "updated_at"])
+
+		self.client.force_login(self.operator)
+		response = self.client.get(reverse("puskesmas:consumption_detail", args=[consumption.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, inactive_item.nama_barang)
 
 
 class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):

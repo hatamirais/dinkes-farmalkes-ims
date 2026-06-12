@@ -39,6 +39,18 @@
         </div>
         {% endif %}
 
+        <div class="alert alert-secondary" role="alert">
+            <div class="fw-semibold mb-1">Pemakaian Dibaca dari Modul Pemakaian Rinci</div>
+            <div class="small mb-0">
+                Kolom <strong>Pemakaian</strong> pada LPLPO tidak lagi diedit langsung.
+                {% if linked_consumption %}
+                Perbarui data melalui <a href="{% url 'puskesmas:consumption_edit' linked_consumption.pk %}">dokumen pemakaian rinci periode ini</a>.
+                {% else %}
+                Buat atau isi data melalui modul <a href="{% url 'puskesmas:consumption_list' %}">Pemakaian Rinci Puskesmas</a> untuk periode yang sama.
+                {% endif %}
+            </div>
+        </div>
+
         {% if has_form_errors %}
         <div class="alert alert-danger" role="alert">
             Data belum tersimpan. Periksa kembali kolom yang bermasalah pada baris yang ditandai.
@@ -110,7 +122,10 @@
                                 </td>
                                 <td>{{ f.harga_satuan }}</td>
                                 <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"0" }}</td>
-                                <td>{{ f.pemakaian }}</td>
+                                <td>
+                                    {{ f.pemakaian }}
+                                    <div class="small text-muted">Dari pemakaian rinci</div>
+                                </td>
                                 <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                                 <td class="text-end computed-cell js-stock-optimum">{{ li.stock_optimum|floatformat:"-2" }}</td>
                                 <td class="text-end computed-cell js-jumlah-kebutuhan">{{ li.jumlah_kebutuhan|floatformat:"-2" }}</td>

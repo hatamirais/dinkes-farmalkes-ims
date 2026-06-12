@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Pemakaian {{ consumption.facility.name }} – Healthcare IMS{% endblock %}
+{% block page_title %}Detail Pemakaian Rinci{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="mb-1">{{ consumption.facility.name }}</h4>
+            <p class="text-muted mb-0">Periode {{ consumption.bulan }}/{{ consumption.tahun }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if can_manage %}
+            <a href="{% url 'puskesmas:consumption_edit' consumption.pk %}" class="btn btn-primary">Edit</a>
+            <form method="post" action="{% url 'puskesmas:consumption_delete' consumption.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger">Hapus</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="small text-muted">Puskesmas</div>
+                    <div class="fw-semibold">{{ consumption.facility.name }}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="small text-muted">Bulan</div>
+                    <div class="fw-semibold">{{ consumption.bulan }}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="small text-muted">Tahun</div>
+                    <div class="fw-semibold">{{ consumption.tahun }}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="small text-muted">Total Pemakaian</div>
+                    <div class="fw-semibold">{{ grand_total }}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="small text-muted">Catatan</div>
+                    <div class="fw-semibold">{{ consumption.notes|default:"-" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="bi bi-table me-2"></i>Rincian Pemakaian</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Barang</th>
+                            <th class="text-center">Satuan</th>
+                            {% for subunit in subunits %}
+                            <th class="text-center">{{ subunit.name }}</th>
+                            {% endfor %}
+                            <th class="text-center table-secondary">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in matrix_rows %}
+                        <tr>
+                            <td>
+                                <strong class="small">{{ row.item.nama_barang }}</strong><br>
+                                <small class="text-muted">{{ row.item.kode_barang }}</small>
+                            </td>
+                            <td class="text-center text-muted small">{{ row.item.satuan.code }}</td>
+                            {% for value in row.values %}
+                            <td class="text-end">{{ value }}</td>
+                            {% endfor %}
+                            <td class="text-end table-secondary fw-semibold">{{ row.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ subunits|length|add:3 }}" class="text-center text-muted py-4">Belum ada pemakaian yang diinput.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

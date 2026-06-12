@@ -42,7 +42,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
 - `stock_opname`: proses hitung fisik dan cetak laporan selisih.
-- `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas dan input penerimaan SBBK. Seluruh surface operasional modul ini sekarang mewajibkan `facility` pada akun untuk semua non-superuser dan selalu membatasi akses objek ke fasilitas akun tersebut. SBBK menjadi sumber kebenaran `penerimaan` LPLPO dan riwayat penerimaan Puskesmas.
+- `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas, input penerimaan SBBK, master subunit layanan per fasilitas, dan input pemakaian rinci bulanan per ruang tindakan / Puskesmas pembantu. Seluruh surface operasional modul ini sekarang mewajibkan `facility` pada akun untuk semua non-superuser dan selalu membatasi akses objek ke fasilitas akun tersebut. SBBK menjadi sumber kebenaran `penerimaan` LPLPO, sementara pemakaian rinci menjadi sumber kebenaran `pemakaian` LPLPO.
 - `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas, termasuk pelacakan `harga_satuan` per baris untuk valuasi aset pada rekap persediaan. Untuk Februari dan seterusnya, autofill `penerimaan` dan `harga_satuan` kini bersumber dari SBBK Puskesmas, bukan dari `Distribution`.
   Super Admin dapat mengelola LPLPO lintas fasilitas, sedangkan semua pengguna non-superuser kini wajib punya `facility` terhubung dan selalu dibatasi ke fasilitasnya sendiri pada queue, detail, print, verifikasi, review, reject, finalize, dan prefill.
 - Laporan Puskesmas (`Riwayat Penerimaan`, `Riwayat Pemakaian`, `Rincian Persediaan`, dan `Rekap Persediaan`) kini hanya mendukung cakupan lintas fasilitas untuk superuser. Pengguna non-superuser selalu dipaksa ke `facility` akun mereka sendiri dan akan ditolak bila akun belum terhubung ke fasilitas. `Riwayat Penerimaan` menampilkan histori SBBK Puskesmas, bukan histori dispatch distribusi dari Instalasi Farmasi.
@@ -66,6 +66,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
   `Rekap Laporan Persediaan` Puskesmas kini merangkum dimensi nilai aset per kategori dari `harga_satuan` LPLPO.
   Filter `Rincian` dan `Rekap Laporan Persediaan` Puskesmas memakai periode tahunan, triwulan, atau semester.
   LPLPO tidak lagi memakai kolom `pembelian_puskesmas`; `persediaan` dihitung dari `stock_awal + penerimaan`, sehingga sisa stok negatif menjadi indikator langsung bila input stok tidak konsisten.
+  Kolom `pemakaian` LPLPO kini dibaca dari modul `Pemakaian Rinci Puskesmas` per fasilitas/periode dan tidak lagi diedit langsung di layar LPLPO.
 - Puskesmas Request: `DRAFT -> SUBMITTED -> APPROVED -> REJECTED`
 
 ## Model Data Singkat
@@ -84,6 +85,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - Perlindungan brute-force login menggunakan `django-axes`.
 - Rate limiting untuk endpoint POST sensitif seperti perubahan password dan aksi manajemen pengguna menggunakan `django-ratelimit`.
 - Endpoint mutasi SBBK Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT`.
+- Endpoint mutasi pemakaian rinci Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.

@@ -1,5 +1,7 @@
 import unicodedata
 
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Layout
 from django import forms
 from django.forms import inlineformset_factory
 from django.utils import timezone
@@ -9,10 +11,13 @@ from apps.items.models import Facility, Item
 from apps.users.models import User
 
 from .models import (
+    PuskesmasConsumption,
+    PuskesmasConsumptionEntry,
     PuskesmasRequest,
     PuskesmasRequestItem,
     PuskesmasSBBK,
     PuskesmasSBBKItem,
+    PuskesmasSubunit,
 )
 
 
@@ -290,6 +295,242 @@ PuskesmasSBBKItemFormSet = inlineformset_factory(
     min_num=1,
     validate_min=True,
 )
+
+
+class PuskesmasSubunitForm(forms.ModelForm):
+    class Meta:
+        model = PuskesmasSubunit
+        fields = ["facility", "name", "subunit_type", "sort_order", "is_active"]
+        widgets = {
+            "facility": forms.Select(attrs={"class": "form-select"}),
+            "name": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "Contoh: Poli Umum"}
+            ),
+            "subunit_type": forms.Select(attrs={"class": "form-select"}),
+            "sort_order": forms.NumberInput(
+                attrs={"class": "form-control", "min": "0", "step": "1"}
+            ),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Div("facility", css_class="mb-3"),
+            Div("name", css_class="mb-3"),
+            Div("subunit_type", css_class="mb-3"),
+            Div("sort_order", css_class="mb-3"),
+            Div("is_active", css_class="form-check mb-0"),
+        )
+
+        self.fields["facility"].queryset = Facility.objects.filter(
+            facility_type=Facility.FacilityType.PUSKESMAS,
+            is_active=True,
+        ).order_by("name")
+
+        if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            self.fields["facility"].widget = forms.HiddenInput()
+            self.fields["facility"].required = False
+            if self.user.facility_id:
+                self.fields["facility"].initial = self.user.facility_id
+
+    def clean_facility(self):
+        if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            if not self.user.facility_id:
+                raise forms.ValidationError(
+                    "Akun operator belum terhubung ke fasilitas puskesmas."
+                )
+            return self.user.facility
+        facility = self.cleaned_data.get("facility")
+        if (
+            facility
+            and self.instance
+            and self.instance.pk
+            and self.instance.consumption_entries.exists()
+            and facility.pk != self.instance.facility_id
+        ):
+            raise forms.ValidationError(
+                "Fasilitas tidak dapat diubah karena subunit sudah dipakai pada data pemakaian."
+            )
+        return facility
+
+    def clean_name(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("name"),
+            field_label="Nama subunit",
+            max_length=120,
+        )
+
+
+class PuskesmasConsumptionMatrixForm(forms.ModelForm):
+    """Monthly consumption form with dynamic per-subunit quantity cells."""
+
+    class Meta:
+        model = PuskesmasConsumption
+        fields = ["facility", "bulan", "tahun", "notes"]
+        widgets = {
+            "facility": forms.Select(attrs={"class": "form-select"}),
+            "bulan": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1", "max": "12", "step": "1"}
+            ),
+            "tahun": forms.NumberInput(
+                attrs={"class": "form-control", "min": "1000", "max": "9999", "step": "1"}
+            ),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+    def __init__(
+        self,
+        *args,
+        user=None,
+        subunits=None,
+        items=None,
+        existing_entries=None,
+        lock_period=False,
+        **kwargs,
+    ):
+        self.user = user
+        self.subunits = list(subunits or [])
+        self.items = list(items or [])
+        self.existing_entries = existing_entries or {}
+        self.lock_period = lock_period
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Div("facility", css_class="mb-3"),
+            Div("bulan", css_class="mb-3"),
+            Div("tahun", css_class="mb-3"),
+            Div("notes", css_class="mb-0"),
+        )
+
+        self.fields["facility"].queryset = Facility.objects.filter(
+            facility_type=Facility.FacilityType.PUSKESMAS,
+            is_active=True,
+        ).order_by("name")
+
+        if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            self.fields["facility"].widget = forms.HiddenInput()
+            self.fields["facility"].required = False
+            if self.user.facility_id:
+                self.fields["facility"].initial = self.user.facility_id
+
+        if self.instance and self.instance.pk and self.lock_period:
+            self.fields["facility"].widget = forms.HiddenInput()
+            self.fields["bulan"].widget = forms.HiddenInput()
+            self.fields["tahun"].widget = forms.HiddenInput()
+            self.fields["facility"].initial = self.instance.facility_id
+            self.fields["bulan"].initial = self.instance.bulan
+            self.fields["tahun"].initial = self.instance.tahun
+
+        for item in self.items:
+            for subunit in self.subunits:
+                field_name = self.get_matrix_field_name(item.pk, subunit.pk)
+                self.fields[field_name] = forms.IntegerField(
+                    required=False,
+                    min_value=0,
+                    initial=self.existing_entries.get((item.pk, subunit.pk), 0),
+                    widget=forms.NumberInput(
+                        attrs={
+                            "class": "form-control form-control-sm text-end",
+                            "min": "0",
+                            "step": "1",
+                        }
+                    ),
+                    label=f"{item.picker_label} / {subunit.name}",
+                )
+
+    @staticmethod
+    def get_matrix_field_name(item_id, subunit_id):
+        return f"qty_{item_id}_{subunit_id}"
+
+    def clean_facility(self):
+        if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+            if not self.user.facility_id:
+                raise forms.ValidationError(
+                    "Akun operator belum terhubung ke fasilitas puskesmas."
+                )
+            return self.user.facility
+        return self.cleaned_data.get("facility")
+
+    def clean_bulan(self):
+        value = self.cleaned_data.get("bulan")
+        if value and not 1 <= value <= 12:
+            raise forms.ValidationError("Bulan harus berada pada rentang 1-12.")
+        return value
+
+    def clean_tahun(self):
+        value = self.cleaned_data.get("tahun")
+        if value and not 1000 <= value <= 9999:
+            raise forms.ValidationError("Tahun harus berada pada rentang 1000-9999.")
+        return value
+
+    def clean_notes(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("notes"),
+            field_label="Catatan",
+            max_length=1000,
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        matrix_values = {}
+
+        for item in self.items:
+            for subunit in self.subunits:
+                field_name = self.get_matrix_field_name(item.pk, subunit.pk)
+                raw_value = self.data.get(self.add_prefix(field_name), "")
+                decimal_value = validate_finite_decimal(
+                    raw_value,
+                    field_label=f"Jumlah {item.picker_label} / {subunit.name}",
+                )
+                if decimal_value in (None, ""):
+                    quantity = 0
+                else:
+                    try:
+                        quantity = int(decimal_value)
+                    except (TypeError, ValueError):
+                        self.add_error(field_name, "Jumlah pemakaian harus berupa angka.")
+                        continue
+                    if decimal_value != int(decimal_value):
+                        self.add_error(
+                            field_name,
+                            "Jumlah pemakaian harus berupa bilangan bulat.",
+                        )
+                        continue
+                    if quantity < 0:
+                        self.add_error(
+                            field_name,
+                            "Jumlah pemakaian tidak boleh negatif.",
+                        )
+                        continue
+                matrix_values[(item.pk, subunit.pk)] = quantity
+
+        cleaned_data["matrix_values"] = matrix_values
+        return cleaned_data
+
+    def build_entries(self, consumption):
+        entries = []
+        for item in self.items:
+            for subunit in self.subunits:
+                quantity = self.cleaned_data["matrix_values"].get((item.pk, subunit.pk), 0)
+                if quantity <= 0:
+                    continue
+                entries.append(
+                    PuskesmasConsumptionEntry(
+                        consumption=consumption,
+                        item=item,
+                        subunit=subunit,
+                        quantity=quantity,
+                    )
+                )
+        return entries
 
 
 # ──────────────────────── Report Filter Forms ────────────────────────

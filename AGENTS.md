@@ -64,7 +64,7 @@ If documentation conflicts with code, code is authoritative until docs are corre
 - `recall`: supplier return workflow
 - `expired`: expired/disposal workflow and alerts page
 - `stock_opname`: physical counting workflow
-- `puskesmas`: ad-hoc requests from Puskesmas plus SBBK receiving input. All operational and report-facing surfaces now require a linked `user.facility` for every non-superuser account and enforce same-facility object access. Puskesmas `Riwayat Penerimaan` is sourced from `PuskesmasSBBK` / `PuskesmasSBBKItem`.
+- `puskesmas`: ad-hoc requests from Puskesmas, SBBK receiving input, facility-scoped subunit master data (ruang tindakan / Pustu), and monthly detailed consumption input. All operational and report-facing surfaces now require a linked `user.facility` for every non-superuser account and enforce same-facility object access. Puskesmas `Riwayat Penerimaan` is sourced from `PuskesmasSBBK` / `PuskesmasSBBKItem`, while detailed consumption is sourced from `PuskesmasConsumption` / `PuskesmasConsumptionEntry`.
 - `lplpo`: monthly reporting and stock requests from Puskesmas. All non-superuser queue, detail, print, verification, review, reject, finalize, and prefill surfaces now require a linked `user.facility` and are scoped to that facility. February onward, `penerimaan` autofill is sourced from same-facility/month SBBK rows and `harga_satuan` autofill uses the weighted average SBBK unit price, with the existing previous-month fallback when no SBBK exists.
 - `reports`: report index with rekap, hibah receiving, procurement, expiry, outbound reporting views, and document numbering history for LPLPO/Special Request distributions. The combined outbound report remains on `/reports/pengeluaran/`, while the distribution module owns dedicated route-based report variants at `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, and `/distribution/report/lplpo/`.
   Puskesmas-side `Rekap Laporan Persediaan` also carries an LPLPO-derived asset valuation dimension summarized per kategori from per-line `harga_satuan`.
@@ -107,6 +107,9 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - The first active-year January LPLPO is the yearly bootstrap baseline. Create/edit pages must explain that January `stock_awal` is entered manually from opening stock records, while February onward carries forward from the previous month's `stock_keseluruhan`, including negative balances when the prior period closed below zero.
 - The same January bootstrap rule applies to `penerimaan`: January is entered manually and must not be auto-filled from SBBK rows; February onward uses same-facility/month `PuskesmasSBBKItem` totals as the autofill source.
 - LPLPO no longer tracks `pembelian_puskesmas`; computed `persediaan` is `stock_awal + penerimaan`, so negative ending stock now acts as the safeguard for underreported balances.
+- Puskesmas detailed consumption is stored separately per facility/month and per facility-defined subunit. The sum of `PuskesmasConsumptionEntry.quantity` per item becomes the editable-period source of truth for `LPLPOItem.pemakaian`.
+- Saving, editing, or deleting detailed consumption atomically re-syncs the same-month editable (`DRAFT` / `REJECTED_PUSKESMAS`) LPLPO rows only. Once a facility-month LPLPO is `SUBMITTED` or beyond, detailed consumption mutation for that period is blocked.
+- LPLPO edit no longer accepts manual `pemakaian` overrides; operators must update the matching `puskesmas` detailed-consumption document instead.
 - Saving, editing, or deleting an SBBK atomically re-syncs the same-month editable (`DRAFT` / `REJECTED_PUSKESMAS`) LPLPO rows only. Once a facility-month LPLPO is `SUBMITTED` or beyond, SBBK mutation for that period is blocked.
 - The same January bootstrap rule now applies to `harga_satuan`: January is entered manually as the yearly asset-valuation baseline; February onward uses same-facility/month SBBK `unit_price` values and falls back to the previous month's LPLPO unit price when no new SBBK receipt exists for the period.
 - LPLPO creation auto-fills `stock_awal` from the immediately previous month's LPLPO for the same facility when one exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`; the carry-over no longer waits for the prior document to reach `CLOSED`.
@@ -178,7 +181,7 @@ Before opening a PR, verify:
 - Additional authenticated POST throttling uses `django-ratelimit`.
 - Counters use a local memory cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are tracked in-process.
 - `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully if there are issues with the cache.
-- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, and `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT`.
+- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT`, and `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
 - Throttled requests must continue through the centralized error pipeline and render as HTTP `429`.
 - `@user_mutation_ratelimit` covers all user mutation endpoints: create, update, toggle-active, and delete.
 
