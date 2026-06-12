@@ -2,19 +2,19 @@
 
 Architecture and deployment notes for the current implementation, plus planned evolution.
 
-Last verified: 2026-03-17
-Verification sources: `docker-compose.yml`, `.env.example`, `backend/config/settings.py`, `backend/config/urls.py`, `backend/apps/reports/models.py`
+Last verified: 2026-06-11
+Verification sources: `docker-compose.yml`, `.env.example`, `backend/Dockerfile`, `backend/entrypoint.sh`, `backend/config/settings.py`
 
 ## 1) Current Runtime Topology
 
 ### Application runtime
 
-- Django app runs directly from host/developer environment (`python manage.py runserver`) from `backend/`.
+- Local development still runs Django directly from `backend/` with `python manage.py runserver`.
 - UI is server-rendered Django templates.
 
 ### Containerized services
 
-- PostgreSQL 16 (`postgres:16-alpine`) via Docker Compose
+- Baseline local compose: PostgreSQL 16 (`postgres:16-alpine`) via root `docker-compose.yml`
 
 ### Notes
 
@@ -29,7 +29,7 @@ From `docker-compose.yml`:
   - host port `5432`
   - persistent volume `postgres_data`
 
-No backend container is defined in current compose file.
+No backend container is defined in the root compose file.
 
 ## 3) Environment and Settings Coupling
 
@@ -41,6 +41,7 @@ Documented in `.env.example` and consumed by settings:
 - `DJANGO_SECRET_KEY`
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
 - `ALLOWED_HOSTS`
+- `CSRF_TRUSTED_ORIGINS`
 - `SECURE_SSL_REDIRECT`
 
 ### Security posture in settings
@@ -54,14 +55,9 @@ Documented in `.env.example` and consumed by settings:
   - HSTS
   - frame deny
   - strict referrer policy
+  - proxy HTTPS detection via `SECURE_PROXY_SSL_HEADER`
 
-## 4) Production Target (Planned)
-
-Planned direction (not fully implemented in repo):
-
-- Gunicorn for Django process management
-- Nginx reverse proxy and static/media serving
-- Optional split frontend/API architecture if React + API layer is introduced later
+## 4) Deployment Notes
 
 Important implementation note:
 
@@ -76,6 +72,7 @@ When preparing production docs and manifests:
 3. Verify security claims match `settings.py` branches (`DEBUG=True/False`).
 4. Verify backup/restore steps are executable and include DB + media handling.
 5. Verify runbooks mention migration order and rollback strategy.
+6. Verify documented deployment examples stay aligned with the actual tracked runtime assets.
 
 ## 6) Documentation Maintenance Plan
 
