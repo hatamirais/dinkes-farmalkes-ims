@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Penerimaan SBBK – Healthcare IMS{% endblock %}
+{% block page_title %}Penerimaan SBBK{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="mb-1">Penerimaan SBBK</h4>
+            <p class="text-muted mb-0">Daftar penerimaan barang Puskesmas yang menjadi sumber penerimaan LPLPO.</p>
+        </div>
+        {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
+        <a href="{% url 'puskesmas:receiving_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Buat SBBK
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor / puskesmas..." class="form-control">
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-primary">Cari</button>
+                    <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary" id="reset-btn">Reset</a>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>No. Dokumen</th>
+                            <th>Puskesmas</th>
+                            <th>Tanggal</th>
+                            <th>Dibuat Oleh</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for receiving in receivings %}
+                        <tr>
+                            <td class="fw-semibold">{{ receiving.document_number }}</td>
+                            <td>{{ receiving.facility.name }}</td>
+                            <td>{{ receiving.received_date|date:"d/m/Y" }}</td>
+                            <td>{{ receiving.created_by }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'puskesmas:receiving_detail' receiving.pk %}" class="btn btn-sm btn-outline-primary">
+                                    Lihat
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">Belum ada penerimaan SBBK.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if receivings.has_other_pages %}
+            <div class="d-flex justify-content-between align-items-center pt-3">
+                <small class="text-muted">
+                    Halaman {{ receivings.number }} dari {{ receivings.paginator.num_pages }} ({{ receivings.paginator.count }} total)
+                </small>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if receivings.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page={{ receivings.previous_page_number }}{% if search %}&q={{ search }}{% endif %}">&laquo;</a></li>
+                        {% endif %}
+                        {% if receivings.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ receivings.next_page_number }}{% if search %}&q={{ search }}{% endif %}">&raquo;</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

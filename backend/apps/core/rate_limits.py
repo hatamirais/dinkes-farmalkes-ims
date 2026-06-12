@@ -5,6 +5,7 @@ DEFAULT_USER_BULK_ACTION_RATE_LIMIT = "10/m"
 DEFAULT_USER_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_USER_PASSWORD_RESET_RATE_LIMIT = "5/m"
 DEFAULT_PASSWORD_CHANGE_RATE_LIMIT = "5/m"
+DEFAULT_PUSKESMAS_SBBK_MUTATION_RATE_LIMIT = "20/m"
 
 
 def _setting_rate(name, default):
@@ -56,4 +57,15 @@ password_change_ratelimit = ratelimit(
     ),
     block=True,
     group="auth.password_change",
+)
+
+puskesmas_sbbk_mutation_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_setting_rate(
+        "PUSKESMAS_SBBK_MUTATION_RATE_LIMIT",
+        DEFAULT_PUSKESMAS_SBBK_MUTATION_RATE_LIMIT,
+    ),
+    block=True,
+    group="puskesmas.sbbk_mutation",
 )

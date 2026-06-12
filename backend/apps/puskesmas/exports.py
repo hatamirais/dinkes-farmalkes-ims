@@ -61,8 +61,8 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
 
     Args:
         report_data: list of dicts with keys:
-            document_number, distributed_date, distribution_type_label,
-            nama_barang, satuan, issued_batch_lot, quantity, issued_unit_price
+            document_number, received_date, nama_barang, satuan,
+            quantity, unit_price, notes
         start_date, end_date: date objects
         facility_name: str — name of the Puskesmas facility
     """
@@ -72,17 +72,16 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
 
     headers = [
         "No",
-        "Tanggal Distribusi",
+        "Tanggal SBBK",
         "No. Dokumen",
-        "Tipe Sumber",
         "Nama Barang",
         "Satuan",
-        "Batch/Lot",
         "Jumlah Diterima",
         "Harga Satuan (Rp)",
         "Total Nilai (Rp)",
+        "Keterangan",
     ]
-    col_widths = [6, 18, 24, 20, 32, 10, 16, 16, 20, 22]
+    col_widths = [6, 18, 24, 32, 10, 16, 20, 22, 28]
     col_count = len(headers)
     last_col = get_column_letter(col_count)
 
@@ -91,7 +90,7 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
     title_cell = ws.cell(
         row=1,
         column=1,
-        value=_cell_value("RIWAYAT PENERIMAAN DARI INSTALASI FARMASI"),
+        value=_cell_value("RIWAYAT PENERIMAAN BERDASARKAN SBBK PUSKESMAS"),
     )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
@@ -112,33 +111,32 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
     total_value = Decimal("0")
 
     for idx, row in enumerate(report_data, 1):
-        dist_date = row.get("distributed_date")
-        dist_date_str = dist_date.strftime("%d/%m/%Y") if dist_date else "-"
+        received_date = row.get("received_date")
+        received_date_str = received_date.strftime("%d/%m/%Y") if received_date else "-"
         qty = Decimal(str(row.get("quantity", 0) or 0))
-        unit_price = Decimal(str(row.get("issued_unit_price", 0) or 0))
+        unit_price = Decimal(str(row.get("unit_price", 0) or 0))
         total_price = qty * unit_price
 
         values = [
             idx,
-            dist_date_str,
+            received_date_str,
             row.get("document_number", ""),
-            row.get("distribution_type_label", ""),
             row.get("nama_barang", ""),
             row.get("satuan", ""),
-            row.get("issued_batch_lot", "") or "-",
             float(qty),
             float(unit_price),
             float(total_price),
+            row.get("notes", "") or "-",
         ]
         for col_idx, val in enumerate(values, 1):
             cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
-            elif col_idx == 8:
+            elif col_idx == 6:
                 cell.number_format = NUMBER_FORMAT
                 cell.alignment = Alignment(horizontal="right")
-            elif col_idx in (9, 10):
+            elif col_idx in (7, 8):
                 cell.number_format = IDR_FORMAT
                 cell.alignment = Alignment(horizontal="right")
 
@@ -153,11 +151,11 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
     ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
-    qty_cell = ws.cell(row=row_num, column=8, value=float(total_qty))
+    qty_cell = ws.cell(row=row_num, column=6, value=float(total_qty))
     qty_cell.number_format = NUMBER_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
     qty_cell.font = Font(bold=True)
-    val_cell = ws.cell(row=row_num, column=10, value=float(total_value))
+    val_cell = ws.cell(row=row_num, column=8, value=float(total_value))
     val_cell.number_format = IDR_FORMAT
     val_cell.alignment = Alignment(horizontal="right")
     val_cell.font = Font(bold=True)

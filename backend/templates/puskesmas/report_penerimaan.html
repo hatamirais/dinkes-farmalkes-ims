@@ -2,7 +2,7 @@
 {% load number_format %}
 
 {% block title %}Riwayat Penerimaan Puskesmas — Healthcare IMS{% endblock %}
-{% block page_title %}Riwayat Penerimaan dari Instalasi Farmasi{% endblock %}
+{% block page_title %}Riwayat Penerimaan SBBK{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -65,10 +65,6 @@
                         {{ form.end_date.label_tag }}
                         {{ form.end_date }}
                     </div>
-                    <div class="col-md-auto">
-                        {{ form.distribution_type.label_tag }}
-                        {{ form.distribution_type }}
-                    </div>
                     {% if all_facilities %}
                     <div class="col-md-auto">
                         <label for="id_facility" class="form-label">Fasilitas</label>
@@ -130,7 +126,7 @@
         <div style="width: 100px;"></div>
     </div>
     <div class="report-print-meta">
-        RIWAYAT PENERIMAAN DARI INSTALASI FARMASI<br>
+        RIWAYAT PENERIMAAN BERDASARKAN SBBK<br>
         FASILITAS: {{ selected_facility_name }}<br>
         PERIODE: {{ form.start_date.value|default:"-" }} s/d {{ form.end_date.value|default:"-" }}
     </div>
@@ -152,31 +148,33 @@
                             <tr>
                                 <th style="width: 50px;">NO</th>
                                 <th style="width: 130px;">TANGGAL</th>
-                                <th style="width: 160px;">NO. DOKUMEN</th>
-                                <th style="width: 140px;">TIPE SUMBER</th>
-                                <th>NAMA BARANG</th>
-                                <th style="width: 80px;">SATUAN</th>
-                                <th style="width: 120px;">BATCH/LOT</th>
-                                <th style="width: 100px;">JUMLAH</th>
-                            </tr>
+                                    <th style="width: 160px;">NO. DOKUMEN</th>
+                                    <th>NAMA BARANG</th>
+                                    <th style="width: 80px;">SATUAN</th>
+                                    <th style="width: 100px;">JUMLAH</th>
+                                    <th style="width: 140px;">HARGA SATUAN</th>
+                                    <th>KETERANGAN</th>
+                                </tr>
                         </thead>
                         <tbody>
                             {% if report_data %}
                                 {% for row in report_data %}
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
-                                    <td class="text-center">{{ row.distributed_date|date:"d/m/Y"|default:"-" }}</td>
+                                    <td class="text-center">{{ row.received_date|date:"d/m/Y"|default:"-" }}</td>
                                     <td>{{ row.document_number }}</td>
-                                    <td>{{ row.distribution_type_label }}</td>
                                     <td>{{ row.nama_barang }}</td>
                                     <td class="text-center">{{ row.satuan }}</td>
-                                    <td>{{ row.issued_batch_lot|default:"-" }}</td>
                                     <td class="text-end">{{ row.quantity|id_decimal:0 }}</td>
+                                    <td class="text-end">{{ row.unit_price|idr }}</td>
+                                    <td>{{ row.notes|default:"-" }}</td>
                                 </tr>
                                 {% endfor %}
                                 <tr class="table-warning fw-bold">
-                                    <td colspan="7" class="text-center">TOTAL</td>
+                                    <td colspan="5" class="text-center">TOTAL</td>
                                     <td class="text-end">{{ total_quantity|id_decimal:0 }}</td>
+                                    <td></td>
+                                    <td></td>
                                 </tr>
                             {% else %}
                             <tr>

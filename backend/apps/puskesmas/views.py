@@ -1,7 +1,8 @@
 from decimal import Decimal
+import logging
 
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
@@ -10,8 +11,10 @@ from django.contrib import messages
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.rate_limits import puskesmas_sbbk_mutation_ratelimit
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
+from apps.lplpo.models import LPLPO
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess, User
 
@@ -19,8 +22,24 @@ from .forms import (
     ApprovalItemForm,
     PuskesmasRequestForm,
     PuskesmasRequestItemFormSet,
+    PuskesmasSBBKForm,
+    PuskesmasSBBKItemFormSet,
 )
-from .models import PuskesmasRequest, PuskesmasRequestItem
+from .models import (
+    PuskesmasRequest,
+    PuskesmasRequestItem,
+    PuskesmasSBBK,
+    PuskesmasSBBKItem,
+)
+from .services import (
+    assert_sbbk_month_mutable,
+    log_sbbk_event,
+    raise_sbbk_creator_denied,
+    sync_sbbk_month,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 def _is_super_admin(user):
@@ -109,6 +128,247 @@ def _check_puskesmas_request_creator_access(request):
     if getattr(request.user, "role", None) != "PUSKESMAS":
         raise PermissionDenied("Hanya operator Puskesmas yang dapat membuat permintaan khusus.")
     return None
+
+
+def _check_puskesmas_sbbk_creator_access(request):
+    if _is_super_admin(request.user):
+        return None
+    if getattr(request.user, "role", None) != User.Role.PUSKESMAS:
+        raise_sbbk_creator_denied()
+    return None
+
+
+def _check_sbbk_facility_access(request, sbbk):
+    if _is_super_admin(request.user):
+        return None
+
+    facility = _get_required_facility(request.user)
+    if sbbk.facility_id != facility.pk:
+        raise PermissionDenied("Anda tidak memiliki akses ke dokumen SBBK ini.")
+    return None
+
+
+# ──────────────────────────── SBBK CRUD ────────────────────────────
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmassbbk")
+def receiving_list(request):
+    queryset = PuskesmasSBBK.objects.select_related("facility", "created_by").order_by(
+        "-received_date", "-created_at"
+    )
+
+    if not _is_super_admin(request.user):
+        facility = _get_required_facility(request.user)
+        queryset = queryset.filter(facility_id=facility.pk)
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        queryset = queryset.filter(
+            Q(document_number__icontains=q) | Q(facility__name__icontains=q)
+        )
+
+    paginator = Paginator(queryset, 25)
+    receivings = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "puskesmas/receiving_list.html",
+        {
+            "receivings": receivings,
+            "search": q,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.add_puskesmassbbk")
+@puskesmas_sbbk_mutation_ratelimit
+def receiving_create(request):
+    _check_puskesmas_sbbk_creator_access(request)
+
+    if request.method == "POST":
+        form = PuskesmasSBBKForm(request.POST, user=request.user)
+        formset = PuskesmasSBBKItemFormSet(request.POST, prefix="items")
+
+        if form.is_valid() and formset.is_valid():
+            try:
+                with transaction.atomic():
+                    sbbk = form.save(commit=False)
+                    assert_sbbk_month_mutable(
+                        facility=sbbk.facility,
+                        received_date=sbbk.received_date,
+                    )
+                    sbbk.created_by = request.user
+                    sbbk.save()
+                    formset.instance = sbbk
+                    formset.save()
+                    sync_sbbk_month(
+                        facility=sbbk.facility,
+                        received_date=sbbk.received_date,
+                    )
+                    log_sbbk_event(event="created", sbbk=sbbk, user=request.user)
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(
+                    request, f"Penerimaan SBBK {sbbk.document_number} berhasil dibuat."
+                )
+                return redirect("puskesmas:receiving_detail", pk=sbbk.pk)
+    else:
+        form = PuskesmasSBBKForm(user=request.user)
+        formset = PuskesmasSBBKItemFormSet(prefix="items")
+
+    return render(
+        request,
+        "puskesmas/receiving_form.html",
+        {
+            "form": form,
+            "formset": formset,
+            "title": "Buat Penerimaan SBBK",
+            "is_edit": False,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmassbbk")
+def receiving_detail(request, pk):
+    sbbk = get_object_or_404(
+        PuskesmasSBBK.objects.select_related("facility", "created_by"),
+        pk=pk,
+    )
+    _check_sbbk_facility_access(request, sbbk)
+    items = sbbk.items.select_related("item", "item__satuan", "item__program")
+    can_manage = _is_super_admin(request.user) or request.user.role == User.Role.PUSKESMAS
+
+    locked_lplpo = LPLPO.objects.filter(
+        facility=sbbk.facility,
+        bulan=sbbk.received_date.month,
+        tahun=sbbk.received_date.year,
+    ).exclude(status__in=["DRAFT", "REJECTED_PUSKESMAS"]).first()
+
+    return render(
+        request,
+        "puskesmas/receiving_detail.html",
+        {
+            "sbbk": sbbk,
+            "items": items,
+            "can_manage": can_manage,
+            "locked_lplpo": locked_lplpo,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.change_puskesmassbbk")
+@puskesmas_sbbk_mutation_ratelimit
+def receiving_edit(request, pk):
+    _check_puskesmas_sbbk_creator_access(request)
+
+    sbbk = get_object_or_404(PuskesmasSBBK, pk=pk)
+    _check_sbbk_facility_access(request, sbbk)
+
+    if request.method == "POST":
+        form = PuskesmasSBBKForm(request.POST, instance=sbbk, user=request.user)
+        formset = PuskesmasSBBKItemFormSet(request.POST, instance=sbbk, prefix="items")
+
+        if form.is_valid() and formset.is_valid():
+            original_date = sbbk.received_date
+            original_facility = sbbk.facility
+            original_facility_id = sbbk.facility_id
+            try:
+                with transaction.atomic():
+                    updated_sbbk = form.save(commit=False)
+                    assert_sbbk_month_mutable(
+                        facility=original_facility,
+                        received_date=original_date,
+                    )
+                    assert_sbbk_month_mutable(
+                        facility=updated_sbbk.facility,
+                        received_date=updated_sbbk.received_date,
+                    )
+                    updated_sbbk.save()
+                    formset.save()
+                    sync_sbbk_month(
+                        facility=original_facility,
+                        received_date=original_date,
+                    )
+                    if (
+                        updated_sbbk.facility_id != original_facility_id
+                        or updated_sbbk.received_date != original_date
+                    ):
+                        sync_sbbk_month(
+                            facility=updated_sbbk.facility,
+                            received_date=updated_sbbk.received_date,
+                        )
+                    log_sbbk_event(
+                        event="updated",
+                        sbbk=updated_sbbk,
+                        user=request.user,
+                    )
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(
+                    request,
+                    f"Penerimaan SBBK {updated_sbbk.document_number} berhasil diperbarui.",
+                )
+                return redirect("puskesmas:receiving_detail", pk=updated_sbbk.pk)
+    else:
+        form = PuskesmasSBBKForm(instance=sbbk, user=request.user)
+        formset = PuskesmasSBBKItemFormSet(instance=sbbk, prefix="items")
+
+    return render(
+        request,
+        "puskesmas/receiving_form.html",
+        {
+            "form": form,
+            "formset": formset,
+            "title": f"Edit Penerimaan SBBK {sbbk.document_number}",
+            "is_edit": True,
+            "sbbk": sbbk,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.delete_puskesmassbbk")
+@puskesmas_sbbk_mutation_ratelimit
+def receiving_delete(request, pk):
+    _check_puskesmas_sbbk_creator_access(request)
+
+    sbbk = get_object_or_404(PuskesmasSBBK, pk=pk)
+    _check_sbbk_facility_access(request, sbbk)
+
+    if request.method != "POST":
+        return redirect("puskesmas:receiving_detail", pk=pk)
+
+    try:
+        with transaction.atomic():
+            assert_sbbk_month_mutable(
+                facility=sbbk.facility,
+                received_date=sbbk.received_date,
+            )
+            facility = sbbk.facility
+            received_date = sbbk.received_date
+            doc_num = sbbk.document_number
+            sbbk.delete()
+            sync_sbbk_month(facility=facility, received_date=received_date)
+            logger.info(
+                "puskesmas_sbbk_deleted",
+                extra={
+                    "document_number": doc_num,
+                    "facility_id": facility.pk,
+                    "username": request.user.username,
+                },
+            )
+    except ValidationError as exc:
+        messages.error(request, str(exc))
+        return redirect("puskesmas:receiving_detail", pk=pk)
+
+    messages.success(request, f"Penerimaan SBBK {doc_num} berhasil dihapus.")
+    return redirect("puskesmas:receiving_list")
 
 
 # ──────────────────────────── List ────────────────────────────
@@ -561,12 +821,7 @@ def _resolve_report_facility(request, fallback_facility_id=None):
 @login_required
 @perm_required("reports.view_reports")
 def puskesmas_report_penerimaan(request):
-    """Riwayat Penerimaan — all DISTRIBUTED distributions sent to the Puskesmas facility.
-
-    Facility isolation enforced at ORM level. PUSKESMAS users see only their own
-    facility's data. Super admin may optionally scope via ?facility=<id>.
-    """
-    from apps.distribution.models import DistributionItem
+    """Riwayat Penerimaan — SBBK receipts recorded by Puskesmas."""
     from apps.items.models import Facility as FacilityModel
 
     from .forms import PuskesmasReceivingFilterForm
@@ -589,44 +844,33 @@ def puskesmas_report_penerimaan(request):
     if form.is_valid():
         start_date = form.cleaned_data["start_date"]
         end_date = form.cleaned_data["end_date"]
-        distribution_type = form.cleaned_data.get("distribution_type", "")
 
-        qs = DistributionItem.objects.filter(
-            distribution__status=Distribution.Status.DISTRIBUTED,
-            distribution__distributed_date__range=[start_date, end_date],
+        qs = PuskesmasSBBKItem.objects.filter(
+            sbbk__received_date__range=[start_date, end_date],
         ).select_related(
-            "distribution",
-            "distribution__facility",
+            "sbbk",
+            "sbbk__facility",
             "item",
             "item__satuan",
         ).order_by(
-            "distribution__distributed_date",
-            "distribution__document_number",
+            "sbbk__received_date",
+            "sbbk__document_number",
             "item__nama_barang",
         )
 
-        # Facility isolation — always applied for PUSKESMAS role
         if facility:
-            qs = qs.filter(distribution__facility=facility)
+            qs = qs.filter(sbbk__facility=facility)
 
-        if distribution_type:
-            qs = qs.filter(distribution__distribution_type=distribution_type)
-
-        dist_type_labels = dict(Distribution.DistributionType.choices)
-        for di in qs:
-            qty = di.quantity_approved if di.quantity_approved is not None else di.quantity_requested
+        for sbbk_item in qs:
             report_data.append(
                 {
-                    "document_number": di.distribution.document_number,
-                    "distributed_date": di.distribution.distributed_date,
-                    "distribution_type_label": dist_type_labels.get(
-                        di.distribution.distribution_type, di.distribution.distribution_type
-                    ),
-                    "nama_barang": di.item.nama_barang,
-                    "satuan": di.item.satuan.name if di.item.satuan else "-",
-                    "issued_batch_lot": di.issued_batch_lot or "-",
-                    "quantity": qty,
-                    "issued_unit_price": di.issued_unit_price,
+                    "document_number": sbbk_item.sbbk.document_number,
+                    "received_date": sbbk_item.sbbk.received_date,
+                    "nama_barang": sbbk_item.item.nama_barang,
+                    "satuan": sbbk_item.item.satuan.name if sbbk_item.item.satuan else "-",
+                    "quantity": sbbk_item.quantity,
+                    "unit_price": sbbk_item.unit_price,
+                    "notes": sbbk_item.notes or sbbk_item.sbbk.notes,
                 }
             )
 

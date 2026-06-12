@@ -371,24 +371,20 @@ class LPLPOItem(models.Model):
 
 def get_penerimaan_for_facility_period(facility, bulan, tahun):
     """
-    Returns dict: {item_id: total_quantity} for all distributions
-    sent to this facility in the given month/year.
+    Returns dict: {item_id: total_quantity} from Puskesmas SBBK rows
+    for the given facility/month/year.
     """
-    from django.db.models import Sum
+    from apps.puskesmas.models import PuskesmasSBBKItem
 
-    from apps.distribution.models import Distribution, DistributionItem
-
-    distributions = Distribution.objects.filter(
-        facility=facility,
-        status=Distribution.Status.DISTRIBUTED,
-        distributed_date__year=tahun,
-        distributed_date__month=bulan,
-    )
     result = {}
     items = (
-        DistributionItem.objects.filter(distribution__in=distributions)
+        PuskesmasSBBKItem.objects.filter(
+            sbbk__facility=facility,
+            sbbk__received_date__year=tahun,
+            sbbk__received_date__month=bulan,
+        )
         .values("item_id")
-        .annotate(total=Sum("quantity_approved"))
+        .annotate(total=Sum("quantity"))
     )
     for row in items:
         result[row["item_id"]] = normalize_whole_number(row["total"])
@@ -396,25 +392,24 @@ def get_penerimaan_for_facility_period(facility, bulan, tahun):
 
 
 def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
-    """Return weighted-average incoming prices per item for a facility/month."""
-    from apps.distribution.models import DistributionItem
+    """Return weighted-average incoming prices per item from SBBK rows."""
+    from apps.puskesmas.models import PuskesmasSBBKItem
 
     value_expression = ExpressionWrapper(
-        Coalesce(F("quantity_approved"), Value(0))
-        * Coalesce(F("issued_unit_price"), Value(0)),
+        Coalesce(F("quantity"), Value(0))
+        * Coalesce(F("unit_price"), Value(0)),
         output_field=DecimalField(max_digits=18, decimal_places=2),
     )
     rows = (
-        DistributionItem.objects.filter(
-            distribution__facility=facility,
-            distribution__status="DISTRIBUTED",
-            distribution__distributed_date__year=tahun,
-            distribution__distributed_date__month=bulan,
+        PuskesmasSBBKItem.objects.filter(
+            sbbk__facility=facility,
+            sbbk__received_date__year=tahun,
+            sbbk__received_date__month=bulan,
         )
         .values("item_id")
         .annotate(
             total_quantity=Coalesce(
-                Sum("quantity_approved"),
+                Sum("quantity"),
                 Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
             ),
             total_value=Coalesce(
@@ -433,6 +428,63 @@ def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
             (row["total_value"] or Decimal("0")) / total_quantity
         ).quantize(Decimal("0.01"))
     return result
+
+
+def sync_sbbk_to_editable_lplpo(*, facility, bulan, tahun):
+    """Recompute draft/rejected LPLPO penerimaan and harga_satuan from SBBK data."""
+    lplpo = (
+        LPLPO.objects.select_for_update()
+        .filter(
+            facility=facility,
+            bulan=bulan,
+            tahun=tahun,
+            status__in=[LPLPO.Status.DRAFT, LPLPO.Status.REJECTED_PUSKESMAS],
+        )
+        .first()
+    )
+    if not lplpo:
+        return None
+
+    penerimaan_data = {}
+    harga_satuan_data = {}
+    if not is_january_bootstrap_period(bulan, tahun):
+        penerimaan_data = get_penerimaan_for_facility_period(facility, bulan, tahun)
+        harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
+            facility, bulan, tahun
+        )
+
+    prev_lplpo = get_previous_lplpo(facility, bulan, tahun)
+    prev_unit_prices = {}
+    if prev_lplpo and not is_january_bootstrap_period(bulan, tahun):
+        for prev_item in prev_lplpo.items.only("item_id", "harga_satuan"):
+            prev_unit_prices[prev_item.item_id] = prev_item.harga_satuan
+
+    items_to_update = []
+    for line in lplpo.items.all():
+        line.penerimaan = penerimaan_data.get(line.item_id, 0)
+        line.penerimaan_auto_filled = line.item_id in penerimaan_data
+        line.harga_satuan = harga_satuan_data.get(
+            line.item_id,
+            prev_unit_prices.get(line.item_id, line.harga_satuan or Decimal("0")),
+        )
+        line.compute_fields()
+        items_to_update.append(line)
+
+    if items_to_update:
+        LPLPOItem.objects.bulk_update(
+            items_to_update,
+            [
+                "penerimaan",
+                "penerimaan_auto_filled",
+                "harga_satuan",
+                "persediaan",
+                "stock_keseluruhan",
+                "stock_optimum",
+                "jumlah_kebutuhan",
+            ],
+        )
+
+    return lplpo
 
 
 def get_previous_lplpo(facility, bulan, tahun):

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} – Healthcare IMS{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.formset-row { border-bottom: 1px solid var(--bs-border-color); padding-bottom: 0.5rem; }
+.formset-row:last-child { border-bottom: none; }
+.delete-row-btn { opacity: 0.4; transition: opacity .2s; }
+.delete-row-btn:hover { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <form method="post" id="request-form" novalidate>
+                {% csrf_token %}
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-receipt me-2"></i>Informasi SBBK</h6>
+                    </div>
+                    <div class="card-body">
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Nomor Dokumen</label>
+                                {{ form.document_number|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Puskesmas <span class="text-danger">*</span></label>
+                                {% if request.user.role == 'PUSKESMAS' %}
+                                {{ form.facility }}
+                                <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" readonly>
+                                {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
+                                {% else %}
+                                {{ form.facility|as_crispy_field }}
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Tanggal Penerimaan <span class="text-danger">*</span></label>
+                                {{ form.received_date|as_crispy_field }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Catatan</label>
+                                {{ form.notes|as_crispy_field }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Daftar Barang</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-btn">
+                            <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        {{ formset.management_form }}
+                        {% if formset.non_form_errors %}
+                        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+                        {% endif %}
+
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle" id="formset-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:38%">Barang <span class="text-danger">*</span></th>
+                                        <th style="width:16%">Jumlah <span class="text-danger">*</span></th>
+                                        <th style="width:18%">Harga Satuan <span class="text-danger">*</span></th>
+                                        <th>Keterangan</th>
+                                        <th style="width:40px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="formset-body">
+                                    {% for f in formset %}
+                                    <tr class="formset-row" id="form-row-{{ forloop.counter0 }}">
+                                        <td>
+                                            {{ f.id }}
+                                            {{ f.item }}
+                                            {% if f.item.errors %}<div class="text-danger small">{{ f.item.errors }}</div>{% endif %}
+                                        </td>
+                                        <td>
+                                            {{ f.quantity }}
+                                            {% if f.quantity.errors %}<div class="text-danger small">{{ f.quantity.errors }}</div>{% endif %}
+                                        </td>
+                                        <td>
+                                            {{ f.unit_price }}
+                                            {% if f.unit_price.errors %}<div class="text-danger small">{{ f.unit_price.errors }}</div>{% endif %}
+                                        </td>
+                                        <td>
+                                            {{ f.notes }}
+                                            {% if f.notes.errors %}<div class="text-danger small">{{ f.notes.errors }}</div>{% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if f.instance.pk %}
+                                            <div class="d-none">{{ f.DELETE }}</div>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-sm btn-link text-danger delete-row-btn p-0" data-action-remove-row title="Hapus baris">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <template id="empty-form-template">
+                            <tr class="formset-row">
+                                <td>
+                                    <select name="items-__prefix__-item" class="form-select form-select-sm js-typeahead-select js-item-select" id="id_items-__prefix__-item">
+                                        {% for opt in formset.empty_form.item.field.choices %}
+                                        <option value="{{ opt.0 }}">{{ opt.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="items-__prefix__-quantity" min="0.01" step="0.01" class="form-control form-control-sm" id="id_items-__prefix__-quantity">
+                                </td>
+                                <td>
+                                    <input type="number" name="items-__prefix__-unit_price" min="0" step="0.01" class="form-control form-control-sm" id="id_items-__prefix__-unit_price">
+                                </td>
+                                <td>
+                                    <input type="text" name="items-__prefix__-notes" placeholder="Keterangan (opsional)" class="form-control form-control-sm" id="id_items-__prefix__-notes">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-link text-danger delete-row-btn p-0" data-action-remove-row title="Hapus baris">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" id="save-btn">
+                        <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan SBBK{% endif %}
+                    </button>
+                    {% if is_edit %}
+                    <a href="{% url 'puskesmas:receiving_detail' sbbk.pk %}" class="btn btn-outline-secondary" id="cancel-btn">Batal</a>
+                    {% else %}
+                    <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary" id="cancel-btn">Batal</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/puskesmas-form.js' %}"></script>
+{% endblock %}

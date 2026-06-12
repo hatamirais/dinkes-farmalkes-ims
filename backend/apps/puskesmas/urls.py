@@ -4,6 +4,12 @@ from . import views
 app_name = "puskesmas"
 
 urlpatterns = [
+    # Penerimaan SBBK
+    path("penerimaan/", views.receiving_list, name="receiving_list"),
+    path("penerimaan/buat/", views.receiving_create, name="receiving_create"),
+    path("penerimaan/<int:pk>/", views.receiving_detail, name="receiving_detail"),
+    path("penerimaan/<int:pk>/edit/", views.receiving_edit, name="receiving_edit"),
+    path("penerimaan/<int:pk>/delete/", views.receiving_delete, name="receiving_delete"),
     # Permintaan Barang
     path("permintaan/", views.request_list, name="request_list"),
     path("permintaan/buat/", views.request_create, name="request_create"),
