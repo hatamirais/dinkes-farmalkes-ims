@@ -65,6 +65,13 @@ Module highlights:
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
   - Superusers may work across facilities, while every non-superuser request is forced to the linked `user.facility` and receives `403` when no facility is linked or the object belongs to another facility.
   - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` are all-facility only for superusers; every non-superuser request is forced to the request user's linked facility.
+- Puskesmas subunits: `/puskesmas/subunit/`, `/puskesmas/subunit/buat/`, `/puskesmas/subunit/<pk>/edit/`, `/puskesmas/subunit/<pk>/delete/`
+  - Stores dynamic room/helper-site columns per facility for the detailed consumption matrix.
+  - Only `PUSKESMAS` role users and superusers may mutate subunit rows.
+- Puskesmas detailed consumption: `/puskesmas/pemakaian/`, `/puskesmas/pemakaian/buat/`, `/puskesmas/pemakaian/<pk>/`, `/puskesmas/pemakaian/<pk>/edit/`, `/puskesmas/pemakaian/<pk>/delete/`
+  - Only `PUSKESMAS` role users and superusers may create, edit, or delete detailed consumption.
+  - Detailed-consumption mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
+  - Create/edit/delete is rate-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO `pemakaian` totals.
 - Puskesmas SBBK receiving: `/puskesmas/penerimaan/`, `/puskesmas/penerimaan/buat/`, `/puskesmas/penerimaan/<pk>/`, `/puskesmas/penerimaan/<pk>/edit/`, `/puskesmas/penerimaan/<pk>/delete/`
   - Only `PUSKESMAS` role users and superusers may create, edit, or delete SBBK.
   - SBBK mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
@@ -95,6 +102,7 @@ Special rule:
 - `lplpo` and `puskesmas` facility isolation now applies to every non-superuser account; Super Admin users (`is_superuser`) are the only users who can access and mutate records across all facilities.
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 - Puskesmas SBBK create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage SBBK mutations.
+- Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
 
@@ -324,6 +332,26 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Behavior: duplicate rows for the same `item` within one SBBK are allowed so different receipt prices remain explicit
   - Derived usage: same-facility/month aggregates feed LPLPO `penerimaan` totals and weighted-average `harga_satuan` autofill
 
+- `puskesmas.PuskesmasSubunit` (`puskesmas_subunits`):
+  - Purpose: facility-specific reporting bucket for treatment rooms and helper sites
+  - Fields: `name`, `subunit_type`, `sort_order`, `is_active`
+  - FKs: `facility` (puskesmas only)
+  - Constraint: unique `(facility, name)`
+
+- `puskesmas.PuskesmasConsumption` (`puskesmas_consumptions`):
+  - Purpose: monthly detailed consumption header per Puskesmas
+  - Fields: `bulan`, `tahun`, `notes`
+  - FKs: `facility` (puskesmas only), `created_by`, `updated_by` (nullable)
+  - Constraint: unique `(facility, bulan, tahun)`
+  - Index: `idx_pkcons_fac_period` on `(facility, tahun, bulan)`
+
+- `puskesmas.PuskesmasConsumptionEntry` (`puskesmas_consumption_entries`):
+  - Purpose: normalized item-by-subunit quantity rows for one monthly detailed-consumption document
+  - FKs: `consumption`, `item`, `subunit`
+  - Fields: `quantity`
+  - Constraint: unique `(consumption, item, subunit)`
+  - Summed per item, same facility/month, into `lplpo.LPLPOItem.pemakaian`
+
 - `puskesmas.PuskesmasRequest` (`puskesmas_requests`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `REJECTED`
   - Fields: `document_number` (auto-generated `REQ-YYYYMM-XXXXX` when blank), `request_date`, `notes`, `rejection_reason`
@@ -357,8 +385,9 @@ This section reflects model code in `backend/apps/*/models.py`.
   - The first January document in the active server year is the annual bootstrap baseline; the create/edit UI explains that `stock_awal` is entered manually from facility opening records
   - That same January bootstrap keeps `penerimaan` manual, leaves `penerimaan_auto_filled=False`, and requires manual `harga_satuan` entry as the asset-value baseline
   - February onward auto-fills `stock_awal` from the previous month's LPLPO for the same facility when that prior document exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`; negative closing balances are carried forward as-is so operators can see and correct underreported stock
-  - February onward derives `penerimaan` from same-facility/month `puskesmas.PuskesmasSBBKItem.quantity` totals
-  - February onward derives `harga_satuan` from the weighted-average same-facility/month `puskesmas.PuskesmasSBBKItem.unit_price` values and falls back to the previous month's LPLPO unit price when there is no new receipt
+- February onward derives `penerimaan` from same-facility/month `puskesmas.PuskesmasSBBKItem.quantity` totals
+- February onward derives `harga_satuan` from the weighted-average same-facility/month `puskesmas.PuskesmasSBBKItem.unit_price` values and falls back to the previous month's LPLPO unit price when there is no new receipt
+- `pemakaian` is now derived from same-facility/month `puskesmas.PuskesmasConsumptionEntry.quantity` totals and is read-only on the LPLPO edit screen
 
 ## 5) Stock Mutation Checkpoints
 
@@ -409,6 +438,8 @@ From `backend/config/settings.py`:
   - `USER_MUTATION_RATE_LIMIT = 20/m`
   - `USER_PASSWORD_RESET_RATE_LIMIT = 5/m`
   - `PASSWORD_CHANGE_RATE_LIMIT = 5/m`
+  - `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT = 20/m`
+  - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = 20/m`
 - Rate-limited requests are rendered through the centralized error pipeline as HTTP `429`
 - `EMAIL_BACKEND` is environment-configurable and defaults to Django's console backend
 - `DJANGO_LOG_LEVEL` controls the Django logger level and defaults to `WARNING`

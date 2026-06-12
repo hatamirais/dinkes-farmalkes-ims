@@ -839,7 +839,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertIsNone(lplpo.reviewed_by)
 		self.assertIsNone(lplpo.reviewed_at)
 
-	def test_edit_persists_form_and_computed_fields_with_bulk_update(self):
+	def test_edit_keeps_pemakaian_read_only_and_recomputes_fields(self):
 		lplpo = self.create_lplpo()
 		line = LPLPOItem.objects.create(
 			lplpo=lplpo,
@@ -868,18 +868,18 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		line.refresh_from_db()
 		self.assertEqual(line.stock_awal, Decimal("10.00"))
 		self.assertEqual(line.penerimaan, Decimal("5.00"))
-		self.assertEqual(line.pemakaian, Decimal("8.00"))
+		self.assertEqual(line.pemakaian, Decimal("1.00"))
 		self.assertEqual(line.stock_gudang_puskesmas, Decimal("4.00"))
 		self.assertEqual(line.waktu_kosong, Decimal("2.00"))
 		self.assertEqual(line.permintaan_jumlah, Decimal("6.00"))
 		self.assertEqual(line.permintaan_alasan, "Buffer stok menipis")
 		self.assertEqual(line.persediaan, Decimal("15.00"))
-		self.assertEqual(line.stock_keseluruhan, Decimal("7.00"))
-		self.assertEqual(line.stock_optimum, Decimal("9.60"))
-		self.assertEqual(line.jumlah_kebutuhan, Decimal("4.60"))
+		self.assertEqual(line.stock_keseluruhan, Decimal("14.00"))
+		self.assertEqual(line.stock_optimum, Decimal("1.20"))
+		self.assertEqual(line.jumlah_kebutuhan, Decimal("2.00"))
 		self.assertIsNone(line.pemberian_jumlah)
 
-	def test_edit_blank_stock_awal_is_treated_as_zero(self):
+	def test_edit_blank_stock_awal_is_treated_as_zero_while_pemakaian_stays_derived(self):
 		lplpo = self.create_lplpo()
 		line = LPLPOItem.objects.create(
 			lplpo=lplpo,
@@ -908,7 +908,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		line.refresh_from_db()
 		self.assertEqual(line.stock_awal, Decimal("0.00"))
 		self.assertEqual(line.persediaan, Decimal("5.00"))
-		self.assertEqual(line.stock_keseluruhan, Decimal("-3.00"))
+		self.assertEqual(line.stock_keseluruhan, Decimal("4.00"))
 
 	def test_edit_invalid_row_shows_error_message_and_stays_on_edit(self):
 		lplpo = self.create_lplpo()

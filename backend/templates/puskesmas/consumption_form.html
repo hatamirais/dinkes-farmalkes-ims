@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} – Healthcare IMS{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .consumption-table input { min-width: 90px; }
+    .sticky-col { position: sticky; left: 0; background: var(--bs-body-bg); z-index: 1; }
+    .sticky-col-2 { position: sticky; left: 240px; background: var(--bs-body-bg); z-index: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Informasi Dokumen</h6>
+            </div>
+            <div class="card-body">
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                {% if is_edit %}
+                {{ form.facility }}{{ form.bulan }}{{ form.tahun }}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Puskesmas</label>
+                        <input type="text" class="form-control" value="{{ consumption.facility.name }}" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Bulan</label>
+                        <input type="text" class="form-control" value="{{ consumption.bulan }}" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Tahun</label>
+                        <input type="text" class="form-control" value="{{ consumption.tahun }}" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Catatan</label>
+                        {{ form.notes|as_crispy_field }}
+                    </div>
+                </div>
+                {% else %}
+                    {% if request.user.role == 'PUSKESMAS' %}
+                    {{ form.facility }}
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Puskesmas</label>
+                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" readonly>
+                            {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Bulan</label>
+                            {{ form.bulan|as_crispy_field }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Tahun</label>
+                            {{ form.tahun|as_crispy_field }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Catatan</label>
+                            {{ form.notes|as_crispy_field }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Puskesmas</label>
+                            {{ form.facility|as_crispy_field }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Bulan</label>
+                            {{ form.bulan|as_crispy_field }}
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Tahun</label>
+                            {{ form.tahun|as_crispy_field }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Catatan</label>
+                            {{ form.notes|as_crispy_field }}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        {% if not selected_facility %}
+        <div class="alert alert-info">
+            Pilih fasilitas Puskesmas terlebih dahulu untuk memuat kolom subunit.
+        </div>
+        {% elif not subunits %}
+        <div class="alert alert-warning">
+            Belum ada subunit aktif untuk {{ selected_facility.name }}. Tambahkan dulu melalui <a href="{% url 'puskesmas:subunit_list' %}">Subunit Puskesmas</a>.
+        </div>
+        {% else %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-table me-2"></i>Matriks Pemakaian</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0 consumption-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="sticky-col" style="min-width:240px;">Barang</th>
+                                <th class="sticky-col-2 text-center" style="min-width:70px;">Satuan</th>
+                                {% for subunit in subunits %}
+                                <th class="text-center" style="min-width:120px;">
+                                    {{ subunit.name }}<br>
+                                    <small class="text-muted">{{ subunit.get_subunit_type_display }}</small>
+                                </th>
+                                {% endfor %}
+                                <th class="text-center table-secondary" style="min-width:110px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in matrix_rows %}
+                            <tr>
+                                <td class="sticky-col">
+                                    <strong class="small">{{ row.item.nama_barang }}</strong><br>
+                                    <small class="text-muted">{{ row.item.kode_barang }}</small>
+                                </td>
+                                <td class="sticky-col-2 text-center text-muted small">{{ row.item.satuan.code }}</td>
+                                {% for field in row.fields %}
+                                <td>
+                                    {{ field|as_crispy_field }}
+                                </td>
+                                {% endfor %}
+                                <td class="table-secondary text-end text-muted">Otomatis</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Pemakaian{% endif %}
+            </button>
+            {% if is_edit %}
+            <a href="{% url 'puskesmas:consumption_detail' consumption.pk %}" class="btn btn-outline-secondary">Batal</a>
+            {% else %}
+            <a href="{% url 'puskesmas:consumption_list' %}" class="btn btn-outline-secondary">Batal</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

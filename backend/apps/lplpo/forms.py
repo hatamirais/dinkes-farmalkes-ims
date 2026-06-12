@@ -253,6 +253,10 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["stock_awal"].required = False
+        self.fields["pemakaian"].disabled = True
+        self.fields["pemakaian"].help_text = (
+            "Pemakaian dihitung dari modul Pemakaian Rinci Puskesmas."
+        )
 
     def clean_stock_awal(self):
         value = self.cleaned_data.get("stock_awal")

@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -5,6 +6,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.core.models import TimeStampedModel
@@ -15,6 +18,15 @@ def _safe_decimal(value, default="0"):
         return value if isinstance(value, Decimal) else Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return Decimal(default)
+
+
+def _normalize_text_value(value):
+    if value in (None, ""):
+        return ""
+    normalized = unicodedata.normalize("NFC", str(value)).strip()
+    if "\x00" in normalized:
+        raise ValidationError("Teks tidak boleh mengandung null byte.")
+    return normalized
 
 
 class PuskesmasSBBK(TimeStampedModel):
@@ -149,6 +161,212 @@ class PuskesmasSBBKItem(models.Model):
             errors["quantity"] = (
                 "Jumlah SBBK harus berupa bilangan bulat agar sinkron dengan LPLPO."
             )
+
+        if errors:
+            raise ValidationError(errors)
+
+
+class PuskesmasSubunit(TimeStampedModel):
+    """Facility-specific treatment room or helper-site reporting bucket."""
+
+    class SubunitType(models.TextChoices):
+        TREATMENT_ROOM = "TREATMENT_ROOM", "Ruang Tindakan"
+        HELPER_SITE = "HELPER_SITE", "Puskesmas Pembantu"
+
+    facility = models.ForeignKey(
+        "items.Facility",
+        on_delete=models.PROTECT,
+        related_name="puskesmas_subunits",
+        limit_choices_to={"facility_type": "PUSKESMAS", "is_active": True},
+    )
+    name = models.CharField(max_length=120)
+    subunit_type = models.CharField(
+        max_length=20,
+        choices=SubunitType.choices,
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "puskesmas_subunits"
+        ordering = ["facility__name", "sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["facility", "name"],
+                name="uq_pksubunit_facility_name",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["facility", "is_active", "sort_order"],
+                name="idx_pksubunit_facility_active",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.facility} - {self.name}"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if self.facility_id and self.facility.facility_type != "PUSKESMAS":
+            errors["facility"] = "Subunit hanya boleh terhubung ke fasilitas Puskesmas."
+
+        try:
+            normalized_name = _normalize_text_value(self.name)
+        except ValidationError as exc:
+            errors["name"] = exc.messages[0]
+            normalized_name = ""
+
+        if normalized_name and len(normalized_name) > 120:
+            errors["name"] = "Nama subunit tidak boleh lebih dari 120 karakter."
+
+        duplicate_qs = PuskesmasSubunit.objects.filter(
+            facility=self.facility,
+            name__iexact=normalized_name,
+        )
+        if self.pk:
+            duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+        if normalized_name and duplicate_qs.exists():
+            errors["name"] = "Nama subunit sudah digunakan pada fasilitas ini."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.name = _normalize_text_value(self.name)
+        super().save(*args, **kwargs)
+
+
+class PuskesmasConsumption(TimeStampedModel):
+    """Monthly detailed consumption header for one Puskesmas."""
+
+    facility = models.ForeignKey(
+        "items.Facility",
+        on_delete=models.PROTECT,
+        related_name="puskesmas_consumptions",
+        limit_choices_to={"facility_type": "PUSKESMAS", "is_active": True},
+    )
+    bulan = models.PositiveSmallIntegerField()
+    tahun = models.PositiveIntegerField()
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_puskesmas_consumptions",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="updated_puskesmas_consumptions",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "puskesmas_consumptions"
+        ordering = ["-tahun", "-bulan", "facility__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["facility", "bulan", "tahun"],
+                name="uq_pkconsumption_facility_period",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["facility", "tahun", "bulan"],
+                name="idx_pkcons_fac_period",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.facility} - {self.bulan:02d}/{self.tahun}"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if self.facility_id and self.facility.facility_type != "PUSKESMAS":
+            errors["facility"] = "Pemakaian hanya boleh terhubung ke fasilitas Puskesmas."
+        if self.bulan and not 1 <= self.bulan <= 12:
+            errors["bulan"] = "Bulan harus berada pada rentang 1-12."
+        if self.tahun and not 1000 <= self.tahun <= 9999:
+            errors["tahun"] = "Tahun harus berada pada rentang 1000-9999."
+        try:
+            normalized_notes = _normalize_text_value(self.notes)
+        except ValidationError as exc:
+            errors["notes"] = exc.messages[0]
+            normalized_notes = ""
+        if normalized_notes and len(normalized_notes) > 1000:
+            errors["notes"] = "Catatan tidak boleh lebih dari 1000 karakter."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.notes = _normalize_text_value(self.notes)
+        super().save(*args, **kwargs)
+
+    @property
+    def total_consumption(self):
+        aggregated = self.entries.aggregate(
+            total=Coalesce(Sum("quantity"), 0)
+        )
+        return int(aggregated["total"] or 0)
+
+
+class PuskesmasConsumptionEntry(models.Model):
+    """Normalized item-by-subunit monthly consumption row."""
+
+    consumption = models.ForeignKey(
+        PuskesmasConsumption,
+        on_delete=models.CASCADE,
+        related_name="entries",
+    )
+    item = models.ForeignKey(
+        "items.Item",
+        on_delete=models.PROTECT,
+        related_name="puskesmas_consumption_entries",
+    )
+    subunit = models.ForeignKey(
+        PuskesmasSubunit,
+        on_delete=models.PROTECT,
+        related_name="consumption_entries",
+    )
+    quantity = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "puskesmas_consumption_entries"
+        ordering = ["item__kategori__sort_order", "item__nama_barang", "subunit__sort_order", "subunit__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["consumption", "item", "subunit"],
+                name="uq_pkconsentry_doc_item_subunit",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.consumption} - {self.item} - {self.subunit}"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        quantity = self.quantity
+        if isinstance(quantity, Decimal):
+            if quantity != quantity.to_integral_value():
+                errors["quantity"] = "Jumlah pemakaian harus berupa bilangan bulat."
+            quantity = int(quantity)
+        elif quantity is None:
+            errors["quantity"] = "Jumlah pemakaian wajib diisi."
+
+        if quantity is not None and int(quantity) < 0:
+            errors["quantity"] = "Jumlah pemakaian tidak boleh negatif."
+
+        if self.consumption_id and self.subunit_id:
+            if self.subunit.facility_id != self.consumption.facility_id:
+                errors["subunit"] = "Subunit harus berasal dari fasilitas yang sama."
 
         if errors:
             raise ValidationError(errors)

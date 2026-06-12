@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Pemakaian Rinci Puskesmas – Healthcare IMS{% endblock %}
+{% block page_title %}Pemakaian Rinci Puskesmas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="mb-1">Pemakaian Rinci Puskesmas</h4>
+            <p class="text-muted mb-0">Input pemakaian bulanan per barang yang dipecah per ruang tindakan dan Puskesmas pembantu.</p>
+        </div>
+        {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
+        <a href="{% url 'puskesmas:consumption_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Buat Dokumen
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="q" value="{{ search }}" placeholder="Cari puskesmas..." class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="year" value="{{ selected_year }}" class="form-control" placeholder="Tahun" min="1000" max="9999">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="month" value="{{ selected_month }}" class="form-control" placeholder="Bulan" min="1" max="12">
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-primary">Cari</button>
+                    <a href="{% url 'puskesmas:consumption_list' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Puskesmas</th>
+                            <th>Periode</th>
+                            <th>Total Pemakaian</th>
+                            <th>Dibuat Oleh</th>
+                            <th>Diperbarui Oleh</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for consumption in consumptions %}
+                        <tr>
+                            <td class="fw-semibold">{{ consumption.facility.name }}</td>
+                            <td>{{ consumption.bulan }}/{{ consumption.tahun }}</td>
+                            <td>{{ consumption.total_consumption }}</td>
+                            <td>{{ consumption.created_by }}</td>
+                            <td>{{ consumption.updated_by|default:"-" }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'puskesmas:consumption_detail' consumption.pk %}" class="btn btn-sm btn-outline-primary">Lihat</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">Belum ada dokumen pemakaian rinci.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

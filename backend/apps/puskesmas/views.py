@@ -11,30 +11,43 @@ from django.contrib import messages
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
-from apps.core.rate_limits import puskesmas_sbbk_mutation_ratelimit
+from apps.core.rate_limits import (
+    puskesmas_consumption_mutation_ratelimit,
+    puskesmas_sbbk_mutation_ratelimit,
+)
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.lplpo.models import LPLPO
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess, User
+from apps.items.models import Facility, Item
 
 from .forms import (
     ApprovalItemForm,
+    PuskesmasConsumptionMatrixForm,
     PuskesmasRequestForm,
     PuskesmasRequestItemFormSet,
     PuskesmasSBBKForm,
     PuskesmasSBBKItemFormSet,
+    PuskesmasSubunitForm,
 )
 from .models import (
+    PuskesmasConsumption,
+    PuskesmasConsumptionEntry,
     PuskesmasRequest,
     PuskesmasRequestItem,
     PuskesmasSBBK,
     PuskesmasSBBKItem,
+    PuskesmasSubunit,
 )
 from .services import (
+    assert_consumption_month_mutable,
     assert_sbbk_month_mutable,
+    log_consumption_event,
     log_sbbk_event,
+    raise_consumption_creator_denied,
     raise_sbbk_creator_denied,
+    sync_consumption_month,
     sync_sbbk_month,
 )
 
@@ -148,7 +161,572 @@ def _check_sbbk_facility_access(request, sbbk):
     return None
 
 
+def _check_subunit_facility_access(request, subunit):
+    if _is_super_admin(request.user):
+        return None
+
+    facility = _get_required_facility(request.user)
+    if subunit.facility_id != facility.pk:
+        raise PermissionDenied("Anda tidak memiliki akses ke subunit ini.")
+    return None
+
+
+def _check_consumption_facility_access(request, consumption):
+    if _is_super_admin(request.user):
+        return None
+
+    facility = _get_required_facility(request.user)
+    if consumption.facility_id != facility.pk:
+        raise PermissionDenied("Anda tidak memiliki akses ke dokumen pemakaian ini.")
+    return None
+
+
+def _check_puskesmas_consumption_creator_access(request):
+    if _is_super_admin(request.user):
+        return None
+    if getattr(request.user, "role", None) != User.Role.PUSKESMAS:
+        raise_consumption_creator_denied()
+    return None
+
+
+def _get_candidate_consumption_facility(request, *, consumption=None):
+    if consumption is not None:
+        return consumption.facility
+
+    if not _is_super_admin(request.user):
+        return _get_required_facility(request.user)
+
+    facility_id = request.POST.get("facility") or request.GET.get("facility")
+    if not facility_id:
+        return None
+    try:
+        return Facility.objects.get(
+            pk=facility_id,
+            facility_type=Facility.FacilityType.PUSKESMAS,
+            is_active=True,
+        )
+    except (Facility.DoesNotExist, ValueError, TypeError):
+        return None
+
+
+def _get_consumption_subunits(facility, *, consumption=None):
+    queryset = PuskesmasSubunit.objects.filter(facility=facility)
+    if consumption is None:
+        queryset = queryset.filter(is_active=True)
+    else:
+        queryset = queryset.filter(
+            Q(is_active=True) | Q(consumption_entries__consumption=consumption)
+        ).distinct()
+    return list(queryset.order_by("sort_order", "name"))
+
+
+def _get_consumption_items():
+    return list(
+        Item.objects.select_related("satuan", "kategori", "program")
+        .filter(is_active=True)
+        .order_by("kategori__sort_order", "nama_barang")
+    )
+
+
+def _build_consumption_matrix(consumption, *, items, subunits):
+    entry_map = {
+        (entry.item_id, entry.subunit_id): entry.quantity
+        for entry in consumption.entries.select_related("item", "subunit")
+    }
+    rows = []
+    grand_total = 0
+    for item in items:
+        values = []
+        row_total = 0
+        for subunit in subunits:
+            quantity = int(entry_map.get((item.pk, subunit.pk), 0) or 0)
+            values.append(quantity)
+            row_total += quantity
+        if row_total <= 0:
+            continue
+        grand_total += row_total
+        rows.append(
+            {
+                "item": item,
+                "values": values,
+                "total": row_total,
+            }
+        )
+    return rows, grand_total
+
+
+def _build_consumption_form_rows(form, *, items, subunits):
+    rows = []
+    for item in items:
+        fields = []
+        for subunit in subunits:
+            field_name = form.get_matrix_field_name(item.pk, subunit.pk)
+            fields.append(form[field_name])
+        rows.append({"item": item, "fields": fields})
+    return rows
+
+
 # ──────────────────────────── SBBK CRUD ────────────────────────────
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmassubunit")
+def subunit_list(request):
+    queryset = PuskesmasSubunit.objects.select_related("facility").order_by(
+        "facility__name", "sort_order", "name"
+    )
+
+    if not _is_super_admin(request.user):
+        facility = _get_required_facility(request.user)
+        queryset = queryset.filter(facility_id=facility.pk)
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        queryset = queryset.filter(
+            Q(name__icontains=q) | Q(facility__name__icontains=q)
+        )
+
+    subunit_type = request.GET.get("subunit_type", "").strip()
+    if subunit_type:
+        queryset = queryset.filter(subunit_type=subunit_type)
+
+    paginator = Paginator(queryset, 25)
+    subunits = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "puskesmas/subunit_list.html",
+        {
+            "subunits": subunits,
+            "search": q,
+            "selected_subunit_type": subunit_type,
+            "subunit_type_choices": PuskesmasSubunit.SubunitType.choices,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.add_puskesmassubunit")
+def subunit_create(request):
+    _check_puskesmas_consumption_creator_access(request)
+
+    if request.method == "POST":
+        form = PuskesmasSubunitForm(request.POST, user=request.user)
+        if form.is_valid():
+            subunit = form.save()
+            logger.info(
+                "puskesmas_subunit_created",
+                extra={
+                    "subunit_id": subunit.pk,
+                    "facility_id": subunit.facility_id,
+                    "username": request.user.username,
+                },
+            )
+            messages.success(request, f"Subunit {subunit.name} berhasil dibuat.")
+            return redirect("puskesmas:subunit_list")
+    else:
+        form = PuskesmasSubunitForm(user=request.user)
+
+    return render(
+        request,
+        "puskesmas/subunit_form.html",
+        {
+            "form": form,
+            "title": "Buat Subunit Puskesmas",
+            "is_edit": False,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.change_puskesmassubunit")
+def subunit_edit(request, pk):
+    _check_puskesmas_consumption_creator_access(request)
+
+    subunit = get_object_or_404(PuskesmasSubunit, pk=pk)
+    _check_subunit_facility_access(request, subunit)
+
+    if request.method == "POST":
+        form = PuskesmasSubunitForm(request.POST, instance=subunit, user=request.user)
+        if form.is_valid():
+            updated_subunit = form.save()
+            logger.info(
+                "puskesmas_subunit_updated",
+                extra={
+                    "subunit_id": updated_subunit.pk,
+                    "facility_id": updated_subunit.facility_id,
+                    "username": request.user.username,
+                },
+            )
+            messages.success(
+                request,
+                f"Subunit {updated_subunit.name} berhasil diperbarui.",
+            )
+            return redirect("puskesmas:subunit_list")
+    else:
+        form = PuskesmasSubunitForm(instance=subunit, user=request.user)
+
+    return render(
+        request,
+        "puskesmas/subunit_form.html",
+        {
+            "form": form,
+            "title": f"Edit Subunit {subunit.name}",
+            "is_edit": True,
+            "subunit": subunit,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.delete_puskesmassubunit")
+def subunit_delete(request, pk):
+    _check_puskesmas_consumption_creator_access(request)
+
+    subunit = get_object_or_404(PuskesmasSubunit, pk=pk)
+    _check_subunit_facility_access(request, subunit)
+
+    if request.method != "POST":
+        return redirect("puskesmas:subunit_list")
+
+    if subunit.consumption_entries.exists():
+        messages.error(
+            request,
+            "Subunit tidak dapat dihapus karena sudah dipakai pada data pemakaian. Nonaktifkan subunit ini sebagai gantinya.",
+        )
+        return redirect("puskesmas:subunit_list")
+
+    subunit_name = subunit.name
+    facility_id = subunit.facility_id
+    subunit.delete()
+    logger.info(
+        "puskesmas_subunit_deleted",
+        extra={
+            "facility_id": facility_id,
+            "subunit_name": subunit_name,
+            "username": request.user.username,
+        },
+    )
+    messages.success(request, f"Subunit {subunit_name} berhasil dihapus.")
+    return redirect("puskesmas:subunit_list")
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasconsumption")
+def consumption_list(request):
+    queryset = PuskesmasConsumption.objects.select_related(
+        "facility", "created_by", "updated_by"
+    ).order_by("-tahun", "-bulan", "facility__name")
+
+    if not _is_super_admin(request.user):
+        facility = _get_required_facility(request.user)
+        queryset = queryset.filter(facility_id=facility.pk)
+
+    year = request.GET.get("year", "").strip()
+    if year:
+        queryset = queryset.filter(tahun=year)
+
+    month = request.GET.get("month", "").strip()
+    if month:
+        queryset = queryset.filter(bulan=month)
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        queryset = queryset.filter(facility__name__icontains=q)
+
+    paginator = Paginator(queryset, 25)
+    consumptions = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "puskesmas/consumption_list.html",
+        {
+            "consumptions": consumptions,
+            "search": q,
+            "selected_year": year,
+            "selected_month": month,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.add_puskesmasconsumption")
+@puskesmas_consumption_mutation_ratelimit
+def consumption_create(request):
+    _check_puskesmas_consumption_creator_access(request)
+
+    facility = _get_candidate_consumption_facility(request)
+    subunits = _get_consumption_subunits(facility) if facility else []
+    items = _get_consumption_items()
+
+    if request.method == "POST":
+        form = PuskesmasConsumptionMatrixForm(
+            request.POST,
+            user=request.user,
+            subunits=subunits,
+            items=items,
+        )
+        if form.is_valid():
+            if not subunits:
+                form.add_error(
+                    None,
+                    "Tambahkan minimal 1 subunit aktif sebelum menyimpan pemakaian.",
+                )
+            else:
+                try:
+                    with transaction.atomic():
+                        consumption = form.save(commit=False)
+                        assert_consumption_month_mutable(
+                            facility=consumption.facility,
+                            bulan=consumption.bulan,
+                            tahun=consumption.tahun,
+                        )
+                        Facility.objects.select_for_update().get(pk=consumption.facility_id)
+                        if PuskesmasConsumption.objects.filter(
+                            facility=consumption.facility,
+                            bulan=consumption.bulan,
+                            tahun=consumption.tahun,
+                        ).exists():
+                            form.add_error(
+                                None,
+                                "Dokumen pemakaian untuk periode ini sudah ada.",
+                            )
+                            raise ValidationError("duplicate_consumption")
+
+                        consumption.created_by = request.user
+                        consumption.updated_by = request.user
+                        consumption.save()
+                        PuskesmasConsumptionEntry.objects.bulk_create(
+                            form.build_entries(consumption)
+                        )
+                        sync_consumption_month(
+                            facility=consumption.facility,
+                            bulan=consumption.bulan,
+                            tahun=consumption.tahun,
+                        )
+                        log_consumption_event(
+                            event="created",
+                            consumption=consumption,
+                            user=request.user,
+                        )
+                except ValidationError as exc:
+                    if "duplicate_consumption" not in exc.messages:
+                        form.add_error(None, exc)
+                else:
+                    messages.success(
+                        request,
+                        "Dokumen pemakaian rinci berhasil dibuat.",
+                    )
+                    return redirect("puskesmas:consumption_detail", pk=consumption.pk)
+    else:
+        initial = {}
+        if facility:
+            initial["facility"] = facility.pk
+        now = timezone.localdate()
+        initial.setdefault("bulan", now.month)
+        initial.setdefault("tahun", now.year)
+        form = PuskesmasConsumptionMatrixForm(
+            user=request.user,
+            subunits=subunits,
+            items=items,
+            initial=initial,
+        )
+
+    return render(
+        request,
+        "puskesmas/consumption_form.html",
+        {
+            "form": form,
+            "title": "Buat Pemakaian Rinci Puskesmas",
+            "is_edit": False,
+            "subunits": subunits,
+            "items": items,
+            "matrix_rows": _build_consumption_form_rows(
+                form,
+                items=items,
+                subunits=subunits,
+            ) if subunits else [],
+            "selected_facility": facility,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasconsumption")
+def consumption_detail(request, pk):
+    consumption = get_object_or_404(
+        PuskesmasConsumption.objects.select_related(
+            "facility", "created_by", "updated_by"
+        ),
+        pk=pk,
+    )
+    _check_consumption_facility_access(request, consumption)
+
+    subunits = _get_consumption_subunits(consumption.facility, consumption=consumption)
+    items = _get_consumption_items()
+    matrix_rows, grand_total = _build_consumption_matrix(
+        consumption,
+        items=items,
+        subunits=subunits,
+    )
+
+    return render(
+        request,
+        "puskesmas/consumption_detail.html",
+        {
+            "consumption": consumption,
+            "subunits": subunits,
+            "matrix_rows": matrix_rows,
+            "grand_total": grand_total,
+            "can_manage": _is_super_admin(request.user)
+            or request.user.role == User.Role.PUSKESMAS,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.change_puskesmasconsumption")
+@puskesmas_consumption_mutation_ratelimit
+def consumption_edit(request, pk):
+    _check_puskesmas_consumption_creator_access(request)
+
+    consumption = get_object_or_404(PuskesmasConsumption, pk=pk)
+    _check_consumption_facility_access(request, consumption)
+
+    subunits = _get_consumption_subunits(consumption.facility, consumption=consumption)
+    items = _get_consumption_items()
+    existing_entries = {
+        (entry.item_id, entry.subunit_id): entry.quantity
+        for entry in consumption.entries.only("item_id", "subunit_id", "quantity")
+    }
+
+    if request.method == "POST":
+        form = PuskesmasConsumptionMatrixForm(
+            request.POST,
+            instance=consumption,
+            user=request.user,
+            subunits=subunits,
+            items=items,
+            existing_entries=existing_entries,
+            lock_period=True,
+        )
+        if form.is_valid():
+            if not subunits:
+                form.add_error(
+                    None,
+                    "Tambahkan minimal 1 subunit aktif sebelum menyimpan pemakaian.",
+                )
+            else:
+                try:
+                    with transaction.atomic():
+                        assert_consumption_month_mutable(
+                            facility=consumption.facility,
+                            bulan=consumption.bulan,
+                            tahun=consumption.tahun,
+                        )
+                        consumption = PuskesmasConsumption.objects.select_for_update().get(
+                            pk=consumption.pk
+                        )
+                        consumption.notes = form.cleaned_data["notes"]
+                        consumption.updated_by = request.user
+                        consumption.save(update_fields=["notes", "updated_by", "updated_at"])
+                        consumption.entries.all().delete()
+                        PuskesmasConsumptionEntry.objects.bulk_create(
+                            form.build_entries(consumption)
+                        )
+                        sync_consumption_month(
+                            facility=consumption.facility,
+                            bulan=consumption.bulan,
+                            tahun=consumption.tahun,
+                        )
+                        log_consumption_event(
+                            event="updated",
+                            consumption=consumption,
+                            user=request.user,
+                        )
+                except ValidationError as exc:
+                    form.add_error(None, exc)
+                else:
+                    messages.success(
+                        request,
+                        "Dokumen pemakaian rinci berhasil diperbarui.",
+                    )
+                    return redirect("puskesmas:consumption_detail", pk=consumption.pk)
+    else:
+        form = PuskesmasConsumptionMatrixForm(
+            instance=consumption,
+            user=request.user,
+            subunits=subunits,
+            items=items,
+            existing_entries=existing_entries,
+            lock_period=True,
+        )
+
+    return render(
+        request,
+        "puskesmas/consumption_form.html",
+        {
+            "form": form,
+            "title": f"Edit Pemakaian {consumption.facility.name} {consumption.bulan:02d}/{consumption.tahun}",
+            "is_edit": True,
+            "consumption": consumption,
+            "subunits": subunits,
+            "items": items,
+            "matrix_rows": _build_consumption_form_rows(
+                form,
+                items=items,
+                subunits=subunits,
+            ),
+            "selected_facility": consumption.facility,
+        },
+    )
+
+
+@login_required
+@perm_required("puskesmas.delete_puskesmasconsumption")
+@puskesmas_consumption_mutation_ratelimit
+def consumption_delete(request, pk):
+    _check_puskesmas_consumption_creator_access(request)
+
+    consumption = get_object_or_404(PuskesmasConsumption, pk=pk)
+    _check_consumption_facility_access(request, consumption)
+
+    if request.method != "POST":
+        return redirect("puskesmas:consumption_detail", pk=pk)
+
+    try:
+        with transaction.atomic():
+            assert_consumption_month_mutable(
+                facility=consumption.facility,
+                bulan=consumption.bulan,
+                tahun=consumption.tahun,
+            )
+            facility = consumption.facility
+            bulan = consumption.bulan
+            tahun = consumption.tahun
+            consumption_id = consumption.pk
+            consumption.delete()
+            sync_consumption_month(
+                facility=facility,
+                bulan=bulan,
+                tahun=tahun,
+            )
+            logger.info(
+                "puskesmas_consumption_deleted",
+                extra={
+                    "consumption_id": consumption_id,
+                    "facility_id": facility.pk,
+                    "bulan": bulan,
+                    "tahun": tahun,
+                    "username": request.user.username,
+                },
+            )
+    except ValidationError as exc:
+        messages.error(request, str(exc))
+        return redirect("puskesmas:consumption_detail", pk=pk)
+
+    messages.success(request, "Dokumen pemakaian rinci berhasil dihapus.")
+    return redirect("puskesmas:consumption_list")
 
 
 @login_required

@@ -203,6 +203,18 @@
                     title="Penerimaan SBBK">
                     <i class="bi bi-receipt"></i><span>Penerimaan SBBK</span>
                 </a>
+                <a href="{% url 'puskesmas:subunit_list' %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'subunit_' %}active{% endif %}"
+                    data-label="Subunit Puskesmas"
+                    title="Subunit Puskesmas">
+                    <i class="bi bi-diagram-2"></i><span>Subunit Puskesmas</span>
+                </a>
+                <a href="{% url 'puskesmas:consumption_list' %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':12' == 'consumption_' %}active{% endif %}"
+                    data-label="Pemakaian Rinci"
+                    title="Pemakaian Rinci">
+                    <i class="bi bi-clipboard-data"></i><span>Pemakaian Rinci</span>
+                </a>
                 <a href="{% url 'puskesmas:request_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' %}active{% endif %}"
                     data-label="Permintaan Barang"

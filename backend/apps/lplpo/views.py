@@ -393,6 +393,13 @@ def lplpo_create(request):
                     harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
                         facility, bulan, tahun
                     )
+                from apps.puskesmas.services import get_consumption_for_facility_period
+
+                pemakaian_data = get_consumption_for_facility_period(
+                    facility=facility,
+                    bulan=bulan,
+                    tahun=tahun,
+                )
 
                 # Generate one LPLPOItem per active Item
                 active_items = Item.objects.filter(is_active=True).order_by(
@@ -415,6 +422,7 @@ def lplpo_create(request):
                         stock_awal=stock_awal,
                         penerimaan=penerimaan,
                         harga_satuan=harga_satuan,
+                        pemakaian=pemakaian_data.get(item.pk, 0),
                         penerimaan_auto_filled=has_auto_fill,
                     )
                     li.compute_fields()
@@ -595,6 +603,13 @@ def lplpo_edit(request, pk):
     is_january_bootstrap = is_january_bootstrap_period(
         lplpo_obj.bulan, lplpo_obj.tahun
     )
+    from apps.puskesmas.models import PuskesmasConsumption
+
+    linked_consumption = PuskesmasConsumption.objects.filter(
+        facility=lplpo_obj.facility,
+        bulan=lplpo_obj.bulan,
+        tahun=lplpo_obj.tahun,
+    ).first()
 
     # Check if previous LPLPO exists (to lock stock_awal after January bootstrap)
     prev_lplpo = get_previous_lplpo(
@@ -684,6 +699,7 @@ def lplpo_edit(request, pk):
             "stock_awal_locked": stock_awal_locked,
             "is_january_bootstrap": is_january_bootstrap,
             "has_form_errors": has_form_errors,
+            "linked_consumption": linked_consumption,
         },
     )
 
