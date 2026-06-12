@@ -1,6 +1,9 @@
 from decimal import Decimal
 from io import BytesIO
+from unittest.mock import patch
 
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from openpyxl import load_workbook
@@ -119,6 +122,35 @@ class PuskesmasSBBKFormTests(TestCase):
 
 		self.assertRegex(sbbk.document_number, r"^SBBK-\d{6}-\d{5}$")
 
+	def test_sbbk_number_uses_received_date_month_prefix(self):
+		sbbk = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date="2024-02-15",
+			created_by=self.user,
+		)
+
+		self.assertTrue(sbbk.document_number.startswith("SBBK-202402-"))
+
+	def test_sbbk_number_generation_retries_after_unique_collision(self):
+		sbbk = PuskesmasSBBK(
+			facility=self.facility,
+			received_date="2026-04-02",
+			created_by=self.user,
+		)
+
+		with patch.object(
+			PuskesmasSBBK,
+			"_generate_next_document_number",
+			side_effect=["SBBK-202604-00001", "SBBK-202604-00002"],
+		), patch(
+			"apps.puskesmas.models.TimeStampedModel.save",
+			side_effect=[IntegrityError("duplicate key"), None],
+		) as mocked_save:
+			sbbk.save()
+
+		self.assertEqual(sbbk.document_number, "SBBK-202604-00002")
+		self.assertEqual(mocked_save.call_count, 2)
+
 	def test_same_item_can_exist_multiple_times_in_one_sbbk(self):
 		sbbk = PuskesmasSBBK.objects.create(
 			facility=self.facility,
@@ -182,6 +214,35 @@ class PuskesmasSBBKFormTests(TestCase):
 					}
 				)
 				self.assertFalse(form.is_valid())
+
+	def test_sbbk_item_form_rejects_fractional_quantity(self):
+		form = PuskesmasSBBKItemForm(
+			data={
+				"item": self.item.pk,
+				"quantity": "0.50",
+				"unit_price": "1000",
+				"notes": "",
+			}
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn("quantity", form.errors)
+
+	def test_sbbk_item_model_rejects_fractional_quantity(self):
+		sbbk = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date="2026-04-02",
+			created_by=self.user,
+		)
+		item = PuskesmasSBBKItem(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("1.50"),
+			unit_price=Decimal("1000.00"),
+		)
+
+		with self.assertRaises(ValidationError):
+			item.full_clean()
 
 
 class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
@@ -429,6 +490,16 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		line = lplpo.items.get(item=self.item)
 		self.assertEqual(line.penerimaan, Decimal("6.00"))
 		self.assertEqual(line.harga_satuan, Decimal("1200.00"))
+
+	def test_receiving_detail_uses_receiving_back_link(self):
+		sbbk = self._create_sbbk()
+		self.client.force_login(self.operator)
+
+		response = self.client.get(reverse("puskesmas:receiving_detail", args=[sbbk.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, reverse("puskesmas:receiving_list"))
+		self.assertContains(response, "Penerimaan SBBK")
 
 
 class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
@@ -1128,6 +1199,14 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		response = self.client.get(reverse("puskesmas:request_list"))
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Laporan Puskesmas")
+
+	def test_report_page_does_not_show_request_back_link(self):
+		self.client.force_login(self.report_operator)
+
+		response = self.client.get(reverse("puskesmas:report_penerimaan"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, 'title="Kembali ke Permintaan Puskesmas"', html=False)
 
 	def test_admin_can_access_all_three_reports(self):
 		self.client.force_login(self.admin)

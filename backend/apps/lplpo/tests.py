@@ -458,6 +458,15 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertTrue(item_a_line.penerimaan_auto_filled)
 		self.assertTrue(item_b_line.penerimaan_auto_filled)
 
+	def test_lplpo_help_text_mentions_sbbk_as_penerimaan_source(self):
+		penerimaan_field = LPLPOItem._meta.get_field("penerimaan")
+		auto_filled_field = LPLPOItem._meta.get_field("penerimaan_auto_filled")
+
+		self.assertIn("SBBK", penerimaan_field.help_text)
+		self.assertIn("SBBK", auto_filled_field.help_text)
+		self.assertNotIn("Distribution records", penerimaan_field.help_text)
+		self.assertNotIn("Distribution records", auto_filled_field.help_text)
+
 	def test_harga_satuan_auto_fill_uses_weighted_average_sbbk_value(self):
 		self.create_lplpo(bulan=1, tahun=2026, status=LPLPO.Status.CLOSED)
 		self.create_sbbk(

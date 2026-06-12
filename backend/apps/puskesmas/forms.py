@@ -232,7 +232,7 @@ class PuskesmasSBBKItemForm(forms.ModelForm):
                 }
             ),
             "quantity": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "0.01", "step": "0.01"}
+                attrs={"class": "form-control form-control-sm", "min": "1", "step": "1"}
             ),
             "unit_price": forms.NumberInput(
                 attrs={"class": "form-control form-control-sm", "min": "0", "step": "0.01"}
@@ -260,6 +260,10 @@ class PuskesmasSBBKItemForm(forms.ModelForm):
         quantity = validate_finite_decimal(quantity, field_label="Jumlah")
         if quantity is not None and quantity <= 0:
             raise forms.ValidationError("Jumlah harus lebih dari 0.")
+        if quantity is not None and quantity != quantity.to_integral_value():
+            raise forms.ValidationError(
+                "Jumlah SBBK harus berupa bilangan bulat agar sinkron dengan LPLPO."
+            )
         return quantity
 
     def clean_unit_price(self):

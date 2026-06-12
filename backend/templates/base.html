@@ -400,7 +400,11 @@
                         <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Mutasi Lokasi">
                             <i class="bi bi-arrow-left me-1"></i>Mutasi Lokasi
                         </a>
-                        {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name != 'request_list' %}
+                        {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' and request.resolver_match.url_name != 'receiving_list' %}
+                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Penerimaan SBBK">
+                            <i class="bi bi-arrow-left me-1"></i>Penerimaan SBBK
+                        </a>
+                        {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' and request.resolver_match.url_name != 'request_list' %}
                         <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Permintaan Puskesmas">
                             <i class="bi bi-arrow-left me-1"></i>Permintaan Puskesmas
                         </a>

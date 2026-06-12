@@ -1,7 +1,10 @@
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.core.models import TimeStampedModel
@@ -49,24 +52,45 @@ class PuskesmasSBBK(TimeStampedModel):
     def __str__(self):
         return f"{self.document_number} – {self.facility}"
 
+    def _get_document_number_prefix(self):
+        received_date = self.received_date or timezone.localdate()
+        if isinstance(received_date, str):
+            received_date = date.fromisoformat(received_date)
+        return f"SBBK-{received_date.strftime('%Y%m')}"
+
+    def _generate_next_document_number(self):
+        prefix = self._get_document_number_prefix()
+        prefix_with_dash = f"{prefix}-"
+        last = (
+            PuskesmasSBBK.objects.filter(document_number__startswith=prefix_with_dash)
+            .order_by("-document_number")
+            .first()
+        )
+        if last:
+            try:
+                last_num = int(last.document_number.split("-")[-1])
+            except (ValueError, IndexError):
+                last_num = 0
+            new_num = last_num + 1
+        else:
+            new_num = 1
+        return f"{prefix_with_dash}{str(new_num).zfill(5)}"
+
     def save(self, *args, **kwargs):
-        if not self.document_number:
-            prefix = f"SBBK-{timezone.now().strftime('%Y%m')}-"
-            last = (
-                PuskesmasSBBK.objects.filter(document_number__startswith=prefix)
-                .order_by("-document_number")
-                .first()
-            )
-            if last:
-                try:
-                    last_num = int(last.document_number.split("-")[-1])
-                except (ValueError, IndexError):
-                    last_num = 0
-                new_num = last_num + 1
-            else:
-                new_num = 1
-            self.document_number = f"{prefix}{str(new_num).zfill(5)}"
-        super().save(*args, **kwargs)
+        if self.pk or self.document_number:
+            return super().save(*args, **kwargs)
+
+        for _attempt in range(5):
+            self.document_number = self._generate_next_document_number()
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                self.document_number = ""
+
+        raise IntegrityError(
+            "Unable to generate a unique Puskesmas SBBK document number after retries."
+        )
 
 
 class PuskesmasSBBKItem(models.Model):
@@ -85,7 +109,7 @@ class PuskesmasSBBKItem(models.Model):
     quantity = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        help_text="Jumlah diterima",
+        help_text="Jumlah diterima dalam satuan utuh",
     )
     unit_price = models.DecimalField(
         max_digits=15,
@@ -105,6 +129,29 @@ class PuskesmasSBBKItem(models.Model):
     @property
     def total_price(self):
         return _safe_decimal(self.quantity) * _safe_decimal(self.unit_price)
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+        try:
+            quantity = (
+                self.quantity
+                if isinstance(self.quantity, Decimal)
+                else Decimal(str(self.quantity))
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            quantity = None
+
+        if quantity is None or quantity <= 0:
+            errors["quantity"] = "Jumlah harus lebih dari 0."
+        elif quantity != quantity.to_integral_value():
+            errors["quantity"] = (
+                "Jumlah SBBK harus berupa bilangan bulat agar sinkron dengan LPLPO."
+            )
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class PuskesmasRequest(TimeStampedModel):

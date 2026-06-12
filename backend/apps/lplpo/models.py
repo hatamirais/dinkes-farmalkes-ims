@@ -242,7 +242,7 @@ class LPLPOItem(models.Model):
     )
     penerimaan = models.PositiveIntegerField(
         default=0,
-        help_text="Auto-filled from Distribution records, confirmable by Puskesmas",
+        help_text="Auto-filled from same-month SBBK records, confirmable by Puskesmas",
     )
     harga_satuan = models.DecimalField(
         max_digits=15,
@@ -310,7 +310,7 @@ class LPLPOItem(models.Model):
     # === Audit ===
     penerimaan_auto_filled = models.BooleanField(
         default=False,
-        help_text="True if penerimaan was auto-filled from Distribution records",
+        help_text="True if penerimaan was auto-filled from same-month SBBK records",
     )
 
     class Meta:
