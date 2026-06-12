@@ -220,12 +220,15 @@ def _get_consumption_subunits(facility, *, consumption=None):
     return list(queryset.order_by("sort_order", "name"))
 
 
-def _get_consumption_items():
-    return list(
-        Item.objects.select_related("satuan", "kategori", "program")
-        .filter(is_active=True)
-        .order_by("kategori__sort_order", "nama_barang")
-    )
+def _get_consumption_items(*, consumption=None):
+    queryset = Item.objects.select_related("satuan", "kategori", "program")
+    if consumption is None:
+        queryset = queryset.filter(is_active=True)
+    else:
+        queryset = queryset.filter(
+            Q(is_active=True) | Q(puskesmas_consumption_entries__consumption=consumption)
+        ).distinct()
+    return list(queryset.order_by("kategori__sort_order", "nama_barang"))
 
 
 def _build_consumption_matrix(consumption, *, items, subunits):
@@ -588,7 +591,7 @@ def consumption_detail(request, pk):
     _check_consumption_facility_access(request, consumption)
 
     subunits = _get_consumption_subunits(consumption.facility, consumption=consumption)
-    items = _get_consumption_items()
+    items = _get_consumption_items(consumption=consumption)
     matrix_rows, grand_total = _build_consumption_matrix(
         consumption,
         items=items,
@@ -619,7 +622,7 @@ def consumption_edit(request, pk):
     _check_consumption_facility_access(request, consumption)
 
     subunits = _get_consumption_subunits(consumption.facility, consumption=consumption)
-    items = _get_consumption_items()
+    items = _get_consumption_items(consumption=consumption)
     existing_entries = {
         (entry.item_id, entry.subunit_id): entry.quantity
         for entry in consumption.entries.only("item_id", "subunit_id", "quantity")

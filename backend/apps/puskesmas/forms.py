@@ -345,7 +345,18 @@ class PuskesmasSubunitForm(forms.ModelForm):
                     "Akun operator belum terhubung ke fasilitas puskesmas."
                 )
             return self.user.facility
-        return self.cleaned_data.get("facility")
+        facility = self.cleaned_data.get("facility")
+        if (
+            facility
+            and self.instance
+            and self.instance.pk
+            and self.instance.consumption_entries.exists()
+            and facility.pk != self.instance.facility_id
+        ):
+            raise forms.ValidationError(
+                "Fasilitas tidak dapat diubah karena subunit sudah dipakai pada data pemakaian."
+            )
+        return facility
 
     def clean_name(self):
         return _normalize_text_value(
