@@ -270,13 +270,14 @@ def receiving_edit(request, pk):
     _check_sbbk_facility_access(request, sbbk)
 
     if request.method == "POST":
+        original_date = sbbk.received_date
+        original_facility = sbbk.facility
+        original_facility_id = sbbk.facility_id
+
         form = PuskesmasSBBKForm(request.POST, instance=sbbk, user=request.user)
         formset = PuskesmasSBBKItemFormSet(request.POST, instance=sbbk, prefix="items")
 
         if form.is_valid() and formset.is_valid():
-            original_date = sbbk.received_date
-            original_facility = sbbk.facility
-            original_facility_id = sbbk.facility_id
             try:
                 with transaction.atomic():
                     updated_sbbk = form.save(commit=False)
