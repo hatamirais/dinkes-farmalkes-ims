@@ -25,7 +25,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Pencatatan stok per batch dengan pendekatan FEFO agar distribusi lebih terkendali dan masa kedaluwarsa lebih mudah dipantau.
 - Alur kerja end-to-end untuk penerimaan, distribusi, recall, barang kedaluwarsa, transfer stok, dan stock opname.
 - Dukungan tipe penerimaan bawaan dan tipe kustom melalui `ReceivingTypeOption`, termasuk quick-create dari form penerimaan.
-- Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, dengan pembuatan dokumen yang terkunci berurutan dari Januari pada tahun server aktif. Januari diperlakukan sebagai bootstrap tahunan: `stock_awal`, `penerimaan`, dan `harga_satuan` diisi manual, sedangkan bulan berikutnya membawa carry-over `sisa stok` bulan sebelumnya ke `stock_awal` termasuk bila bernilai negatif, mengisi `harga_satuan` dari nilai distribusi bulan berjalan bila ada, lalu fallback ke harga bulan sebelumnya bila tidak ada penerimaan baru.
+- Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, dengan pembuatan dokumen yang terkunci berurutan dari Januari pada tahun server aktif. Januari diperlakukan sebagai bootstrap tahunan: `stock_awal`, `penerimaan`, dan `harga_satuan` diisi manual, sedangkan bulan berikutnya membawa carry-over `sisa stok` bulan sebelumnya ke `stock_awal` termasuk bila bernilai negatif, mengisi `penerimaan` dari SBBK Puskesmas bulan berjalan, dan mengisi `harga_satuan` dari rata-rata tertimbang SBBK bulan berjalan lalu fallback ke harga bulan sebelumnya bila tidak ada penerimaan baru.
 - Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
 - Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
 - Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`.
@@ -42,10 +42,10 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
 - `stock_opname`: proses hitung fisik dan cetak laporan selisih.
-- `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas. Seluruh surface operasional modul ini sekarang mewajibkan `facility` pada akun untuk semua non-superuser dan selalu membatasi akses objek ke fasilitas akun tersebut.
-- `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas, termasuk pelacakan `harga_satuan` per baris untuk valuasi aset pada rekap persediaan.
+- `puskesmas`: pengajuan permintaan barang ad-hoc dari unit Puskesmas dan input penerimaan SBBK. Seluruh surface operasional modul ini sekarang mewajibkan `facility` pada akun untuk semua non-superuser dan selalu membatasi akses objek ke fasilitas akun tersebut. SBBK menjadi sumber kebenaran `penerimaan` LPLPO dan riwayat penerimaan Puskesmas.
+- `lplpo`: pelaporan pemakaian dan permintaan rutin bulanan dari Puskesmas, termasuk pelacakan `harga_satuan` per baris untuk valuasi aset pada rekap persediaan. Untuk Februari dan seterusnya, autofill `penerimaan` dan `harga_satuan` kini bersumber dari SBBK Puskesmas, bukan dari `Distribution`.
   Super Admin dapat mengelola LPLPO lintas fasilitas, sedangkan semua pengguna non-superuser kini wajib punya `facility` terhubung dan selalu dibatasi ke fasilitasnya sendiri pada queue, detail, print, verifikasi, review, reject, finalize, dan prefill.
-- Laporan Puskesmas (`Riwayat Penerimaan`, `Riwayat Pemakaian`, `Rincian Persediaan`, dan `Rekap Persediaan`) kini hanya mendukung cakupan lintas fasilitas untuk superuser. Pengguna non-superuser selalu dipaksa ke `facility` akun mereka sendiri dan akan ditolak bila akun belum terhubung ke fasilitas.
+- Laporan Puskesmas (`Riwayat Penerimaan`, `Riwayat Pemakaian`, `Rincian Persediaan`, dan `Rekap Persediaan`) kini hanya mendukung cakupan lintas fasilitas untuk superuser. Pengguna non-superuser selalu dipaksa ke `facility` akun mereka sendiri dan akan ditolak bila akun belum terhubung ke fasilitas. `Riwayat Penerimaan` menampilkan histori SBBK Puskesmas, bukan histori dispatch distribusi dari Instalasi Farmasi.
 - `users`: manajemen pengguna dan pengaturan cakupan akses modul.
 
 - `core`: dashboard, middleware akses panel admin, pengaturan sistem (label platform login, logo, header dokumen, nama fasilitas, serta template penomoran dokumen distribusi) secara dinamis, placeholder riwayat administrasi terpisah untuk penerimaan serta pengeluaran, dan handler error terpusat untuk `400/403/404/500` plus halaman maintenance `503`.
@@ -83,6 +83,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 
 - Perlindungan brute-force login menggunakan `django-axes`.
 - Rate limiting untuk endpoint POST sensitif seperti perubahan password dan aksi manajemen pengguna menggunakan `django-ratelimit`.
+- Endpoint mutasi SBBK Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT`.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.

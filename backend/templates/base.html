@@ -197,8 +197,14 @@
                 {% if can_view_puskesmas or can_view_lplpo and request.user.role == 'PUSKESMAS' %}
                 <div class="sidebar-section-title">Puskesmas</div>
                 {% if can_view_puskesmas %}
+                <a href="{% url 'puskesmas:receiving_list' %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' %}active{% endif %}"
+                    data-label="Penerimaan SBBK"
+                    title="Penerimaan SBBK">
+                    <i class="bi bi-receipt"></i><span>Penerimaan SBBK</span>
+                </a>
                 <a href="{% url 'puskesmas:request_list' %}"
-                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and 'lplpo' not in request.resolver_match.url_name and 'report_' not in request.resolver_match.url_name %}active{% endif %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' %}active{% endif %}"
                     data-label="Permintaan Barang"
                     title="Permintaan Barang">
                     <i class="bi bi-file-earmark-arrow-up"></i><span>Permintaan Barang</span>
@@ -394,7 +400,11 @@
                         <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Mutasi Lokasi">
                             <i class="bi bi-arrow-left me-1"></i>Mutasi Lokasi
                         </a>
-                        {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name != 'request_list' %}
+                        {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' and request.resolver_match.url_name != 'receiving_list' %}
+                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Penerimaan SBBK">
+                            <i class="bi bi-arrow-left me-1"></i>Penerimaan SBBK
+                        </a>
+                        {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' and request.resolver_match.url_name != 'request_list' %}
                         <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Permintaan Puskesmas">
                             <i class="bi bi-arrow-left me-1"></i>Permintaan Puskesmas
                         </a>

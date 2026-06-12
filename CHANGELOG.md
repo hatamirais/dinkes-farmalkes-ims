@@ -7,6 +7,26 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-06-12
+
+### Added
+
+- Puskesmas SBBK module: new `PuskesmasSBBK` and `PuskesmasSBBKItem` models for tracking local receipt records with CRUD screens, facility-scoped authorization, form validation, structured logging, and dedicated mutation rate limiting.
+- SBBK receiving flow: create, edit, detail, delete, and list views with integrated LPLPO penerimaan/harga_satuan sync on every mutation.
+
+### Changed
+
+- LPLPO `penerimaan` and `harga_satuan` autofill now sources from same-month SBBK aggregates instead of distribution data, with January remaining a manual bootstrap period and February onward auto-filled from `PuskesmasSBBKItem` totals.
+- SBBK save/edit/delete atomically re-syncs editable (`DRAFT`/`REJECTED_PUSKESMAS`) LPLPO rows; mutations are blocked once the facility-month LPLPO is `SUBMITTED` or beyond.
+- Puskesmas receiving report now displays SBBK history instead of distribution-based data.
+- Updated documentation (`AGENTS.md`, `README.md`, `SYSTEM_MODEL.md`, `docs/developer_guide.md`) for new SBBK workflow and settings.
+
+### Fixed
+
+- SBBK document numbering now derives from `received_date` instead of server time so backdated/future-dated receipts keep correct `YYYYMM` prefix with retry-on-collision handling.
+- SBBK quantities validated as whole numbers in both form and model layers.
+- Puskesmas top-nav back button corrected for receiving detail/edit flows and report pages.
+
 ## [1.25.0] - 2026-06-09
 
 ### Added

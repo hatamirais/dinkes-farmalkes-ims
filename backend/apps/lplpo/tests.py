@@ -13,6 +13,7 @@ from django.utils import timezone
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.puskesmas.models import PuskesmasSBBK, PuskesmasSBBKItem
 from apps.stock.models import Stock
 from apps.users.models import ModuleAccess, User
 from apps.lplpo.models import (
@@ -150,6 +151,36 @@ class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
 			]
 		)
 		return distribution
+
+	def create_sbbk(
+		self,
+		*,
+		facility,
+		received_date,
+		item_quantities,
+		item_unit_prices=None,
+	):
+		sbbk = PuskesmasSBBK.objects.create(
+			facility=facility,
+			received_date=received_date,
+			created_by=self.puskesmas_user,
+		)
+		PuskesmasSBBKItem.objects.bulk_create(
+			[
+				PuskesmasSBBKItem(
+					sbbk=sbbk,
+					item=item,
+					quantity=quantity,
+					unit_price=(
+						item_unit_prices.get(item.pk)
+						if item_unit_prices
+						else Decimal("0.00")
+					),
+				)
+				for item, quantity in item_quantities
+			]
+		)
+		return sbbk
 
 	def create_lplpo(self, **kwargs):
 		defaults = {
@@ -396,24 +427,22 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 	def test_penerimaan_auto_fill(self):
 		self.create_lplpo(bulan=1, tahun=2026, status=LPLPO.Status.CLOSED)
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 2, 10),
+			received_date=date(2026, 2, 10),
 			item_quantities=[
 				(self.item_a, Decimal("7.00")),
 				(self.item_b, Decimal("2.00")),
 			],
 		)
-		special = self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 2, 20),
+			received_date=date(2026, 2, 20),
 			item_quantities=[(self.item_a, Decimal("3.00"))],
 		)
-		special.distribution_type = Distribution.DistributionType.SPECIAL_REQUEST
-		special.save(update_fields=["distribution_type", "updated_at"])
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.other_facility,
-			distributed_date=date(2026, 2, 25),
+			received_date=date(2026, 2, 25),
 			item_quantities=[(self.item_a, Decimal("99.00"))],
 		)
 
@@ -429,17 +458,26 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertTrue(item_a_line.penerimaan_auto_filled)
 		self.assertTrue(item_b_line.penerimaan_auto_filled)
 
-	def test_harga_satuan_auto_fill_uses_weighted_average_distribution_value(self):
+	def test_lplpo_help_text_mentions_sbbk_as_penerimaan_source(self):
+		penerimaan_field = LPLPOItem._meta.get_field("penerimaan")
+		auto_filled_field = LPLPOItem._meta.get_field("penerimaan_auto_filled")
+
+		self.assertIn("SBBK", penerimaan_field.help_text)
+		self.assertIn("SBBK", auto_filled_field.help_text)
+		self.assertNotIn("Distribution records", penerimaan_field.help_text)
+		self.assertNotIn("Distribution records", auto_filled_field.help_text)
+
+	def test_harga_satuan_auto_fill_uses_weighted_average_sbbk_value(self):
 		self.create_lplpo(bulan=1, tahun=2026, status=LPLPO.Status.CLOSED)
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 2, 10),
+			received_date=date(2026, 2, 10),
 			item_quantities=[(self.item_a, Decimal("7.00"))],
 			item_unit_prices={self.item_a.pk: Decimal("1000.00")},
 		)
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 2, 20),
+			received_date=date(2026, 2, 20),
 			item_quantities=[(self.item_a, Decimal("3.00"))],
 			item_unit_prices={self.item_a.pk: Decimal("1200.00")},
 		)
@@ -1547,9 +1585,9 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(lplpo.status, LPLPO.Status.CLOSED)
 
 	def test_api_prefill_penerimaan_returns_expected_totals(self):
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 2, 11),
+			received_date=date(2026, 2, 11),
 			item_quantities=[(self.item_a, Decimal("4.00"))],
 			item_unit_prices={self.item_a.pk: Decimal("1400.00")},
 		)
@@ -1571,15 +1609,15 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		)
 
 	def test_non_superuser_prefill_uses_linked_facility_even_with_other_facility_param(self):
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 2, 11),
+			received_date=date(2026, 2, 11),
 			item_quantities=[(self.item_a, Decimal("4.00"))],
 			item_unit_prices={self.item_a.pk: Decimal("1400.00")},
 		)
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.other_facility,
-			distributed_date=date(2026, 2, 15),
+			received_date=date(2026, 2, 15),
 			item_quantities=[(self.item_a, Decimal("99.00"))],
 			item_unit_prices={self.item_a.pk: Decimal("2500.00")},
 		)
