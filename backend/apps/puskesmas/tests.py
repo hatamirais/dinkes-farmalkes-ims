@@ -1,11 +1,13 @@
 from decimal import Decimal
 from io import BytesIO
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from openpyxl import load_workbook
 
 from apps.core.tests.mixins import SecureClientDefaultsMixin
@@ -30,6 +32,7 @@ from apps.puskesmas.models import (
 	PuskesmasSubunit,
 )
 from apps.puskesmas.services import assert_consumption_month_mutable
+from apps.puskesmas.views import _get_consumption_subunits
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 from apps.lplpo.models import LPLPO, LPLPOItem
@@ -299,6 +302,14 @@ class PuskesmasConsumptionFormTests(TestCase):
 		self.assertEqual(form.cleaned_data["facility"], self.facility)
 		self.assertEqual(form.cleaned_data["name"], "Poli Gigi")
 
+	def test_subunit_form_uses_indonesian_labels_and_hover_titles(self):
+		form = PuskesmasSubunitForm(user=self.user)
+
+		self.assertEqual(form.fields["name"].label, "Nama Poli/Pustu")
+		self.assertEqual(form.fields["subunit_type"].label, "Jenis Poli/Pustu")
+		self.assertIn("poli atau pustu", form.fields["name"].widget.attrs["title"].lower())
+		self.assertNotIn("sort_order", form.fields)
+
 	def test_subunit_form_rejects_facility_change_after_consumption_history_exists(self):
 		admin = User.objects.create_superuser(
 			username="admin-subunit-form",
@@ -355,6 +366,19 @@ class PuskesmasConsumptionFormTests(TestCase):
 		self.assertFalse(form.is_valid())
 		self.assertIn(f"qty_{self.item.pk}_{self.subunit.pk}", form.errors)
 
+	def test_consumption_form_adds_hover_information_to_matrix_inputs(self):
+		form = PuskesmasConsumptionMatrixForm(
+			user=self.user,
+			subunits=[self.subunit],
+			items=[self.item],
+		)
+
+		field = form.fields[f"qty_{self.item.pk}_{self.subunit.pk}"]
+		self.assertEqual(form.fields["bulan"].label, "Bulan")
+		self.assertIn("periode pemakaian", form.fields["bulan"].widget.attrs["title"].lower())
+		self.assertEqual(field.widget.attrs["placeholder"], "0")
+		self.assertIn(self.subunit.name, field.widget.attrs["title"])
+
 	def test_assert_consumption_month_mutable_uses_row_lock_when_requested(self):
 		lplpo = LPLPO.objects.create(
 			facility=self.facility,
@@ -383,6 +407,29 @@ class PuskesmasConsumptionFormTests(TestCase):
 		)
 		mocked_queryset.select_for_update.assert_called_once_with()
 		self.assertEqual(result, lplpo)
+
+	def test_consumption_subunits_follow_creation_time_order(self):
+		older_subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Z",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		newer_subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli A",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		now = timezone.now()
+		PuskesmasSubunit.objects.filter(pk=older_subunit.pk).update(
+			created_at=now - timedelta(minutes=2)
+		)
+		PuskesmasSubunit.objects.filter(pk=newer_subunit.pk).update(
+			created_at=now - timedelta(minutes=1)
+		)
+
+		subunits = _get_consumption_subunits(self.facility)
+
+		self.assertEqual([subunit.pk for subunit in subunits[:2]], [older_subunit.pk, newer_subunit.pk])
 
 
 class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):

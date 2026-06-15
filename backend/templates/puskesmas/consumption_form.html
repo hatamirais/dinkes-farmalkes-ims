@@ -30,18 +30,17 @@
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Puskesmas</label>
-                        <input type="text" class="form-control" value="{{ consumption.facility.name }}" readonly>
+                        <input type="text" class="form-control" value="{{ consumption.facility.name }}" title="Puskesmas yang melaporkan pemakaian rinci ini." readonly>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label fw-semibold">Bulan</label>
-                        <input type="text" class="form-control" value="{{ consumption.bulan }}" readonly>
+                        <input type="text" class="form-control" value="{{ consumption.bulan }}" title="Bulan periode pemakaian yang sedang diubah." readonly>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label fw-semibold">Tahun</label>
-                        <input type="text" class="form-control" value="{{ consumption.tahun }}" readonly>
+                        <input type="text" class="form-control" value="{{ consumption.tahun }}" title="Tahun periode pemakaian yang sedang diubah." readonly>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Catatan</label>
                         {{ form.notes|as_crispy_field }}
                     </div>
                 </div>
@@ -51,38 +50,31 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Puskesmas</label>
-                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" readonly>
+                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" title="Puskesmas pemilik dokumen pemakaian rinci ini." readonly>
                             {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label fw-semibold">Bulan</label>
                             {{ form.bulan|as_crispy_field }}
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label fw-semibold">Tahun</label>
                             {{ form.tahun|as_crispy_field }}
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Catatan</label>
                             {{ form.notes|as_crispy_field }}
                         </div>
                     </div>
                     {% else %}
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Puskesmas</label>
                             {{ form.facility|as_crispy_field }}
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label fw-semibold">Bulan</label>
                             {{ form.bulan|as_crispy_field }}
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label fw-semibold">Tahun</label>
                             {{ form.tahun|as_crispy_field }}
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Catatan</label>
                             {{ form.notes|as_crispy_field }}
                         </div>
                     </div>
@@ -93,11 +85,11 @@
 
         {% if not selected_facility %}
         <div class="alert alert-info">
-            Pilih fasilitas Puskesmas terlebih dahulu untuk memuat kolom subunit.
+            Pilih fasilitas Puskesmas terlebih dahulu untuk memuat kolom Poli/Pustu.
         </div>
         {% elif not subunits %}
         <div class="alert alert-warning">
-            Belum ada subunit aktif untuk {{ selected_facility.name }}. Tambahkan dulu melalui <a href="{% url 'puskesmas:subunit_list' %}">Subunit Puskesmas</a>.
+            Belum ada Poli/Pustu aktif untuk {{ selected_facility.name }}. Tambahkan dulu melalui <a href="{% url 'puskesmas:subunit_list' %}">Poli/Pustu Puskesmas</a>.
         </div>
         {% else %}
         <div class="card mb-4">
