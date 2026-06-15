@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% load crispy_forms_tags %}
 
-{% block title %}Subunit Puskesmas – Healthcare IMS{% endblock %}
-{% block page_title %}Subunit Puskesmas{% endblock %}
+{% block title %}Poli/Pustu Puskesmas – Healthcare IMS{% endblock %}
+{% block page_title %}Poli/Pustu Puskesmas{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-            <h4 class="mb-1">Subunit Puskesmas</h4>
-            <p class="text-muted mb-0">Kelola ruang tindakan dan Puskesmas pembantu yang menjadi kolom dinamis pemakaian rinci.</p>
+            <h4 class="mb-1">Poli/Pustu Puskesmas</h4>
+            <p class="text-muted mb-0">Kelola poli dan pustu yang menjadi kolom dinamis pada pemakaian rinci.</p>
         </div>
         {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
         <a href="{% url 'puskesmas:subunit_create' %}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Tambah Subunit
+            <i class="bi bi-plus-lg me-1"></i>Tambah Poli/Pustu
         </a>
         {% endif %}
     </div>
@@ -22,7 +22,7 @@
         <div class="card-body">
             <form method="get" class="row g-2 mb-3">
                 <div class="col-md-4">
-                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nama subunit / puskesmas..." class="form-control">
+                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nama poli/pustu atau puskesmas..." class="form-control">
                 </div>
                 <div class="col-md-3">
                     <select name="subunit_type" class="form-select">
@@ -34,7 +34,7 @@
                 </div>
                 <div class="col-auto d-flex gap-2">
                     <button type="submit" class="btn btn-outline-primary">Cari</button>
-                    <a href="{% url 'puskesmas:subunit_list' %}" class="btn btn-outline-secondary">Reset</a>
+                    <a href="{% url 'puskesmas:subunit_list' %}" class="btn btn-outline-secondary">Atur Ulang</a>
                 </div>
             </form>
 
@@ -45,7 +45,6 @@
                             <th>Nama</th>
                             <th>Puskesmas</th>
                             <th>Jenis</th>
-                            <th>Urutan</th>
                             <th>Status</th>
                             <th class="text-end">Aksi</th>
                         </tr>
@@ -56,7 +55,6 @@
                             <td class="fw-semibold">{{ subunit.name }}</td>
                             <td>{{ subunit.facility.name }}</td>
                             <td>{{ subunit.get_subunit_type_display }}</td>
-                            <td>{{ subunit.sort_order }}</td>
                             <td>
                                 {% if subunit.is_active %}
                                 <span class="badge text-bg-success">Aktif</span>
@@ -66,7 +64,7 @@
                             </td>
                             <td class="text-end">
                                 {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
-                                <a href="{% url 'puskesmas:subunit_edit' subunit.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <a href="{% url 'puskesmas:subunit_edit' subunit.pk %}" class="btn btn-sm btn-outline-primary">Ubah</a>
                                 <form method="post" action="{% url 'puskesmas:subunit_delete' subunit.pk %}" class="d-inline">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
@@ -76,7 +74,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">Belum ada subunit Puskesmas.</td>
+                            <td colspan="5" class="text-center text-muted py-4">Belum ada data Poli/Pustu Puskesmas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

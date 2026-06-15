@@ -300,16 +300,13 @@ PuskesmasSBBKItemFormSet = inlineformset_factory(
 class PuskesmasSubunitForm(forms.ModelForm):
     class Meta:
         model = PuskesmasSubunit
-        fields = ["facility", "name", "subunit_type", "sort_order", "is_active"]
+        fields = ["facility", "name", "subunit_type", "is_active"]
         widgets = {
             "facility": forms.Select(attrs={"class": "form-select"}),
             "name": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "Contoh: Poli Umum"}
             ),
             "subunit_type": forms.Select(attrs={"class": "form-select"}),
-            "sort_order": forms.NumberInput(
-                attrs={"class": "form-control", "min": "0", "step": "1"}
-            ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -323,8 +320,24 @@ class PuskesmasSubunitForm(forms.ModelForm):
             Div("facility", css_class="mb-3"),
             Div("name", css_class="mb-3"),
             Div("subunit_type", css_class="mb-3"),
-            Div("sort_order", css_class="mb-3"),
             Div("is_active", css_class="form-check mb-0"),
+        )
+
+        self.fields["facility"].label = "Puskesmas"
+        self.fields["facility"].widget.attrs["title"] = (
+            "Pilih puskesmas yang memiliki poli atau pustu ini."
+        )
+        self.fields["name"].label = "Nama Poli/Pustu"
+        self.fields["name"].widget.attrs["title"] = (
+            "Isi nama poli atau pustu sesuai penamaan yang digunakan di puskesmas."
+        )
+        self.fields["subunit_type"].label = "Jenis Poli/Pustu"
+        self.fields["subunit_type"].widget.attrs["title"] = (
+            "Pilih Poli untuk layanan di dalam puskesmas atau Pustu untuk layanan di luar gedung utama."
+        )
+        self.fields["is_active"].label = "Aktif"
+        self.fields["is_active"].widget.attrs["title"] = (
+            "Matikan jika poli atau pustu ini tidak lagi dipakai sebagai kolom input."
         )
 
         self.fields["facility"].queryset = Facility.objects.filter(
@@ -361,7 +374,7 @@ class PuskesmasSubunitForm(forms.ModelForm):
     def clean_name(self):
         return _normalize_text_value(
             self.cleaned_data.get("name"),
-            field_label="Nama subunit",
+            field_label="Nama Poli/Pustu",
             max_length=120,
         )
 
@@ -410,6 +423,23 @@ class PuskesmasConsumptionMatrixForm(forms.ModelForm):
             Div("notes", css_class="mb-0"),
         )
 
+        self.fields["facility"].label = "Puskesmas"
+        self.fields["facility"].widget.attrs["title"] = (
+            "Pilih puskesmas yang akan mengisi pemakaian rinci."
+        )
+        self.fields["bulan"].label = "Bulan"
+        self.fields["bulan"].widget.attrs["title"] = (
+            "Masukkan bulan periode pemakaian yang sedang dilaporkan."
+        )
+        self.fields["tahun"].label = "Tahun"
+        self.fields["tahun"].widget.attrs["title"] = (
+            "Masukkan tahun periode pemakaian yang sedang dilaporkan."
+        )
+        self.fields["notes"].label = "Catatan"
+        self.fields["notes"].widget.attrs["title"] = (
+            "Isi catatan tambahan bila ada kondisi khusus pada periode pemakaian ini."
+        )
+
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type=Facility.FacilityType.PUSKESMAS,
             is_active=True,
@@ -441,6 +471,14 @@ class PuskesmasConsumptionMatrixForm(forms.ModelForm):
                             "class": "form-control form-control-sm text-end",
                             "min": "0",
                             "step": "1",
+                            "placeholder": "0",
+                            "title": (
+                                f"Isi jumlah pemakaian {item.nama_barang} yang digunakan di "
+                                f"{subunit.name} pada periode ini."
+                            ),
+                            "aria-label": (
+                                f"Pemakaian {item.nama_barang} untuk {subunit.name}"
+                            ),
                         }
                     ),
                     label=f"{item.picker_label} / {subunit.name}",

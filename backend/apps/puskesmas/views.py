@@ -217,7 +217,7 @@ def _get_consumption_subunits(facility, *, consumption=None):
         queryset = queryset.filter(
             Q(is_active=True) | Q(consumption_entries__consumption=consumption)
         ).distinct()
-    return list(queryset.order_by("sort_order", "name"))
+    return list(queryset.order_by("created_at", "name"))
 
 
 def _get_consumption_items(*, consumption=None):
@@ -280,7 +280,7 @@ def _request_has_consumption_matrix_input(request):
 @perm_required("puskesmas.view_puskesmassubunit")
 def subunit_list(request):
     queryset = PuskesmasSubunit.objects.select_related("facility").order_by(
-        "facility__name", "sort_order", "name"
+        "facility__name", "created_at", "name"
     )
 
     if not _is_super_admin(request.user):
@@ -329,7 +329,7 @@ def subunit_create(request):
                     "username": request.user.username,
                 },
             )
-            messages.success(request, f"Subunit {subunit.name} berhasil dibuat.")
+            messages.success(request, f"Poli/Pustu {subunit.name} berhasil dibuat.")
             return redirect("puskesmas:subunit_list")
     else:
         form = PuskesmasSubunitForm(user=request.user)
@@ -339,7 +339,7 @@ def subunit_create(request):
         "puskesmas/subunit_form.html",
         {
             "form": form,
-            "title": "Buat Subunit Puskesmas",
+            "title": "Buat Poli/Pustu Puskesmas",
             "is_edit": False,
         },
     )
@@ -367,7 +367,7 @@ def subunit_edit(request, pk):
             )
             messages.success(
                 request,
-                f"Subunit {updated_subunit.name} berhasil diperbarui.",
+                f"Poli/Pustu {updated_subunit.name} berhasil diperbarui.",
             )
             return redirect("puskesmas:subunit_list")
     else:
@@ -378,7 +378,7 @@ def subunit_edit(request, pk):
         "puskesmas/subunit_form.html",
         {
             "form": form,
-            "title": f"Edit Subunit {subunit.name}",
+            "title": f"Ubah Poli/Pustu {subunit.name}",
             "is_edit": True,
             "subunit": subunit,
         },
@@ -399,7 +399,7 @@ def subunit_delete(request, pk):
     if subunit.consumption_entries.exists():
         messages.error(
             request,
-            "Subunit tidak dapat dihapus karena sudah dipakai pada data pemakaian. Nonaktifkan subunit ini sebagai gantinya.",
+            "Poli/Pustu tidak dapat dihapus karena sudah dipakai pada data pemakaian. Nonaktifkan entri ini sebagai gantinya.",
         )
         return redirect("puskesmas:subunit_list")
 
@@ -414,7 +414,7 @@ def subunit_delete(request, pk):
             "username": request.user.username,
         },
     )
-    messages.success(request, f"Subunit {subunit_name} berhasil dihapus.")
+    messages.success(request, f"Poli/Pustu {subunit_name} berhasil dihapus.")
     return redirect("puskesmas:subunit_list")
 
 
@@ -497,7 +497,7 @@ def consumption_create(request):
             elif not subunits:
                 form.add_error(
                     None,
-                    "Tambahkan minimal 1 subunit aktif sebelum menyimpan pemakaian.",
+                    "Tambahkan minimal 1 Poli/Pustu aktif sebelum menyimpan pemakaian.",
                 )
             else:
                 try:
@@ -642,7 +642,7 @@ def consumption_edit(request, pk):
             if not subunits:
                 form.add_error(
                     None,
-                    "Tambahkan minimal 1 subunit aktif sebelum menyimpan pemakaian.",
+                    "Tambahkan minimal 1 Poli/Pustu aktif sebelum menyimpan pemakaian.",
                 )
             else:
                 try:
@@ -696,7 +696,7 @@ def consumption_edit(request, pk):
         "puskesmas/consumption_form.html",
         {
             "form": form,
-            "title": f"Edit Pemakaian {consumption.facility.name} {consumption.bulan:02d}/{consumption.tahun}",
+            "title": f"Ubah Pemakaian {consumption.facility.name} {consumption.bulan:02d}/{consumption.tahun}",
             "is_edit": True,
             "consumption": consumption,
             "subunits": subunits,

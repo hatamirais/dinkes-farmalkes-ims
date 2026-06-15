@@ -12,7 +12,7 @@
                 {% csrf_token %}
                 <div class="card">
                     <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-diagram-2 me-2"></i>Informasi Subunit</h6>
+                        <h6 class="mb-0"><i class="bi bi-diagram-2 me-2"></i>Informasi Poli/Pustu</h6>
                     </div>
                     <div class="card-body">
                         {% if form.non_field_errors %}
@@ -23,7 +23,7 @@
                         {{ form.facility }}
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Puskesmas</label>
-                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" readonly>
+                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" title="Puskesmas pemilik data Poli/Pustu ini." readonly>
                             {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
                         </div>
                         {% else %}
@@ -32,16 +32,10 @@
 
                         {% if request.user.role == 'PUSKESMAS' %}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Nama Subunit</label>
                             {{ form.name|as_crispy_field }}
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Jenis</label>
                             {{ form.subunit_type|as_crispy_field }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Urutan Tampil</label>
-                            {{ form.sort_order|as_crispy_field }}
                         </div>
                         <div class="form-check">
                             {{ form.is_active }}
@@ -53,7 +47,7 @@
 
                 <div class="d-flex gap-2 mt-3">
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Subunit{% endif %}
+                        <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Poli/Pustu{% endif %}
                     </button>
                     <a href="{% url 'puskesmas:subunit_list' %}" class="btn btn-outline-secondary">Batal</a>
                 </div>
