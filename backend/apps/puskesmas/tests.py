@@ -11,7 +11,7 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from apps.core.tests.mixins import SecureClientDefaultsMixin
-from apps.distribution.models import Distribution
+from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, Item, Unit
 from apps.puskesmas.exports import export_puskesmas_penerimaan_excel
 from apps.puskesmas.forms import (
@@ -121,6 +121,22 @@ class PuskesmasSBBKFormTests(TestCase):
 			role=User.Role.PUSKESMAS,
 			facility=self.facility,
 		)
+		self.distribution = Distribution.objects.create(
+			distribution_type=Distribution.DistributionType.LPLPO,
+			request_date="2026-04-01",
+			distributed_date="2026-04-02",
+			facility=self.facility,
+			status=Distribution.Status.DISTRIBUTED,
+			created_by=self.user,
+		)
+		self.distribution_item = DistributionItem.objects.create(
+			distribution=self.distribution,
+			item=self.item,
+			quantity_requested=Decimal("5.00"),
+			quantity_approved=Decimal("5.00"),
+			issued_batch_lot="BATCH-01",
+			issued_unit_price=Decimal("1000.00"),
+		)
 
 	def test_sbbk_number_is_auto_generated(self):
 		sbbk = PuskesmasSBBK.objects.create(
@@ -129,7 +145,7 @@ class PuskesmasSBBKFormTests(TestCase):
 			created_by=self.user,
 		)
 
-		self.assertRegex(sbbk.document_number, r"^SBBK-\d{6}-\d{5}$")
+		self.assertRegex(sbbk.document_number, r"^RCVCONF-\d{6}-\d{5}$")
 
 	def test_sbbk_number_uses_received_date_month_prefix(self):
 		sbbk = PuskesmasSBBK.objects.create(
@@ -138,7 +154,7 @@ class PuskesmasSBBKFormTests(TestCase):
 			created_by=self.user,
 		)
 
-		self.assertTrue(sbbk.document_number.startswith("SBBK-202402-"))
+		self.assertTrue(sbbk.document_number.startswith("RCVCONF-202402-"))
 
 	def test_sbbk_number_generation_retries_after_unique_collision(self):
 		sbbk = PuskesmasSBBK(
@@ -150,14 +166,14 @@ class PuskesmasSBBKFormTests(TestCase):
 		with patch.object(
 			PuskesmasSBBK,
 			"_generate_next_document_number",
-			side_effect=["SBBK-202604-00001", "SBBK-202604-00002"],
+			side_effect=["RCVCONF-202604-00001", "RCVCONF-202604-00002"],
 		), patch(
 			"apps.puskesmas.models.TimeStampedModel.save",
 			side_effect=[IntegrityError("duplicate key"), None],
 		) as mocked_save:
 			sbbk.save()
 
-		self.assertEqual(sbbk.document_number, "SBBK-202604-00002")
+		self.assertEqual(sbbk.document_number, "RCVCONF-202604-00002")
 		self.assertEqual(mocked_save.call_count, 2)
 
 	def test_same_item_can_exist_multiple_times_in_one_sbbk(self):
@@ -186,6 +202,7 @@ class PuskesmasSBBKFormTests(TestCase):
 			data={
 				"document_number": "  MANUAL-001  ",
 				"facility": self.other_facility.pk,
+				"distribution": self.distribution.pk,
 				"received_date": "2026-04-02",
 				"notes": "  Catatan  ",
 			},
@@ -202,6 +219,7 @@ class PuskesmasSBBKFormTests(TestCase):
 			data={
 				"document_number": "BAD\x00DOC",
 				"facility": self.facility.pk,
+				"distribution": self.distribution.pk,
 				"received_date": "2026-04-02",
 				"notes": "",
 			},
@@ -216,22 +234,30 @@ class PuskesmasSBBKFormTests(TestCase):
 			with self.subTest(quantity=quantity, unit_price=unit_price):
 				form = PuskesmasSBBKItemForm(
 					data={
+						"distribution_item": self.distribution_item.pk,
 						"item": self.item.pk,
 						"quantity": quantity,
 						"unit_price": unit_price,
+						"batch_lot": "BATCH-01",
+						"expiry_date": "",
 						"notes": "",
-					}
+					},
+					distribution=self.distribution,
 				)
 				self.assertFalse(form.is_valid())
 
 	def test_sbbk_item_form_rejects_fractional_quantity(self):
 		form = PuskesmasSBBKItemForm(
 			data={
+				"distribution_item": self.distribution_item.pk,
 				"item": self.item.pk,
 				"quantity": "0.50",
 				"unit_price": "1000",
+				"batch_lot": "BATCH-01",
+				"expiry_date": "",
 				"notes": "",
-			}
+			},
+			distribution=self.distribution,
 		)
 
 		self.assertFalse(form.is_valid())
@@ -504,36 +530,69 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 			created_by=created_by,
 		)
 
-	def _create_payload(self, *, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes=""):
+	def _create_distribution(self, *, facility=None, distributed_date="2026-02-10", created_by=None):
+		facility = facility or self.facility
+		created_by = created_by or (self.operator if facility == self.facility else self.other_operator)
+		distribution = Distribution.objects.create(
+			distribution_type=Distribution.DistributionType.LPLPO,
+			request_date=distributed_date,
+			distributed_date=distributed_date,
+			facility=facility,
+			status=Distribution.Status.DISTRIBUTED,
+			created_by=created_by,
+		)
+		distribution_item = DistributionItem.objects.create(
+			distribution=distribution,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+			quantity_approved=Decimal("4.00"),
+			issued_batch_lot="BATCH-01",
+			issued_unit_price=Decimal("1000.00"),
+		)
+		return distribution, distribution_item
+
+	def _create_payload(self, *, distribution, distribution_item, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes="", action="save"):
 		facility = facility or self.facility
 		return {
+			"action": action,
 			"document_number": "",
 			"facility": str(facility.pk),
+			"distribution": str(distribution.pk),
 			"received_date": received_date,
 			"notes": notes,
 			"items-TOTAL_FORMS": "3",
 			"items-INITIAL_FORMS": "0",
 			"items-MIN_NUM_FORMS": "1",
 			"items-MAX_NUM_FORMS": "1000",
+			"items-0-distribution_item": str(distribution_item.pk),
 			"items-0-item": str(self.item.pk),
 			"items-0-quantity": quantity,
 			"items-0-unit_price": unit_price,
+			"items-0-batch_lot": "BATCH-01",
+			"items-0-expiry_date": "",
 			"items-0-notes": "",
+			"items-1-distribution_item": "",
 			"items-1-item": "",
 			"items-1-quantity": "",
 			"items-1-unit_price": "",
+			"items-1-batch_lot": "",
+			"items-1-expiry_date": "",
 			"items-1-notes": "",
+			"items-2-distribution_item": "",
 			"items-2-item": "",
 			"items-2-quantity": "",
 			"items-2-unit_price": "",
+			"items-2-batch_lot": "",
+			"items-2-expiry_date": "",
 			"items-2-notes": "",
 		}
 
-	def _edit_payload(self, sbbk_item, *, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00"):
+	def _edit_payload(self, sbbk_item, *, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes=""):
 		facility = facility or self.facility
 		return {
 			"document_number": sbbk_item.sbbk.document_number,
 			"facility": str(facility.pk),
+			"distribution": str(sbbk_item.sbbk.distribution_id),
 			"received_date": received_date,
 			"notes": "",
 			"items-TOTAL_FORMS": "1",
@@ -541,17 +600,27 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 			"items-MIN_NUM_FORMS": "1",
 			"items-MAX_NUM_FORMS": "1000",
 			"items-0-id": str(sbbk_item.pk),
+			"items-0-distribution_item": str(sbbk_item.distribution_item_id),
 			"items-0-item": str(self.item.pk),
 			"items-0-quantity": quantity,
 			"items-0-unit_price": unit_price,
-			"items-0-notes": "",
+			"items-0-batch_lot": sbbk_item.batch_lot or "BATCH-01",
+			"items-0-expiry_date": "",
+			"items-0-notes": notes,
 		}
 
 	def test_operator_can_create_and_list_own_facility_sbbk(self):
 		self.client.force_login(self.operator)
+		distribution, distribution_item = self._create_distribution()
 		create_response = self.client.post(
 			reverse("puskesmas:receiving_create"),
-			self._create_payload(quantity="5.00", unit_price="1100.00"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				quantity="5.00",
+				unit_price="1100.00",
+				notes="Selisih diterima",
+			),
 		)
 
 		self.assertEqual(create_response.status_code, 302)
@@ -580,27 +649,46 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 
 	def test_create_is_blocked_when_same_month_lplpo_is_submitted(self):
 		self._create_lplpo(status=LPLPO.Status.SUBMITTED)
+		distribution, distribution_item = self._create_distribution()
 		self.client.force_login(self.operator)
 
 		response = self.client.post(
 			reverse("puskesmas:receiving_create"),
-			self._create_payload(),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+			),
 		)
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "SBBK untuk periode ini tidak dapat diubah")
+		self.assertContains(response, "Konfirmasi penerimaan untuk periode ini tidak dapat diubah")
 		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
 
-	@override_settings(PUSKESMAS_SBBK_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+	@override_settings(
+		PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT="1/m",
+		RATELIMIT_USE_CACHE="locmem",
+	)
 	def test_create_returns_429_when_rate_limited(self):
 		self.client.force_login(self.operator)
+		distribution_one, distribution_item_one = self._create_distribution(distributed_date="2026-02-10")
+		distribution_two, distribution_item_two = self._create_distribution(distributed_date="2026-02-11")
 		first_response = self.client.post(
 			reverse("puskesmas:receiving_create"),
-			self._create_payload(quantity="1.00"),
+			self._create_payload(
+				distribution=distribution_one,
+				distribution_item=distribution_item_one,
+				quantity="1.00",
+				notes="Selisih penerimaan 1",
+			),
 		)
 		second_response = self.client.post(
 			reverse("puskesmas:receiving_create"),
-			self._create_payload(quantity="2.00"),
+			self._create_payload(
+				distribution=distribution_two,
+				distribution_item=distribution_item_two,
+				quantity="2.00",
+				notes="Selisih penerimaan 2",
+			),
 		)
 
 		self.assertEqual(first_response.status_code, 302)
@@ -613,11 +701,17 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 
 	def test_create_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()
+		distribution, distribution_item = self._create_distribution()
 		self.client.force_login(self.operator)
 
 		response = self.client.post(
 			reverse("puskesmas:receiving_create"),
-			self._create_payload(quantity="4.00", unit_price="1000.00"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				quantity="4.00",
+				unit_price="1000.00",
+			),
 		)
 
 		self.assertEqual(response.status_code, 302)
@@ -628,12 +722,17 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 
 	def test_edit_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()
+		distribution, distribution_item = self._create_distribution()
 		sbbk = self._create_sbbk()
+		sbbk.distribution = distribution
+		sbbk.save(update_fields=["distribution", "notes", "updated_at"])
 		sbbk_item = PuskesmasSBBKItem.objects.create(
 			sbbk=sbbk,
+			distribution_item=distribution_item,
 			item=self.item,
 			quantity=Decimal("2.00"),
 			unit_price=Decimal("1000.00"),
+			batch_lot="BATCH-01",
 		)
 		self.client.force_login(self.operator)
 
@@ -643,6 +742,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 				sbbk_item,
 				quantity="5.00",
 				unit_price="1500.00",
+				notes="Penyesuaian hasil terima",
 			),
 		)
 
@@ -653,19 +753,31 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 
 	def test_delete_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()
+		distribution_keep, distribution_item_keep = self._create_distribution(distributed_date="2026-02-10")
 		sbbk_keep = self._create_sbbk(received_date="2026-02-10")
+		sbbk_keep.distribution = distribution_keep
+		sbbk_keep.save(update_fields=["distribution", "notes", "updated_at"])
 		PuskesmasSBBKItem.objects.create(
 			sbbk=sbbk_keep,
+			distribution_item=distribution_item_keep,
 			item=self.item,
 			quantity=Decimal("6.00"),
 			unit_price=Decimal("1200.00"),
+			batch_lot="BATCH-01",
+			notes="Selisih batch pertama",
 		)
+		distribution_delete, distribution_item_delete = self._create_distribution(distributed_date="2026-02-11")
 		sbbk_delete = self._create_sbbk(received_date="2026-02-11")
+		sbbk_delete.distribution = distribution_delete
+		sbbk_delete.save(update_fields=["distribution", "notes", "updated_at"])
 		PuskesmasSBBKItem.objects.create(
 			sbbk=sbbk_delete,
+			distribution_item=distribution_item_delete,
 			item=self.item,
 			quantity=Decimal("4.00"),
 			unit_price=Decimal("900.00"),
+			batch_lot="BATCH-02",
+			notes="Selisih batch kedua",
 		)
 		self.client.force_login(self.operator)
 
@@ -679,14 +791,17 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(line.harga_satuan, Decimal("1200.00"))
 
 	def test_receiving_detail_uses_receiving_back_link(self):
+		distribution, _distribution_item = self._create_distribution()
 		sbbk = self._create_sbbk()
+		sbbk.distribution = distribution
+		sbbk.save(update_fields=["distribution", "notes", "updated_at"])
 		self.client.force_login(self.operator)
 
 		response = self.client.get(reverse("puskesmas:receiving_detail", args=[sbbk.pk]))
 
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, reverse("puskesmas:receiving_list"))
-		self.assertContains(response, "Penerimaan SBBK")
+		self.assertContains(response, "Konfirmasi Penerimaan")
 
 
 class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
@@ -2154,10 +2269,13 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 				{
 					"received_date": None,
 					"document_number": "=DIST-001",
+					"distribution_document_number": "@DIST-SOURCE",
 					"nama_barang": "@Amoxicillin 500 mg",
 					"satuan": "-Tablet",
 					"quantity": Decimal("5"),
 					"unit_price": Decimal("2500"),
+					"batch_lot": "+BATCH-LOT",
+					"expiry_date": None,
 					"notes": "=BATCH-01",
 				}
 			],
@@ -2174,14 +2292,16 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			"Fasilitas: =Puskesmas Formula | Periode: 2026-03-01 s/d 2026-03-31",
 		)
 		self.assertEqual(sheet["C5"].value, "'=DIST-001")
-		self.assertEqual(sheet["D5"].value, "'@Amoxicillin 500 mg")
-		self.assertEqual(sheet["E5"].value, "'-Tablet")
-		self.assertEqual(sheet["I5"].value, "'=BATCH-01")
+		self.assertEqual(sheet["D5"].value, "'@DIST-SOURCE")
+		self.assertEqual(sheet["E5"].value, "'@Amoxicillin 500 mg")
+		self.assertEqual(sheet["F5"].value, "'-Tablet")
+		self.assertEqual(sheet["I5"].value, "'+BATCH-LOT")
+		self.assertEqual(sheet["L5"].value, "'=BATCH-01")
 		self.assertEqual(sheet["A2"].data_type, "s")
-		self.assertEqual(sheet["F5"].value, 5)
-		self.assertEqual(sheet["G5"].value, 2500)
-		self.assertEqual(sheet["H5"].value, 12500)
-		self.assertEqual(sheet["F5"].data_type, "n")
+		self.assertEqual(sheet["G5"].value, 5)
+		self.assertEqual(sheet["H5"].value, 2500)
+		self.assertEqual(sheet["K5"].value, 12500)
 		self.assertEqual(sheet["G5"].data_type, "n")
 		self.assertEqual(sheet["H5"].data_type, "n")
+		self.assertEqual(sheet["K5"].data_type, "n")
 

@@ -57,12 +57,12 @@ def _make_response(wb, filename):
 
 
 def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facility_name):
-    """Export Riwayat Penerimaan Puskesmas report to Excel.
+    """Export confirmed Puskesmas receipt history to Excel.
 
     Args:
         report_data: list of dicts with keys:
-            document_number, received_date, nama_barang, satuan,
-            quantity, unit_price, notes
+            document_number, distribution_document_number, received_date,
+            nama_barang, satuan, quantity, unit_price, batch_lot, expiry_date, notes
         start_date, end_date: date objects
         facility_name: str — name of the Puskesmas facility
     """
@@ -72,16 +72,19 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
 
     headers = [
         "No",
-        "Tanggal SBBK",
-        "No. Dokumen",
+        "Tanggal Terima",
+        "No. Konfirmasi",
+        "No. Distribusi",
         "Nama Barang",
         "Satuan",
         "Jumlah Diterima",
         "Harga Satuan (Rp)",
+        "Batch/Lot",
+        "Kedaluwarsa",
         "Total Nilai (Rp)",
         "Keterangan",
     ]
-    col_widths = [6, 18, 24, 32, 10, 16, 20, 22, 28]
+    col_widths = [6, 18, 24, 24, 32, 10, 16, 20, 18, 16, 22, 28]
     col_count = len(headers)
     last_col = get_column_letter(col_count)
 
@@ -90,7 +93,7 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
     title_cell = ws.cell(
         row=1,
         column=1,
-        value=_cell_value("RIWAYAT PENERIMAAN BERDASARKAN SBBK PUSKESMAS"),
+        value=_cell_value("RIWAYAT KONFIRMASI PENERIMAAN PUSKESMAS"),
     )
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
@@ -121,10 +124,15 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
             idx,
             received_date_str,
             row.get("document_number", ""),
+            row.get("distribution_document_number", ""),
             row.get("nama_barang", ""),
             row.get("satuan", ""),
             float(qty),
             float(unit_price),
+            row.get("batch_lot", "") or "-",
+            row.get("expiry_date").strftime("%d/%m/%Y")
+            if row.get("expiry_date")
+            else "-",
             float(total_price),
             row.get("notes", "") or "-",
         ]
@@ -133,10 +141,10 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
             cell.border = THIN_BORDER
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
-            elif col_idx == 6:
+            elif col_idx == 7:
                 cell.number_format = NUMBER_FORMAT
                 cell.alignment = Alignment(horizontal="right")
-            elif col_idx in (7, 8):
+            elif col_idx == 8:
                 cell.number_format = IDR_FORMAT
                 cell.alignment = Alignment(horizontal="right")
 
@@ -150,12 +158,12 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
         cell.font = Font(bold=True)
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
-    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
-    qty_cell = ws.cell(row=row_num, column=6, value=float(total_qty))
+    ws.cell(row=row_num, column=3, value=_cell_value("TOTAL")).font = Font(bold=True)
+    qty_cell = ws.cell(row=row_num, column=7, value=float(total_qty))
     qty_cell.number_format = NUMBER_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
     qty_cell.font = Font(bold=True)
-    val_cell = ws.cell(row=row_num, column=8, value=float(total_value))
+    val_cell = ws.cell(row=row_num, column=11, value=float(total_value))
     val_cell.number_format = IDR_FORMAT
     val_cell.alignment = Alignment(horizontal="right")
     val_cell.font = Font(bold=True)

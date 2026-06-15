@@ -58,7 +58,8 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `USER_MUTATION_RATE_LIMIT`
 - `USER_PASSWORD_RESET_RATE_LIMIT`
 - `PASSWORD_CHANGE_RATE_LIMIT`
-- `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT`
+- `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`
+- `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` (legacy compatibility fallback)
 - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS`
 - `FEATURE_ALLOCATION_UI_ENABLED`
@@ -71,7 +72,7 @@ Catatan:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` default `10000` untuk mengakomodasi form LPLPO dan form bulk serupa yang mengirim banyak field dalam satu request.
 - `FEATURE_ALLOCATION_UI_ENABLED` masih dibaca ke Django settings untuk kompatibilitas dan test override, tetapi route/UI runtime Allocation saat ini tidak bercabang pada flag tersebut; akses tetap dikendalikan oleh permission Django + `ModuleAccess`.
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
-- Mutasi SBBK Puskesmas (`/puskesmas/penerimaan/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas.
+- Mutasi konfirmasi penerimaan Puskesmas (`/puskesmas/penerimaan/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap dibaca sebagai fallback kompatibilitas.
 - Mutasi pemakaian rinci Puskesmas (`/puskesmas/pemakaian/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas.
 - Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
 

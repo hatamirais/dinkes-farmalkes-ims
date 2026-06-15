@@ -242,7 +242,10 @@ class LPLPOItem(models.Model):
     )
     penerimaan = models.PositiveIntegerField(
         default=0,
-        help_text="Auto-filled from same-month SBBK records, confirmable by Puskesmas",
+        help_text=(
+            "Auto-filled from same-month Puskesmas receipt confirmations, "
+            "confirmable by Puskesmas"
+        ),
     )
     harga_satuan = models.DecimalField(
         max_digits=15,
@@ -310,7 +313,10 @@ class LPLPOItem(models.Model):
     # === Audit ===
     penerimaan_auto_filled = models.BooleanField(
         default=False,
-        help_text="True if penerimaan was auto-filled from same-month SBBK records",
+        help_text=(
+            "True if penerimaan was auto-filled from same-month Puskesmas "
+            "receipt confirmations"
+        ),
     )
 
     class Meta:
@@ -371,14 +377,14 @@ class LPLPOItem(models.Model):
 
 def get_penerimaan_for_facility_period(facility, bulan, tahun):
     """
-    Returns dict: {item_id: total_quantity} from Puskesmas SBBK rows
+    Returns dict: {item_id: total_quantity} from Puskesmas receipt-confirmation rows
     for the given facility/month/year.
     """
-    from apps.puskesmas.models import PuskesmasSBBKItem
+    from apps.puskesmas.models import PuskesmasReceiptConfirmationItem
 
     result = {}
     items = (
-        PuskesmasSBBKItem.objects.filter(
+        PuskesmasReceiptConfirmationItem.objects.filter(
             sbbk__facility=facility,
             sbbk__received_date__year=tahun,
             sbbk__received_date__month=bulan,
@@ -392,8 +398,8 @@ def get_penerimaan_for_facility_period(facility, bulan, tahun):
 
 
 def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
-    """Return weighted-average incoming prices per item from SBBK rows."""
-    from apps.puskesmas.models import PuskesmasSBBKItem
+    """Return weighted-average incoming prices per item from receipt-confirmation rows."""
+    from apps.puskesmas.models import PuskesmasReceiptConfirmationItem
 
     value_expression = ExpressionWrapper(
         Coalesce(F("quantity"), Value(0))
@@ -401,7 +407,7 @@ def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
         output_field=DecimalField(max_digits=18, decimal_places=2),
     )
     rows = (
-        PuskesmasSBBKItem.objects.filter(
+        PuskesmasReceiptConfirmationItem.objects.filter(
             sbbk__facility=facility,
             sbbk__received_date__year=tahun,
             sbbk__received_date__month=bulan,
@@ -430,8 +436,8 @@ def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
     return result
 
 
-def sync_sbbk_to_editable_lplpo(*, facility, bulan, tahun):
-    """Recompute draft/rejected LPLPO penerimaan and harga_satuan from SBBK data."""
+def sync_receiving_to_editable_lplpo(*, facility, bulan, tahun):
+    """Recompute draft/rejected LPLPO penerimaan and harga_satuan from receipt data."""
     lplpo = (
         LPLPO.objects.select_for_update()
         .filter(
@@ -485,6 +491,10 @@ def sync_sbbk_to_editable_lplpo(*, facility, bulan, tahun):
         )
 
     return lplpo
+
+
+# Temporary compatibility alias while the Puskesmas module is migrated.
+sync_sbbk_to_editable_lplpo = sync_receiving_to_editable_lplpo
 
 
 def get_previous_lplpo(facility, bulan, tahun):
