@@ -431,6 +431,36 @@ class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
             max_length=255,
         )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        distribution_item = cleaned_data.get("distribution_item")
+        quantity = cleaned_data.get("quantity")
+        unit_price = cleaned_data.get("unit_price")
+        batch_lot = cleaned_data.get("batch_lot") or ""
+        expiry_date = cleaned_data.get("expiry_date")
+        notes = cleaned_data.get("notes") or ""
+
+        if distribution_item is None or quantity is None or unit_price is None:
+            return cleaned_data
+
+        source_quantity = distribution_item.quantity_approved
+        source_batch = distribution_item.issued_batch_lot or ""
+        source_expiry = distribution_item.issued_expiry_date
+        source_price = distribution_item.issued_unit_price
+
+        if (
+            source_quantity != quantity
+            or source_batch != batch_lot
+            or source_expiry != expiry_date
+            or source_price != unit_price
+        ) and not notes:
+            self.add_error(
+                "notes",
+                "Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi.",
+            )
+
+        return cleaned_data
+
 
 PuskesmasReceiptConfirmationItemFormSet = inlineformset_factory(
     PuskesmasReceiptConfirmation,

@@ -207,6 +207,9 @@ class PuskesmasReceiptConfirmationItem(models.Model):
         super().clean()
 
         errors = {}
+        parent_distribution_id = None
+        if getattr(self, "sbbk", None) is not None:
+            parent_distribution_id = self.sbbk.distribution_id
         try:
             quantity = (
                 self.quantity
@@ -242,9 +245,9 @@ class PuskesmasReceiptConfirmationItem(models.Model):
         if normalized_notes and len(normalized_notes) > 255:
             errors["notes"] = "Keterangan tidak boleh lebih dari 255 karakter."
 
-        if self.sbbk_id and self.distribution_item_id:
-            if self.sbbk.distribution_id and (
-                self.distribution_item.distribution_id != self.sbbk.distribution_id
+        if self.distribution_item_id:
+            if parent_distribution_id and (
+                self.distribution_item.distribution_id != parent_distribution_id
             ):
                 errors["distribution_item"] = (
                     "Baris distribusi harus berasal dari dokumen distribusi yang sama."
@@ -252,7 +255,7 @@ class PuskesmasReceiptConfirmationItem(models.Model):
             if self.distribution_item.item_id != self.item_id:
                 errors["item"] = "Barang harus sama dengan baris distribusi yang dipilih."
 
-        if self.sbbk_id and self.distribution_item_id and quantity is not None:
+        if self.distribution_item_id and quantity is not None:
             source_batch = self.distribution_item.issued_batch_lot or ""
             source_expiry = self.distribution_item.issued_expiry_date
             source_price = self.distribution_item.issued_unit_price

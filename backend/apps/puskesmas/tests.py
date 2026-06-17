@@ -386,6 +386,44 @@ class PuskesmasSBBKFormTests(TestCase):
 		with self.assertRaises(ValidationError):
 			item.full_clean()
 
+	def test_sbbk_item_form_requires_adjustment_note_for_create_time_quantity_difference(self):
+		form = PuskesmasSBBKItemForm(
+			data={
+				"distribution_item": self.distribution_item.pk,
+				"item": self.item.pk,
+				"quantity": "4",
+				"unit_price": "1000.00",
+				"batch_lot": "BATCH-01",
+				"expiry_date": "",
+				"notes": "",
+			},
+			distribution=self.distribution,
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn("notes", form.errors)
+
+	def test_sbbk_item_model_requires_adjustment_note_with_unsaved_parent_distribution(self):
+		sbbk = PuskesmasSBBK(
+			facility=self.facility,
+			distribution=self.distribution,
+			received_date="2026-04-02",
+			created_by=self.user,
+		)
+		item = PuskesmasSBBKItem(
+			sbbk=sbbk,
+			distribution_item=self.distribution_item,
+			item=self.item,
+			quantity=Decimal("4.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="OTHER-BATCH",
+		)
+
+		with self.assertRaises(ValidationError) as exc_info:
+			item.full_clean()
+
+		self.assertIn("notes", exc_info.exception.message_dict)
+
 
 class PuskesmasConsumptionFormTests(TestCase):
 	def setUp(self):
@@ -658,7 +696,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		)
 		return distribution, distribution_item
 
-	def _create_payload(self, *, distribution, distribution_item, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes="", action="save"):
+	def _create_payload(self, *, distribution, distribution_item, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes="", item_notes="", batch_lot="BATCH-01", expiry_date="", action="save"):
 		facility = facility or self.facility
 		return {
 			"action": action,
@@ -675,9 +713,9 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 			"items-0-item": str(self.item.pk),
 			"items-0-quantity": quantity,
 			"items-0-unit_price": unit_price,
-			"items-0-batch_lot": "BATCH-01",
-			"items-0-expiry_date": "",
-			"items-0-notes": "",
+			"items-0-batch_lot": batch_lot,
+			"items-0-expiry_date": expiry_date,
+			"items-0-notes": item_notes,
 			"items-1-distribution_item": "",
 			"items-1-item": "",
 			"items-1-quantity": "",
@@ -732,7 +770,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 				distribution_item=distribution_item,
 				quantity="5.00",
 				unit_price="1100.00",
-				notes="Selisih diterima",
+				item_notes="Selisih diterima",
 			),
 		)
 
@@ -821,7 +859,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 				distribution=distribution_one,
 				distribution_item=distribution_item_one,
 				quantity="1.00",
-				notes="Selisih penerimaan 1",
+				item_notes="Selisih penerimaan 1",
 			),
 		)
 		second_response = self.client.post(
@@ -830,7 +868,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 				distribution=distribution_two,
 				distribution_item=distribution_item_two,
 				quantity="2.00",
-				notes="Selisih penerimaan 2",
+				item_notes="Selisih penerimaan 2",
 			),
 		)
 
@@ -864,7 +902,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 				distribution=distribution,
 				distribution_item=distribution_item,
 				quantity="1.00",
-				notes="Setelah preview GET",
+				item_notes="Setelah preview GET",
 			),
 		)
 
@@ -892,6 +930,88 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(line.penerimaan, Decimal("4.00"))
 		self.assertEqual(line.harga_satuan, Decimal("1000.00"))
 		self.assertTrue(line.penerimaan_auto_filled)
+
+	def test_create_requires_adjustment_note_when_quantity_differs_from_distribution(self):
+		distribution, distribution_item = self._create_distribution()
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_create"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				quantity="3.00",
+			),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi.",
+		)
+		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
+
+	def test_create_requires_adjustment_note_when_unit_price_differs_from_distribution(self):
+		distribution, distribution_item = self._create_distribution()
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_create"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				unit_price="1200.00",
+			),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi.",
+		)
+		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
+
+	def test_create_requires_adjustment_note_when_batch_differs_from_distribution(self):
+		distribution, distribution_item = self._create_distribution()
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_create"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				batch_lot="BATCH-02",
+			),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi.",
+		)
+		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
+
+	def test_create_requires_adjustment_note_when_expiry_differs_from_distribution(self):
+		distribution, distribution_item = self._create_distribution()
+		distribution_item.issued_expiry_date = timezone.datetime(2026, 12, 31).date()
+		distribution_item.save(update_fields=["issued_expiry_date"])
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_create"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				expiry_date="2026-11-30",
+			),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi.",
+		)
+		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
 
 	def test_edit_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()
