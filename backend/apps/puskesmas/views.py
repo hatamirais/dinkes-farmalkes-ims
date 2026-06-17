@@ -830,7 +830,10 @@ def consumption_delete(request, pk):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmasreceiptconfirmation")
+@perm_required(
+    "puskesmas.view_puskesmasreceiptconfirmation",
+    "puskesmas.view_puskesmassbbk",
+)
 def receiving_list(request):
     queryset = PuskesmasReceiptConfirmation.objects.select_related(
         "facility", "created_by", "distribution"
@@ -864,7 +867,10 @@ def receiving_list(request):
 
 
 @login_required
-@perm_required("puskesmas.add_puskesmasreceiptconfirmation")
+@perm_required(
+    "puskesmas.add_puskesmasreceiptconfirmation",
+    "puskesmas.add_puskesmassbbk",
+)
 @puskesmas_receipt_confirmation_mutation_ratelimit
 def receiving_create(request):
     _check_puskesmas_receiving_creator_access(request)
@@ -938,7 +944,10 @@ def receiving_create(request):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmasreceiptconfirmation")
+@perm_required(
+    "puskesmas.view_puskesmasreceiptconfirmation",
+    "puskesmas.view_puskesmassbbk",
+)
 def receiving_detail(request, pk):
     receipt_confirmation = get_object_or_404(
         PuskesmasReceiptConfirmation.objects.select_related(
@@ -974,7 +983,10 @@ def receiving_detail(request, pk):
 
 
 @login_required
-@perm_required("puskesmas.change_puskesmasreceiptconfirmation")
+@perm_required(
+    "puskesmas.change_puskesmasreceiptconfirmation",
+    "puskesmas.change_puskesmassbbk",
+)
 @puskesmas_receipt_confirmation_mutation_ratelimit
 def receiving_edit(request, pk):
     _check_puskesmas_receiving_creator_access(request)
@@ -1072,7 +1084,10 @@ def receiving_edit(request, pk):
 
 
 @login_required
-@perm_required("puskesmas.delete_puskesmasreceiptconfirmation")
+@perm_required(
+    "puskesmas.delete_puskesmasreceiptconfirmation",
+    "puskesmas.delete_puskesmassbbk",
+)
 @puskesmas_receipt_confirmation_mutation_ratelimit
 def receiving_delete(request, pk):
     _check_puskesmas_receiving_creator_access(request)

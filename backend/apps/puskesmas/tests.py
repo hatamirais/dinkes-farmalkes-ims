@@ -3,6 +3,8 @@ from io import BytesIO
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
@@ -1013,6 +1015,64 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		)
 		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
 
+	def test_create_rejects_duplicate_distribution_rows_when_aggregate_exceeds_source(self):
+		distribution, distribution_item = self._create_distribution()
+		self.client.force_login(self.operator)
+		payload = self._create_payload(
+			distribution=distribution,
+			distribution_item=distribution_item,
+		)
+		payload.update(
+			{
+				"items-TOTAL_FORMS": "2",
+				"items-1-distribution_item": str(distribution_item.pk),
+				"items-1-item": str(self.item.pk),
+				"items-1-quantity": "4.00",
+				"items-1-unit_price": "1000.00",
+				"items-1-batch_lot": "BATCH-01",
+				"items-1-expiry_date": "",
+				"items-1-notes": "",
+			}
+		)
+
+		response = self.client.post(reverse("puskesmas:receiving_create"), payload)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"Total jumlah penerimaan untuk satu baris distribusi harus sama dengan jumlah distribusi sumber.",
+		)
+		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
+
+	def test_create_allows_split_distribution_rows_when_aggregate_matches_source(self):
+		distribution, distribution_item = self._create_distribution()
+		self.client.force_login(self.operator)
+		payload = self._create_payload(
+			distribution=distribution,
+			distribution_item=distribution_item,
+			quantity="2.00",
+			batch_lot="BATCH-01-A",
+			item_notes="Batch split pertama",
+		)
+		payload.update(
+			{
+				"items-TOTAL_FORMS": "2",
+				"items-1-distribution_item": str(distribution_item.pk),
+				"items-1-item": str(self.item.pk),
+				"items-1-quantity": "2.00",
+				"items-1-unit_price": "1000.00",
+				"items-1-batch_lot": "BATCH-01-B",
+				"items-1-expiry_date": "",
+				"items-1-notes": "Batch split kedua",
+			}
+		)
+
+		response = self.client.post(reverse("puskesmas:receiving_create"), payload)
+
+		self.assertEqual(response.status_code, 302)
+		sbbk = PuskesmasSBBK.objects.get()
+		self.assertEqual(sbbk.items.count(), 2)
+
 	def test_edit_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()
 		distribution, distribution_item = self._create_distribution()
@@ -1235,6 +1295,34 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		line = lplpo.items.get(item=self.item)
 		self.assertEqual(line.penerimaan, Decimal("6.00"))
 		self.assertEqual(line.harga_satuan, Decimal("1200.00"))
+
+	def test_legacy_sbbk_view_permission_still_grants_receiving_access(self):
+		viewer = User.objects.create_user(
+			username="legacy-sbbk-viewer",
+			password="TestPassword123!",
+			role=User.Role.AUDITOR,
+			facility=self.facility,
+		)
+		content_type = ContentType.objects.get(
+			app_label="puskesmas",
+			model="puskesmasreceiptconfirmation",
+		)
+		legacy_permission, _created = Permission.objects.get_or_create(
+			content_type=content_type,
+			codename="view_puskesmassbbk",
+			defaults={"name": "Can view legacy puskesmas sbbk"},
+		)
+		legacy_permission.user_set.add(viewer)
+		ModuleAccess.objects.update_or_create(
+			user=viewer,
+			module=ModuleAccess.Module.PUSKESMAS,
+			defaults={"scope": ModuleAccess.Scope.NONE},
+		)
+		self.client.force_login(viewer)
+
+		response = self.client.get(reverse("puskesmas:receiving_list"))
+
+		self.assertEqual(response.status_code, 200)
 
 	def test_receiving_detail_uses_receiving_back_link(self):
 		distribution, _distribution_item = self._create_distribution()

@@ -29,6 +29,14 @@ def _normalize_text_value(value):
     return normalized
 
 
+def get_distribution_item_source_quantity(distribution_item):
+    if distribution_item is None:
+        return None
+    if distribution_item.quantity_approved is not None:
+        return distribution_item.quantity_approved
+    return distribution_item.quantity_requested
+
+
 class PuskesmasReceiptConfirmation(TimeStampedModel):
     """Receiver-side confirmation for one delivered distribution event."""
 
@@ -259,7 +267,9 @@ class PuskesmasReceiptConfirmationItem(models.Model):
             source_batch = self.distribution_item.issued_batch_lot or ""
             source_expiry = self.distribution_item.issued_expiry_date
             source_price = self.distribution_item.issued_unit_price
-            source_quantity = self.distribution_item.quantity_approved
+            source_quantity = get_distribution_item_source_quantity(
+                self.distribution_item
+            )
             if (
                 _safe_decimal(source_quantity) != _safe_decimal(quantity)
                 or source_batch != (self.batch_lot or "")

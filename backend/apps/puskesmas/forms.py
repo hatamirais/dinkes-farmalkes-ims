@@ -1,10 +1,11 @@
 import unicodedata
+from decimal import Decimal
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Div, Layout
 from django import forms
 from django.db.models import Q
-from django.forms import inlineformset_factory
+from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
 from apps.core.decimal_validation import validate_finite_decimal
@@ -20,6 +21,7 @@ from .models import (
     PuskesmasRequest,
     PuskesmasRequestItem,
     PuskesmasSubunit,
+    get_distribution_item_source_quantity,
 )
 
 
@@ -443,7 +445,7 @@ class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
         if distribution_item is None or quantity is None or unit_price is None:
             return cleaned_data
 
-        source_quantity = distribution_item.quantity_approved
+        source_quantity = get_distribution_item_source_quantity(distribution_item)
         source_batch = distribution_item.issued_batch_lot or ""
         source_expiry = distribution_item.issued_expiry_date
         source_price = distribution_item.issued_unit_price
@@ -462,10 +464,54 @@ class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
         return cleaned_data
 
 
+class BasePuskesmasReceiptConfirmationItemFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+
+        totals_by_distribution_item = {}
+        forms_by_distribution_item = {}
+
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data") or not form.cleaned_data:
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+
+            distribution_item = form.cleaned_data.get("distribution_item")
+            quantity = form.cleaned_data.get("quantity")
+            if distribution_item is None or quantity is None:
+                continue
+
+            totals_by_distribution_item.setdefault(distribution_item.pk, Decimal("0"))
+            totals_by_distribution_item[distribution_item.pk] += quantity
+            forms_by_distribution_item.setdefault(distribution_item.pk, []).append(
+                (form, distribution_item)
+            )
+
+        for distribution_item_pk, total_quantity in totals_by_distribution_item.items():
+            form_entries = forms_by_distribution_item[distribution_item_pk]
+            if len(form_entries) < 2:
+                continue
+            distribution_item = form_entries[0][1]
+            source_quantity = get_distribution_item_source_quantity(distribution_item)
+            if source_quantity is None or total_quantity == source_quantity:
+                continue
+
+            for form, _distribution_item in form_entries:
+                form.add_error(
+                    "quantity",
+                    (
+                        "Total jumlah penerimaan untuk satu baris distribusi harus sama "
+                        "dengan jumlah distribusi sumber."
+                    ),
+                )
+
+
 PuskesmasReceiptConfirmationItemFormSet = inlineformset_factory(
     PuskesmasReceiptConfirmation,
     PuskesmasReceiptConfirmationItem,
     form=PuskesmasReceiptConfirmationItemForm,
+    formset=BasePuskesmasReceiptConfirmationItemFormSet,
     extra=3,
     can_delete=True,
     min_num=1,
