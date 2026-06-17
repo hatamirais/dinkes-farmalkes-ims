@@ -1015,23 +1015,26 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		)
 		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
 
-	def test_create_rejects_duplicate_distribution_rows_when_aggregate_exceeds_source(self):
+	def test_create_rejects_duplicate_distribution_rows_when_aggregate_differs_without_header_notes(self):
 		distribution, distribution_item = self._create_distribution()
 		self.client.force_login(self.operator)
 		payload = self._create_payload(
 			distribution=distribution,
 			distribution_item=distribution_item,
+			quantity="3.00",
+			batch_lot="BATCH-01-A",
+			item_notes="Batch split pertama",
 		)
 		payload.update(
 			{
 				"items-TOTAL_FORMS": "2",
 				"items-1-distribution_item": str(distribution_item.pk),
 				"items-1-item": str(self.item.pk),
-				"items-1-quantity": "4.00",
+				"items-1-quantity": "2.00",
 				"items-1-unit_price": "1000.00",
-				"items-1-batch_lot": "BATCH-01",
+				"items-1-batch_lot": "BATCH-01-B",
 				"items-1-expiry_date": "",
-				"items-1-notes": "",
+				"items-1-notes": "Batch split kedua",
 			}
 		)
 
@@ -1040,7 +1043,7 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(
 			response,
-			"Total jumlah penerimaan untuk satu baris distribusi harus sama dengan jumlah distribusi sumber.",
+			"Isi Catatan dokumen bila total beberapa baris penerimaan untuk satu distribusi sumber berbeda dari jumlah distribusi.",
 		)
 		self.assertEqual(PuskesmasSBBK.objects.count(), 0)
 
@@ -1072,6 +1075,37 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.status_code, 302)
 		sbbk = PuskesmasSBBK.objects.get()
 		self.assertEqual(sbbk.items.count(), 2)
+
+	def test_create_allows_split_distribution_rows_with_header_notes_when_aggregate_differs(self):
+		distribution, distribution_item = self._create_distribution()
+		self.client.force_login(self.operator)
+		payload = self._create_payload(
+			distribution=distribution,
+			distribution_item=distribution_item,
+			quantity="3.00",
+			batch_lot="BATCH-01-A",
+			notes="Sebagian barang belum diterima dari pengiriman ini.",
+			item_notes="Batch split pertama",
+		)
+		payload.update(
+			{
+				"items-TOTAL_FORMS": "2",
+				"items-1-distribution_item": str(distribution_item.pk),
+				"items-1-item": str(self.item.pk),
+				"items-1-quantity": "2.00",
+				"items-1-unit_price": "1000.00",
+				"items-1-batch_lot": "BATCH-01-B",
+				"items-1-expiry_date": "",
+				"items-1-notes": "Batch split kedua",
+			}
+		)
+
+		response = self.client.post(reverse("puskesmas:receiving_create"), payload)
+
+		self.assertEqual(response.status_code, 302)
+		sbbk = PuskesmasSBBK.objects.get()
+		self.assertEqual(sbbk.items.count(), 2)
+		self.assertEqual(sbbk.notes, "Sebagian barang belum diterima dari pengiriman ini.")
 
 	def test_edit_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()

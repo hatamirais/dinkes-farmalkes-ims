@@ -882,6 +882,7 @@ def receiving_create(request):
         formset = PuskesmasReceiptConfirmationItemFormSet(
             request.POST,
             prefix="items",
+            receipt_notes=request.POST.get("notes", ""),
             form_kwargs={"distribution": distribution_for_formset},
         )
 
@@ -1013,6 +1014,7 @@ def receiving_edit(request, pk):
             request.POST,
             instance=receipt_confirmation,
             prefix="items",
+            receipt_notes=request.POST.get("notes", ""),
             form_kwargs={"distribution": receipt_confirmation.distribution},
         )
 

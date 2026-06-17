@@ -465,8 +465,14 @@ class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
 
 
 class BasePuskesmasReceiptConfirmationItemFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.receipt_notes = kwargs.pop("receipt_notes", "")
+        super().__init__(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        if any(self.errors):
+            return
 
         totals_by_distribution_item = {}
         forms_by_distribution_item = {}
@@ -497,12 +503,16 @@ class BasePuskesmasReceiptConfirmationItemFormSet(BaseInlineFormSet):
             if source_quantity is None or total_quantity == source_quantity:
                 continue
 
-            for form, _distribution_item in form_entries:
-                form.add_error(
-                    "quantity",
+            header_notes = _normalize_text_value(
+                self.receipt_notes,
+                field_label="Catatan",
+                max_length=1000,
+            )
+            if not header_notes:
+                raise forms.ValidationError(
                     (
-                        "Total jumlah penerimaan untuk satu baris distribusi harus sama "
-                        "dengan jumlah distribusi sumber."
+                        "Isi Catatan dokumen bila total beberapa baris penerimaan untuk "
+                        "satu distribusi sumber berbeda dari jumlah distribusi."
                     ),
                 )
 
