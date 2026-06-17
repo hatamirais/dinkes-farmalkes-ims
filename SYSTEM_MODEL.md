@@ -325,11 +325,13 @@ This section reflects model code in `backend/apps/*/models.py`.
   - FKs: `facility` (puskesmas only), `distribution` (nullable OneToOne to `distribution.Distribution`), `created_by`
   - Indexes: `idx_sbbk_facility_date` on `(facility, received_date)`
   - Purpose: receiver-side confirmation header for goods actually received from Instalasi Farmasi; source of truth for Puskesmas receipt history and monthly LPLPO `penerimaan`
+  - Compatibility: legacy migrated rows may remain `distribution=NULL` and are still editable through a dedicated compatibility path
 
 - `puskesmas.PuskesmasReceiptConfirmationItem` (`puskesmas_sbbk_items`):
   - FKs: `sbbk`, `item`, `distribution_item` (nullable FK to `distribution.DistributionItem`)
   - Fields: `quantity`, `unit_price`, `batch_lot`, `expiry_date`, `notes`, `created_at`
   - Behavior: duplicate rows for the same `item` within one receipt confirmation are allowed so different receipt prices, batches, and expiry dates remain explicit
+  - Compatibility: legacy migrated rows may remain `distribution_item=NULL`; new operational rows are expected to carry source linkage
   - Derived usage: same-facility/month aggregates feed LPLPO `penerimaan` totals and weighted-average `harga_satuan` autofill
 
 - `puskesmas.PuskesmasSubunit` (`puskesmas_subunits`):

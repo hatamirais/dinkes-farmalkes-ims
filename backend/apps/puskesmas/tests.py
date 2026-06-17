@@ -229,6 +229,64 @@ class PuskesmasSBBKFormTests(TestCase):
 		self.assertFalse(form.is_valid())
 		self.assertIn("document_number", form.errors)
 
+	def test_legacy_edit_form_allows_missing_distribution(self):
+		legacy_sbbk = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date="2026-04-02",
+			created_by=self.user,
+		)
+		form = PuskesmasSBBKForm(
+			data={
+				"document_number": legacy_sbbk.document_number,
+				"facility": self.facility.pk,
+				"distribution": "",
+				"received_date": "2026-04-03",
+				"notes": "  Koreksi dokumen lama  ",
+			},
+			instance=legacy_sbbk,
+			user=self.user,
+		)
+
+		self.assertTrue(form.is_valid())
+		self.assertIsNone(form.cleaned_data["distribution"])
+		self.assertEqual(form.cleaned_data["notes"], "Koreksi dokumen lama")
+
+	def test_legacy_edit_form_rejects_new_distribution_link(self):
+		legacy_sbbk = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date="2026-04-02",
+			created_by=self.user,
+		)
+		form = PuskesmasSBBKForm(
+			data={
+				"document_number": legacy_sbbk.document_number,
+				"facility": self.facility.pk,
+				"distribution": self.distribution.pk,
+				"received_date": "2026-04-03",
+				"notes": "Koreksi dokumen lama",
+			},
+			instance=legacy_sbbk,
+			user=self.user,
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn("distribution", form.errors)
+
+	def test_create_form_still_requires_distribution(self):
+		form = PuskesmasSBBKForm(
+			data={
+				"document_number": "",
+				"facility": self.facility.pk,
+				"distribution": "",
+				"received_date": "2026-04-02",
+				"notes": "",
+			},
+			user=self.user,
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn("distribution", form.errors)
+
 	def test_sbbk_item_form_rejects_non_finite_quantity_and_unit_price(self):
 		for quantity, unit_price in (("NaN", "1000"), ("1", "Infinity")):
 			with self.subTest(quantity=quantity, unit_price=unit_price):
@@ -262,6 +320,55 @@ class PuskesmasSBBKFormTests(TestCase):
 
 		self.assertFalse(form.is_valid())
 		self.assertIn("quantity", form.errors)
+
+	def test_legacy_sbbk_item_form_allows_missing_distribution_item(self):
+		legacy_sbbk = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date="2026-04-02",
+			created_by=self.user,
+		)
+		legacy_item = PuskesmasSBBKItem.objects.create(
+			sbbk=legacy_sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="LEGACY-01",
+		)
+		form = PuskesmasSBBKItemForm(
+			data={
+				"distribution_item": "",
+				"item": self.item.pk,
+				"quantity": "3",
+				"unit_price": "1100.00",
+				"batch_lot": " LEGACY-02 ",
+				"expiry_date": "",
+				"notes": "  Pembetulan arsip  ",
+			},
+			instance=legacy_item,
+			distribution=None,
+		)
+
+		self.assertTrue(form.is_valid())
+		self.assertIsNone(form.cleaned_data["distribution_item"])
+		self.assertEqual(form.cleaned_data["item"], self.item)
+		self.assertEqual(form.cleaned_data["batch_lot"], "LEGACY-02")
+
+	def test_linked_sbbk_item_form_still_requires_distribution_item(self):
+		form = PuskesmasSBBKItemForm(
+			data={
+				"distribution_item": "",
+				"item": self.item.pk,
+				"quantity": "1",
+				"unit_price": "1000",
+				"batch_lot": "BATCH-01",
+				"expiry_date": "",
+				"notes": "",
+			},
+			distribution=self.distribution,
+		)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn("distribution_item", form.errors)
 
 	def test_sbbk_item_model_rejects_fractional_quantity(self):
 		sbbk = PuskesmasSBBK.objects.create(
@@ -587,12 +694,16 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 			"items-2-notes": "",
 		}
 
-	def _edit_payload(self, sbbk_item, *, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes=""):
+	def _edit_payload(self, sbbk_item, *, facility=None, received_date="2026-02-10", quantity="4.00", unit_price="1000.00", notes="", distribution=None, distribution_item=None):
 		facility = facility or self.facility
+		distribution = distribution if distribution is not None else sbbk_item.sbbk.distribution
+		distribution_item = (
+			distribution_item if distribution_item is not None else sbbk_item.distribution_item
+		)
 		return {
 			"document_number": sbbk_item.sbbk.document_number,
 			"facility": str(facility.pk),
-			"distribution": str(sbbk_item.sbbk.distribution_id),
+			"distribution": str(distribution.pk) if distribution is not None else "",
 			"received_date": received_date,
 			"notes": "",
 			"items-TOTAL_FORMS": "1",
@@ -600,7 +711,9 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 			"items-MIN_NUM_FORMS": "1",
 			"items-MAX_NUM_FORMS": "1000",
 			"items-0-id": str(sbbk_item.pk),
-			"items-0-distribution_item": str(sbbk_item.distribution_item_id),
+			"items-0-distribution_item": (
+				str(distribution_item.pk) if distribution_item is not None else ""
+			),
 			"items-0-item": str(self.item.pk),
 			"items-0-quantity": quantity,
 			"items-0-unit_price": unit_price,
@@ -750,6 +863,159 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 		line = lplpo.items.get(item=self.item)
 		self.assertEqual(line.penerimaan, Decimal("5.00"))
 		self.assertEqual(line.harga_satuan, Decimal("1500.00"))
+
+	def test_legacy_edit_page_loads_without_distribution_link(self):
+		sbbk = self._create_sbbk()
+		PuskesmasSBBKItem.objects.create(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="LEGACY-01",
+		)
+		self.client.force_login(self.operator)
+
+		response = self.client.get(reverse("puskesmas:receiving_edit", args=[sbbk.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Dokumen lama tanpa distribusi sumber")
+
+	def test_legacy_edit_recomputes_same_month_draft_lplpo(self):
+		lplpo = self._create_lplpo()
+		sbbk = self._create_sbbk()
+		sbbk_item = PuskesmasSBBKItem.objects.create(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="LEGACY-01",
+		)
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_edit", args=[sbbk.pk]),
+			self._edit_payload(
+				sbbk_item,
+				quantity="5.00",
+				unit_price="1500.00",
+				notes="Koreksi legacy",
+				distribution=None,
+				distribution_item=None,
+			),
+		)
+
+		self.assertEqual(response.status_code, 302)
+		sbbk.refresh_from_db()
+		sbbk_item.refresh_from_db()
+		self.assertIsNone(sbbk.distribution)
+		self.assertIsNone(sbbk_item.distribution_item)
+		self.assertEqual(sbbk_item.quantity, Decimal("5.00"))
+		line = lplpo.items.get(item=self.item)
+		self.assertEqual(line.penerimaan, Decimal("5.00"))
+		self.assertEqual(line.harga_satuan, Decimal("1500.00"))
+
+	def test_legacy_edit_same_month_facility_change_resyncs_both_lplpo_documents(self):
+		source_lplpo = self._create_lplpo()
+		target_lplpo = self._create_lplpo(facility=self.other_facility)
+		sbbk = self._create_sbbk()
+		sbbk_item = PuskesmasSBBKItem.objects.create(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="LEGACY-01",
+		)
+		self.client.force_login(self.admin)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_edit", args=[sbbk.pk]),
+			self._edit_payload(
+				sbbk_item,
+				facility=self.other_facility,
+				quantity="5.00",
+				unit_price="1500.00",
+				notes="Pindah fasilitas legacy",
+				distribution=None,
+				distribution_item=None,
+			),
+		)
+
+		self.assertEqual(response.status_code, 302)
+		sbbk.refresh_from_db()
+		self.assertEqual(sbbk.facility, self.other_facility)
+		self.assertEqual(source_lplpo.items.get(item=self.item).penerimaan, Decimal("0.00"))
+		target_line = target_lplpo.items.get(item=self.item)
+		self.assertEqual(target_line.penerimaan, Decimal("5.00"))
+		self.assertEqual(target_line.harga_satuan, Decimal("1500.00"))
+
+	def test_legacy_edit_is_blocked_when_same_month_lplpo_is_submitted(self):
+		self._create_lplpo(status=LPLPO.Status.SUBMITTED)
+		sbbk = self._create_sbbk()
+		sbbk_item = PuskesmasSBBKItem.objects.create(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="LEGACY-01",
+		)
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_edit", args=[sbbk.pk]),
+			self._edit_payload(
+				sbbk_item,
+				quantity="3.00",
+				unit_price="1200.00",
+				distribution=None,
+				distribution_item=None,
+			),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Konfirmasi penerimaan untuk periode ini tidak dapat diubah")
+
+	def test_legacy_edit_rejects_forged_distribution_link_submission(self):
+		distribution, _distribution_item = self._create_distribution()
+		sbbk = self._create_sbbk()
+		sbbk_item = PuskesmasSBBKItem.objects.create(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+			batch_lot="LEGACY-01",
+		)
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:receiving_edit", args=[sbbk.pk]),
+			self._edit_payload(
+				sbbk_item,
+				distribution=distribution,
+				distribution_item=None,
+			),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"Dokumen lama tidak boleh ditautkan ulang ke distribusi sumber baru.",
+		)
+		sbbk.refresh_from_db()
+		self.assertIsNone(sbbk.distribution)
+
+	def test_cross_facility_legacy_edit_gets_403(self):
+		sbbk = self._create_sbbk(facility=self.other_facility)
+		PuskesmasSBBKItem.objects.create(
+			sbbk=sbbk,
+			item=self.item,
+			quantity=Decimal("2.00"),
+			unit_price=Decimal("1000.00"),
+		)
+		self.client.force_login(self.operator)
+
+		response = self.client.get(reverse("puskesmas:receiving_edit", args=[sbbk.pk]))
+
+		self.assertEqual(response.status_code, 403)
 
 	def test_delete_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()

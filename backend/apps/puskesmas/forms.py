@@ -191,9 +191,12 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
         self.user = kwargs.pop("user", None)
         self.lock_distribution = kwargs.pop("lock_distribution", False)
         super().__init__(*args, **kwargs)
+        self.is_legacy_unlinked_edit = bool(
+            self.instance.pk and self.instance.distribution_id is None
+        )
         self.fields["document_number"].required = False
         self.fields["notes"].required = False
-        self.fields["distribution"].required = True
+        self.fields["distribution"].required = not self.is_legacy_unlinked_edit
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type=Facility.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -225,6 +228,9 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
             f"{(obj.distributed_date or obj.request_date).strftime('%d/%m/%Y')}"
         )
 
+        if self.is_legacy_unlinked_edit:
+            self.fields["distribution"].widget = forms.HiddenInput()
+
         if self.lock_distribution and self.instance.pk:
             self.fields["distribution"].widget = forms.HiddenInput()
             self.fields["facility"].widget = forms.HiddenInput()
@@ -252,6 +258,12 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
 
     def clean_distribution(self):
         distribution = self.cleaned_data.get("distribution")
+        if self.is_legacy_unlinked_edit:
+            if distribution is not None:
+                raise forms.ValidationError(
+                    "Dokumen lama tidak boleh ditautkan ulang ke distribusi sumber baru."
+                )
+            return None
         if distribution is None:
             raise forms.ValidationError("Distribusi sumber wajib dipilih.")
         if distribution.status != Distribution.Status.DISTRIBUTED:
@@ -376,6 +388,8 @@ class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
 
     def clean_distribution_item(self):
         distribution_item = self.cleaned_data.get("distribution_item")
+        if distribution_item is None and self.distribution is None:
+            return None
         if distribution_item is None:
             raise forms.ValidationError("Baris distribusi sumber wajib dipilih.")
         if self.distribution and distribution_item.distribution_id != self.distribution.pk:

@@ -1019,6 +1019,8 @@ def receiving_edit(request, pk):
         pk=pk,
     )
     _check_receiving_facility_access(request, receipt_confirmation)
+    lock_distribution = receipt_confirmation.distribution_id is not None
+    legacy_unlinked = not lock_distribution
 
     if request.method == "POST":
         original_date = receipt_confirmation.received_date
@@ -1028,7 +1030,7 @@ def receiving_edit(request, pk):
             request.POST,
             instance=receipt_confirmation,
             user=request.user,
-            lock_distribution=True,
+            lock_distribution=lock_distribution,
         )
         formset = PuskesmasReceiptConfirmationItemFormSet(
             request.POST,
@@ -1055,7 +1057,10 @@ def receiving_edit(request, pk):
                         facility=original_facility,
                         received_date=original_date,
                     )
-                    if updated_receipt.received_date != original_date:
+                    if (
+                        updated_receipt.received_date != original_date
+                        or updated_receipt.facility_id != original_facility.pk
+                    ):
                         sync_receiving_month(
                             facility=updated_receipt.facility,
                             received_date=updated_receipt.received_date,
@@ -1077,7 +1082,7 @@ def receiving_edit(request, pk):
         form = PuskesmasReceiptConfirmationForm(
             instance=receipt_confirmation,
             user=request.user,
-            lock_distribution=True,
+            lock_distribution=lock_distribution,
         )
         formset = PuskesmasReceiptConfirmationItemFormSet(
             instance=receipt_confirmation,
@@ -1093,6 +1098,8 @@ def receiving_edit(request, pk):
             "formset": formset,
             "receipt_confirmation": receipt_confirmation,
             "selected_distribution": receipt_confirmation.distribution,
+            "distribution_locked": lock_distribution,
+            "legacy_unlinked": legacy_unlinked,
             "title": f"Edit Konfirmasi Penerimaan {receipt_confirmation.document_number}",
             "is_edit": True,
         },

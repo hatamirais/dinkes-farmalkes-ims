@@ -26,6 +26,12 @@
                     <strong>Muat Baris Distribusi</strong> agar sistem menyiapkan baris konfirmasi otomatis.
                 </div>
                 {% endif %}
+                {% if is_edit and legacy_unlinked %}
+                <div class="alert alert-warning mb-4">
+                    Dokumen ini adalah data konfirmasi penerimaan lama tanpa tautan distribusi sumber.
+                    Edit kompatibilitas tetap diizinkan tanpa menambahkan tautan distribusi baru.
+                </div>
+                {% endif %}
 
                 <div class="card mb-4">
                     <div class="card-header">
@@ -41,10 +47,14 @@
                                 {{ form.document_number|as_crispy_field }}
                             </div>
                             <div class="col-md-5">
-                                <label class="form-label fw-semibold">Distribusi Sumber <span class="text-danger">*</span></label>
-                                {% if selected_distribution and is_edit %}
+                                <label class="form-label fw-semibold">Distribusi Sumber{% if not legacy_unlinked %} <span class="text-danger">*</span>{% endif %}</label>
+                                {% if selected_distribution and distribution_locked %}
                                 {{ form.distribution }}
                                 <input type="text" class="form-control" value="{{ selected_distribution.document_number }} - {{ selected_distribution.facility.name }}" readonly>
+                                {% if form.distribution.errors %}<div class="text-danger small">{{ form.distribution.errors }}</div>{% endif %}
+                                {% elif is_edit and legacy_unlinked %}
+                                {{ form.distribution }}
+                                <input type="text" class="form-control" value="Dokumen lama tanpa distribusi sumber" readonly>
                                 {% if form.distribution.errors %}<div class="text-danger small">{{ form.distribution.errors }}</div>{% endif %}
                                 {% else %}
                                 {{ form.distribution|as_crispy_field }}
@@ -56,7 +66,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold">Puskesmas <span class="text-danger">*</span></label>
-                                {% if request.user.role == 'PUSKESMAS' or selected_distribution or is_edit %}
+                                {% if request.user.role == 'PUSKESMAS' or selected_distribution or distribution_locked %}
                                 {{ form.facility }}
                                 <input type="text" class="form-control" value="{% if selected_distribution %}{{ selected_distribution.facility.name }}{% elif receipt_confirmation %}{{ receipt_confirmation.facility.name }}{% else %}{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}{% endif %}" readonly>
                                 {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
@@ -97,7 +107,7 @@
                             <table class="table table-sm align-middle" id="formset-table">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width:26%">Baris Distribusi <span class="text-danger">*</span></th>
+                                        <th style="width:26%">Baris Distribusi{% if not legacy_unlinked %} <span class="text-danger">*</span>{% endif %}</th>
                                         <th style="width:20%">Barang <span class="text-danger">*</span></th>
                                         <th style="width:10%">Jumlah</th>
                                         <th style="width:12%">Harga Satuan</th>
