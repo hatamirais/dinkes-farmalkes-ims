@@ -1,23 +1,27 @@
 import unicodedata
+from decimal import Decimal
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Div, Layout
 from django import forms
-from django.forms import inlineformset_factory
+from django.db.models import Q
+from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
 from apps.core.decimal_validation import validate_finite_decimal
+from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Facility, Item
 from apps.users.models import User
 
 from .models import (
     PuskesmasConsumption,
     PuskesmasConsumptionEntry,
+    PuskesmasReceiptConfirmation,
+    PuskesmasReceiptConfirmationItem,
     PuskesmasRequest,
     PuskesmasRequestItem,
-    PuskesmasSBBK,
-    PuskesmasSBBKItem,
     PuskesmasSubunit,
+    get_distribution_item_source_quantity,
 )
 
 
@@ -164,10 +168,10 @@ PuskesmasRequestItemFormSet = inlineformset_factory(
 )
 
 
-class PuskesmasSBBKForm(forms.ModelForm):
+class PuskesmasReceiptConfirmationForm(forms.ModelForm):
     class Meta:
-        model = PuskesmasSBBK
-        fields = ["document_number", "facility", "received_date", "notes"]
+        model = PuskesmasReceiptConfirmation
+        fields = ["document_number", "facility", "distribution", "received_date", "notes"]
         widgets = {
             "document_number": forms.TextInput(
                 attrs={
@@ -176,6 +180,9 @@ class PuskesmasSBBKForm(forms.ModelForm):
                 }
             ),
             "facility": forms.Select(attrs={"class": "form-select"}),
+            "distribution": forms.Select(
+                attrs={"class": "form-select js-typeahead-select"}
+            ),
             "received_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -184,26 +191,96 @@ class PuskesmasSBBKForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
+        self.lock_distribution = kwargs.pop("lock_distribution", False)
         super().__init__(*args, **kwargs)
+        self.is_legacy_unlinked_edit = bool(
+            self.instance.pk and self.instance.distribution_id is None
+        )
         self.fields["document_number"].required = False
         self.fields["notes"].required = False
+        self.fields["distribution"].required = not self.is_legacy_unlinked_edit
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type=Facility.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
+        distribution_qs = Distribution.objects.select_related("facility").filter(
+            facility__facility_type=Facility.FacilityType.PUSKESMAS,
+            facility__is_active=True,
+            status=Distribution.Status.DISTRIBUTED,
+        )
+        if self.instance.pk and self.instance.distribution_id:
+            distribution_qs = distribution_qs.filter(
+                Q(receipt_confirmation__isnull=True)
+                | Q(pk=self.instance.distribution_id)
+            )
+        else:
+            distribution_qs = distribution_qs.filter(receipt_confirmation__isnull=True)
+
         if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
             self.fields["facility"].widget = forms.HiddenInput()
             self.fields["facility"].required = False
             if self.user.facility_id:
                 self.fields["facility"].initial = self.user.facility_id
+                distribution_qs = distribution_qs.filter(facility_id=self.user.facility_id)
+
+        self.fields["distribution"].queryset = distribution_qs.order_by(
+            "-distributed_date", "-request_date", "-created_at"
+        )
+        self.fields["distribution"].label_from_instance = lambda obj: (
+            f"{obj.document_number} - {obj.facility.name} - "
+            f"{(obj.distributed_date or obj.request_date).strftime('%d/%m/%Y')}"
+        )
+
+        if self.is_legacy_unlinked_edit:
+            self.fields["distribution"].widget = forms.HiddenInput()
+
+        if self.lock_distribution and self.instance.pk:
+            self.fields["distribution"].widget = forms.HiddenInput()
+            self.fields["facility"].widget = forms.HiddenInput()
+            self.fields["distribution"].initial = self.instance.distribution_id
+            self.fields["facility"].initial = self.instance.facility_id
 
     def clean_facility(self):
+        distribution = self.cleaned_data.get("distribution")
         if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
             if not self.user.facility_id:
                 raise forms.ValidationError(
                     "Akun operator belum terhubung ke fasilitas puskesmas."
                 )
+            if distribution and distribution.facility_id != self.user.facility_id:
+                raise forms.ValidationError(
+                    "Distribusi harus berasal dari fasilitas akun Anda."
+                )
             return self.user.facility
-        return self.cleaned_data.get("facility")
+        facility = self.cleaned_data.get("facility")
+        if distribution and facility and distribution.facility_id != facility.pk:
+            raise forms.ValidationError(
+                "Puskesmas harus sama dengan tujuan distribusi yang dipilih."
+            )
+        return facility or getattr(distribution, "facility", None)
+
+    def clean_distribution(self):
+        distribution = self.cleaned_data.get("distribution")
+        if self.is_legacy_unlinked_edit:
+            if distribution is not None:
+                raise forms.ValidationError(
+                    "Dokumen lama tidak boleh ditautkan ulang ke distribusi sumber baru."
+                )
+            return None
+        if distribution is None:
+            raise forms.ValidationError("Distribusi sumber wajib dipilih.")
+        if distribution.status != Distribution.Status.DISTRIBUTED:
+            raise forms.ValidationError(
+                "Hanya distribusi berstatus terdistribusi yang dapat dikonfirmasi."
+            )
+        try:
+            existing = distribution.receipt_confirmation
+        except PuskesmasReceiptConfirmation.DoesNotExist:
+            existing = None
+        if existing and existing.pk != self.instance.pk:
+            raise forms.ValidationError(
+                "Distribusi ini sudah memiliki konfirmasi penerimaan."
+            )
+        return distribution
 
     def clean_document_number(self):
         return _normalize_text_value(
@@ -226,11 +303,22 @@ class PuskesmasSBBKForm(forms.ModelForm):
         )
 
 
-class PuskesmasSBBKItemForm(forms.ModelForm):
+class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
     class Meta:
-        model = PuskesmasSBBKItem
-        fields = ["item", "quantity", "unit_price", "notes"]
+        model = PuskesmasReceiptConfirmationItem
+        fields = [
+            "distribution_item",
+            "item",
+            "quantity",
+            "unit_price",
+            "batch_lot",
+            "expiry_date",
+            "notes",
+        ]
         widgets = {
+            "distribution_item": forms.Select(
+                attrs={"class": "form-select form-select-sm js-typeahead-select"}
+            ),
             "item": forms.Select(
                 attrs={
                     "class": "form-select form-select-sm js-typeahead-select js-item-select"
@@ -242,23 +330,52 @@ class PuskesmasSBBKItemForm(forms.ModelForm):
             "unit_price": forms.NumberInput(
                 attrs={"class": "form-control form-control-sm", "min": "0", "step": "0.01"}
             ),
+            "batch_lot": forms.TextInput(
+                attrs={
+                    "class": "form-control form-control-sm",
+                    "placeholder": "Batch/Lot",
+                }
+            ),
+            "expiry_date": forms.DateInput(
+                attrs={"class": "form-control form-control-sm", "type": "date"}
+            ),
             "notes": forms.TextInput(
                 attrs={
                     "class": "form-control form-control-sm",
-                    "placeholder": "Keterangan (opsional)",
+                    "placeholder": "Keterangan penyesuaian (opsional)",
                 }
             ),
         }
 
     def __init__(self, *args, **kwargs):
+        self.distribution = kwargs.pop("distribution", None)
         super().__init__(*args, **kwargs)
         self.fields["notes"].required = False
+        self.fields["batch_lot"].required = False
+        self.fields["expiry_date"].required = False
         self.fields["item"].queryset = (
             Item.objects.select_related("satuan", "kategori", "program")
             .filter(is_active=True)
             .order_by("-is_program_item", "kode_barang")
         )
         self.fields["item"].label_from_instance = lambda obj: obj.picker_label
+        if self.distribution is None and self.instance.pk and self.instance.sbbk_id:
+            self.distribution = self.instance.sbbk.distribution
+        distribution_item_qs = DistributionItem.objects.none()
+        if self.distribution is not None:
+            distribution_item_qs = self.distribution.items.select_related("item").order_by(
+                "item__kategori__sort_order", "item__nama_barang", "id"
+            )
+        elif self.instance.pk and self.instance.distribution_item_id:
+            distribution_item_qs = DistributionItem.objects.filter(
+                pk=self.instance.distribution_item_id
+            ).select_related("item")
+        self.fields["distribution_item"].queryset = distribution_item_qs
+        self.fields["distribution_item"].label_from_instance = lambda obj: (
+            f"{obj.item.nama_barang} | qty "
+            f"{obj.quantity_approved if obj.quantity_approved is not None else obj.quantity_requested} "
+            f"| batch {obj.issued_batch_lot or '-'}"
+        )
 
     def clean_quantity(self):
         quantity = self.cleaned_data.get("quantity")
@@ -267,9 +384,27 @@ class PuskesmasSBBKItemForm(forms.ModelForm):
             raise forms.ValidationError("Jumlah harus lebih dari 0.")
         if quantity is not None and quantity != quantity.to_integral_value():
             raise forms.ValidationError(
-                "Jumlah SBBK harus berupa bilangan bulat agar sinkron dengan LPLPO."
+                "Jumlah penerimaan harus berupa bilangan bulat agar sinkron dengan LPLPO."
             )
         return quantity
+
+    def clean_distribution_item(self):
+        distribution_item = self.cleaned_data.get("distribution_item")
+        if distribution_item is None and self.distribution is None:
+            return None
+        if distribution_item is None:
+            raise forms.ValidationError("Baris distribusi sumber wajib dipilih.")
+        if self.distribution and distribution_item.distribution_id != self.distribution.pk:
+            raise forms.ValidationError(
+                "Baris distribusi harus berasal dari distribusi yang dipilih."
+            )
+        return distribution_item
+
+    def clean_item(self):
+        distribution_item = self.cleaned_data.get("distribution_item")
+        if distribution_item is not None:
+            return distribution_item.item
+        return self.cleaned_data.get("item")
 
     def clean_unit_price(self):
         unit_price = self.cleaned_data.get("unit_price")
@@ -278,6 +413,19 @@ class PuskesmasSBBKItemForm(forms.ModelForm):
             raise forms.ValidationError("Harga satuan tidak boleh kurang dari 0.")
         return unit_price
 
+    def clean_batch_lot(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("batch_lot"),
+            field_label="Batch/Lot",
+            max_length=100,
+        )
+
+    def clean_expiry_date(self):
+        value = self.cleaned_data.get("expiry_date")
+        if value and not (1000 <= value.year <= 9999):
+            raise forms.ValidationError("Tahun tanggal kedaluwarsa tidak valid.")
+        return value
+
     def clean_notes(self):
         return _normalize_text_value(
             self.cleaned_data.get("notes"),
@@ -285,16 +433,105 @@ class PuskesmasSBBKItemForm(forms.ModelForm):
             max_length=255,
         )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        distribution_item = cleaned_data.get("distribution_item")
+        quantity = cleaned_data.get("quantity")
+        unit_price = cleaned_data.get("unit_price")
+        batch_lot = cleaned_data.get("batch_lot") or ""
+        expiry_date = cleaned_data.get("expiry_date")
+        notes = cleaned_data.get("notes") or ""
 
-PuskesmasSBBKItemFormSet = inlineformset_factory(
-    PuskesmasSBBK,
-    PuskesmasSBBKItem,
-    form=PuskesmasSBBKItemForm,
+        if distribution_item is None or quantity is None or unit_price is None:
+            return cleaned_data
+
+        source_quantity = get_distribution_item_source_quantity(distribution_item)
+        source_batch = distribution_item.issued_batch_lot or ""
+        source_expiry = distribution_item.issued_expiry_date
+        source_price = distribution_item.issued_unit_price
+
+        if (
+            source_quantity != quantity
+            or source_batch != batch_lot
+            or source_expiry != expiry_date
+            or source_price != unit_price
+        ) and not notes:
+            self.add_error(
+                "notes",
+                "Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi.",
+            )
+
+        return cleaned_data
+
+
+class BasePuskesmasReceiptConfirmationItemFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.receipt_notes = kwargs.pop("receipt_notes", "")
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        totals_by_distribution_item = {}
+        forms_by_distribution_item = {}
+
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data") or not form.cleaned_data:
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+
+            distribution_item = form.cleaned_data.get("distribution_item")
+            quantity = form.cleaned_data.get("quantity")
+            if distribution_item is None or quantity is None:
+                continue
+
+            totals_by_distribution_item.setdefault(distribution_item.pk, Decimal("0"))
+            totals_by_distribution_item[distribution_item.pk] += quantity
+            forms_by_distribution_item.setdefault(distribution_item.pk, []).append(
+                (form, distribution_item)
+            )
+
+        for distribution_item_pk, total_quantity in totals_by_distribution_item.items():
+            form_entries = forms_by_distribution_item[distribution_item_pk]
+            if len(form_entries) < 2:
+                continue
+            distribution_item = form_entries[0][1]
+            source_quantity = get_distribution_item_source_quantity(distribution_item)
+            if source_quantity is None or total_quantity == source_quantity:
+                continue
+
+            header_notes = _normalize_text_value(
+                self.receipt_notes,
+                field_label="Catatan",
+                max_length=1000,
+            )
+            if not header_notes:
+                raise forms.ValidationError(
+                    (
+                        "Isi Catatan dokumen bila total beberapa baris penerimaan untuk "
+                        "satu distribusi sumber berbeda dari jumlah distribusi."
+                    ),
+                )
+
+
+PuskesmasReceiptConfirmationItemFormSet = inlineformset_factory(
+    PuskesmasReceiptConfirmation,
+    PuskesmasReceiptConfirmationItem,
+    form=PuskesmasReceiptConfirmationItemForm,
+    formset=BasePuskesmasReceiptConfirmationItemFormSet,
     extra=3,
     can_delete=True,
     min_num=1,
     validate_min=True,
 )
+
+
+PuskesmasSBBKForm = PuskesmasReceiptConfirmationForm
+PuskesmasSBBKItemForm = PuskesmasReceiptConfirmationItemForm
+PuskesmasSBBKItemFormSet = PuskesmasReceiptConfirmationItemFormSet
 
 
 class PuskesmasSubunitForm(forms.ModelForm):

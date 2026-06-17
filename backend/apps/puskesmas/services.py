@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
-from apps.lplpo.models import LPLPO, sync_sbbk_to_editable_lplpo
+from apps.lplpo.models import LPLPO, sync_receiving_to_editable_lplpo
 from apps.puskesmas.models import PuskesmasConsumptionEntry
 
 
@@ -18,8 +18,8 @@ EDITABLE_LPLPO_STATUSES = {
 }
 
 
-def assert_sbbk_month_mutable(*, facility, received_date):
-    """Ensure SBBK can still change the target facility/month."""
+def assert_receiving_month_mutable(*, facility, received_date):
+    """Ensure receipt confirmation can still change the target facility/month."""
     lplpo = (
         LPLPO.objects.filter(
             facility=facility,
@@ -31,15 +31,15 @@ def assert_sbbk_month_mutable(*, facility, received_date):
     )
     if lplpo and lplpo.status not in EDITABLE_LPLPO_STATUSES:
         raise ValidationError(
-            "SBBK untuk periode ini tidak dapat diubah karena LPLPO sudah diajukan atau diproses."
+            "Konfirmasi penerimaan untuk periode ini tidak dapat diubah karena LPLPO sudah diajukan atau diproses."
         )
     return lplpo
 
 
-def sync_sbbk_month(*, facility, received_date):
-    """Lock and recompute any editable LPLPO for the target SBBK month."""
+def sync_receiving_month(*, facility, received_date):
+    """Lock and recompute any editable LPLPO for the target receipt month."""
     with transaction.atomic():
-        return sync_sbbk_to_editable_lplpo(
+        return sync_receiving_to_editable_lplpo(
             facility=facility,
             bulan=received_date.month,
             tahun=received_date.year,
@@ -128,17 +128,18 @@ def sync_consumption_month(*, facility, bulan, tahun):
         )
 
 
-def log_sbbk_event(*, event, sbbk, user, extra=None):
+def log_receiving_event(*, event, receipt_confirmation, user, extra=None):
     payload = {
         "event": event,
-        "sbbk_id": sbbk.pk,
-        "document_number": sbbk.document_number,
-        "facility_id": sbbk.facility_id,
+        "receipt_confirmation_id": receipt_confirmation.pk,
+        "document_number": receipt_confirmation.document_number,
+        "facility_id": receipt_confirmation.facility_id,
+        "distribution_id": receipt_confirmation.distribution_id,
         "username": getattr(user, "username", ""),
     }
     if extra:
         payload.update(extra)
-    logger.info("puskesmas_sbbk_event", extra=payload)
+    logger.info("puskesmas_receipt_confirmation_event", extra=payload)
 
 
 def log_consumption_event(*, event, consumption, user, extra=None):
@@ -155,11 +156,20 @@ def log_consumption_event(*, event, consumption, user, extra=None):
     logger.info("puskesmas_consumption_event", extra=payload)
 
 
-def raise_sbbk_creator_denied():
-    raise PermissionDenied("Hanya operator Puskesmas yang dapat mengelola SBBK.")
+def raise_receiving_creator_denied():
+    raise PermissionDenied(
+        "Hanya operator Puskesmas yang dapat mengelola konfirmasi penerimaan."
+    )
 
 
 def raise_consumption_creator_denied():
     raise PermissionDenied(
         "Hanya operator Puskesmas yang dapat mengelola pemakaian rinci."
     )
+
+
+# Temporary compatibility aliases while views/forms/tests are migrated.
+assert_sbbk_month_mutable = assert_receiving_month_mutable
+sync_sbbk_month = sync_receiving_month
+log_sbbk_event = log_receiving_event
+raise_sbbk_creator_denied = raise_receiving_creator_denied

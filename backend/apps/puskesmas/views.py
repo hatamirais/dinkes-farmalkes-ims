@@ -13,7 +13,7 @@ from django.utils import timezone
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.rate_limits import (
     puskesmas_consumption_mutation_ratelimit,
-    puskesmas_sbbk_mutation_ratelimit,
+    puskesmas_receipt_confirmation_mutation_ratelimit,
 )
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
@@ -25,30 +25,30 @@ from apps.items.models import Facility, Item
 from .forms import (
     ApprovalItemForm,
     PuskesmasConsumptionMatrixForm,
+    PuskesmasReceiptConfirmationForm,
+    PuskesmasReceiptConfirmationItemFormSet,
     PuskesmasRequestForm,
     PuskesmasRequestItemFormSet,
-    PuskesmasSBBKForm,
-    PuskesmasSBBKItemFormSet,
     PuskesmasSubunitForm,
 )
 from .models import (
     PuskesmasConsumption,
     PuskesmasConsumptionEntry,
+    PuskesmasReceiptConfirmation,
+    PuskesmasReceiptConfirmationItem,
     PuskesmasRequest,
     PuskesmasRequestItem,
-    PuskesmasSBBK,
-    PuskesmasSBBKItem,
     PuskesmasSubunit,
 )
 from .services import (
     assert_consumption_month_mutable,
-    assert_sbbk_month_mutable,
+    assert_receiving_month_mutable,
     log_consumption_event,
-    log_sbbk_event,
+    log_receiving_event,
     raise_consumption_creator_denied,
-    raise_sbbk_creator_denied,
+    raise_receiving_creator_denied,
     sync_consumption_month,
-    sync_sbbk_month,
+    sync_receiving_month,
 )
 
 
@@ -143,21 +143,23 @@ def _check_puskesmas_request_creator_access(request):
     return None
 
 
-def _check_puskesmas_sbbk_creator_access(request):
+def _check_puskesmas_receiving_creator_access(request):
     if _is_super_admin(request.user):
         return None
     if getattr(request.user, "role", None) != User.Role.PUSKESMAS:
-        raise_sbbk_creator_denied()
+        raise_receiving_creator_denied()
     return None
 
 
-def _check_sbbk_facility_access(request, sbbk):
+def _check_receiving_facility_access(request, receipt_confirmation):
     if _is_super_admin(request.user):
         return None
 
     facility = _get_required_facility(request.user)
-    if sbbk.facility_id != facility.pk:
-        raise PermissionDenied("Anda tidak memiliki akses ke dokumen SBBK ini.")
+    if receipt_confirmation.facility_id != facility.pk:
+        raise PermissionDenied(
+            "Anda tidak memiliki akses ke dokumen konfirmasi penerimaan ini."
+        )
     return None
 
 
@@ -271,6 +273,74 @@ def _build_consumption_form_rows(form, *, items, subunits):
 
 def _request_has_consumption_matrix_input(request):
     return any(key.startswith("qty_") for key in request.POST.keys())
+
+
+def _get_receiving_distribution_queryset(user, *, include_pk=None):
+    queryset = Distribution.objects.select_related("facility").filter(
+        facility__facility_type=Facility.FacilityType.PUSKESMAS,
+        facility__is_active=True,
+        status=Distribution.Status.DISTRIBUTED,
+    )
+    if include_pk:
+        queryset = queryset.filter(
+            Q(receipt_confirmation__isnull=True) | Q(pk=include_pk)
+        )
+    else:
+        queryset = queryset.filter(receipt_confirmation__isnull=True)
+
+    if not _is_super_admin(user):
+        facility = _get_required_facility(user)
+        queryset = queryset.filter(facility_id=facility.pk)
+
+    return queryset.order_by("-distributed_date", "-request_date", "-created_at")
+
+
+def _get_selected_distribution(request, *, include_pk=None):
+    distribution_id = (
+        request.POST.get("distribution")
+        or request.GET.get("distribution")
+        or ""
+    )
+    if not distribution_id:
+        return None
+    try:
+        queryset = _get_receiving_distribution_queryset(
+            request.user,
+            include_pk=include_pk,
+        )
+        return queryset.get(pk=distribution_id)
+    except (Distribution.DoesNotExist, ValueError, TypeError):
+        return None
+
+
+def _build_receiving_initial_rows(distribution):
+    rows = []
+    if distribution is None:
+        return rows
+    items = distribution.items.select_related("item").order_by(
+        "item__kategori__sort_order", "item__nama_barang", "id"
+    )
+    for distribution_item in items:
+        rows.append(
+            {
+                "distribution_item": distribution_item.pk,
+                "item": distribution_item.item_id,
+                "quantity": (
+                    distribution_item.quantity_approved
+                    if distribution_item.quantity_approved is not None
+                    else distribution_item.quantity_requested
+                ),
+                "unit_price": distribution_item.issued_unit_price or Decimal("0"),
+                "batch_lot": distribution_item.issued_batch_lot or "",
+                "expiry_date": distribution_item.issued_expiry_date,
+                "notes": "",
+            }
+        )
+    return rows
+
+
+_check_puskesmas_sbbk_creator_access = _check_puskesmas_receiving_creator_access
+_check_sbbk_facility_access = _check_receiving_facility_access
 
 
 # ──────────────────────────── SBBK CRUD ────────────────────────────
@@ -760,11 +830,14 @@ def consumption_delete(request, pk):
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmassbbk")
+@perm_required(
+    "puskesmas.view_puskesmasreceiptconfirmation",
+    "puskesmas.view_puskesmassbbk",
+)
 def receiving_list(request):
-    queryset = PuskesmasSBBK.objects.select_related("facility", "created_by").order_by(
-        "-received_date", "-created_at"
-    )
+    queryset = PuskesmasReceiptConfirmation.objects.select_related(
+        "facility", "created_by", "distribution"
+    ).order_by("-received_date", "-created_at")
 
     if not _is_super_admin(request.user):
         facility = _get_required_facility(request.user)
@@ -773,59 +846,90 @@ def receiving_list(request):
     q = request.GET.get("q", "").strip()
     if q:
         queryset = queryset.filter(
-            Q(document_number__icontains=q) | Q(facility__name__icontains=q)
+            Q(document_number__icontains=q)
+            | Q(facility__name__icontains=q)
+            | Q(distribution__document_number__icontains=q)
         )
 
     paginator = Paginator(queryset, 25)
     receivings = paginator.get_page(request.GET.get("page"))
+    pending_distributions = _get_receiving_distribution_queryset(request.user)[:10]
 
     return render(
         request,
         "puskesmas/receiving_list.html",
         {
             "receivings": receivings,
+            "pending_distributions": pending_distributions,
             "search": q,
         },
     )
 
 
 @login_required
-@perm_required("puskesmas.add_puskesmassbbk")
-@puskesmas_sbbk_mutation_ratelimit
+@perm_required(
+    "puskesmas.add_puskesmasreceiptconfirmation",
+    "puskesmas.add_puskesmassbbk",
+)
+@puskesmas_receipt_confirmation_mutation_ratelimit
 def receiving_create(request):
-    _check_puskesmas_sbbk_creator_access(request)
+    _check_puskesmas_receiving_creator_access(request)
+    selected_distribution = _get_selected_distribution(request)
 
     if request.method == "POST":
-        form = PuskesmasSBBKForm(request.POST, user=request.user)
-        formset = PuskesmasSBBKItemFormSet(request.POST, prefix="items")
+        form = PuskesmasReceiptConfirmationForm(request.POST, user=request.user)
+        distribution_for_formset = selected_distribution
+        formset = PuskesmasReceiptConfirmationItemFormSet(
+            request.POST,
+            prefix="items",
+            receipt_notes=request.POST.get("notes", ""),
+            form_kwargs={"distribution": distribution_for_formset},
+        )
 
         if form.is_valid() and formset.is_valid():
             try:
                 with transaction.atomic():
-                    sbbk = form.save(commit=False)
-                    assert_sbbk_month_mutable(
-                        facility=sbbk.facility,
-                        received_date=sbbk.received_date,
+                    receipt_confirmation = form.save(commit=False)
+                    assert_receiving_month_mutable(
+                        facility=receipt_confirmation.facility,
+                        received_date=receipt_confirmation.received_date,
                     )
-                    sbbk.created_by = request.user
-                    sbbk.save()
-                    formset.instance = sbbk
+                    receipt_confirmation.created_by = request.user
+                    receipt_confirmation.save()
+                    formset.instance = receipt_confirmation
                     formset.save()
-                    sync_sbbk_month(
-                        facility=sbbk.facility,
-                        received_date=sbbk.received_date,
+                    sync_receiving_month(
+                        facility=receipt_confirmation.facility,
+                        received_date=receipt_confirmation.received_date,
                     )
-                    log_sbbk_event(event="created", sbbk=sbbk, user=request.user)
+                    log_receiving_event(
+                        event="created",
+                        receipt_confirmation=receipt_confirmation,
+                        user=request.user,
+                    )
             except ValidationError as exc:
                 form.add_error(None, exc)
             else:
                 messages.success(
-                    request, f"Penerimaan SBBK {sbbk.document_number} berhasil dibuat."
+                    request,
+                    f"Konfirmasi penerimaan {receipt_confirmation.document_number} berhasil dibuat.",
                 )
-                return redirect("puskesmas:receiving_detail", pk=sbbk.pk)
+                return redirect(
+                    "puskesmas:receiving_detail", pk=receipt_confirmation.pk
+                )
     else:
-        form = PuskesmasSBBKForm(user=request.user)
-        formset = PuskesmasSBBKItemFormSet(prefix="items")
+        initial = {}
+        if selected_distribution is not None:
+            initial["distribution"] = selected_distribution.pk
+            initial["facility"] = selected_distribution.facility_id
+            if selected_distribution.distributed_date:
+                initial["received_date"] = selected_distribution.distributed_date
+        form = PuskesmasReceiptConfirmationForm(initial=initial, user=request.user)
+        formset = PuskesmasReceiptConfirmationItemFormSet(
+            prefix="items",
+            initial=_build_receiving_initial_rows(selected_distribution),
+            form_kwargs={"distribution": selected_distribution},
+        )
 
     return render(
         request,
@@ -833,34 +937,45 @@ def receiving_create(request):
         {
             "form": form,
             "formset": formset,
-            "title": "Buat Penerimaan SBBK",
+            "selected_distribution": selected_distribution,
+            "title": "Buat Konfirmasi Penerimaan",
             "is_edit": False,
         },
     )
 
 
 @login_required
-@perm_required("puskesmas.view_puskesmassbbk")
+@perm_required(
+    "puskesmas.view_puskesmasreceiptconfirmation",
+    "puskesmas.view_puskesmassbbk",
+)
 def receiving_detail(request, pk):
-    sbbk = get_object_or_404(
-        PuskesmasSBBK.objects.select_related("facility", "created_by"),
+    receipt_confirmation = get_object_or_404(
+        PuskesmasReceiptConfirmation.objects.select_related(
+            "facility", "created_by", "distribution"
+        ),
         pk=pk,
     )
-    _check_sbbk_facility_access(request, sbbk)
-    items = sbbk.items.select_related("item", "item__satuan", "item__program")
+    _check_receiving_facility_access(request, receipt_confirmation)
+    items = receipt_confirmation.items.select_related(
+        "item",
+        "item__satuan",
+        "item__program",
+        "distribution_item",
+    )
     can_manage = _is_super_admin(request.user) or request.user.role == User.Role.PUSKESMAS
 
     locked_lplpo = LPLPO.objects.filter(
-        facility=sbbk.facility,
-        bulan=sbbk.received_date.month,
-        tahun=sbbk.received_date.year,
+        facility=receipt_confirmation.facility,
+        bulan=receipt_confirmation.received_date.month,
+        tahun=receipt_confirmation.received_date.year,
     ).exclude(status__in=["DRAFT", "REJECTED_PUSKESMAS"]).first()
 
     return render(
         request,
         "puskesmas/receiving_detail.html",
         {
-            "sbbk": sbbk,
+            "receipt_confirmation": receipt_confirmation,
             "items": items,
             "can_manage": can_manage,
             "locked_lplpo": locked_lplpo,
@@ -869,51 +984,69 @@ def receiving_detail(request, pk):
 
 
 @login_required
-@perm_required("puskesmas.change_puskesmassbbk")
-@puskesmas_sbbk_mutation_ratelimit
+@perm_required(
+    "puskesmas.change_puskesmasreceiptconfirmation",
+    "puskesmas.change_puskesmassbbk",
+)
+@puskesmas_receipt_confirmation_mutation_ratelimit
 def receiving_edit(request, pk):
-    _check_puskesmas_sbbk_creator_access(request)
+    _check_puskesmas_receiving_creator_access(request)
 
-    sbbk = get_object_or_404(PuskesmasSBBK, pk=pk)
-    _check_sbbk_facility_access(request, sbbk)
+    receipt_confirmation = get_object_or_404(
+        PuskesmasReceiptConfirmation.objects.select_related("distribution"),
+        pk=pk,
+    )
+    _check_receiving_facility_access(request, receipt_confirmation)
+    lock_distribution = receipt_confirmation.distribution_id is not None
+    legacy_unlinked = not lock_distribution
 
     if request.method == "POST":
-        original_date = sbbk.received_date
-        original_facility = sbbk.facility
-        original_facility_id = sbbk.facility_id
+        original_date = receipt_confirmation.received_date
+        original_facility = receipt_confirmation.facility
 
-        form = PuskesmasSBBKForm(request.POST, instance=sbbk, user=request.user)
-        formset = PuskesmasSBBKItemFormSet(request.POST, instance=sbbk, prefix="items")
+        form = PuskesmasReceiptConfirmationForm(
+            request.POST,
+            instance=receipt_confirmation,
+            user=request.user,
+            lock_distribution=lock_distribution,
+        )
+        formset = PuskesmasReceiptConfirmationItemFormSet(
+            request.POST,
+            instance=receipt_confirmation,
+            prefix="items",
+            receipt_notes=request.POST.get("notes", ""),
+            form_kwargs={"distribution": receipt_confirmation.distribution},
+        )
 
         if form.is_valid() and formset.is_valid():
             try:
                 with transaction.atomic():
-                    updated_sbbk = form.save(commit=False)
-                    assert_sbbk_month_mutable(
+                    updated_receipt = form.save(commit=False)
+                    assert_receiving_month_mutable(
                         facility=original_facility,
                         received_date=original_date,
                     )
-                    assert_sbbk_month_mutable(
-                        facility=updated_sbbk.facility,
-                        received_date=updated_sbbk.received_date,
+                    assert_receiving_month_mutable(
+                        facility=updated_receipt.facility,
+                        received_date=updated_receipt.received_date,
                     )
-                    updated_sbbk.save()
+                    updated_receipt.save()
                     formset.save()
-                    sync_sbbk_month(
+                    sync_receiving_month(
                         facility=original_facility,
                         received_date=original_date,
                     )
                     if (
-                        updated_sbbk.facility_id != original_facility_id
-                        or updated_sbbk.received_date != original_date
+                        updated_receipt.received_date != original_date
+                        or updated_receipt.facility_id != original_facility.pk
                     ):
-                        sync_sbbk_month(
-                            facility=updated_sbbk.facility,
-                            received_date=updated_sbbk.received_date,
+                        sync_receiving_month(
+                            facility=updated_receipt.facility,
+                            received_date=updated_receipt.received_date,
                         )
-                    log_sbbk_event(
+                    log_receiving_event(
                         event="updated",
-                        sbbk=updated_sbbk,
+                        receipt_confirmation=updated_receipt,
                         user=request.user,
                     )
             except ValidationError as exc:
@@ -921,12 +1054,20 @@ def receiving_edit(request, pk):
             else:
                 messages.success(
                     request,
-                    f"Penerimaan SBBK {updated_sbbk.document_number} berhasil diperbarui.",
+                    f"Konfirmasi penerimaan {updated_receipt.document_number} berhasil diperbarui.",
                 )
-                return redirect("puskesmas:receiving_detail", pk=updated_sbbk.pk)
+                return redirect("puskesmas:receiving_detail", pk=updated_receipt.pk)
     else:
-        form = PuskesmasSBBKForm(instance=sbbk, user=request.user)
-        formset = PuskesmasSBBKItemFormSet(instance=sbbk, prefix="items")
+        form = PuskesmasReceiptConfirmationForm(
+            instance=receipt_confirmation,
+            user=request.user,
+            lock_distribution=lock_distribution,
+        )
+        formset = PuskesmasReceiptConfirmationItemFormSet(
+            instance=receipt_confirmation,
+            prefix="items",
+            form_kwargs={"distribution": receipt_confirmation.distribution},
+        )
 
     return render(
         request,
@@ -934,41 +1075,49 @@ def receiving_edit(request, pk):
         {
             "form": form,
             "formset": formset,
-            "title": f"Edit Penerimaan SBBK {sbbk.document_number}",
+            "receipt_confirmation": receipt_confirmation,
+            "selected_distribution": receipt_confirmation.distribution,
+            "distribution_locked": lock_distribution,
+            "legacy_unlinked": legacy_unlinked,
+            "title": f"Edit Konfirmasi Penerimaan {receipt_confirmation.document_number}",
             "is_edit": True,
-            "sbbk": sbbk,
         },
     )
 
 
 @login_required
-@perm_required("puskesmas.delete_puskesmassbbk")
-@puskesmas_sbbk_mutation_ratelimit
+@perm_required(
+    "puskesmas.delete_puskesmasreceiptconfirmation",
+    "puskesmas.delete_puskesmassbbk",
+)
+@puskesmas_receipt_confirmation_mutation_ratelimit
 def receiving_delete(request, pk):
-    _check_puskesmas_sbbk_creator_access(request)
+    _check_puskesmas_receiving_creator_access(request)
 
-    sbbk = get_object_or_404(PuskesmasSBBK, pk=pk)
-    _check_sbbk_facility_access(request, sbbk)
+    receipt_confirmation = get_object_or_404(PuskesmasReceiptConfirmation, pk=pk)
+    _check_receiving_facility_access(request, receipt_confirmation)
 
     if request.method != "POST":
         return redirect("puskesmas:receiving_detail", pk=pk)
 
     try:
         with transaction.atomic():
-            assert_sbbk_month_mutable(
-                facility=sbbk.facility,
-                received_date=sbbk.received_date,
+            assert_receiving_month_mutable(
+                facility=receipt_confirmation.facility,
+                received_date=receipt_confirmation.received_date,
             )
-            facility = sbbk.facility
-            received_date = sbbk.received_date
-            doc_num = sbbk.document_number
-            sbbk.delete()
-            sync_sbbk_month(facility=facility, received_date=received_date)
+            facility = receipt_confirmation.facility
+            received_date = receipt_confirmation.received_date
+            doc_num = receipt_confirmation.document_number
+            distribution_id = receipt_confirmation.distribution_id
+            receipt_confirmation.delete()
+            sync_receiving_month(facility=facility, received_date=received_date)
             logger.info(
-                "puskesmas_sbbk_deleted",
+                "puskesmas_receipt_confirmation_deleted",
                 extra={
                     "document_number": doc_num,
                     "facility_id": facility.pk,
+                    "distribution_id": distribution_id,
                     "username": request.user.username,
                 },
             )
@@ -976,7 +1125,7 @@ def receiving_delete(request, pk):
         messages.error(request, str(exc))
         return redirect("puskesmas:receiving_detail", pk=pk)
 
-    messages.success(request, f"Penerimaan SBBK {doc_num} berhasil dihapus.")
+    messages.success(request, f"Konfirmasi penerimaan {doc_num} berhasil dihapus.")
     return redirect("puskesmas:receiving_list")
 
 
@@ -1430,7 +1579,7 @@ def _resolve_report_facility(request, fallback_facility_id=None):
 @login_required
 @perm_required("reports.view_reports")
 def puskesmas_report_penerimaan(request):
-    """Riwayat Penerimaan — SBBK receipts recorded by Puskesmas."""
+    """Riwayat Penerimaan — confirmed Puskesmas receipt rows."""
     from apps.items.models import Facility as FacilityModel
 
     from .forms import PuskesmasReceivingFilterForm
@@ -1454,10 +1603,11 @@ def puskesmas_report_penerimaan(request):
         start_date = form.cleaned_data["start_date"]
         end_date = form.cleaned_data["end_date"]
 
-        qs = PuskesmasSBBKItem.objects.filter(
+        qs = PuskesmasReceiptConfirmationItem.objects.filter(
             sbbk__received_date__range=[start_date, end_date],
         ).select_related(
             "sbbk",
+            "sbbk__distribution",
             "sbbk__facility",
             "item",
             "item__satuan",
@@ -1474,11 +1624,18 @@ def puskesmas_report_penerimaan(request):
             report_data.append(
                 {
                     "document_number": sbbk_item.sbbk.document_number,
+                    "distribution_document_number": (
+                        sbbk_item.sbbk.distribution.document_number
+                        if sbbk_item.sbbk.distribution_id
+                        else "-"
+                    ),
                     "received_date": sbbk_item.sbbk.received_date,
                     "nama_barang": sbbk_item.item.nama_barang,
                     "satuan": sbbk_item.item.satuan.name if sbbk_item.item.satuan else "-",
                     "quantity": sbbk_item.quantity,
                     "unit_price": sbbk_item.unit_price,
+                    "batch_lot": sbbk_item.batch_lot or "-",
+                    "expiry_date": sbbk_item.expiry_date,
                     "notes": sbbk_item.notes or sbbk_item.sbbk.notes,
                 }
             )

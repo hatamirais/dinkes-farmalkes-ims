@@ -5,7 +5,7 @@ DEFAULT_USER_BULK_ACTION_RATE_LIMIT = "10/m"
 DEFAULT_USER_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_USER_PASSWORD_RESET_RATE_LIMIT = "5/m"
 DEFAULT_PASSWORD_CHANGE_RATE_LIMIT = "5/m"
-DEFAULT_PUSKESMAS_SBBK_MUTATION_RATE_LIMIT = "20/m"
+DEFAULT_PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = "20/m"
 
 
@@ -14,6 +14,18 @@ def _setting_rate(name, default):
         return getattr(settings, name, default)
 
     return _rate
+
+
+def _receipt_confirmation_rate(group, request):
+    return getattr(
+        settings,
+        "PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT",
+        getattr(
+            settings,
+            "PUSKESMAS_SBBK_MUTATION_RATE_LIMIT",
+            DEFAULT_PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT,
+        ),
+    )
 
 
 user_bulk_action_ratelimit = ratelimit(
@@ -60,15 +72,18 @@ password_change_ratelimit = ratelimit(
     group="auth.password_change",
 )
 
-puskesmas_sbbk_mutation_ratelimit = ratelimit(
+puskesmas_receipt_confirmation_mutation_ratelimit = ratelimit(
     key="user_or_ip",
     method="POST",
-    rate=_setting_rate(
-        "PUSKESMAS_SBBK_MUTATION_RATE_LIMIT",
-        DEFAULT_PUSKESMAS_SBBK_MUTATION_RATE_LIMIT,
-    ),
+    rate=_receipt_confirmation_rate,
     block=True,
-    group="puskesmas.sbbk_mutation",
+    group="puskesmas.receipt_confirmation_mutation",
+)
+
+# Backward-compatible alias for older imports while the receipt-confirmation
+# naming propagates through the codebase and deployment config.
+puskesmas_sbbk_mutation_ratelimit = (
+    puskesmas_receipt_confirmation_mutation_ratelimit
 )
 
 puskesmas_consumption_mutation_ratelimit = ratelimit(

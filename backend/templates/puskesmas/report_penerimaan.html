@@ -2,7 +2,7 @@
 {% load number_format %}
 
 {% block title %}Riwayat Penerimaan Puskesmas — Healthcare IMS{% endblock %}
-{% block page_title %}Riwayat Penerimaan SBBK{% endblock %}
+{% block page_title %}Riwayat Konfirmasi Penerimaan{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -126,7 +126,7 @@
         <div style="width: 100px;"></div>
     </div>
     <div class="report-print-meta">
-        RIWAYAT PENERIMAAN BERDASARKAN SBBK<br>
+        RIWAYAT KONFIRMASI PENERIMAAN PUSKESMAS<br>
         FASILITAS: {{ selected_facility_name }}<br>
         PERIODE: {{ form.start_date.value|default:"-" }} s/d {{ form.end_date.value|default:"-" }}
     </div>
@@ -148,11 +148,14 @@
                             <tr>
                                 <th style="width: 50px;">NO</th>
                                 <th style="width: 130px;">TANGGAL</th>
-                                    <th style="width: 160px;">NO. DOKUMEN</th>
+                                    <th style="width: 160px;">NO. KONFIRMASI</th>
+                                    <th style="width: 160px;">NO. DISTRIBUSI</th>
                                     <th>NAMA BARANG</th>
                                     <th style="width: 80px;">SATUAN</th>
                                     <th style="width: 100px;">JUMLAH</th>
                                     <th style="width: 140px;">HARGA SATUAN</th>
+                                    <th style="width: 120px;">BATCH/LOT</th>
+                                    <th style="width: 120px;">KEDALUWARSA</th>
                                     <th>KETERANGAN</th>
                                 </tr>
                         </thead>
@@ -163,22 +166,27 @@
                                     <td class="text-center">{{ forloop.counter }}</td>
                                     <td class="text-center">{{ row.received_date|date:"d/m/Y"|default:"-" }}</td>
                                     <td>{{ row.document_number }}</td>
+                                    <td>{{ row.distribution_document_number }}</td>
                                     <td>{{ row.nama_barang }}</td>
                                     <td class="text-center">{{ row.satuan }}</td>
                                     <td class="text-end">{{ row.quantity|id_decimal:0 }}</td>
                                     <td class="text-end">{{ row.unit_price|idr }}</td>
+                                    <td>{{ row.batch_lot }}</td>
+                                    <td class="text-center">{{ row.expiry_date|date:"d/m/Y"|default:"-" }}</td>
                                     <td>{{ row.notes|default:"-" }}</td>
                                 </tr>
                                 {% endfor %}
                                 <tr class="table-warning fw-bold">
-                                    <td colspan="5" class="text-center">TOTAL</td>
+                                    <td colspan="6" class="text-center">TOTAL</td>
                                     <td class="text-end">{{ total_quantity|id_decimal:0 }}</td>
+                                    <td></td>
+                                    <td></td>
                                     <td></td>
                                     <td></td>
                                 </tr>
                             {% else %}
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="11" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data penerimaan untuk periode ini.
                                     {% if not facility %}

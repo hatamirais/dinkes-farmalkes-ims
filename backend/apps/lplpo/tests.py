@@ -458,12 +458,12 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertTrue(item_a_line.penerimaan_auto_filled)
 		self.assertTrue(item_b_line.penerimaan_auto_filled)
 
-	def test_lplpo_help_text_mentions_sbbk_as_penerimaan_source(self):
+	def test_lplpo_help_text_mentions_receipt_confirmation_as_penerimaan_source(self):
 		penerimaan_field = LPLPOItem._meta.get_field("penerimaan")
 		auto_filled_field = LPLPOItem._meta.get_field("penerimaan_auto_filled")
 
-		self.assertIn("SBBK", penerimaan_field.help_text)
-		self.assertIn("SBBK", auto_filled_field.help_text)
+		self.assertIn("receipt confirmations", penerimaan_field.help_text)
+		self.assertIn("receipt confirmations", auto_filled_field.help_text)
 		self.assertNotIn("Distribution records", penerimaan_field.help_text)
 		self.assertNotIn("Distribution records", auto_filled_field.help_text)
 

@@ -199,9 +199,9 @@
                 {% if can_view_puskesmas %}
                 <a href="{% url 'puskesmas:receiving_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' %}active{% endif %}"
-                    data-label="Penerimaan SBBK"
-                    title="Penerimaan SBBK">
-                    <i class="bi bi-receipt"></i><span>Penerimaan SBBK</span>
+                    data-label="Konfirmasi Penerimaan"
+                    title="Konfirmasi Penerimaan">
+                    <i class="bi bi-receipt"></i><span>Konfirmasi Penerimaan</span>
                 </a>
                 <a href="{% url 'puskesmas:subunit_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'subunit_' %}active{% endif %}"
@@ -413,8 +413,8 @@
                             <i class="bi bi-arrow-left me-1"></i>Mutasi Lokasi
                         </a>
                         {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' and request.resolver_match.url_name != 'receiving_list' %}
-                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Penerimaan SBBK">
-                            <i class="bi bi-arrow-left me-1"></i>Penerimaan SBBK
+                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Konfirmasi Penerimaan">
+                            <i class="bi bi-arrow-left me-1"></i>Konfirmasi Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' and request.resolver_match.url_name != 'request_list' %}
                         <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Permintaan Puskesmas">

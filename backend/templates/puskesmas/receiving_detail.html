@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}{{ sbbk.document_number }} – Healthcare IMS{% endblock %}
-{% block page_title %}Detail Penerimaan SBBK{% endblock %}
+{% block title %}{{ receipt_confirmation.document_number }} – Healthcare IMS{% endblock %}
+{% block page_title %}Detail Konfirmasi Penerimaan{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -10,7 +10,7 @@
     <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
         <i class="bi bi-lock-fill fs-5"></i>
         <div>
-            SBBK periode ini terkunci karena LPLPO {{ locked_lplpo.document_number }} sudah berstatus <strong>{{ locked_lplpo.get_status_display }}</strong>.
+            Konfirmasi penerimaan periode ini terkunci karena LPLPO {{ locked_lplpo.document_number }} sudah berstatus <strong>{{ locked_lplpo.get_status_display }}</strong>.
         </div>
     </div>
     {% endif %}
@@ -19,23 +19,33 @@
         <div class="col-12 col-lg-8">
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-receipt me-2"></i>Informasi SBBK</h6>
-                    <span class="fw-semibold text-muted">{{ sbbk.document_number }}</span>
+                    <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>Informasi Konfirmasi</h6>
+                    <span class="fw-semibold text-muted">{{ receipt_confirmation.document_number }}</span>
                 </div>
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-4">Puskesmas</dt>
-                        <dd class="col-sm-8">{{ sbbk.facility.name }} <span class="text-muted small">({{ sbbk.facility.code }})</span></dd>
+                        <dd class="col-sm-8">{{ receipt_confirmation.facility.name }} <span class="text-muted small">({{ receipt_confirmation.facility.code }})</span></dd>
 
-                        <dt class="col-sm-4">Tanggal Penerimaan</dt>
-                        <dd class="col-sm-8">{{ sbbk.received_date|date:"d F Y" }}</dd>
+                        <dt class="col-sm-4">Distribusi Sumber</dt>
+                        <dd class="col-sm-8">
+                            {% if receipt_confirmation.distribution %}
+                            {{ receipt_confirmation.distribution.document_number }}
+                            <span class="text-muted small">({{ receipt_confirmation.distribution.distributed_date|date:"d/m/Y" }})</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4">Tanggal Terima</dt>
+                        <dd class="col-sm-8">{{ receipt_confirmation.received_date|date:"d F Y" }}</dd>
 
                         <dt class="col-sm-4">Dibuat Oleh</dt>
-                        <dd class="col-sm-8">{{ sbbk.created_by }} <span class="text-muted small">{{ sbbk.created_at|date:"d M Y H:i" }}</span></dd>
+                        <dd class="col-sm-8">{{ receipt_confirmation.created_by }} <span class="text-muted small">{{ receipt_confirmation.created_at|date:"d M Y H:i" }}</span></dd>
 
-                        {% if sbbk.notes %}
+                        {% if receipt_confirmation.notes %}
                         <dt class="col-sm-4">Catatan</dt>
-                        <dd class="col-sm-8">{{ sbbk.notes }}</dd>
+                        <dd class="col-sm-8">{{ receipt_confirmation.notes }}</dd>
                         {% endif %}
                     </dl>
                 </div>
@@ -43,7 +53,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Daftar Barang</h6>
+                    <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Baris Konfirmasi</h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -52,8 +62,10 @@
                                 <tr>
                                     <th>#</th>
                                     <th>Barang</th>
-                                    <th class="text-end">Satuan</th>
+                                    <th>Referensi Distribusi</th>
                                     <th class="text-end">Jumlah</th>
+                                    <th>Batch/Lot</th>
+                                    <th>Kedaluwarsa</th>
                                     <th class="text-end">Harga Satuan</th>
                                     <th class="text-end">Total</th>
                                     <th>Keterangan</th>
@@ -70,15 +82,26 @@
                                         {% endif %}
                                         <br><small class="text-muted">{{ item_obj.item.kode_barang }}</small>
                                     </td>
-                                    <td class="text-end text-muted">{{ item_obj.item.satuan.code }}</td>
+                                    <td class="small text-muted">
+                                        {% if item_obj.distribution_item %}
+                                        {{ item_obj.distribution_item.id }}
+                                        {% if item_obj.distribution_item.issued_batch_lot %}
+                                        <br>batch {{ item_obj.distribution_item.issued_batch_lot }}
+                                        {% endif %}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end fw-semibold">{{ item_obj.quantity|id_decimal:2 }}</td>
+                                    <td>{{ item_obj.batch_lot|default:"-" }}</td>
+                                    <td>{{ item_obj.expiry_date|date:"d/m/Y"|default:"-" }}</td>
                                     <td class="text-end">{{ item_obj.unit_price|idr }}</td>
                                     <td class="text-end">{{ item_obj.total_price|idr }}</td>
                                     <td class="text-muted small">{{ item_obj.notes|default:"–" }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-3">Belum ada item.</td>
+                                    <td colspan="9" class="text-center text-muted py-3">Belum ada item.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -93,7 +116,7 @@
                 <div class="card-header"><h6 class="mb-0">Aksi</h6></div>
                 <div class="card-body d-grid gap-2">
                     {% if can_manage and not locked_lplpo %}
-                    <a href="{% url 'puskesmas:receiving_edit' sbbk.pk %}" class="btn btn-outline-primary w-100" id="edit-btn">
+                    <a href="{% url 'puskesmas:receiving_edit' receipt_confirmation.pk %}" class="btn btn-outline-primary w-100" id="edit-btn">
                         <i class="bi bi-pencil me-1"></i>Edit
                     </a>
                     <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal" id="delete-open-btn">
@@ -111,11 +134,11 @@
                 <ul class="list-group list-group-flush small">
                     <li class="list-group-item d-flex justify-content-between">
                         <span class="text-muted">Dibuat</span>
-                        <span>{{ sbbk.created_at|date:"d M Y H:i" }}</span>
+                        <span>{{ receipt_confirmation.created_at|date:"d M Y H:i" }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span class="text-muted">Terakhir Diubah</span>
-                        <span>{{ sbbk.updated_at|date:"d M Y H:i" }}</span>
+                        <span>{{ receipt_confirmation.updated_at|date:"d M Y H:i" }}</span>
                     </li>
                 </ul>
             </div>
@@ -127,16 +150,16 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0">
-                <h5 class="modal-title" id="deleteModalLabel">Hapus Penerimaan SBBK</h5>
+                <h5 class="modal-title" id="deleteModalLabel">Hapus Konfirmasi Penerimaan</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                Apakah Anda yakin ingin menghapus dokumen <strong>{{ sbbk.document_number }}</strong>?
+                Apakah Anda yakin ingin menghapus dokumen <strong>{{ receipt_confirmation.document_number }}</strong>?
                 Tindakan ini tidak dapat dibatalkan.
             </div>
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                <form method="post" action="{% url 'puskesmas:receiving_delete' sbbk.pk %}">
+                <form method="post" action="{% url 'puskesmas:receiving_delete' receipt_confirmation.pk %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-danger" id="confirm-delete-btn">Hapus</button>
                 </form>

@@ -29,27 +29,43 @@ def _normalize_text_value(value):
     return normalized
 
 
-class PuskesmasSBBK(TimeStampedModel):
-    """Independent Puskesmas receipt document used as LPLPO penerimaan truth."""
+def get_distribution_item_source_quantity(distribution_item):
+    if distribution_item is None:
+        return None
+    if distribution_item.quantity_approved is not None:
+        return distribution_item.quantity_approved
+    return distribution_item.quantity_requested
+
+
+class PuskesmasReceiptConfirmation(TimeStampedModel):
+    """Receiver-side confirmation for one delivered distribution event."""
 
     document_number = models.CharField(
         max_length=100,
         unique=True,
         blank=True,
-        help_text="Kosongkan untuk auto-generate (SBBK-YYYYMM-XXXXX)",
+        help_text="Kosongkan untuk auto-generate (RCVCONF-YYYYMM-XXXXX)",
     )
     facility = models.ForeignKey(
         "items.Facility",
         on_delete=models.PROTECT,
-        related_name="puskesmas_sbbks",
+        related_name="puskesmas_receipt_confirmations",
         limit_choices_to={"facility_type": "PUSKESMAS", "is_active": True},
+    )
+    distribution = models.OneToOneField(
+        "distribution.Distribution",
+        on_delete=models.PROTECT,
+        related_name="receipt_confirmation",
+        null=True,
+        blank=True,
+        help_text="Dokumen distribusi yang dikonfirmasi diterima oleh Puskesmas.",
     )
     received_date = models.DateField(default=timezone.now)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="created_puskesmas_sbbks",
+        related_name="created_puskesmas_receipt_confirmations",
     )
 
     class Meta:
@@ -62,19 +78,26 @@ class PuskesmasSBBK(TimeStampedModel):
         ]
 
     def __str__(self):
+        distribution_number = (
+            getattr(self.distribution, "document_number", "") if self.distribution_id else ""
+        )
+        if distribution_number:
+            return f"{self.document_number} – {self.facility} / {distribution_number}"
         return f"{self.document_number} – {self.facility}"
 
     def _get_document_number_prefix(self):
         received_date = self.received_date or timezone.localdate()
         if isinstance(received_date, str):
             received_date = date.fromisoformat(received_date)
-        return f"SBBK-{received_date.strftime('%Y%m')}"
+        return f"RCVCONF-{received_date.strftime('%Y%m')}"
 
     def _generate_next_document_number(self):
         prefix = self._get_document_number_prefix()
         prefix_with_dash = f"{prefix}-"
         last = (
-            PuskesmasSBBK.objects.filter(document_number__startswith=prefix_with_dash)
+            PuskesmasReceiptConfirmation.objects.filter(
+                document_number__startswith=prefix_with_dash
+            )
             .order_by("-document_number")
             .first()
         )
@@ -89,6 +112,9 @@ class PuskesmasSBBK(TimeStampedModel):
         return f"{prefix_with_dash}{str(new_num).zfill(5)}"
 
     def save(self, *args, **kwargs):
+        self.notes = _normalize_text_value(self.notes)
+        if self.distribution_id and not self.received_date:
+            self.received_date = self.distribution.distributed_date or timezone.localdate()
         if self.pk or self.document_number:
             return super().save(*args, **kwargs)
 
@@ -101,22 +127,63 @@ class PuskesmasSBBK(TimeStampedModel):
                 self.document_number = ""
 
         raise IntegrityError(
-            "Unable to generate a unique Puskesmas SBBK document number after retries."
+            "Unable to generate a unique Puskesmas receipt confirmation number after retries."
         )
 
+    def clean(self):
+        super().clean()
 
-class PuskesmasSBBKItem(models.Model):
-    """SBBK line item; duplicate items are allowed to preserve unit-price splits."""
+        errors = {}
+        if self.facility_id and self.facility.facility_type != "PUSKESMAS":
+            errors["facility"] = (
+                "Konfirmasi penerimaan hanya boleh terhubung ke fasilitas Puskesmas."
+            )
+
+        if self.received_date and not (1000 <= self.received_date.year <= 9999):
+            errors["received_date"] = "Tahun tanggal tidak valid."
+
+        if self.distribution_id:
+            if self.distribution.facility_id != self.facility_id:
+                errors["distribution"] = (
+                    "Distribusi harus ditujukan ke fasilitas yang sama."
+                )
+            if self.distribution.status != self.distribution.Status.DISTRIBUTED:
+                errors["distribution"] = (
+                    "Hanya distribusi berstatus terdistribusi yang dapat dikonfirmasi."
+                )
+
+        try:
+            normalized_notes = _normalize_text_value(self.notes)
+        except ValidationError as exc:
+            errors["notes"] = exc.messages[0]
+            normalized_notes = ""
+
+        if normalized_notes and len(normalized_notes) > 1000:
+            errors["notes"] = "Catatan tidak boleh lebih dari 1000 karakter."
+
+        if errors:
+            raise ValidationError(errors)
+
+
+class PuskesmasReceiptConfirmationItem(models.Model):
+    """Receiver-side confirmation row; duplicates preserve batch or price splits."""
 
     sbbk = models.ForeignKey(
-        PuskesmasSBBK,
+        PuskesmasReceiptConfirmation,
         on_delete=models.CASCADE,
         related_name="items",
+    )
+    distribution_item = models.ForeignKey(
+        "distribution.DistributionItem",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="receipt_confirmation_items",
     )
     item = models.ForeignKey(
         "items.Item",
         on_delete=models.PROTECT,
-        related_name="puskesmas_sbbk_items",
+        related_name="puskesmas_receipt_confirmation_items",
     )
     quantity = models.DecimalField(
         max_digits=12,
@@ -126,8 +193,10 @@ class PuskesmasSBBKItem(models.Model):
     unit_price = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        help_text="Harga satuan pada SBBK",
+        help_text="Harga satuan aktual yang diterima Puskesmas",
     )
+    batch_lot = models.CharField(max_length=100, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -146,6 +215,9 @@ class PuskesmasSBBKItem(models.Model):
         super().clean()
 
         errors = {}
+        parent_distribution_id = None
+        if getattr(self, "sbbk", None) is not None:
+            parent_distribution_id = self.sbbk.distribution_id
         try:
             quantity = (
                 self.quantity
@@ -159,11 +231,67 @@ class PuskesmasSBBKItem(models.Model):
             errors["quantity"] = "Jumlah harus lebih dari 0."
         elif quantity != quantity.to_integral_value():
             errors["quantity"] = (
-                "Jumlah SBBK harus berupa bilangan bulat agar sinkron dengan LPLPO."
+                "Jumlah penerimaan harus berupa bilangan bulat agar sinkron dengan LPLPO."
             )
+
+        if self.unit_price is None:
+            errors["unit_price"] = "Harga satuan wajib diisi."
+        else:
+            unit_price = _safe_decimal(self.unit_price, default=None)
+            if unit_price is None or unit_price < 0:
+                errors["unit_price"] = "Harga satuan tidak boleh kurang dari 0."
+
+        if self.expiry_date and not (1000 <= self.expiry_date.year <= 9999):
+            errors["expiry_date"] = "Tahun tanggal kedaluwarsa tidak valid."
+
+        try:
+            normalized_notes = _normalize_text_value(self.notes)
+        except ValidationError as exc:
+            errors["notes"] = exc.messages[0]
+            normalized_notes = ""
+
+        if normalized_notes and len(normalized_notes) > 255:
+            errors["notes"] = "Keterangan tidak boleh lebih dari 255 karakter."
+
+        if self.distribution_item_id:
+            if parent_distribution_id and (
+                self.distribution_item.distribution_id != parent_distribution_id
+            ):
+                errors["distribution_item"] = (
+                    "Baris distribusi harus berasal dari dokumen distribusi yang sama."
+                )
+            if self.distribution_item.item_id != self.item_id:
+                errors["item"] = "Barang harus sama dengan baris distribusi yang dipilih."
+
+        if self.distribution_item_id and quantity is not None:
+            source_batch = self.distribution_item.issued_batch_lot or ""
+            source_expiry = self.distribution_item.issued_expiry_date
+            source_price = self.distribution_item.issued_unit_price
+            source_quantity = get_distribution_item_source_quantity(
+                self.distribution_item
+            )
+            if (
+                _safe_decimal(source_quantity) != _safe_decimal(quantity)
+                or source_batch != (self.batch_lot or "")
+                or source_expiry != self.expiry_date
+                or _safe_decimal(source_price) != _safe_decimal(self.unit_price)
+            ) and not normalized_notes:
+                errors["notes"] = (
+                    "Isi keterangan penyesuaian bila detail penerimaan berbeda dari distribusi."
+                )
 
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.batch_lot = _normalize_text_value(self.batch_lot)
+        self.notes = _normalize_text_value(self.notes)
+        super().save(*args, **kwargs)
+
+
+# Temporary compatibility aliases while the surrounding forms/views/tests are updated.
+PuskesmasSBBK = PuskesmasReceiptConfirmation
+PuskesmasSBBKItem = PuskesmasReceiptConfirmationItem
 
 
 class PuskesmasSubunit(TimeStampedModel):
