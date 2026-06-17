@@ -760,6 +760,36 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 
 		self.assertEqual(response.status_code, 403)
 
+	def test_create_get_preloads_distribution_rows(self):
+		self.client.force_login(self.operator)
+		distribution, distribution_item = self._create_distribution()
+
+		response = self.client.get(
+			reverse("puskesmas:receiving_create"),
+			{"distribution": str(distribution.pk)},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, distribution.document_number)
+		self.assertContains(response, f'value="{distribution_item.pk}" selected')
+		self.assertContains(response, 'id="distribution-preview-form"', html=False)
+		self.assertNotContains(response, 'formmethod="get"', html=False)
+
+	def test_create_get_ignores_cross_facility_distribution_preview(self):
+		self.client.force_login(self.operator)
+		distribution, distribution_item = self._create_distribution(
+			facility=self.other_facility,
+		)
+
+		response = self.client.get(
+			reverse("puskesmas:receiving_create"),
+			{"distribution": str(distribution.pk)},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, distribution.document_number)
+		self.assertNotContains(response, f'value="{distribution_item.pk}" selected')
+
 	def test_create_is_blocked_when_same_month_lplpo_is_submitted(self):
 		self._create_lplpo(status=LPLPO.Status.SUBMITTED)
 		distribution, distribution_item = self._create_distribution()
@@ -811,6 +841,36 @@ class PuskesmasSBBKViewTests(SecureClientDefaultsMixin, TestCase):
 			"Terlalu banyak percobaan pada aksi ini",
 			status_code=429,
 		)
+
+	@override_settings(
+		PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT="1/m",
+		RATELIMIT_USE_CACHE="locmem",
+	)
+	def test_create_get_preview_does_not_consume_mutation_rate_limit(self):
+		self.client.force_login(self.operator)
+		distribution, distribution_item = self._create_distribution()
+
+		first_preview = self.client.get(
+			reverse("puskesmas:receiving_create"),
+			{"distribution": str(distribution.pk)},
+		)
+		second_preview = self.client.get(
+			reverse("puskesmas:receiving_create"),
+			{"distribution": str(distribution.pk)},
+		)
+		save_response = self.client.post(
+			reverse("puskesmas:receiving_create"),
+			self._create_payload(
+				distribution=distribution,
+				distribution_item=distribution_item,
+				quantity="1.00",
+				notes="Setelah preview GET",
+			),
+		)
+
+		self.assertEqual(first_preview.status_code, 200)
+		self.assertEqual(second_preview.status_code, 200)
+		self.assertEqual(save_response.status_code, 302)
 
 	def test_create_recomputes_same_month_draft_lplpo(self):
 		lplpo = self._create_lplpo()

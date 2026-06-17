@@ -84,7 +84,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 
 - Perlindungan brute-force login menggunakan `django-axes`.
 - Rate limiting untuk endpoint POST sensitif seperti perubahan password dan aksi manajemen pengguna menggunakan `django-ratelimit`.
-- Endpoint mutasi konfirmasi penerimaan Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`; nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap diterima sebagai fallback kompatibilitas.
+- Endpoint simpan/edit/hapus konfirmasi penerimaan Puskesmas dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`; pratinjau pemuatan baris distribusi pada form buat memakai `GET` non-mutasi dan tidak dihitung ke kuota ini. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap diterima sebagai fallback kompatibilitas.
 - Endpoint mutasi pemakaian rinci Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.

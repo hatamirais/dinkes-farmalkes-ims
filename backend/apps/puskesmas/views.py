@@ -871,41 +871,6 @@ def receiving_create(request):
     selected_distribution = _get_selected_distribution(request)
 
     if request.method == "POST":
-        if request.POST.get("action") == "load_distribution":
-            form = PuskesmasReceiptConfirmationForm(request.POST, user=request.user)
-            if form.is_valid():
-                selected_distribution = form.cleaned_data.get("distribution")
-                form = PuskesmasReceiptConfirmationForm(
-                    initial={
-                        "document_number": form.cleaned_data.get("document_number", ""),
-                        "facility": form.cleaned_data.get("facility").pk
-                        if form.cleaned_data.get("facility")
-                        else None,
-                        "distribution": selected_distribution.pk
-                        if selected_distribution
-                        else None,
-                        "received_date": form.cleaned_data.get("received_date"),
-                        "notes": form.cleaned_data.get("notes", ""),
-                    },
-                    user=request.user,
-                )
-            formset = PuskesmasReceiptConfirmationItemFormSet(
-                prefix="items",
-                initial=_build_receiving_initial_rows(selected_distribution),
-                form_kwargs={"distribution": selected_distribution},
-            )
-            return render(
-                request,
-                "puskesmas/receiving_form.html",
-                {
-                    "form": form,
-                    "formset": formset,
-                    "selected_distribution": selected_distribution,
-                    "title": "Buat Konfirmasi Penerimaan",
-                    "is_edit": False,
-                },
-            )
-
         form = PuskesmasReceiptConfirmationForm(request.POST, user=request.user)
         distribution_for_formset = selected_distribution
         formset = PuskesmasReceiptConfirmationItemFormSet(

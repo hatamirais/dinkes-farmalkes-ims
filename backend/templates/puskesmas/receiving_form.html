@@ -17,6 +17,9 @@
 <div class="container-fluid">
     <div class="row justify-content-center">
         <div class="col-12 col-xl-11">
+            <form method="get" action="{% url 'puskesmas:receiving_create' %}" id="distribution-preview-form" class="d-none">
+                <input type="hidden" name="distribution" id="distribution-preview-input">
+            </form>
             <form method="post" id="request-form" novalidate>
                 {% csrf_token %}
 
@@ -82,7 +85,7 @@
 
                         {% if not is_edit %}
                         <div class="mt-3">
-                            <button type="submit" name="action" value="load_distribution" class="btn btn-outline-primary">
+                            <button type="button" class="btn btn-outline-primary" id="preview-distribution-btn">
                                 <i class="bi bi-arrow-clockwise me-1"></i>Muat Baris Distribusi
                             </button>
                         </div>
