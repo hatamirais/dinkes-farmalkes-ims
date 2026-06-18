@@ -74,6 +74,7 @@ Module highlights:
   - Create/edit/delete is rate-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO `pemakaian` totals.
 - Puskesmas receipt confirmation: `/puskesmas/penerimaan/`, `/puskesmas/penerimaan/buat/`, `/puskesmas/penerimaan/<pk>/`, `/puskesmas/penerimaan/<pk>/edit/`, `/puskesmas/penerimaan/<pk>/delete/`
   - Only `PUSKESMAS` role users and superusers may create, edit, or delete receipt confirmations.
+  - Linked operational create/edit uses a fixed checklist per `distribution.DistributionItem`; checked rows become stored receipt items and unchecked rows require a header note while staying out of LPLPO aggregation.
   - Receipt-confirmation mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
   - Create/edit/delete is rate-limited by `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO lines.
 - Allocation: `/allocation/`, `/allocation/create/`, `/allocation/<pk>/`, `/allocation/<pk>/edit/`, `/allocation/<pk>/delete/`, `/allocation/<pk>/reset-to-draft/`, `/allocation/<pk>/submit/`, `/allocation/<pk>/approve/`, `/allocation/<pk>/step-back/`, `/allocation/<pk>/reject/`, `/allocation/<pk>/distributions/<dist_pk>/prepare/`, `/allocation/<pk>/distributions/<dist_pk>/deliver/`
@@ -321,18 +322,19 @@ This section reflects model code in `backend/apps/*/models.py`.
 ### 4.12 Puskesmas
 
 - `puskesmas.PuskesmasReceiptConfirmation` (`puskesmas_sbbks`):
-  - Fields: `document_number` (auto-generated `RCVCONF-YYYYMM-XXXXX` when blank), `received_date`, `notes`
+  - Fields: `document_number` (auto-generated `RCVCONF-YYYYMM-XXXXX` when blank), `received_date`, `status` (`DRAFT` / `CONFIRMED`), `notes`
   - FKs: `facility` (puskesmas only), `distribution` (nullable OneToOne to `distribution.Distribution`), `created_by`
   - Indexes: `idx_sbbk_facility_date` on `(facility, received_date)`
   - Purpose: receiver-side confirmation header for goods actually received from Instalasi Farmasi; source of truth for Puskesmas receipt history and monthly LPLPO `penerimaan`
+  - Behavior: linked operational receipts can be saved as `DRAFT` when goods are incomplete; only `CONFIRMED` rows are treated as finalized receipt data for LPLPO
   - Compatibility: legacy migrated rows may remain `distribution=NULL` and are still editable through a dedicated compatibility path
 
 - `puskesmas.PuskesmasReceiptConfirmationItem` (`puskesmas_sbbk_items`):
   - FKs: `sbbk`, `item`, `distribution_item` (nullable FK to `distribution.DistributionItem`)
   - Fields: `quantity`, `unit_price`, `batch_lot`, `expiry_date`, `notes`, `created_at`
-  - Behavior: duplicate rows for the same `item` within one receipt confirmation are allowed so different receipt prices, batches, and expiry dates remain explicit
+  - Behavior: linked operational rows are now copied directly from checked `distribution_item` source rows, one stored row per confirmed source line; duplicate/manual split rows remain possible only on legacy compatibility edits
   - Compatibility: legacy migrated rows may remain `distribution_item=NULL`; new operational rows are expected to carry source linkage
-  - Derived usage: same-facility/month aggregates feed LPLPO `penerimaan` totals and weighted-average `harga_satuan` autofill
+  - Derived usage: same-facility/month aggregates from `sbbk.status='CONFIRMED'` feed LPLPO `penerimaan` totals and weighted-average `harga_satuan` autofill
 
 - `puskesmas.PuskesmasSubunit` (`puskesmas_subunits`):
   - Purpose: facility-specific reporting bucket for treatment rooms and helper sites

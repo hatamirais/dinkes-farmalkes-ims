@@ -388,6 +388,7 @@ def get_penerimaan_for_facility_period(facility, bulan, tahun):
             sbbk__facility=facility,
             sbbk__received_date__year=tahun,
             sbbk__received_date__month=bulan,
+            sbbk__status="CONFIRMED",
         )
         .values("item_id")
         .annotate(total=Sum("quantity"))
@@ -411,6 +412,7 @@ def get_penerimaan_unit_prices_for_facility_period(facility, bulan, tahun):
             sbbk__facility=facility,
             sbbk__received_date__year=tahun,
             sbbk__received_date__month=bulan,
+            sbbk__status="CONFIRMED",
         )
         .values("item_id")
         .annotate(

@@ -72,6 +72,7 @@
                             <th>No. Konfirmasi</th>
                             <th>No. Distribusi</th>
                             <th>Puskesmas</th>
+                            <th>Status</th>
                             <th>Tanggal Terima</th>
                             <th>Dibuat Oleh</th>
                             <th class="text-end">Aksi</th>
@@ -83,17 +84,24 @@
                             <td class="fw-semibold">{{ receiving.document_number }}</td>
                             <td>{{ receiving.distribution.document_number|default:"-" }}</td>
                             <td>{{ receiving.facility.name }}</td>
+                            <td>
+                                {% if receiving.status == 'CONFIRMED' %}
+                                <span class="badge text-bg-success">Terkonfirmasi</span>
+                                {% else %}
+                                <span class="badge text-bg-warning">Draft: barang belum lengkap</span>
+                                {% endif %}
+                            </td>
                             <td>{{ receiving.received_date|date:"d/m/Y" }}</td>
                             <td>{{ receiving.created_by }}</td>
                             <td class="text-end">
                                 <a href="{% url 'puskesmas:receiving_detail' receiving.pk %}" class="btn btn-sm btn-outline-primary">
-                                    Lihat
+                                    {% if receiving.status == 'CONFIRMED' %}Lihat{% else %}Lanjutkan{% endif %}
                                 </a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">Belum ada konfirmasi penerimaan.</td>
+                            <td colspan="7" class="text-center text-muted py-4">Belum ada konfirmasi penerimaan.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

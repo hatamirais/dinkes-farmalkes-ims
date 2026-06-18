@@ -5,7 +5,7 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Div, Layout
 from django import forms
 from django.db.models import Q
-from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.forms import BaseFormSet, BaseInlineFormSet, formset_factory, inlineformset_factory
 from django.utils import timezone
 
 from apps.core.decimal_validation import validate_finite_decimal
@@ -192,6 +192,7 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         self.lock_distribution = kwargs.pop("lock_distribution", False)
+        self.linked_distribution = kwargs.pop("linked_distribution", None)
         super().__init__(*args, **kwargs)
         self.is_legacy_unlinked_edit = bool(
             self.instance.pk and self.instance.distribution_id is None
@@ -239,7 +240,26 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
             self.fields["distribution"].initial = self.instance.distribution_id
             self.fields["facility"].initial = self.instance.facility_id
 
+        if self.linked_distribution is not None:
+            self.fields["document_number"].widget = forms.HiddenInput()
+            self.fields["distribution"].widget = forms.HiddenInput()
+            self.fields["facility"].widget = forms.HiddenInput()
+            self.fields["received_date"].widget = forms.HiddenInput()
+            self.fields["distribution"].initial = self.linked_distribution.pk
+            self.fields["facility"].initial = self.linked_distribution.facility_id
+
     def clean_facility(self):
+        if self.linked_distribution is not None:
+            if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
+                if not self.user.facility_id:
+                    raise forms.ValidationError(
+                        "Akun operator belum terhubung ke fasilitas puskesmas."
+                    )
+                if self.linked_distribution.facility_id != self.user.facility_id:
+                    raise forms.ValidationError(
+                        "Distribusi harus berasal dari fasilitas akun Anda."
+                    )
+            return self.linked_distribution.facility
         distribution = self.cleaned_data.get("distribution")
         if self.user and getattr(self.user, "role", None) == User.Role.PUSKESMAS:
             if not self.user.facility_id:
@@ -259,6 +279,8 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
         return facility or getattr(distribution, "facility", None)
 
     def clean_distribution(self):
+        if self.linked_distribution is not None:
+            return self.linked_distribution
         distribution = self.cleaned_data.get("distribution")
         if self.is_legacy_unlinked_edit:
             if distribution is not None:
@@ -290,6 +312,10 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
         )
 
     def clean_received_date(self):
+        if self.linked_distribution is not None:
+            if self.instance.pk and self.instance.received_date:
+                return self.instance.received_date
+            return self.linked_distribution.distributed_date or timezone.localdate()
         value = self.cleaned_data.get("received_date")
         if value and not (1000 <= value.year <= 9999):
             raise forms.ValidationError("Tahun tanggal tidak valid.")
@@ -515,6 +541,116 @@ class BasePuskesmasReceiptConfirmationItemFormSet(BaseInlineFormSet):
                         "satu distribusi sumber berbeda dari jumlah distribusi."
                     ),
                 )
+
+
+class PuskesmasReceiptConfirmationChecklistForm(forms.Form):
+    distribution_item = forms.ModelChoiceField(
+        queryset=DistributionItem.objects.none(),
+        widget=forms.HiddenInput(),
+    )
+    confirmed = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input receipt-line-checkbox"}),
+        label="Sesuai fisik",
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.distribution = kwargs.pop("distribution", None)
+        super().__init__(*args, **kwargs)
+        queryset = DistributionItem.objects.none()
+        if self.distribution is not None:
+            queryset = self.distribution.items.select_related("item").order_by(
+                "item__kategori__sort_order",
+                "item__nama_barang",
+                "id",
+            )
+        self.fields["distribution_item"].queryset = queryset
+
+    def clean_distribution_item(self):
+        distribution_item = self.cleaned_data.get("distribution_item")
+        if distribution_item is None:
+            raise forms.ValidationError("Baris distribusi sumber wajib tersedia.")
+        if (
+            self.distribution is not None
+            and distribution_item.distribution_id != self.distribution.pk
+        ):
+            raise forms.ValidationError(
+                "Baris distribusi harus berasal dari distribusi yang dipilih."
+            )
+        return distribution_item
+
+
+class BasePuskesmasReceiptConfirmationChecklistFormSet(BaseFormSet):
+    def __init__(self, *args, **kwargs):
+        self.distribution = kwargs.pop("distribution", None)
+        self.receipt_notes = kwargs.pop("receipt_notes", "")
+        self.submission_mode = kwargs.pop("submission_mode", "draft")
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs["distribution"] = self.distribution
+        return kwargs
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        expected_total_rows = (
+            self.distribution.items.count() if self.distribution is not None else 0
+        )
+        total_rows = 0
+        confirmed_rows = 0
+        distribution_item_ids = set()
+
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data") or not form.cleaned_data:
+                continue
+            distribution_item = form.cleaned_data.get("distribution_item")
+            if distribution_item is None:
+                continue
+
+            total_rows += 1
+            if distribution_item.pk in distribution_item_ids:
+                raise forms.ValidationError(
+                    "Setiap baris distribusi hanya boleh muncul satu kali pada checklist konfirmasi."
+                )
+            distribution_item_ids.add(distribution_item.pk)
+
+            if form.cleaned_data.get("confirmed"):
+                confirmed_rows += 1
+
+        if total_rows == 0:
+            raise forms.ValidationError(
+                "Tidak ada baris distribusi yang dapat dikonfirmasi."
+            )
+
+        if expected_total_rows and total_rows != expected_total_rows:
+            raise forms.ValidationError(
+                "Checklist konfirmasi tidak lengkap. Muat ulang baris distribusi lalu coba lagi."
+            )
+
+        header_notes = _normalize_text_value(
+            self.receipt_notes,
+            field_label="Catatan",
+            max_length=1000,
+        )
+        if self.submission_mode == "confirm":
+            if confirmed_rows != total_rows:
+                raise forms.ValidationError(
+                    "Semua baris harus dicentang untuk menyimpan konfirmasi final. Gunakan Simpan Draft bila barang belum lengkap."
+                )
+        else:
+            if confirmed_rows < total_rows and not header_notes:
+                return
+
+
+PuskesmasReceiptConfirmationChecklistFormSet = formset_factory(
+    PuskesmasReceiptConfirmationChecklistForm,
+    formset=BasePuskesmasReceiptConfirmationChecklistFormSet,
+    extra=0,
+)
 
 
 PuskesmasReceiptConfirmationItemFormSet = inlineformset_factory(

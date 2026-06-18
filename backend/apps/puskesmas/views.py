@@ -25,6 +25,7 @@ from apps.items.models import Facility, Item
 from .forms import (
     ApprovalItemForm,
     PuskesmasConsumptionMatrixForm,
+    PuskesmasReceiptConfirmationChecklistFormSet,
     PuskesmasReceiptConfirmationForm,
     PuskesmasReceiptConfirmationItemFormSet,
     PuskesmasRequestForm,
@@ -39,6 +40,7 @@ from .models import (
     PuskesmasRequest,
     PuskesmasRequestItem,
     PuskesmasSubunit,
+    get_distribution_item_source_quantity,
 )
 from .services import (
     assert_consumption_month_mutable,
@@ -337,6 +339,102 @@ def _build_receiving_initial_rows(distribution):
             }
         )
     return rows
+
+
+def _build_receiving_checklist_initial_rows(
+    distribution,
+    *,
+    selected_distribution_item_ids=None,
+):
+    selected_distribution_item_ids = {
+        pk for pk in (selected_distribution_item_ids or set()) if pk is not None
+    }
+    rows = []
+    if distribution is None:
+        return rows
+    items = distribution.items.select_related("item").order_by(
+        "item__kategori__sort_order", "item__nama_barang", "id"
+    )
+    for distribution_item in items:
+        rows.append(
+            {
+                "distribution_item": distribution_item.pk,
+                "confirmed": distribution_item.pk in selected_distribution_item_ids,
+            }
+        )
+    return rows
+
+
+def _build_receiving_checklist_rows(formset, distribution):
+    if distribution is None:
+        return []
+
+    distribution_items = list(
+        distribution.items.select_related("item", "item__satuan").order_by(
+            "item__kategori__sort_order", "item__nama_barang", "id"
+        )
+    )
+    rows = []
+    for form, distribution_item in zip(formset.forms, distribution_items):
+        confirmed = False
+        if getattr(form, "is_bound", False):
+            confirmed = bool(form.data.get(form.add_prefix("confirmed")))
+        elif form.initial:
+            confirmed = bool(form.initial.get("confirmed"))
+        rows.append(
+            {
+                "form": form,
+                "distribution_item": distribution_item,
+                "source_quantity": get_distribution_item_source_quantity(distribution_item),
+                "confirmed": confirmed,
+            }
+        )
+    return rows
+
+
+def _count_confirmed_checklist_rows(checklist_rows):
+    return sum(1 for row in checklist_rows if row.get("confirmed"))
+
+
+def _build_receiving_checklist_formset(
+    *,
+    distribution,
+    data=None,
+    selected_distribution_item_ids=None,
+    receipt_notes="",
+    submission_mode="draft",
+):
+    initial = _build_receiving_checklist_initial_rows(
+        distribution,
+        selected_distribution_item_ids=selected_distribution_item_ids,
+    )
+    return PuskesmasReceiptConfirmationChecklistFormSet(
+        data=data,
+        initial=initial,
+        distribution=distribution,
+        receipt_notes=receipt_notes,
+        submission_mode=submission_mode,
+        prefix="items",
+    )
+
+
+def _save_receiving_checklist_items(receipt_confirmation, checklist_formset):
+    receipt_confirmation.items.all().delete()
+
+    for form in checklist_formset.forms:
+        if not form.cleaned_data.get("confirmed"):
+            continue
+        distribution_item = form.cleaned_data["distribution_item"]
+        PuskesmasReceiptConfirmationItem.objects.create(
+            sbbk=receipt_confirmation,
+            distribution_item=distribution_item,
+            item=distribution_item.item,
+            quantity=get_distribution_item_source_quantity(distribution_item),
+            unit_price=distribution_item.issued_unit_price or Decimal("0"),
+            batch_lot=distribution_item.issued_batch_lot or "",
+            expiry_date=distribution_item.issued_expiry_date,
+            notes="",
+        )
 
 
 _check_puskesmas_sbbk_creator_access = _check_puskesmas_receiving_creator_access
@@ -877,16 +975,22 @@ def receiving_create(request):
     selected_distribution = _get_selected_distribution(request)
 
     if request.method == "POST":
-        form = PuskesmasReceiptConfirmationForm(request.POST, user=request.user)
-        distribution_for_formset = selected_distribution
-        formset = PuskesmasReceiptConfirmationItemFormSet(
+        submission_mode = (
+            "confirm" if request.POST.get("action") == "confirm" else "draft"
+        )
+        form = PuskesmasReceiptConfirmationForm(
             request.POST,
-            prefix="items",
+            user=request.user,
+            linked_distribution=selected_distribution,
+        )
+        checklist_formset = _build_receiving_checklist_formset(
+            distribution=selected_distribution,
+            data=request.POST,
             receipt_notes=request.POST.get("notes", ""),
-            form_kwargs={"distribution": distribution_for_formset},
+            submission_mode=submission_mode,
         )
 
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and checklist_formset.is_valid():
             try:
                 with transaction.atomic():
                     receipt_confirmation = form.save(commit=False)
@@ -895,9 +999,16 @@ def receiving_create(request):
                         received_date=receipt_confirmation.received_date,
                     )
                     receipt_confirmation.created_by = request.user
+                    receipt_confirmation.status = (
+                        PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED
+                        if submission_mode == "confirm"
+                        else PuskesmasReceiptConfirmation.ReceiptStatus.DRAFT
+                    )
                     receipt_confirmation.save()
-                    formset.instance = receipt_confirmation
-                    formset.save()
+                    _save_receiving_checklist_items(
+                        receipt_confirmation,
+                        checklist_formset,
+                    )
                     sync_receiving_month(
                         facility=receipt_confirmation.facility,
                         received_date=receipt_confirmation.received_date,
@@ -912,7 +1023,11 @@ def receiving_create(request):
             else:
                 messages.success(
                     request,
-                    f"Konfirmasi penerimaan {receipt_confirmation.document_number} berhasil dibuat.",
+                    (
+                        f"Konfirmasi penerimaan {receipt_confirmation.document_number} berhasil dibuat."
+                        if submission_mode == "confirm"
+                        else f"Draft konfirmasi penerimaan {receipt_confirmation.document_number} berhasil disimpan."
+                    ),
                 )
                 return redirect(
                     "puskesmas:receiving_detail", pk=receipt_confirmation.pk
@@ -924,22 +1039,33 @@ def receiving_create(request):
             initial["facility"] = selected_distribution.facility_id
             if selected_distribution.distributed_date:
                 initial["received_date"] = selected_distribution.distributed_date
-        form = PuskesmasReceiptConfirmationForm(initial=initial, user=request.user)
-        formset = PuskesmasReceiptConfirmationItemFormSet(
-            prefix="items",
-            initial=_build_receiving_initial_rows(selected_distribution),
-            form_kwargs={"distribution": selected_distribution},
+        form = PuskesmasReceiptConfirmationForm(
+            initial=initial,
+            user=request.user,
+            linked_distribution=selected_distribution,
+        )
+        checklist_formset = _build_receiving_checklist_formset(
+            distribution=selected_distribution,
+            submission_mode="draft",
         )
 
+    checklist_rows = _build_receiving_checklist_rows(
+        checklist_formset,
+        selected_distribution,
+    )
     return render(
         request,
         "puskesmas/receiving_form.html",
         {
             "form": form,
-            "formset": formset,
+            "checklist_formset": checklist_formset,
+            "checklist_rows": checklist_rows,
+            "confirmed_checklist_count": _count_confirmed_checklist_rows(checklist_rows),
             "selected_distribution": selected_distribution,
             "title": "Buat Konfirmasi Penerimaan",
             "is_edit": False,
+            "legacy_unlinked": False,
+            "is_draft_receipt": True,
         },
     )
 
@@ -1004,83 +1130,191 @@ def receiving_edit(request, pk):
         original_date = receipt_confirmation.received_date
         original_facility = receipt_confirmation.facility
 
-        form = PuskesmasReceiptConfirmationForm(
-            request.POST,
-            instance=receipt_confirmation,
-            user=request.user,
-            lock_distribution=lock_distribution,
-        )
-        formset = PuskesmasReceiptConfirmationItemFormSet(
-            request.POST,
-            instance=receipt_confirmation,
-            prefix="items",
-            receipt_notes=request.POST.get("notes", ""),
-            form_kwargs={"distribution": receipt_confirmation.distribution},
-        )
+        if lock_distribution:
+            submission_mode = (
+                "confirm" if request.POST.get("action") == "confirm" else "draft"
+            )
+            form = PuskesmasReceiptConfirmationForm(
+                request.POST,
+                instance=receipt_confirmation,
+                user=request.user,
+                lock_distribution=True,
+                linked_distribution=receipt_confirmation.distribution,
+            )
+            checklist_formset = _build_receiving_checklist_formset(
+                distribution=receipt_confirmation.distribution,
+                data=request.POST,
+                selected_distribution_item_ids=set(
+                    receipt_confirmation.items.values_list("distribution_item_id", flat=True)
+                ),
+                receipt_notes=request.POST.get("notes", ""),
+                submission_mode=submission_mode,
+            )
 
-        if form.is_valid() and formset.is_valid():
-            try:
-                with transaction.atomic():
-                    updated_receipt = form.save(commit=False)
-                    assert_receiving_month_mutable(
-                        facility=original_facility,
-                        received_date=original_date,
-                    )
-                    assert_receiving_month_mutable(
-                        facility=updated_receipt.facility,
-                        received_date=updated_receipt.received_date,
-                    )
-                    updated_receipt.save()
-                    formset.save()
-                    sync_receiving_month(
-                        facility=original_facility,
-                        received_date=original_date,
-                    )
-                    if (
-                        updated_receipt.received_date != original_date
-                        or updated_receipt.facility_id != original_facility.pk
-                    ):
-                        sync_receiving_month(
+            if form.is_valid() and checklist_formset.is_valid():
+                try:
+                    with transaction.atomic():
+                        updated_receipt = form.save(commit=False)
+                        updated_receipt.status = (
+                            PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED
+                            if submission_mode == "confirm"
+                            else PuskesmasReceiptConfirmation.ReceiptStatus.DRAFT
+                        )
+                        assert_receiving_month_mutable(
+                            facility=original_facility,
+                            received_date=original_date,
+                        )
+                        assert_receiving_month_mutable(
                             facility=updated_receipt.facility,
                             received_date=updated_receipt.received_date,
                         )
-                    log_receiving_event(
-                        event="updated",
-                        receipt_confirmation=updated_receipt,
-                        user=request.user,
+                        updated_receipt.save()
+                        _save_receiving_checklist_items(
+                            updated_receipt,
+                            checklist_formset,
+                        )
+                        sync_receiving_month(
+                            facility=original_facility,
+                            received_date=original_date,
+                        )
+                        if (
+                            updated_receipt.received_date != original_date
+                            or updated_receipt.facility_id != original_facility.pk
+                        ):
+                            sync_receiving_month(
+                                facility=updated_receipt.facility,
+                                received_date=updated_receipt.received_date,
+                            )
+                        log_receiving_event(
+                            event="updated",
+                            receipt_confirmation=updated_receipt,
+                            user=request.user,
+                        )
+                except ValidationError as exc:
+                    form.add_error(None, exc)
+                else:
+                    messages.success(
+                        request,
+                        (
+                            f"Konfirmasi penerimaan {updated_receipt.document_number} berhasil diperbarui."
+                            if submission_mode == "confirm"
+                            else f"Draft konfirmasi penerimaan {updated_receipt.document_number} berhasil diperbarui."
+                        ),
                     )
-            except ValidationError as exc:
-                form.add_error(None, exc)
-            else:
-                messages.success(
-                    request,
-                    f"Konfirmasi penerimaan {updated_receipt.document_number} berhasil diperbarui.",
-                )
-                return redirect("puskesmas:receiving_detail", pk=updated_receipt.pk)
-    else:
-        form = PuskesmasReceiptConfirmationForm(
-            instance=receipt_confirmation,
-            user=request.user,
-            lock_distribution=lock_distribution,
-        )
-        formset = PuskesmasReceiptConfirmationItemFormSet(
-            instance=receipt_confirmation,
-            prefix="items",
-            form_kwargs={"distribution": receipt_confirmation.distribution},
-        )
+                    return redirect("puskesmas:receiving_detail", pk=updated_receipt.pk)
+            formset = None
+        else:
+            form = PuskesmasReceiptConfirmationForm(
+                request.POST,
+                instance=receipt_confirmation,
+                user=request.user,
+                lock_distribution=False,
+            )
+            formset = PuskesmasReceiptConfirmationItemFormSet(
+                request.POST,
+                instance=receipt_confirmation,
+                prefix="items",
+                receipt_notes=request.POST.get("notes", ""),
+                form_kwargs={"distribution": receipt_confirmation.distribution},
+            )
+            checklist_formset = None
 
+            if form.is_valid() and formset.is_valid():
+                try:
+                    with transaction.atomic():
+                        updated_receipt = form.save(commit=False)
+                        assert_receiving_month_mutable(
+                            facility=original_facility,
+                            received_date=original_date,
+                        )
+                        assert_receiving_month_mutable(
+                            facility=updated_receipt.facility,
+                            received_date=updated_receipt.received_date,
+                        )
+                        updated_receipt.save()
+                        formset.save()
+                        sync_receiving_month(
+                            facility=original_facility,
+                            received_date=original_date,
+                        )
+                        if (
+                            updated_receipt.received_date != original_date
+                            or updated_receipt.facility_id != original_facility.pk
+                        ):
+                            sync_receiving_month(
+                                facility=updated_receipt.facility,
+                                received_date=updated_receipt.received_date,
+                            )
+                        log_receiving_event(
+                            event="updated",
+                            receipt_confirmation=updated_receipt,
+                            user=request.user,
+                        )
+                except ValidationError as exc:
+                    form.add_error(None, exc)
+                else:
+                    messages.success(
+                        request,
+                        f"Konfirmasi penerimaan {updated_receipt.document_number} berhasil diperbarui.",
+                    )
+                    return redirect("puskesmas:receiving_detail", pk=updated_receipt.pk)
+    else:
+        if lock_distribution:
+            form = PuskesmasReceiptConfirmationForm(
+                instance=receipt_confirmation,
+                user=request.user,
+                lock_distribution=True,
+                linked_distribution=receipt_confirmation.distribution,
+            )
+            checklist_formset = _build_receiving_checklist_formset(
+                distribution=receipt_confirmation.distribution,
+                selected_distribution_item_ids=set(
+                    receipt_confirmation.items.values_list("distribution_item_id", flat=True)
+                ),
+                submission_mode=(
+                    "confirm"
+                    if receipt_confirmation.status
+                    == PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED
+                    else "draft"
+                ),
+            )
+            formset = None
+        else:
+            form = PuskesmasReceiptConfirmationForm(
+                instance=receipt_confirmation,
+                user=request.user,
+                lock_distribution=False,
+            )
+            formset = PuskesmasReceiptConfirmationItemFormSet(
+                instance=receipt_confirmation,
+                prefix="items",
+                form_kwargs={"distribution": receipt_confirmation.distribution},
+            )
+            checklist_formset = None
+
+    checklist_rows = _build_receiving_checklist_rows(
+        checklist_formset,
+        receipt_confirmation.distribution if lock_distribution else None,
+    )
     return render(
         request,
         "puskesmas/receiving_form.html",
         {
             "form": form,
             "formset": formset,
+            "checklist_formset": checklist_formset,
+            "checklist_rows": checklist_rows,
+            "confirmed_checklist_count": _count_confirmed_checklist_rows(checklist_rows),
             "receipt_confirmation": receipt_confirmation,
             "selected_distribution": receipt_confirmation.distribution,
             "distribution_locked": lock_distribution,
             "legacy_unlinked": legacy_unlinked,
             "title": f"Edit Konfirmasi Penerimaan {receipt_confirmation.document_number}",
             "is_edit": True,
+            "is_draft_receipt": (
+                receipt_confirmation.status
+                == PuskesmasReceiptConfirmation.ReceiptStatus.DRAFT
+            ),
         },
     )
 

@@ -40,6 +40,10 @@ def get_distribution_item_source_quantity(distribution_item):
 class PuskesmasReceiptConfirmation(TimeStampedModel):
     """Receiver-side confirmation for one delivered distribution event."""
 
+    class ReceiptStatus(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        CONFIRMED = "CONFIRMED", "Terkonfirmasi"
+
     document_number = models.CharField(
         max_length=100,
         unique=True,
@@ -61,6 +65,11 @@ class PuskesmasReceiptConfirmation(TimeStampedModel):
         help_text="Dokumen distribusi yang dikonfirmasi diterima oleh Puskesmas.",
     )
     received_date = models.DateField(default=timezone.now)
+    status = models.CharField(
+        max_length=20,
+        choices=ReceiptStatus.choices,
+        default=ReceiptStatus.DRAFT,
+    )
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -84,6 +93,24 @@ class PuskesmasReceiptConfirmation(TimeStampedModel):
         if distribution_number:
             return f"{self.document_number} – {self.facility} / {distribution_number}"
         return f"{self.document_number} – {self.facility}"
+
+    @property
+    def distribution_line_count(self):
+        if not self.distribution_id:
+            return self.items.count()
+        return self.distribution.items.count()
+
+    @property
+    def confirmed_line_count(self):
+        return self.items.count()
+
+    @property
+    def is_complete(self):
+        if self.status != self.ReceiptStatus.CONFIRMED:
+            return False
+        if not self.distribution_id:
+            return True
+        return self.confirmed_line_count >= self.distribution_line_count
 
     def _get_document_number_prefix(self):
         received_date = self.received_date or timezone.localdate()
@@ -151,6 +178,9 @@ class PuskesmasReceiptConfirmation(TimeStampedModel):
                 errors["distribution"] = (
                     "Hanya distribusi berstatus terdistribusi yang dapat dikonfirmasi."
                 )
+
+        if self.status not in self.ReceiptStatus.values:
+            errors["status"] = "Status konfirmasi penerimaan tidak valid."
 
         try:
             normalized_notes = _normalize_text_value(self.notes)
