@@ -223,6 +223,12 @@
                     <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100" id="edit-btn">
                         <i class="bi bi-pencil me-1"></i>Isi Data
                     </a>
+                    <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="export-xlsx-btn">
+                        <i class="bi bi-download me-1"></i>Export XLSX
+                    </a>
+                    <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="import-xlsx-btn">
+                        <i class="bi bi-upload me-1"></i>Import XLSX
+                    </a>
                     <form method="post" action="{% url 'lplpo:lplpo_submit' lplpo.pk %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-primary w-100" id="submit-btn"
@@ -241,6 +247,12 @@
                     {% elif lplpo.status == 'REJECTED_PUSKESMAS' and can_manage_draft %}
                     <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100" id="edit-rejected-btn">
                         <i class="bi bi-pencil me-1"></i>Perbaiki Data
+                    </a>
+                    <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="export-rejected-xlsx-btn">
+                        <i class="bi bi-download me-1"></i>Export XLSX
+                    </a>
+                    <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="import-rejected-xlsx-btn">
+                        <i class="bi bi-upload me-1"></i>Import XLSX
                     </a>
                     <form method="post" action="{% url 'lplpo:lplpo_submit' lplpo.pk %}">
                         {% csrf_token %}

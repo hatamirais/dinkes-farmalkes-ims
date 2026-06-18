@@ -55,13 +55,14 @@ Module highlights:
 - Special requests: `/distribution/special-requests/`, `/distribution/special-requests/create/`
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
-- LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
+- LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
   - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
   - Every non-superuser request to `/lplpo/`, detail/print pages, review/finalize actions, and the prefill endpoint must have a linked `user.facility` and is forced to that facility's data.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
   - `api/prefill-penerimaan/` now sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, except for the January bootstrap period which remains manual.
+  - `/export-xlsx/` and `/import-xlsx/` are draft-only offline-entry helpers for Puskesmas operators and super admins. They work only on existing `DRAFT` / `REJECTED_PUSKESMAS` documents after the standard monthly create flow has already generated the item rows.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
   - Superusers may work across facilities, while every non-superuser request is forced to the linked `user.facility` and receives `403` when no facility is linked or the object belongs to another facility.
   - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` are all-facility only for superusers; every non-superuser request is forced to the request user's linked facility.
@@ -392,6 +393,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - February onward derives `penerimaan` from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem.quantity` totals
 - February onward derives `harga_satuan` from the weighted-average same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem.unit_price` values and falls back to the previous month's LPLPO unit price when there is no new receipt
 - `pemakaian` is now derived from same-facility/month `puskesmas.PuskesmasConsumptionEntry.quantity` totals and is read-only on the LPLPO edit screen
+- Draft/rejected rows can also be updated through the XLSX offline-entry round trip; import updates only `stock_awal`, `penerimaan`, `harga_satuan`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, and `permintaan_alasan`, then recomputes derived fields server-side while preserving `pemakaian` and reviewer fields
 
 ## 5) Stock Mutation Checkpoints
 
@@ -444,6 +446,7 @@ From `backend/config/settings.py`:
   - `PASSWORD_CHANGE_RATE_LIMIT = 5/m`
   - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = 20/m` (legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains accepted as fallback)
   - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = 20/m`
+  - `LPLPO_IMPORT_RATE_LIMIT = 5/h`
 - Rate-limited requests are rendered through the centralized error pipeline as HTTP `429`
 - `EMAIL_BACKEND` is environment-configurable and defaults to Django's console backend
 - `DJANGO_LOG_LEVEL` controls the Django logger level and defaults to `WARNING`

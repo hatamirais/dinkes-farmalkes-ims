@@ -1873,3 +1873,6 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 
 		self.assertEqual(response.status_code, 302)
 		self.assertFalse(LPLPO.objects.filter(pk=pk).exists())
+
+
+from .test_offline_xlsx import LPLPOOfflineXlsxTests  # noqa: E402,F401

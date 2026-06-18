@@ -7,6 +7,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from apps.core.decimal_validation import validate_finite_decimal
+from apps.core.upload_validation import validate_xlsx_upload
 from apps.users.models import User
 
 from .models import (
@@ -17,6 +18,7 @@ from .models import (
     get_next_required_lplpo_period,
     is_january_bootstrap_period,
 )
+from .xlsx_io import MAX_XLSX_SIZE_BYTES
 
 
 def _normalize_text_value(value, *, field_label, max_length=None):
@@ -365,4 +367,22 @@ class RejectLPLPOForm(forms.Form):
             self.cleaned_data.get("rejection_reason"),
             field_label="Alasan penolakan",
             max_length=1000,
+        )
+
+
+class LPLPOImportForm(forms.Form):
+    xlsx_file = forms.FileField(label="File XLSX")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(Div("xlsx_file", css_class="mb-0"))
+
+    def clean_xlsx_file(self):
+        uploaded_file = self.cleaned_data.get("xlsx_file")
+        return validate_xlsx_upload(
+            uploaded_file,
+            max_size_bytes=MAX_XLSX_SIZE_BYTES,
         )

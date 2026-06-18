@@ -241,6 +241,7 @@ PUSKESMAS_SBBK_MUTATION_RATE_LIMIT = (
 PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = os.getenv(
     "PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT", "20/m"
 )
+LPLPO_IMPORT_RATE_LIMIT = os.getenv("LPLPO_IMPORT_RATE_LIMIT", "5/h")
 
 # ─── Production Security (enabled when DEBUG=False) ──────────────────
 if not DEBUG:

@@ -2,6 +2,7 @@ import csv
 import io
 import re
 import unicodedata
+import zipfile
 from pathlib import PurePath
 
 from django.core.exceptions import ValidationError
@@ -97,6 +98,33 @@ def validate_csv_upload(uploaded_file, *, max_size_bytes):
 
     if not rows or not rows[0] or len(rows[0]) < 2:
         raise ValidationError("Konten file CSV tidak valid.")
+
+    return uploaded_file
+
+
+def validate_xlsx_upload(uploaded_file, *, max_size_bytes):
+    validate_uploaded_file_basics(
+        uploaded_file,
+        allowed_extensions={"xlsx"},
+        max_size_bytes=max_size_bytes,
+        field_label="File XLSX",
+    )
+
+    try:
+        signature = uploaded_file.read(4)
+        uploaded_file.seek(0)
+        if signature != b"PK\x03\x04":
+            raise ValidationError("File XLSX tidak valid.")
+
+        with zipfile.ZipFile(uploaded_file) as workbook_archive:
+            workbook_archive.getinfo("[Content_Types].xml")
+            workbook_archive.getinfo("xl/workbook.xml")
+    except zipfile.BadZipFile as exc:
+        raise ValidationError("File XLSX tidak valid.") from exc
+    except KeyError as exc:
+        raise ValidationError("Struktur file XLSX tidak valid.") from exc
+    finally:
+        uploaded_file.seek(0)
 
     return uploaded_file
 

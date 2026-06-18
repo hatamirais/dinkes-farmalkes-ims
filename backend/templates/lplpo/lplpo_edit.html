@@ -19,6 +19,14 @@
             <h5 class="mb-0">{{ lplpo.document_number }}</h5>
             <span class="text-muted">{{ lplpo.facility.name }} — {{ lplpo.period_display }}</span>
         </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary" id="edit-export-xlsx-btn">
+                <i class="bi bi-download me-1"></i>Export XLSX
+            </a>
+            <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary" id="edit-import-xlsx-btn">
+                <i class="bi bi-upload me-1"></i>Import XLSX
+            </a>
+        </div>
     </div>
 
     <form method="post" id="lplpo-edit-form" novalidate>

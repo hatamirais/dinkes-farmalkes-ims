@@ -61,6 +61,7 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`
 - `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` (legacy compatibility fallback)
 - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`
+- `LPLPO_IMPORT_RATE_LIMIT`
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS`
 - `FEATURE_ALLOCATION_UI_ENABLED`
 - `DJANGO_LOG_LEVEL`
@@ -74,6 +75,7 @@ Catatan:
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
 - Mutasi simpan/edit/hapus konfirmasi penerimaan Puskesmas (`/puskesmas/penerimaan/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas. Pratinjau pemuatan baris distribusi pada form buat berjalan lewat `GET` non-mutasi dan tidak memakai kuota ini. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap dibaca sebagai fallback kompatibilitas.
 - Mutasi pemakaian rinci Puskesmas (`/puskesmas/pemakaian/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas.
+- Mutasi impor XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) juga memakai `django-ratelimit`; gunakan `LPLPO_IMPORT_RATE_LIMIT` bila perlu menyesuaikan throughput input offline per operator.
 - Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
 
 ### 3. Jalankan infrastruktur
@@ -181,6 +183,7 @@ Saat file `VERSION` berubah di branch `main`, GitHub Actions menjalankan `.githu
 - Untuk stok awal, gunakan `receiving.csv` melalui endpoint import Receiving Admin di `/admin/receiving/receiving/import-csv/` agar stok dan `Transaction(IN)` terbentuk dalam satu alur yang konsisten.
 - Import penerimaan mengelompokkan baris berdasarkan `document_number`; baris pertama menjadi header dokumen, sementara `sumber_dana_code` dan `location_code` per baris dapat override nilai header.
 - Kolom opsional `receiving_type` pada import penerimaan default ke `GRANT` bila tidak diisi.
+- LPLPO draft/rejected mendukung input offline berbasis XLSX setelah dokumen bulanan dibuat dari flow situs biasa. Operator mengekspor workbook dari dokumen yang sudah ada, mengisi kolom editable secara offline, lalu mengimpornya kembali ke dokumen yang sama; `pemakaian` tetap dibaca dari modul Pemakaian Rinci dan seluruh nilai turunan dihitung ulang saat impor.
 
 Dokumen terkait:
 

@@ -13,6 +13,8 @@ urlpatterns = [
         views.api_prefill_penerimaan,
         name="api_prefill_penerimaan",
     ),
+    path("<int:pk>/export-xlsx/", views.lplpo_export_xlsx, name="lplpo_export_xlsx"),
+    path("<int:pk>/import-xlsx/", views.lplpo_import_xlsx, name="lplpo_import_xlsx"),
     path("<int:pk>/", views.lplpo_detail, name="lplpo_detail"),
     path("<int:pk>/edit/", views.lplpo_edit, name="lplpo_edit"),
     path("<int:pk>/submit/", views.lplpo_submit, name="lplpo_submit"),

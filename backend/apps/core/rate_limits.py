@@ -7,6 +7,7 @@ DEFAULT_USER_PASSWORD_RESET_RATE_LIMIT = "5/m"
 DEFAULT_PASSWORD_CHANGE_RATE_LIMIT = "5/m"
 DEFAULT_PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = "20/m"
+DEFAULT_LPLPO_IMPORT_RATE_LIMIT = "5/h"
 
 
 def _setting_rate(name, default):
@@ -95,4 +96,15 @@ puskesmas_consumption_mutation_ratelimit = ratelimit(
     ),
     block=True,
     group="puskesmas.consumption_mutation",
+)
+
+lplpo_import_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_setting_rate(
+        "LPLPO_IMPORT_RATE_LIMIT",
+        DEFAULT_LPLPO_IMPORT_RATE_LIMIT,
+    ),
+    block=True,
+    group="lplpo.import_mutation",
 )

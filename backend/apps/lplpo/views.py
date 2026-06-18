@@ -1,11 +1,12 @@
 from datetime import date
 from decimal import Decimal
 import calendar
+import json
 import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
@@ -14,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.rate_limits import lplpo_import_ratelimit
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Facility, Item
@@ -21,7 +23,13 @@ from apps.stock.models import Stock
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess, User
 
-from .forms import LPLPOCreateForm, LPLPOItemPuskesmasForm, LPLPOItemReviewForm, RejectLPLPOForm
+from .forms import (
+    LPLPOCreateForm,
+    LPLPOImportForm,
+    LPLPOItemPuskesmasForm,
+    LPLPOItemReviewForm,
+    RejectLPLPOForm,
+)
 from .models import (
     LPLPO,
     LPLPOItem,
@@ -34,8 +42,10 @@ from .models import (
     get_previous_lplpo,
     is_january_bootstrap_period,
 )
+from .xlsx_io import apply_lplpo_workbook_import, export_lplpo_workbook
 
 logger = logging.getLogger(__name__)
+security_logger = logging.getLogger("security")
 
 
 def _is_super_admin(user):
@@ -123,6 +133,26 @@ def _resolve_lplpo_create_facility(form, user):
     if _is_super_admin(user) or not facility:
         facility = form.cleaned_data.get("facility")
     return facility
+
+
+def _log_lplpo_xlsx_event(level, event, *, request, lplpo_obj=None, **extra):
+    payload = {
+        "event": event,
+        "username": getattr(request.user, "username", "anonymous"),
+    }
+    if lplpo_obj is not None:
+        payload.update(
+            {
+                "lplpo_id": lplpo_obj.pk,
+                "document_number": lplpo_obj.document_number,
+                "facility_id": lplpo_obj.facility_id,
+                "bulan": lplpo_obj.bulan,
+                "tahun": lplpo_obj.tahun,
+                "status": lplpo_obj.status,
+            }
+        )
+    payload.update(extra)
+    getattr(security_logger, level)(json.dumps(payload, sort_keys=True))
 
 
 def _create_lplpo_distribution(lplpo_obj, *, actor, processed_at):
@@ -700,6 +730,178 @@ def lplpo_edit(request, pk):
             "is_january_bootstrap": is_january_bootstrap,
             "has_form_errors": has_form_errors,
             "linked_consumption": linked_consumption,
+        },
+    )
+
+
+@login_required
+@perm_required("lplpo.change_lplpo")
+@module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
+def lplpo_export_xlsx(request, pk):
+    _check_puskesmas_draft_action_access(request)
+
+    lplpo_obj = get_object_or_404(
+        LPLPO.objects.select_related("facility"),
+        pk=pk,
+    )
+    denied = _check_facility_access(request, lplpo_obj)
+    if denied:
+        _log_lplpo_xlsx_event(
+            "warning",
+            "lplpo_xlsx_export_denied",
+            request=request,
+            lplpo_obj=lplpo_obj,
+            reason="facility_access_denied",
+        )
+        return denied
+
+    if lplpo_obj.status not in (
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.REJECTED_PUSKESMAS,
+    ):
+        _log_lplpo_xlsx_event(
+            "warning",
+            "lplpo_xlsx_export_denied",
+            request=request,
+            lplpo_obj=lplpo_obj,
+            reason="invalid_status",
+        )
+        messages.error(
+            request,
+            "Hanya LPLPO berstatus Draft atau Ditolak yang dapat diekspor untuk pengisian offline.",
+        )
+        return redirect("lplpo:lplpo_detail", pk=pk)
+
+    response = export_lplpo_workbook(lplpo_obj)
+    _log_lplpo_xlsx_event(
+        "info",
+        "lplpo_xlsx_export_succeeded",
+        request=request,
+        lplpo_obj=lplpo_obj,
+    )
+    return response
+
+
+@login_required
+@perm_required("lplpo.change_lplpo")
+@module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
+@lplpo_import_ratelimit
+def lplpo_import_xlsx(request, pk):
+    _check_puskesmas_draft_action_access(request)
+
+    lplpo_obj = get_object_or_404(
+        LPLPO.objects.select_related("facility"),
+        pk=pk,
+    )
+    denied = _check_facility_access(request, lplpo_obj)
+    if denied:
+        _log_lplpo_xlsx_event(
+            "warning",
+            "lplpo_xlsx_import_denied",
+            request=request,
+            lplpo_obj=lplpo_obj,
+            reason="facility_access_denied",
+        )
+        return denied
+
+    if lplpo_obj.status not in (
+        LPLPO.Status.DRAFT,
+        LPLPO.Status.REJECTED_PUSKESMAS,
+    ):
+        _log_lplpo_xlsx_event(
+            "warning",
+            "lplpo_xlsx_import_denied",
+            request=request,
+            lplpo_obj=lplpo_obj,
+            reason="invalid_status",
+        )
+        messages.error(
+            request,
+            "Hanya LPLPO berstatus Draft atau Ditolak yang dapat diimpor dari XLSX.",
+        )
+        return redirect("lplpo:lplpo_detail", pk=pk)
+
+    if request.method == "POST":
+        form = LPLPOImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    lplpo_locked = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
+                    if lplpo_locked.status not in (
+                        LPLPO.Status.DRAFT,
+                        LPLPO.Status.REJECTED_PUSKESMAS,
+                    ):
+                        messages.error(
+                            request,
+                            "Hanya LPLPO berstatus Draft atau Ditolak yang dapat diimpor dari XLSX.",
+                        )
+                        return redirect("lplpo:lplpo_detail", pk=pk)
+
+                    updated_lines = apply_lplpo_workbook_import(
+                        uploaded_file=form.cleaned_data["xlsx_file"],
+                        lplpo_obj=lplpo_locked,
+                    )
+                    LPLPOItem.objects.bulk_update(
+                        updated_lines,
+                        fields=[
+                            "stock_awal",
+                            "penerimaan",
+                            "harga_satuan",
+                            "stock_gudang_puskesmas",
+                            "waktu_kosong",
+                            "permintaan_jumlah",
+                            "permintaan_alasan",
+                            "penerimaan_auto_filled",
+                            "persediaan",
+                            "stock_keseluruhan",
+                            "stock_optimum",
+                            "jumlah_kebutuhan",
+                        ],
+                    )
+            except ValidationError as exc:
+                _log_lplpo_xlsx_event(
+                    "warning",
+                    "lplpo_xlsx_import_failed",
+                    request=request,
+                    lplpo_obj=lplpo_obj,
+                    reason=str(exc),
+                )
+                messages.error(request, exc.messages[0])
+            except Exception:
+                logger.exception("LPLPO XLSX import failed")
+                _log_lplpo_xlsx_event(
+                    "error",
+                    "lplpo_xlsx_import_failed",
+                    request=request,
+                    lplpo_obj=lplpo_obj,
+                    reason="unexpected_error",
+                )
+                messages.error(
+                    request,
+                    "Import XLSX gagal karena kesalahan internal.",
+                )
+            else:
+                _log_lplpo_xlsx_event(
+                    "info",
+                    "lplpo_xlsx_import_succeeded",
+                    request=request,
+                    lplpo_obj=lplpo_obj,
+                    updated_items=len(updated_lines),
+                )
+                messages.success(
+                    request,
+                    f"Import XLSX berhasil untuk {len(updated_lines)} item pada LPLPO {lplpo_obj.document_number}.",
+                )
+                return redirect("lplpo:lplpo_detail", pk=pk)
+    else:
+        form = LPLPOImportForm()
+
+    return render(
+        request,
+        "lplpo/lplpo_import.html",
+        {
+            "form": form,
+            "lplpo": lplpo_obj,
         },
     )
 
