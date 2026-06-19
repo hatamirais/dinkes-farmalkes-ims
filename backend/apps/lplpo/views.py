@@ -52,11 +52,66 @@ def _is_super_admin(user):
     return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
 
 
-def _is_cross_facility_instalasi_farmasi_user(user):
-    return getattr(user, "role", None) in {
-        User.Role.GUDANG,
-        User.Role.KEPALA,
-    }
+def _can_access_lplpo_cross_facility(user, *, route_kind, status):
+    role = getattr(user, "role", None)
+
+    if role == User.Role.GUDANG:
+        if route_kind == "queue":
+            return True
+        if route_kind in {"detail", "print"}:
+            return status in {
+                LPLPO.Status.SUBMITTED,
+                LPLPO.Status.PIC_VERIFIED,
+                LPLPO.Status.REJECTED_PIC,
+                LPLPO.Status.APPROVED,
+                LPLPO.Status.CLOSED,
+            }
+        if route_kind == "instalasi_verify":
+            return status == LPLPO.Status.SUBMITTED
+        if route_kind == "instalasi_review":
+            return status in {
+                LPLPO.Status.PIC_VERIFIED,
+                LPLPO.Status.REJECTED_PIC,
+            }
+        if route_kind == "instalasi_reject":
+            return status == LPLPO.Status.SUBMITTED
+        return False
+
+    if role == User.Role.KEPALA:
+        if route_kind == "queue":
+            return True
+        if route_kind in {"detail", "print"}:
+            return status in {
+                LPLPO.Status.REVIEWED,
+                LPLPO.Status.APPROVED,
+                LPLPO.Status.CLOSED,
+            }
+        if route_kind == "instalasi_finalize":
+            return status == LPLPO.Status.REVIEWED
+        if route_kind == "instalasi_reject":
+            return status == LPLPO.Status.REVIEWED
+        return False
+
+    return False
+
+
+def _get_cross_facility_queue_statuses(user):
+    role = getattr(user, "role", None)
+    if role == User.Role.GUDANG:
+        return {
+            LPLPO.Status.SUBMITTED,
+            LPLPO.Status.PIC_VERIFIED,
+            LPLPO.Status.REJECTED_PIC,
+            LPLPO.Status.APPROVED,
+            LPLPO.Status.CLOSED,
+        }
+    if role == User.Role.KEPALA:
+        return {
+            LPLPO.Status.REVIEWED,
+            LPLPO.Status.APPROVED,
+            LPLPO.Status.CLOSED,
+        }
+    return set()
 
 
 def _get_required_facility(user):
@@ -69,14 +124,18 @@ def _get_required_facility(user):
     return facility
 
 
-def _check_facility_access(request, lplpo_obj):
+def _check_facility_access(request, lplpo_obj, *, route_kind):
     """
     Enforce per-facility access for facility-bound roles.
     """
     if _is_super_admin(request.user):
         return None
 
-    if _is_cross_facility_instalasi_farmasi_user(request.user):
+    if _can_access_lplpo_cross_facility(
+        request.user,
+        route_kind=route_kind,
+        status=lplpo_obj.status,
+    ):
         return None
 
     facility = _get_required_facility(request.user)
@@ -244,10 +303,16 @@ def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
     if submitted_year:
         queryset = queryset.filter(submitted_at__year=submitted_year)
 
-    if (
-        not _is_super_admin(request.user)
-        and not _is_cross_facility_instalasi_farmasi_user(request.user)
+    if _is_super_admin(request.user):
+        pass
+    elif _can_access_lplpo_cross_facility(
+        request.user,
+        route_kind="queue",
+        status=LPLPO.Status.SUBMITTED,
     ):
+        allowed_statuses = _get_cross_facility_queue_statuses(request.user)
+        queryset = queryset.filter(status__in=allowed_statuses)
+    else:
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility=facility)
 
@@ -579,7 +644,7 @@ def lplpo_detail(request, pk):
     )
 
     # Enforce facility scope for PUSKESMAS role
-    denied = _check_facility_access(request, lplpo)
+    denied = _check_facility_access(request, lplpo, route_kind="detail")
     if denied:
         return denied
 
@@ -634,7 +699,7 @@ def lplpo_edit(request, pk):
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     # Enforce facility scope
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="draft_mutation")
     if denied:
         return denied
 
@@ -757,7 +822,7 @@ def lplpo_export_xlsx(request, pk):
         LPLPO.objects.select_related("facility"),
         pk=pk,
     )
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="draft_mutation")
     if denied:
         _log_lplpo_xlsx_event(
             "warning",
@@ -806,7 +871,7 @@ def lplpo_import_xlsx(request, pk):
         LPLPO.objects.select_related("facility"),
         pk=pk,
     )
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="draft_mutation")
     if denied:
         _log_lplpo_xlsx_event(
             "warning",
@@ -930,7 +995,7 @@ def lplpo_submit(request, pk):
     _check_puskesmas_draft_action_access(request)
 
     lplpo_obj = get_object_or_404(LPLPO, pk=pk)
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="draft_mutation")
     if denied:
         return denied
     if request.method != "POST":
@@ -1009,7 +1074,7 @@ def lplpo_verify(request, pk):
             LPLPO.objects.select_for_update(),
             pk=pk,
         )
-        denied = _check_facility_access(request, lplpo_obj)
+        denied = _check_facility_access(request, lplpo_obj, route_kind="instalasi_verify")
         if denied:
             return denied
 
@@ -1062,7 +1127,7 @@ def lplpo_reject(request, pk):
             LPLPO.objects.select_for_update(),
             pk=pk,
         )
-        denied = _check_facility_access(request, lplpo_obj)
+        denied = _check_facility_access(request, lplpo_obj, route_kind="instalasi_reject")
         if denied:
             return denied
 
@@ -1117,7 +1182,7 @@ def lplpo_review(request, pk):
         return denied
 
     lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="instalasi_review")
     if denied:
         return denied
 
@@ -1273,7 +1338,7 @@ def lplpo_finalize(request, pk):
         return denied
 
     lplpo_obj = get_object_or_404(LPLPO.objects.select_related("facility"), pk=pk)
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="instalasi_finalize")
     if denied:
         return denied
     if request.method != "POST":
@@ -1351,7 +1416,7 @@ def lplpo_print(request, pk):
         ),
         pk=pk,
     )
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="print")
     if denied:
         return denied
 
@@ -1409,7 +1474,7 @@ def lplpo_delete(request, pk):
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     # Enforce facility scope
-    denied = _check_facility_access(request, lplpo_obj)
+    denied = _check_facility_access(request, lplpo_obj, route_kind="draft_mutation")
     if denied:
         return denied
 

@@ -1120,27 +1120,33 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertContains(response, matching.document_number)
 		self.assertContains(response, other.document_number)
 
-	def test_kepala_without_facility_can_view_lplpo_list(self):
-		matching = self.create_lplpo(
-			facility=self.facility,
-			status=LPLPO.Status.SUBMITTED,
-		)
-		self.set_submitted_at(matching, 2026, 4, 18)
-		other = self.create_lplpo(
+	def test_gudang_queue_hides_cross_facility_rejected_puskesmas_documents(self):
+		rejected_lplpo = self.create_lplpo(
 			facility=self.other_facility,
 			created_by=self.other_puskesmas_user,
-			bulan=5,
-			tahun=2026,
-			status=LPLPO.Status.SUBMITTED,
+			status=LPLPO.Status.REJECTED_PUSKESMAS,
 		)
-		self.set_submitted_at(other, 2026, 5, 2)
+		self.set_submitted_at(rejected_lplpo, 2026, 5, 2)
+
+		self.client.force_login(self.gudang_without_facility)
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, rejected_lplpo.document_number)
+
+	def test_kepala_without_facility_can_view_reviewed_lplpo_list(self):
+		reviewed_lplpo = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.REVIEWED,
+		)
+		self.set_submitted_at(reviewed_lplpo, 2026, 5, 2)
 
 		self.client.force_login(self.kepala_without_facility)
 		response = self.client.get(reverse("lplpo:lplpo_list"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, matching.document_number)
-		self.assertContains(response, other.document_number)
+		self.assertContains(response, reviewed_lplpo.document_number)
 
 	def test_gudang_can_view_other_facility_lplpo(self):
 		lplpo = self.create_lplpo(
@@ -1151,6 +1157,31 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.set_submitted_at(lplpo, 2026, 5, 2)
 
 		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, lplpo.document_number)
+
+	def test_gudang_cannot_view_other_facility_draft_lplpo(self):
+		lplpo = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.DRAFT,
+		)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 403)
+
+	def test_kepala_can_view_other_facility_reviewed_lplpo(self):
+		lplpo = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.REVIEWED,
+		)
+
+		self.client.force_login(self.kepala_without_facility)
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
 		self.assertEqual(response.status_code, 200)
@@ -1175,7 +1206,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertRedirects(response, reverse("lplpo:lplpo_my_list"))
 
 
-	def test_kepala_without_facility_can_access_review_stage_across_facilities(self):
+	def test_kepala_without_facility_cannot_access_review_stage_across_facilities(self):
 		lplpo = self.create_lplpo(
 			facility=self.other_facility,
 			created_by=self.other_puskesmas_user,
@@ -1186,8 +1217,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.client.force_login(self.kepala_without_facility)
 		response = self.client.get(reverse("lplpo:lplpo_review", args=[lplpo.pk]))
 
-		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, lplpo.document_number)
+		self.assertEqual(response.status_code, 403)
 
 	def test_gudang_without_facility_can_verify_other_facility_lplpo(self):
 		lplpo = self.create_lplpo(
@@ -1204,6 +1234,18 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		lplpo.refresh_from_db()
 		self.assertEqual(lplpo.status, LPLPO.Status.PIC_VERIFIED)
 		self.assertEqual(lplpo.verified_by, self.gudang_without_facility)
+
+	def test_gudang_cannot_export_other_facility_draft_lplpo_xlsx(self):
+		lplpo = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.DRAFT,
+		)
+
+		self.client.force_login(self.gudang_user)
+		response = self.client.get(reverse("lplpo:lplpo_export_xlsx", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 403)
 
 	def test_puskesmas_cannot_access_finalize(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.REVIEWED)
