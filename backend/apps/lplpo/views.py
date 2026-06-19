@@ -52,6 +52,13 @@ def _is_super_admin(user):
     return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
 
 
+def _is_cross_facility_instalasi_farmasi_user(user):
+    return getattr(user, "role", None) in {
+        User.Role.GUDANG,
+        User.Role.KEPALA,
+    }
+
+
 def _get_required_facility(user):
     if _is_super_admin(user):
         return None
@@ -64,9 +71,12 @@ def _get_required_facility(user):
 
 def _check_facility_access(request, lplpo_obj):
     """
-    Enforce per-facility access for every non-superuser.
+    Enforce per-facility access for facility-bound roles.
     """
     if _is_super_admin(request.user):
+        return None
+
+    if _is_cross_facility_instalasi_farmasi_user(request.user):
         return None
 
     facility = _get_required_facility(request.user)
@@ -234,7 +244,10 @@ def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
     if submitted_year:
         queryset = queryset.filter(submitted_at__year=submitted_year)
 
-    if not _is_super_admin(request.user):
+    if (
+        not _is_super_admin(request.user)
+        and not _is_cross_facility_instalasi_farmasi_user(request.user)
+    ):
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility=facility)
 
