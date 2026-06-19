@@ -59,7 +59,8 @@ Module highlights:
   - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
-  - Every non-superuser request to `/lplpo/`, detail/print pages, review/finalize actions, and the prefill endpoint must have a linked `user.facility` and is forced to that facility's data.
+  - Puskesmas-owned routes and states stay facility-scoped for all non-superusers: `DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX export/import, and the prefill helper all require a linked `user.facility` and stay same-facility only.
+  - Instalasi Farmasi LPLPO access is stage-gated across facilities: `GUDANG` may access queue/detail/print plus verify/review/reject on `SUBMITTED`, `PIC_VERIFIED`, and `REJECTED_PIC` documents; `KEPALA` only gets cross-facility LPLPO access on legacy `REVIEWED/finalize` and read-only historical `APPROVED` / `CLOSED` states.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
   - `api/prefill-penerimaan/` now sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, except for the January bootstrap period which remains manual.
   - `/export-xlsx/` and `/import-xlsx/` are draft-only offline-entry helpers for Puskesmas operators and super admins. They work only on existing `DRAFT` / `REJECTED_PUSKESMAS` documents after the standard monthly create flow has already generated the item rows.
@@ -101,7 +102,7 @@ Permission denials are expected to raise `PermissionDenied` so the centralized 4
 Special rule:
 
 - For `users.*` permissions, non-view actions require `MANAGE` scope.
-- `lplpo` and `puskesmas` facility isolation now applies to every non-superuser account; Super Admin users (`is_superuser`) are the only users who can access and mutate records across all facilities.
+- `puskesmas` facility isolation applies to every non-superuser account, with Super Admin users (`is_superuser`) as the only fully cross-facility users. `lplpo` is split: Puskesmas-owned stages remain same-facility for non-superusers, while Instalasi Farmasi roles receive limited cross-facility access based on route/action and `LPLPO.status`.
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 - Puskesmas receipt-confirmation create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage receipt-confirmation mutations.
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
