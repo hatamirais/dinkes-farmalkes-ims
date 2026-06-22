@@ -13,7 +13,13 @@ from django.utils import timezone
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
-from apps.puskesmas.models import PuskesmasSBBK, PuskesmasSBBKItem
+from apps.puskesmas.models import (
+    PuskesmasConsumption,
+    PuskesmasConsumptionEntry,
+    PuskesmasSBBK,
+    PuskesmasSBBKItem,
+    PuskesmasSubunit,
+)
 from apps.stock.models import Stock
 from apps.users.models import ModuleAccess, User
 from apps.lplpo.models import (
@@ -165,10 +171,12 @@ class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
 		received_date,
 		item_quantities,
 		item_unit_prices=None,
+		status=PuskesmasSBBK.ReceiptStatus.CONFIRMED,
 	):
 		sbbk = PuskesmasSBBK.objects.create(
 			facility=facility,
 			received_date=received_date,
+			status=status,
 			created_by=self.puskesmas_user,
 		)
 		PuskesmasSBBKItem.objects.bulk_create(
@@ -884,6 +892,106 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(line.stock_optimum, Decimal("1.20"))
 		self.assertEqual(line.jumlah_kebutuhan, Decimal("2.00"))
 		self.assertIsNone(line.pemberian_jumlah)
+
+	def test_edit_get_refreshes_same_month_receipt_and_consumption_sources(self):
+		lplpo = self.create_lplpo()
+		line = LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=self.item_a,
+			stock_awal=Decimal("2.00"),
+			penerimaan=Decimal("0.00"),
+			pemakaian=Decimal("0.00"),
+		)
+		subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Umum",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=lplpo.bulan,
+			tahun=lplpo.tahun,
+			created_by=self.puskesmas_user,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=self.item_a,
+			subunit=subunit,
+			quantity=7,
+		)
+		self.create_sbbk(
+			facility=self.facility,
+			received_date=date(lplpo.tahun, lplpo.bulan, 10),
+			item_quantities=[(self.item_a, Decimal("4.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1000.00")},
+		)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.get(reverse("lplpo:lplpo_edit", args=[lplpo.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		line.refresh_from_db()
+		self.assertEqual(line.penerimaan, Decimal("4.00"))
+		self.assertEqual(line.pemakaian, Decimal("7.00"))
+		self.assertEqual(line.harga_satuan, Decimal("1000.00"))
+		self.assertTrue(line.penerimaan_auto_filled)
+
+	def test_edit_post_keeps_source_backed_penerimaan_and_pemakaian_when_browser_data_is_stale(self):
+		lplpo = self.create_lplpo()
+		line = LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=self.item_a,
+			stock_awal=Decimal("2.00"),
+			penerimaan=Decimal("1.00"),
+			pemakaian=Decimal("2.00"),
+		)
+		subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Gigi",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=lplpo.bulan,
+			tahun=lplpo.tahun,
+			created_by=self.puskesmas_user,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=consumption,
+			item=self.item_a,
+			subunit=subunit,
+			quantity=7,
+		)
+		self.create_sbbk(
+			facility=self.facility,
+			received_date=date(lplpo.tahun, lplpo.bulan, 12),
+			item_quantities=[(self.item_a, Decimal("4.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1000.00")},
+		)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_edit", args=[lplpo.pk]),
+			{
+				f"item_{line.pk}-stock_awal": "9",
+				f"item_{line.pk}-penerimaan": "1",
+				f"item_{line.pk}-harga_satuan": "0.00",
+				f"item_{line.pk}-pemakaian": "2",
+				f"item_{line.pk}-stock_gudang_puskesmas": "3",
+				f"item_{line.pk}-waktu_kosong": "1",
+				f"item_{line.pk}-permintaan_jumlah": "6",
+				f"item_{line.pk}-permintaan_alasan": "Simpan angka lain dari browser lama",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		line.refresh_from_db()
+		self.assertEqual(line.stock_awal, Decimal("9.00"))
+		self.assertEqual(line.penerimaan, Decimal("4.00"))
+		self.assertEqual(line.pemakaian, Decimal("7.00"))
+		self.assertEqual(line.harga_satuan, Decimal("1000.00"))
+		self.assertTrue(line.penerimaan_auto_filled)
+		self.assertEqual(line.stock_gudang_puskesmas, Decimal("3.00"))
 
 	def test_edit_blank_stock_awal_is_treated_as_zero_while_pemakaian_stays_derived(self):
 		lplpo = self.create_lplpo()

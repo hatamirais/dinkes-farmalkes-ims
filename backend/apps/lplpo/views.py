@@ -41,6 +41,7 @@ from .models import (
     get_penerimaan_unit_prices_for_facility_period,
     get_previous_lplpo,
     is_january_bootstrap_period,
+    sync_receiving_to_editable_lplpo,
 )
 from .xlsx_io import apply_lplpo_workbook_import, export_lplpo_workbook
 
@@ -50,6 +51,44 @@ security_logger = logging.getLogger("security")
 
 def _is_super_admin(user):
     return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
+
+
+def _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj):
+    """Refresh draft/rejected LPLPO source-backed fields from same-period Puskesmas data."""
+    from apps.puskesmas.models import PuskesmasConsumption, PuskesmasReceiptConfirmation
+    from apps.puskesmas.services import sync_consumption_to_editable_lplpo
+
+    has_confirmed_receipts = PuskesmasReceiptConfirmation.objects.filter(
+        facility=lplpo_obj.facility,
+        received_date__year=lplpo_obj.tahun,
+        received_date__month=lplpo_obj.bulan,
+        status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+    ).exists()
+    has_consumption = PuskesmasConsumption.objects.filter(
+        facility=lplpo_obj.facility,
+        bulan=lplpo_obj.bulan,
+        tahun=lplpo_obj.tahun,
+    ).exists()
+
+    if not has_confirmed_receipts and not has_consumption:
+        return lplpo_obj
+
+    with transaction.atomic():
+        lplpo_obj = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
+        if has_confirmed_receipts:
+            sync_receiving_to_editable_lplpo(
+                facility=lplpo_obj.facility,
+                bulan=lplpo_obj.bulan,
+                tahun=lplpo_obj.tahun,
+            )
+        if has_consumption:
+            sync_consumption_to_editable_lplpo(
+                facility=lplpo_obj.facility,
+                bulan=lplpo_obj.bulan,
+                tahun=lplpo_obj.tahun,
+            )
+
+    return LPLPO.objects.select_related("facility").get(pk=lplpo_obj.pk)
 
 
 def _can_access_lplpo_cross_facility(user, *, route_kind, status):
@@ -703,6 +742,7 @@ def lplpo_edit(request, pk):
     if denied:
         return denied
 
+    lplpo_obj = _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj)
     items_qs = lplpo_obj.items.select_related(
         "item", "item__satuan", "item__kategori"
     ).order_by("item__kategori__sort_order", "item__nama_barang")
@@ -712,12 +752,34 @@ def lplpo_edit(request, pk):
         lplpo_obj.bulan, lplpo_obj.tahun
     )
     from apps.puskesmas.models import PuskesmasConsumption
+    from apps.puskesmas.services import get_consumption_for_facility_period
 
     linked_consumption = PuskesmasConsumption.objects.filter(
         facility=lplpo_obj.facility,
         bulan=lplpo_obj.bulan,
         tahun=lplpo_obj.tahun,
     ).first()
+
+    has_consumption_source = linked_consumption is not None
+
+    penerimaan_data = {}
+    harga_satuan_data = {}
+    if not is_january_bootstrap:
+        penerimaan_data = get_penerimaan_for_facility_period(
+            lplpo_obj.facility,
+            lplpo_obj.bulan,
+            lplpo_obj.tahun,
+        )
+        harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
+            lplpo_obj.facility,
+            lplpo_obj.bulan,
+            lplpo_obj.tahun,
+        )
+    pemakaian_data = get_consumption_for_facility_period(
+        facility=lplpo_obj.facility,
+        bulan=lplpo_obj.bulan,
+        tahun=lplpo_obj.tahun,
+    )
 
     # Check if previous LPLPO exists (to lock stock_awal after January bootstrap)
     prev_lplpo = get_previous_lplpo(
@@ -744,6 +806,12 @@ def lplpo_edit(request, pk):
             updated_objs = []
             for f in forms_data:
                 obj = f.save(commit=False)
+                if has_consumption_source:
+                    obj.pemakaian = pemakaian_data.get(obj.item_id, 0)
+                if obj.item_id in penerimaan_data:
+                    obj.penerimaan = penerimaan_data[obj.item_id]
+                    obj.harga_satuan = harga_satuan_data.get(obj.item_id, obj.harga_satuan)
+                    obj.penerimaan_auto_filled = True
                 obj.compute_fields()
                 updated_objs.append(obj)
 
@@ -763,6 +831,7 @@ def lplpo_edit(request, pk):
                         "stock_optimum",
                         "jumlah_kebutuhan",
                         "permintaan_jumlah",
+                        "penerimaan_auto_filled",
                     ],
                 )
 
@@ -789,7 +858,6 @@ def lplpo_edit(request, pk):
             LPLPOItemPuskesmasForm(instance=li, prefix=f"item_{li.pk}")
             for li in items_qs
         ]
-
     # Build (item, form) pairs grouped by category
     item_forms = list(zip(items_qs, forms_data))
     grouped = {}

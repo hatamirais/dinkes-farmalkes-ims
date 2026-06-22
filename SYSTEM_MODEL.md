@@ -73,12 +73,12 @@ Module highlights:
 - Puskesmas detailed consumption: `/puskesmas/pemakaian/`, `/puskesmas/pemakaian/buat/`, `/puskesmas/pemakaian/<pk>/`, `/puskesmas/pemakaian/<pk>/edit/`, `/puskesmas/pemakaian/<pk>/delete/`
   - Only `PUSKESMAS` role users and superusers may create, edit, or delete detailed consumption.
   - Detailed-consumption mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
-  - Create/edit/delete is rate-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO `pemakaian` totals.
+  - Create/edit/delete is rate-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO `pemakaian` totals. Opening or re-saving an editable LPLPO also refreshes those totals when the matching detailed-consumption document already exists.
 - Puskesmas receipt confirmation: `/puskesmas/penerimaan/`, `/puskesmas/penerimaan/buat/`, `/puskesmas/penerimaan/<pk>/`, `/puskesmas/penerimaan/<pk>/edit/`, `/puskesmas/penerimaan/<pk>/delete/`
   - Only `PUSKESMAS` role users and superusers may create, edit, or delete receipt confirmations.
   - Linked operational create/edit uses a fixed checklist per `distribution.DistributionItem`; checked rows become stored receipt items and unchecked rows require a header note while staying out of LPLPO aggregation.
   - Receipt-confirmation mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
-  - Create/edit/delete is rate-limited by `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO lines.
+  - Create/edit/delete is rate-limited by `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO lines. Opening or re-saving an editable LPLPO also refreshes same-month `penerimaan` and weighted `harga_satuan` when confirmed receipt-confirmation rows already exist.
 - Allocation: `/allocation/`, `/allocation/create/`, `/allocation/<pk>/`, `/allocation/<pk>/edit/`, `/allocation/<pk>/delete/`, `/allocation/<pk>/reset-to-draft/`, `/allocation/<pk>/submit/`, `/allocation/<pk>/approve/`, `/allocation/<pk>/step-back/`, `/allocation/<pk>/reject/`, `/allocation/<pk>/distributions/<dist_pk>/prepare/`, `/allocation/<pk>/distributions/<dist_pk>/deliver/`
 - Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`
 
