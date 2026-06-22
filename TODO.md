@@ -73,9 +73,11 @@
 
 19. Create Kartu Stok for Puskesmas
 
-20. Import feature for puskesmas's LPLPO complete with acceptable template
+20. ~~Import feature for puskesmas's LPLPO complete with acceptable template~~
 
-21. Feature for inputting receivement and consumption on puskesmas, which the data will be auto-used for LPLPO
+21. ~~Feature for inputting receivement and consumption on puskesmas, which the data will be auto-used for LPLPO~~
+
+22. Adding batch and ed to SBBK Distribution
 
 ## Version 2
 
