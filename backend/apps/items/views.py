@@ -11,7 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.core.decorators import perm_required
-from apps.core.rate_limits import user_mutation_ratelimit
+from apps.core.rate_limits import item_mutation_ratelimit
 from .forms import (
     CategoryForm,
     ItemForm,
@@ -132,7 +132,7 @@ def item_list(request):
 
 @login_required
 @perm_required("items.add_item")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def item_create(request):
     if request.method == "POST":
         form = ItemForm(request.POST)
@@ -155,7 +155,7 @@ def item_create(request):
 
 @login_required
 @perm_required("items.change_item")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def item_update(request, pk):
     item = get_object_or_404(Item, pk=pk)
     if request.method == "POST":
@@ -181,7 +181,7 @@ def item_update(request, pk):
 
 @login_required
 @perm_required("items.delete_item")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def item_delete(request, pk):
     item = get_object_or_404(Item, pk=pk)
     if request.method == "POST":
@@ -198,7 +198,7 @@ def item_delete(request, pk):
 
 @login_required
 @perm_required("items.add_unit")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def unit_create(request):
     if request.method == "POST":
         form = UnitForm(request.POST)
@@ -222,7 +222,7 @@ def unit_create(request):
 
 @login_required
 @perm_required("items.add_category")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def category_create(request):
     if request.method == "POST":
         form = CategoryForm(request.POST)
@@ -246,7 +246,7 @@ def category_create(request):
 
 @login_required
 @perm_required("items.add_program")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def program_create(request):
     if request.method == "POST":
         form = ProgramForm(request.POST)
@@ -270,7 +270,7 @@ def program_create(request):
 
 @login_required
 @perm_required("items.add_therapeuticclass")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 def therapeutic_class_create(request):
     if request.method == "POST":
         form = TherapeuticClassForm(request.POST)
@@ -297,7 +297,7 @@ def therapeutic_class_create(request):
 
 @login_required
 @perm_required("items.add_unit")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 @require_POST
 def quick_create_unit(request):
     code = request.POST.get("code", "")
@@ -314,7 +314,7 @@ def quick_create_unit(request):
 
 @login_required
 @perm_required("items.add_category")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 @require_POST
 def quick_create_category(request):
     code = request.POST.get("code", "")
@@ -331,7 +331,7 @@ def quick_create_category(request):
 
 @login_required
 @perm_required("items.add_program")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 @require_POST
 def quick_create_program(request):
     code = request.POST.get("code", "")
@@ -355,7 +355,7 @@ def quick_create_program(request):
 
 @login_required
 @perm_required("items.add_therapeuticclass")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 @require_POST
 def quick_create_therapeutic_class(request):
     code = request.POST.get("code", "")
@@ -379,7 +379,7 @@ def quick_create_therapeutic_class(request):
 
 @login_required
 @perm_required("items.add_facility")
-@user_mutation_ratelimit
+@item_mutation_ratelimit
 @require_POST
 def quick_create_facility(request):
     code = request.POST.get("code", "").strip().upper()

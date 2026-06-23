@@ -3,6 +3,7 @@ from django_ratelimit.decorators import ratelimit
 
 DEFAULT_USER_BULK_ACTION_RATE_LIMIT = "10/m"
 DEFAULT_USER_MUTATION_RATE_LIMIT = "20/m"
+DEFAULT_ITEM_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_USER_PASSWORD_RESET_RATE_LIMIT = "5/m"
 DEFAULT_PASSWORD_CHANGE_RATE_LIMIT = "5/m"
 DEFAULT_PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = "20/m"
@@ -50,6 +51,18 @@ user_mutation_ratelimit = ratelimit(
     block=True,
     group="users.mutation",
 )
+
+item_mutation_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_setting_rate(
+        "ITEM_MUTATION_RATE_LIMIT",
+        DEFAULT_ITEM_MUTATION_RATE_LIMIT,
+    ),
+    block=True,
+    group="items.mutation",
+)
+
 
 user_password_reset_ratelimit = ratelimit(
     key="user_or_ip",

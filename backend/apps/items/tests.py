@@ -1,7 +1,7 @@
 from django.contrib.admin.sites import AdminSite
 from tablib import Dataset
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.csv_exports import SanitizedCSV
@@ -222,6 +222,30 @@ class TherapeuticClassQuickCreateTests(TestCase):
             password="password12345",
         )
         self.client.force_login(self.user)
+
+    @override_settings(ITEM_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_quick_create_therapeutic_class_uses_item_mutation_rate_limit(self):
+        first = self.client.post(
+            reverse("items:quick_create_therapeutic_class"),
+            {
+                "code": "ABX",
+                "name": "Antibiotik",
+                "description": "Terapi infeksi",
+            },
+            secure=True,
+        )
+        second = self.client.post(
+            reverse("items:quick_create_therapeutic_class"),
+            {
+                "code": "RESP",
+                "name": "Respirasi",
+                "description": "Terapi saluran napas",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
 
     def test_quick_create_therapeutic_class_creates_lookup(self):
         response = self.client.post(

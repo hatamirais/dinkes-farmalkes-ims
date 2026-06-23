@@ -183,11 +183,12 @@ Before opening a PR, verify:
 - Additional authenticated POST throttling uses `django-ratelimit`.
 - Counters use a local memory cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are tracked in-process.
 - `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully if there are issues with the cache.
-- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, and `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`. The legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` env var remains accepted as a compatibility fallback.
-- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`, and `LPLPO_IMPORT_RATE_LIMIT`. The legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` env var remains accepted as a compatibility fallback.
+- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `ITEM_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, and `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`. The legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` env var remains accepted as a compatibility fallback.
+- Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `ITEM_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`, and `LPLPO_IMPORT_RATE_LIMIT`. The legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` env var remains accepted as a compatibility fallback.
 - Receipt-confirmation throttling is mutation-only: create/edit/delete saves are POST-limited, while the create-form distribution preview uses non-mutating `GET` and must not consume that quota.
 - Throttled requests must continue through the centralized error pipeline and render as HTTP `429`.
 - `@user_mutation_ratelimit` covers all user mutation endpoints: create, update, toggle-active, and delete.
+- `@item_mutation_ratelimit` is reserved for item catalog and item-lookup POST mutations so item maintenance does not consume the user-management throttle bucket.
 
 ## URL Routing Convention
 
