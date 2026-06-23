@@ -1,14 +1,17 @@
+from io import BytesIO
+
 from django.contrib.admin.sites import AdminSite
-from tablib import Dataset
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from openpyxl import load_workbook
+from tablib import Dataset
 
 from apps.core.csv_exports import SanitizedCSV
 from apps.items.admin import ItemAdmin, ItemResource
 from apps.items.forms import ItemForm
 from apps.items.models import Category, Item, Program, TherapeuticClass, Unit
-from apps.users.models import User
+from apps.users.models import ModuleAccess, User
 
 
 class ItemAdminCsvExportSecurityTest(TestCase):
@@ -139,6 +142,12 @@ class ItemTherapeuticClassTests(TestCase):
 
 class ItemEssentialTagTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password12345",
+        )
+        self.client.force_login(self.user)
         self.unit = Unit.objects.create(code="TAB", name="Tablet")
         self.category = Category.objects.create(code="OBAT", name="Obat")
         self.therapeutic_class = TherapeuticClass.objects.create(
@@ -155,12 +164,6 @@ class ItemEssentialTagTests(TestCase):
         self.assertFalse(item.is_essential)
 
     def test_item_list_shows_essential_badge_and_therapeutic_class(self):
-        user = User.objects.create_superuser(
-            username="admin",
-            email="admin@example.com",
-            password="password12345",
-        )
-        self.client.force_login(user)
         item = Item.objects.create(
             nama_barang="Amoxicillin",
             satuan=self.unit,
@@ -176,13 +179,6 @@ class ItemEssentialTagTests(TestCase):
         self.assertContains(response, "Analgesik")
 
     def test_item_list_filters_by_therapeutic_class(self):
-        user = User.objects.create_superuser(
-            username="admin",
-            email="admin@example.com",
-            password="password12345",
-        )
-        self.client.force_login(user)
-
         item = Item.objects.create(
             nama_barang="Amoxicillin",
             satuan=self.unit,
@@ -203,6 +199,168 @@ class ItemEssentialTagTests(TestCase):
 
         self.assertContains(response, item.nama_barang)
         self.assertNotContains(response, other.nama_barang)
+
+    def test_item_list_filters_essential_items(self):
+        essential_item = Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=True,
+        )
+        non_essential_item = Item.objects.create(
+            nama_barang="Vitamin C",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=False,
+        )
+
+        response = self.client.get(
+            reverse("items:item_list"),
+            {"essential": "1"},
+            secure=True,
+        )
+
+        self.assertContains(response, essential_item.nama_barang)
+        self.assertNotContains(response, non_essential_item.nama_barang)
+
+    def test_item_list_filters_non_essential_items(self):
+        essential_item = Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=True,
+        )
+        non_essential_item = Item.objects.create(
+            nama_barang="Vitamin C",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=False,
+        )
+
+        response = self.client.get(
+            reverse("items:item_list"),
+            {"essential": "0"},
+            secure=True,
+        )
+
+        self.assertContains(response, non_essential_item.nama_barang)
+        self.assertNotContains(response, essential_item.nama_barang)
+
+    def test_item_list_without_essential_filter_shows_both_types(self):
+        essential_item = Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=True,
+        )
+        non_essential_item = Item.objects.create(
+            nama_barang="Vitamin C",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=False,
+        )
+
+        response = self.client.get(reverse("items:item_list"), secure=True)
+
+        self.assertContains(response, essential_item.nama_barang)
+        self.assertContains(response, non_essential_item.nama_barang)
+
+    def test_item_export_requires_login(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("items:item_export"), secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
+    def test_item_export_requires_permission(self):
+        self.client.logout()
+        user = User.objects.create_user(
+            username="viewer",
+            email="viewer@example.com",
+            password="password12345",
+            role=User.Role.PUSKESMAS,
+        )
+        ModuleAccess.objects.update_or_create(
+            user=user,
+            module=ModuleAccess.Module.ITEMS,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("items:item_export"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_item_export_returns_xlsx_with_essential_and_therapeutic_columns(self):
+        item = Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=True,
+        )
+        item.therapeutic_classes.add(self.therapeutic_class)
+
+        response = self.client.get(reverse("items:item_export"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn('attachment; filename="Daftar_Barang.xlsx"', response["Content-Disposition"])
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+
+        self.assertEqual(sheet.title, "Daftar Barang")
+        self.assertEqual(sheet["F3"].value, "Esensial")
+        self.assertEqual(sheet["G3"].value, "Terapi Obat")
+        self.assertEqual(sheet["A4"].value, item.kode_barang)
+        self.assertEqual(sheet["B4"].value, item.nama_barang)
+        self.assertEqual(sheet["F4"].value, "Ya")
+        self.assertEqual(sheet["G4"].value, "Analgesik")
+
+    def test_item_export_respects_essential_filter(self):
+        essential_item = Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=True,
+        )
+        Item.objects.create(
+            nama_barang="Vitamin C",
+            satuan=self.unit,
+            kategori=self.category,
+            is_essential=False,
+        )
+
+        response = self.client.get(
+            reverse("items:item_export"),
+            {"essential": "1"},
+            secure=True,
+        )
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        exported_names = [cell for cell in (sheet["B4"].value, sheet["B5"].value) if cell]
+
+        self.assertEqual(exported_names, [essential_item.nama_barang])
+
+    def test_item_export_sanitizes_formula_prefixed_values(self):
+        item = Item.objects.create(
+            nama_barang="=SUM(1,1)",
+            satuan=self.unit,
+            kategori=self.category,
+        )
+
+        response = self.client.get(reverse("items:item_export"), secure=True)
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+
+        self.assertEqual(sheet["B4"].value, "'=SUM(1,1)")
+        self.assertEqual(sheet["A4"].value, item.kode_barang)
 
     def test_picker_label_strips_program_and_essential_suffixes(self):
         item = Item.objects.create(

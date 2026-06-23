@@ -7,9 +7,14 @@
 <div class="table-container">
     <div class="table-header">
         <h5><i class="bi bi-box-seam me-2"></i>Daftar Barang</h5>
-        <a href="{% url 'items:item_create' %}" class="btn btn-primary btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>Tambah Barang
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'items:item_export' %}?q={{ search|urlencode }}&kategori={{ selected_kategori|urlencode }}&program={{ selected_program|urlencode }}&essential={{ selected_essential|urlencode }}&therapeutic_class={{ selected_therapeutic_class|urlencode }}" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-file-earmark-excel me-1"></i>Export XLSX
+            </a>
+            <a href="{% url 'items:item_create' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Tambah Barang
+            </a>
+        </div>
     </div>
 
     <div class="px-3 py-2 border-bottom bg-light">
@@ -27,6 +32,11 @@
                 <option value="1" {{ program_1_selected }}>Program [P]</option>
                 <option value="0" {{ program_0_selected }}>Non-Program</option>
             </select>
+            <select name="essential" class="form-select">
+                <option value="">Semua Esensial</option>
+                <option value="1" {{ essential_1_selected }}>Esensial [E]</option>
+                <option value="0" {{ essential_0_selected }}>Non-Esensial</option>
+            </select>
             <select name="therapeutic_class" class="form-select">
                 <option value="">Semua Terapi Obat</option>
                 {% for therapeutic in therapeutic_classes %}
@@ -34,7 +44,7 @@
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
-            {% if search or selected_kategori or selected_program or selected_therapeutic_class %}
+            {% if search or selected_kategori or selected_program or selected_essential or selected_therapeutic_class %}
             <a href="{% url 'items:item_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
             {% endif %}
         </form>
