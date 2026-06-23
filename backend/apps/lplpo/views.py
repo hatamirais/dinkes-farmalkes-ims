@@ -528,18 +528,12 @@ def lplpo_create(request):
                         prev_stock[pi.item_id] = pi.stock_keseluruhan
                         prev_unit_prices[pi.item_id] = pi.harga_satuan
 
-                # January bootstrap must keep penerimaan manual instead of
-                # trusting distribution autofill.
-                if is_january_bootstrap_period(bulan, tahun, server_date=server_date):
-                    penerimaan_data = {}
-                    harga_satuan_data = {}
-                else:
-                    penerimaan_data = get_penerimaan_for_facility_period(
-                        facility, bulan, tahun
-                    )
-                    harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
-                        facility, bulan, tahun
-                    )
+                penerimaan_data = get_penerimaan_for_facility_period(
+                    facility, bulan, tahun
+                )
+                harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
+                    facility, bulan, tahun
+                )
                 from apps.puskesmas.services import get_consumption_for_facility_period
 
                 pemakaian_data = get_consumption_for_facility_period(
@@ -642,14 +636,10 @@ def api_prefill_penerimaan(request):
     if bulan < 1 or bulan > 12:
         return JsonResponse({"detail": "Bulan harus antara 1 dan 12."}, status=400)
 
-    if is_january_bootstrap_period(bulan, tahun):
-        data = {}
-        unit_price_data = {}
-    else:
-        data = get_penerimaan_for_facility_period(facility, bulan, tahun)
-        unit_price_data = get_penerimaan_unit_prices_for_facility_period(
-            facility, bulan, tahun
-        )
+    data = get_penerimaan_for_facility_period(facility, bulan, tahun)
+    unit_price_data = get_penerimaan_unit_prices_for_facility_period(
+        facility, bulan, tahun
+    )
     return JsonResponse(
         {
             "facility_id": facility.pk,
@@ -762,19 +752,16 @@ def lplpo_edit(request, pk):
 
     has_consumption_source = linked_consumption is not None
 
-    penerimaan_data = {}
-    harga_satuan_data = {}
-    if not is_january_bootstrap:
-        penerimaan_data = get_penerimaan_for_facility_period(
-            lplpo_obj.facility,
-            lplpo_obj.bulan,
-            lplpo_obj.tahun,
-        )
-        harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
-            lplpo_obj.facility,
-            lplpo_obj.bulan,
-            lplpo_obj.tahun,
-        )
+    penerimaan_data = get_penerimaan_for_facility_period(
+        lplpo_obj.facility,
+        lplpo_obj.bulan,
+        lplpo_obj.tahun,
+    )
+    harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
+        lplpo_obj.facility,
+        lplpo_obj.bulan,
+        lplpo_obj.tahun,
+    )
     pemakaian_data = get_consumption_for_facility_period(
         facility=lplpo_obj.facility,
         bulan=lplpo_obj.bulan,

@@ -243,8 +243,8 @@ class LPLPOItem(models.Model):
     penerimaan = models.PositiveIntegerField(
         default=0,
         help_text=(
-            "Auto-filled from same-month Puskesmas receipt confirmations, "
-            "confirmable by Puskesmas"
+            "Auto-suggested from same-month Puskesmas receipt confirmations "
+            "when available, confirmable by Puskesmas"
         ),
     )
     harga_satuan = models.DecimalField(
@@ -252,8 +252,9 @@ class LPLPOItem(models.Model):
         decimal_places=2,
         default=0,
         help_text=(
-            "Manual for January bootstrap; later periods auto-fill from distributed "
-            "batch values or carry forward the previous month's price"
+            "January may be suggested from same-month confirmed receipt "
+            "confirmations; later periods use same-month weighted-average receipt "
+            "prices or carry forward the previous month's price"
         ),
     )
     pemakaian = models.PositiveIntegerField(
@@ -453,13 +454,10 @@ def sync_receiving_to_editable_lplpo(*, facility, bulan, tahun):
     if not lplpo:
         return None
 
-    penerimaan_data = {}
-    harga_satuan_data = {}
-    if not is_january_bootstrap_period(bulan, tahun):
-        penerimaan_data = get_penerimaan_for_facility_period(facility, bulan, tahun)
-        harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
-            facility, bulan, tahun
-        )
+    penerimaan_data = get_penerimaan_for_facility_period(facility, bulan, tahun)
+    harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
+        facility, bulan, tahun
+    )
 
     prev_lplpo = get_previous_lplpo(facility, bulan, tahun)
     prev_unit_prices = {}

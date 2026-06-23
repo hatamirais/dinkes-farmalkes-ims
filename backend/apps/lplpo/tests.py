@@ -503,19 +503,24 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		item_a_line = lplpo.items.get(item=self.item_a)
 		self.assertEqual(item_a_line.harga_satuan, Decimal("1060.00"))
 
-	def test_january_bootstrap_create_keeps_penerimaan_manual(self):
-		self.create_distribution(
+	def test_january_bootstrap_create_auto_suggests_receipt_totals_and_weighted_prices(self):
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 1, 10),
+			received_date=date(2026, 1, 10),
 			item_quantities=[
 				(self.item_a, Decimal("7.00")),
 				(self.item_b, Decimal("2.00")),
 			],
+			item_unit_prices={
+				self.item_a.pk: Decimal("1000.00"),
+				self.item_b.pk: Decimal("1500.00"),
+			},
 		)
-		self.create_distribution(
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 1, 20),
+			received_date=date(2026, 1, 20),
 			item_quantities=[(self.item_a, Decimal("3.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1200.00")},
 		)
 
 		self.client.force_login(self.puskesmas_user)
@@ -529,10 +534,12 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		item_a_line = lplpo.items.get(item=self.item_a)
 		item_b_line = lplpo.items.get(item=self.item_b)
 
-		self.assertEqual(item_a_line.penerimaan, 0)
-		self.assertEqual(item_b_line.penerimaan, 0)
-		self.assertFalse(item_a_line.penerimaan_auto_filled)
-		self.assertFalse(item_b_line.penerimaan_auto_filled)
+		self.assertEqual(item_a_line.penerimaan, 10)
+		self.assertEqual(item_b_line.penerimaan, 2)
+		self.assertEqual(item_a_line.harga_satuan, Decimal("1060.00"))
+		self.assertEqual(item_b_line.harga_satuan, Decimal("1500.00"))
+		self.assertTrue(item_a_line.penerimaan_auto_filled)
+		self.assertTrue(item_b_line.penerimaan_auto_filled)
 
 	def test_stock_awal_from_previous_lplpo(self):
 		previous = self.create_lplpo(bulan=1, tahun=2026, status=LPLPO.Status.CLOSED)
@@ -672,6 +679,12 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			penerimaan=Decimal("1.00"),
 			pemakaian=Decimal("2.00"),
 		)
+		self.create_sbbk(
+			facility=self.facility,
+			received_date=date(active_year, 1, 15),
+			item_quantities=[(self.item_a, Decimal("4.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1250.00")},
+		)
 
 		january = self.create_lplpo(bulan=1, tahun=active_year)
 		line = LPLPOItem.objects.create(
@@ -689,14 +702,18 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertTrue(is_january_bootstrap_period(january.bulan, january.tahun))
 		self.assertContains(response, "Dokumen Bootstrap Januari")
 		self.assertContains(response, "baseline stok awal tahunan")
-		self.assertContains(response, "Penerimaan")
-		self.assertContains(response, "diisi manual")
+		self.assertContains(response, "tetap boleh menyesuaikannya")
 		self.assertContains(response, f'name="item_{line.pk}-stock_awal"')
 		self.assertNotContains(
 			response,
 			f'<input type="hidden" name="item_{line.pk}-stock_awal"',
 			html=False,
 		)
+		line.refresh_from_db()
+		self.assertEqual(line.stock_awal, Decimal("9.00"))
+		self.assertEqual(line.penerimaan, Decimal("4.00"))
+		self.assertEqual(line.harga_satuan, Decimal("1250.00"))
+		self.assertTrue(line.penerimaan_auto_filled)
 
 	def test_computed_fields_correct(self):
 		lplpo = self.create_lplpo()
@@ -934,6 +951,52 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(line.penerimaan, Decimal("4.00"))
 		self.assertEqual(line.pemakaian, Decimal("7.00"))
 		self.assertEqual(line.harga_satuan, Decimal("1000.00"))
+		self.assertTrue(line.penerimaan_auto_filled)
+
+	def test_january_edit_post_keeps_receipt_backed_penerimaan_and_harga_satuan_when_browser_data_is_stale(self):
+		active_year = get_active_lplpo_year()
+		lplpo = self.create_lplpo(bulan=1, tahun=active_year)
+		line = LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=self.item_a,
+			stock_awal=Decimal("2.00"),
+			penerimaan=Decimal("1.00"),
+			harga_satuan=Decimal("900.00"),
+			pemakaian=Decimal("2.00"),
+		)
+		self.create_sbbk(
+			facility=self.facility,
+			received_date=date(active_year, 1, 12),
+			item_quantities=[(self.item_a, Decimal("4.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1000.00")},
+		)
+		self.create_sbbk(
+			facility=self.facility,
+			received_date=date(active_year, 1, 20),
+			item_quantities=[(self.item_a, Decimal("6.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1200.00")},
+		)
+
+		self.client.force_login(self.puskesmas_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_edit", args=[lplpo.pk]),
+			{
+				f"item_{line.pk}-stock_awal": "8",
+				f"item_{line.pk}-penerimaan": "1",
+				f"item_{line.pk}-harga_satuan": "0.00",
+				f"item_{line.pk}-pemakaian": "2",
+				f"item_{line.pk}-stock_gudang_puskesmas": "3",
+				f"item_{line.pk}-waktu_kosong": "1",
+				f"item_{line.pk}-permintaan_jumlah": "6",
+				f"item_{line.pk}-permintaan_alasan": "Browser lama masih tampil kosong",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		line.refresh_from_db()
+		self.assertEqual(line.stock_awal, Decimal("8.00"))
+		self.assertEqual(line.penerimaan, Decimal("10.00"))
+		self.assertEqual(line.harga_satuan, Decimal("1120.00"))
 		self.assertTrue(line.penerimaan_auto_filled)
 
 	def test_edit_post_keeps_source_backed_penerimaan_and_pemakaian_when_browser_data_is_stale(self):
@@ -1862,11 +1925,18 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			"Akun Anda belum terhubung ke fasilitas.",
 		)
 
-	def test_api_prefill_penerimaan_returns_empty_for_january_bootstrap(self):
-		self.create_distribution(
+	def test_api_prefill_penerimaan_returns_weighted_receipt_data_for_january_bootstrap(self):
+		self.create_sbbk(
 			facility=self.facility,
-			distributed_date=date(2026, 1, 11),
+			received_date=date(2026, 1, 11),
 			item_quantities=[(self.item_a, Decimal("4.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1000.00")},
+		)
+		self.create_sbbk(
+			facility=self.facility,
+			received_date=date(2026, 1, 17),
+			item_quantities=[(self.item_a, Decimal("6.00"))],
+			item_unit_prices={self.item_a.pk: Decimal("1200.00")},
 		)
 		self.client.force_login(self.puskesmas_user)
 
@@ -1876,7 +1946,8 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		)
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.json()["items"], {})
+		self.assertEqual(response.json()["items"][str(self.item_a.pk)], "10")
+		self.assertEqual(response.json()["unit_prices"][str(self.item_a.pk)], "1120.00")
 
 	def test_review_uses_available_stock_not_total_stock(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED, created_by=self.puskesmas_user)

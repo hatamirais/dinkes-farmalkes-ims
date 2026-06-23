@@ -23,7 +23,7 @@
                                 LPLPO ini menjadi baseline stok awal tahunan untuk {{ form.selected_facility.name }} pada tahun {{ form.active_year }}.
                             </div>
                             <div class="small mb-0">
-                                Isi <strong>Stock Awal</strong> dari stok pembuka aktual atau catatan administrasi fasilitas. <strong>Penerimaan</strong> pada Januari ini juga diisi manual dan tidak diambil dari distribusi sistem. Bulan berikutnya akan membawa nilai stok otomatis dari <strong>Sisa Stok</strong> bulan sebelumnya.
+                                Isi <strong>Stock Awal</strong> dari stok pembuka aktual atau catatan administrasi fasilitas. Bila ada konfirmasi penerimaan Januari yang sudah terkonfirmasi, sistem akan mengusulkan <strong>Penerimaan</strong> total dan <strong>Harga Satuan</strong> rata-rata tertimbang per item sebagai baseline yang masih bisa diedit operator. Batch atau harga ganda tetap diringkas menjadi satu baris item pada LPLPO Januari.
                             </div>
                         </div>
                         {% endif %}

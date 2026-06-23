@@ -62,7 +62,7 @@ Module highlights:
   - Puskesmas-owned routes and states stay facility-scoped for all non-superusers: `DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX export/import, and the prefill helper all require a linked `user.facility` and stay same-facility only.
   - Instalasi Farmasi LPLPO access is stage-gated across facilities: `GUDANG` may access queue/detail/print plus verify/review/reject on `SUBMITTED`, `PIC_VERIFIED`, and `REJECTED_PIC` documents; `KEPALA` only gets cross-facility LPLPO access on legacy `REVIEWED/finalize` and read-only historical `APPROVED` / `CLOSED` states.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
-  - `api/prefill-penerimaan/` now sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, except for the January bootstrap period which remains manual.
+  - `api/prefill-penerimaan/` sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, including January bootstrap as an editable suggestion baseline when confirmed receipt data exists.
   - `/export-xlsx/` and `/import-xlsx/` are draft-only offline-entry helpers for Puskesmas operators and super admins. They work only on existing `DRAFT` / `REJECTED_PUSKESMAS` documents after the standard monthly create flow has already generated the item rows.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
   - Superusers may work across facilities, while every non-superuser request is forced to the linked `user.facility` and receives `403` when no facility is linked or the object belongs to another facility.
@@ -389,7 +389,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Audit: `penerimaan_auto_filled`
   - Create flow is locked to the active server-calendar year and must be contiguous from January; each facility can only create the earliest missing month for that year
   - The first January document in the active server year is the annual bootstrap baseline; the create/edit UI explains that `stock_awal` is entered manually from facility opening records
-  - That same January bootstrap keeps `penerimaan` manual, leaves `penerimaan_auto_filled=False`, and requires manual `harga_satuan` entry as the asset-value baseline
+  - That same January bootstrap still keeps `stock_awal` manual, but may auto-suggest `penerimaan`, set `penerimaan_auto_filled=True`, and fill `harga_satuan` from the same-month confirmed receipt weighted average while remaining editable by the operator
   - February onward auto-fills `stock_awal` from the previous month's LPLPO for the same facility when that prior document exists and is not `REJECTED_PUSKESMAS` or `REJECTED_PIC`; negative closing balances are carried forward as-is so operators can see and correct underreported stock
 - February onward derives `penerimaan` from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem.quantity` totals
 - February onward derives `harga_satuan` from the weighted-average same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem.unit_price` values and falls back to the previous month's LPLPO unit price when there is no new receipt
