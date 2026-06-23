@@ -140,6 +140,8 @@ Notes:
 - `kode_barang` is auto-generated when missing.
 - If `is_program_item` is true and `program` is blank, importer auto-uses/creates `DEFAULT`.
 - `therapeutic_classes` values must already exist in `therapeutic_classes.csv` or the Therapeutic Class admin lookup.
+- `therapeutic_classes` is an import-only relation field on the `items` admin resource; it maps to the many-to-many join table between `Item` and `TherapeuticClass`, not to a physical column on the `items` table.
+- Re-import/update matching for `items.csv` uses `nama_barang` as the current import identifier. There is no dedicated mapping-only CSV import for `Terapi Obat` keyed by `kode_barang` yet.
 
 ### `receiving.csv`
 
