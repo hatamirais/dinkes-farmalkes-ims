@@ -21,7 +21,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 ## Kapabilitas Utama
 
-- Pengelolaan master barang dan data referensi seperti satuan, kategori, program, sumber dana, lokasi, supplier, dan fasilitas. Barang dapat ditandai sebagai program item `[P]` atau esensial `[E]`.
+- Pengelolaan master barang dan data referensi seperti satuan, kategori, program, terapi obat, sumber dana, lokasi, supplier, dan fasilitas. Barang dapat ditandai sebagai program item `[P]` atau esensial `[E]`, serta dapat dipetakan ke satu atau lebih kelompok terapi obat untuk kebutuhan pelaporan.
 - Pencatatan stok per batch dengan pendekatan FEFO agar distribusi lebih terkendali dan masa kedaluwarsa lebih mudah dipantau.
 - Alur kerja end-to-end untuk penerimaan, distribusi, recall, barang kedaluwarsa, transfer stok, dan stock opname.
 - Dukungan tipe penerimaan bawaan dan tipe kustom melalui `ReceivingTypeOption`, termasuk quick-create dari form penerimaan.
@@ -34,7 +34,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 ### Modul aktif
 
-- `items`: CRUD master barang dan lookup, filter daftar, serta endpoint AJAX untuk pembuatan referensi cepat.
+- `items`: CRUD master barang dan lookup, filter daftar, endpoint AJAX untuk pembuatan referensi cepat, serta pengelompokan multi-nilai `Terapi Obat` untuk pelaporan.
 - `stock`: daftar stok, daftar transaksi, kartu stok, pencarian stok per lokasi, dan alur transfer stok antar lokasi.
 - `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, tipe penerimaan kustom, serta lampiran dokumen yang disimpan di private storage dan diunduh lewat route terautentikasi pada detail penerimaan.
 - `distribution`: alur persiapan, pengajuan, verifikasi, hingga distribusi dengan penugasan petugas per dokumen. Distribusi reguler dan permintaan khusus kini menempatkan kontrol tahap persiapan pada petugas yang ditugaskan, sementara approver memverifikasi dokumen yang sudah diajukan sebelum distribusi. Reset, step-back, dan delete untuk dokumen yang masih mutable mengikuti rule otorisasi object-level yang sama dengan edit/persiapan/pengajuan: petugas yang ditugaskan berwenang, dan approver menjadi fallback hanya bila belum ada penugasan petugas. Permintaan khusus menampilkan nomor dokumen usulan dari rule aktif dan mengharuskan konfirmasi sebelum edit manual. Distribusi draft yang dihasilkan dari LPLPO mengunci baris item serta kuantitas diminta/disetujui pada layar edit agar tahap tersebut dipakai khusus untuk pemilihan batch, catatan, dan petugas, dan dapat dibatalkan untuk mengembalikan LPLPO induk ke Puskesmas sebelum distribusi selesai. Untuk kebutuhan rollout atau catch-up tengah tahun, Instalasi Farmasi juga dapat membuat distribusi LPLPO manual dari modul distribusi tanpa harus menunggu backfill dokumen LPLPO bulanan; distribusi manual ini tetap masuk bucket nomor dan laporan LPLPO, tetapi tidak terhubung ke dokumen LPLPO sumber.

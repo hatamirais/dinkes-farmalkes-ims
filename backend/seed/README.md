@@ -13,11 +13,12 @@ Import lookup and master dependencies first:
 2. `categories.csv`
 3. `funding_sources.csv`
 4. `programs.csv`
-5. `locations.csv`
-6. `suppliers.csv`
-7. `facilities.csv`
-8. `items.csv`
-9. `receiving.csv`
+5. `therapeutic_classes.csv`
+6. `locations.csv`
+7. `suppliers.csv`
+8. `facilities.csv`
+9. `items.csv`
+10. `receiving.csv`
 
 For initial stock, prefer `receiving.csv` (custom receiving import endpoint) so the system creates receiving headers, stock updates, and `Transaction(IN)` entries consistently.
 
@@ -78,6 +79,15 @@ Columns:
 - `description` (optional)
 - `is_active` (optional, default `1`)
 
+### `therapeutic_classes.csv`
+
+Columns:
+
+- `code` (required, unique)
+- `name` (required)
+- `description` (optional)
+- `is_active` (optional, default `1`)
+
 ### `locations.csv`
 
 Columns:
@@ -120,6 +130,7 @@ Columns:
 - `is_program_item` (optional, default `0`)
 - `is_essential` (optional, default `0`)
 - `program` (optional, maps to `Program.code`)
+- `therapeutic_classes` (optional, maps to one or more `TherapeuticClass.code`, separated by `|`)
 - `minimum_stock` (optional, default `0`)
 - `description` (optional)
 - `is_active` (optional, default `1`)
@@ -128,6 +139,7 @@ Notes:
 
 - `kode_barang` is auto-generated when missing.
 - If `is_program_item` is true and `program` is blank, importer auto-uses/creates `DEFAULT`.
+- `therapeutic_classes` values must already exist in `therapeutic_classes.csv` or the Therapeutic Class admin lookup.
 
 ### `receiving.csv`
 

@@ -1,5 +1,5 @@
 from django.test import TestCase
-from django.core.files.base import ContentFile
+from tablib import Dataset
 from django.contrib.admin.sites import site
 
 from apps.items.admin import ItemResource
@@ -20,7 +20,7 @@ class ItemImportTest(TestCase):
             "Test Item,TAB,CAT1,1,,0,desc,1\n"
         )
         res = ItemResource()
-        dataset = res.get_import_data(ContentFile(csv))
+        dataset = Dataset().load(csv, format="csv")
         # before import, no program exists
         self.assertFalse(Program.objects.filter(code__iexact="DEFAULT").exists())
 

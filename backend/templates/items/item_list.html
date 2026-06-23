@@ -27,8 +27,14 @@
                 <option value="1" {{ program_1_selected }}>Program [P]</option>
                 <option value="0" {{ program_0_selected }}>Non-Program</option>
             </select>
+            <select name="therapeutic_class" class="form-select">
+                <option value="">Semua Terapi Obat</option>
+                {% for therapeutic in therapeutic_classes %}
+                <option value="{{ therapeutic.id }}" {{ therapeutic.selected }}>{{ therapeutic.name }}</option>
+                {% endfor %}
+            </select>
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
-            {% if search or selected_kategori or selected_program %}
+            {% if search or selected_kategori or selected_program or selected_therapeutic_class %}
             <a href="{% url 'items:item_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
             {% endif %}
         </form>
@@ -43,6 +49,7 @@
                     <th>Satuan</th>
                     <th>Kategori</th>
                     <th>Program</th>
+                    <th>Terapi Obat</th>
                     <th>Min. Stok</th>
                     <th class="text-end">Aksi</th>
                 </tr>
@@ -64,10 +71,10 @@
                     <td>
                         {% if item.is_program_item %}
                             {% if item.program %}
-                                <span class="badge bg-primary-subtle text-primary">[P] {{ item.program.code }} — {{ item.program.name }}</span>
+                                <span class="badge bg-primary-subtle text-primary">[P] {{ item.program.code }} - {{ item.program.name }}</span>
                             {% else %}
                                 {% if default_program %}
-                                    <span class="badge bg-primary-subtle text-primary">[P] {{ default_program.code }} — {{ default_program.name }}</span>
+                                    <span class="badge bg-primary-subtle text-primary">[P] {{ default_program.code }} - {{ default_program.name }}</span>
                                 {% else %}
                                     <span class="badge bg-secondary-subtle text-secondary">[P] DEFAULT</span>
                                 {% endif %}
@@ -75,6 +82,15 @@
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for therapeutic in item.therapeutic_classes.all %}
+                            <span class="badge bg-success-subtle text-success">{{ therapeutic.name }}</span>
+                            {% empty %}
+                            <span class="text-muted">-</span>
+                            {% endfor %}
+                        </div>
                     </td>
                     <td>{{ item.minimum_stock }}</td>
                     <td class="text-end">
@@ -90,7 +106,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="empty-state">
                             <i class="bi bi-inbox d-block"></i>
                             <p>Belum ada data barang</p>

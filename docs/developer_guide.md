@@ -179,7 +179,7 @@ Saat file `VERSION` berubah di branch `main`, GitHub Actions menjalankan `.githu
 ## Seed dan Import
 
 - Template seed tersedia di `backend/seed/`.
-- Urutan import kanonis: `units -> categories -> funding_sources -> programs -> locations -> suppliers -> facilities -> items -> receiving`.
+- Urutan import kanonis: `units -> categories -> funding_sources -> programs -> therapeutic_classes -> locations -> suppliers -> facilities -> items -> receiving`.
 - Untuk stok awal, gunakan `receiving.csv` melalui endpoint import Receiving Admin di `/admin/receiving/receiving/import-csv/` agar stok dan `Transaction(IN)` terbentuk dalam satu alur yang konsisten.
 - Import penerimaan mengelompokkan baris berdasarkan `document_number`; baris pertama menjadi header dokumen, sementara `sumber_dana_code` dan `location_code` per baris dapat override nilai header.
 - Kolom opsional `receiving_type` pada import penerimaan default ke `GRANT` bila tidak diisi.
