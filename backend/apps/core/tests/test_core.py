@@ -1016,6 +1016,18 @@ class ErrorHandlerTests(SimpleTestCase):
         self.assertContains(response, "400", status_code=400)
         self.assertContains(response, "Permintaan tidak dapat diproses", status_code=400)
 
+    def test_bad_request_handles_request_without_user_attribute(self):
+        request = self.factory.get("/bad-request/")
+        request.META["REMOTE_ADDR"] = "127.0.0.1"
+
+        with self.assertLogs("security", level="WARNING") as captured:
+            response = bad_request(request, ValueError("invalid host"))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Buka Login", status_code=400)
+        self.assertIn("username=anonymous", captured.output[0])
+        self.assertIn("event=bad_request", captured.output[0])
+
     def test_permission_denied_handler_renders_403_template(self):
         request = self.factory.get("/forbidden/")
         request.user = AnonymousUser()

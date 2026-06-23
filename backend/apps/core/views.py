@@ -38,7 +38,8 @@ def _get_client_ip(request):
 
 
 def _get_error_fallback(request):
-    if getattr(request.user, "is_authenticated", False):
+    request_user = getattr(request, "user", None)
+    if getattr(request_user, "is_authenticated", False):
         return reverse("dashboard"), "Buka Dashboard"
     return reverse("login"), "Buka Login"
 
@@ -60,9 +61,10 @@ def _build_error_context(request, status_code, title, message, icon, tone, help_
 
 def _log_error_event(logger, level, event, request, status_code, exception=None):
     log_method = getattr(logger, level)
+    request_user = getattr(request, "user", None)
     username = (
-        request.user.username
-        if getattr(request.user, "is_authenticated", False)
+        request_user.username
+        if getattr(request_user, "is_authenticated", False)
         else "anonymous"
     )
     message = (
