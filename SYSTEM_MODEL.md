@@ -141,6 +141,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `items.Category` (`categories`): `code`, `name`, `sort_order`
 - `items.FundingSource` (`funding_sources`): `code`, `name`, `description`, `is_active`
 - `items.Program` (`programs`): `code`, `name`, `description`, `is_active`
+- `items.TherapeuticClass` (`therapeutic_classes`): `code`, `name`, `description`, `is_active`
 - `items.Location` (`locations`): `code`, `name`, `description`, `is_active`
 - `items.Supplier` (`suppliers`): `code`, `name`, `address`, `phone`, `email`, `notes`, `is_active`
 - `items.Facility` (`facilities`): `code`, `name`, `address`, `phone`, `facility_type`, `is_active`
@@ -153,6 +154,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - `is_program_item` — designated program item `[P]`
   - `is_essential` — designated essential item `[E]`
   - `program` FK -> `Program` (nullable)
+  - M2M: `therapeutic_classes` -> `TherapeuticClass` (optional, multi-value reporting groups)
   - `minimum_stock`, `description`, `is_active`
   - Index: `idx_item_category_program` on `(kategori, is_program_item)`
 

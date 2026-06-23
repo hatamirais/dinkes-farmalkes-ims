@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }} — Healthcare IMS{% endblock %}
+{% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block extra_css %}
@@ -14,7 +14,8 @@
         <div class="card content-card" id="item-form-container"
             data-url-unit="{% url 'items:quick_create_unit' %}"
             data-url-category="{% url 'items:quick_create_category' %}"
-            data-url-program="{% url 'items:quick_create_program' %}">
+            data-url-program="{% url 'items:quick_create_program' %}"
+            data-url-therapeutic-class="{% url 'items:quick_create_therapeutic_class' %}">
             <div class="card-header">
                 <span><i class="bi bi-box-seam me-2"></i>{{ title }}</span>
             </div>
@@ -28,7 +29,7 @@
                         {{ field }}
                         <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
                         {% else %}
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
                             <label for="{{ field.id_for_label }}" class="form-label fw-semibold mb-0">{{ field.label }}</label>
                             {% if field.name == 'satuan' %}
                             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-satuan">
@@ -41,6 +42,10 @@
                             {% elif field.name == 'program' %}
                             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-program">
                                 <i class="bi bi-plus-lg me-1"></i>Tambah Program
+                            </button>
+                            {% elif field.name == 'therapeutic_classes' %}
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-therapeutic-class">
+                                <i class="bi bi-plus-lg me-1"></i>Tambah Terapi Obat
                             </button>
                             {% endif %}
                         </div>
@@ -67,7 +72,6 @@
     </div>
 </div>
 
-<!-- Modal: Tambah Satuan -->
 <div class="modal fade" id="modal-satuan" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -102,7 +106,6 @@
     </div>
 </div>
 
-<!-- Modal: Tambah Kategori -->
 <div class="modal fade" id="modal-kategori" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -134,7 +137,6 @@
     </div>
 </div>
 
-<!-- Modal: Tambah Program -->
 <div class="modal fade" id="modal-program" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -168,10 +170,43 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modal-therapeutic-class" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Terapi Obat Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="therapeutic-code" class="form-control form-control-sm" placeholder="ABX" maxlength="20">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="therapeutic-name" class="form-control form-control-sm" placeholder="Antibiotik">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Keterangan</label>
+                        <textarea id="therapeutic-description" class="form-control form-control-sm" rows="2" placeholder="Deskripsi terapi obat"></textarea>
+                    </div>
+                </div>
+                <div id="therapeutic-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-therapeutic">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'vendor/tom-select/tom-select.complete.min.js' %}"></script>
 <script src="{% static 'js/item-form.js' %}"></script>
 {% endblock %}
-

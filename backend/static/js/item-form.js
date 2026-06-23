@@ -1,35 +1,31 @@
 /**
- * Item form: TomSelect initialization, program toggle, and quick-create AJAX modals
- *
- * Expected data attributes on the form container (#item-form-container):
- *   data-url-unit     – quick create unit URL
- *   data-url-category – quick create category URL
- *   data-url-program  – quick create program URL
+ * Item form: TomSelect initialization, program toggle, and quick-create AJAX modals.
  */
 document.addEventListener('DOMContentLoaded', function () {
     var checkbox = document.getElementById('id_is_program_item');
     var programSelect = document.getElementById('id_program');
     var programField = programSelect ? programSelect.closest('.mb-3') : null;
 
-    function initTomSelect(selectId, placeholder, isRequired) {
+    function initTomSelect(selectId, placeholder, isRequired, config) {
         var select = document.getElementById(selectId);
         if (!select || typeof TomSelect === 'undefined') return null;
         if (isRequired && !select.value) select.selectedIndex = -1;
-        return new TomSelect(select, {
+        return new TomSelect(select, Object.assign({
             create: false,
             allowEmptyOption: !isRequired,
             maxOptions: 500,
             placeholder: placeholder,
             searchField: ['text'],
             sortField: [{ field: '$score' }, { field: 'text' }],
-        });
+        }, config || {}));
     }
 
     function toggleProgramField() {
         if (programField) programField.style.display = checkbox && checkbox.checked ? 'block' : 'none';
         if (programSelect) {
-            if (checkbox && checkbox.checked) { programSelect.required = true; }
-            else {
+            if (checkbox && checkbox.checked) {
+                programSelect.required = true;
+            } else {
                 programSelect.required = false;
                 if (programTom) programTom.clear(true);
                 else programSelect.value = '';
@@ -40,13 +36,15 @@ document.addEventListener('DOMContentLoaded', function () {
     var satuanTom = initTomSelect('id_satuan', 'Pilih atau cari satuan...', true);
     var kategoriTom = initTomSelect('id_kategori', 'Pilih atau cari kategori...', true);
     var programTom = initTomSelect('id_program', 'Pilih atau cari program...');
+    var therapeuticTom = initTomSelect('id_therapeutic_classes', 'Pilih atau cari terapi obat...', false, {
+        plugins: ['remove_button'],
+    });
 
     if (checkbox) {
         checkbox.addEventListener('change', toggleProgramField);
         toggleProgramField();
     }
 
-    // AJAX helpers
     function getCookie(name) {
         var val = null;
         document.cookie.split(';').forEach(function (c) {
@@ -56,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return val;
     }
 
-    function quickCreate(url, bodyStr, errorElId, modalId, tomInstance, fieldIds) {
+    function quickCreate(url, bodyStr, errorElId, modalId, tomInstance, fieldIds, options) {
         var errorEl = document.getElementById(errorElId);
         errorEl.classList.add('d-none');
         fetch(url, {
@@ -69,7 +67,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!result.ok) { errorEl.textContent = result.data.error; errorEl.classList.remove('d-none'); return; }
             if (tomInstance) {
                 tomInstance.addOption({value: String(result.data.id), text: result.data.text});
-                tomInstance.setValue(String(result.data.id));
+                if (options && options.multiple) tomInstance.addItem(String(result.data.id));
+                else tomInstance.setValue(String(result.data.id));
             }
             fieldIds.forEach(function (id) {
                 var el = document.getElementById(id);
@@ -79,13 +78,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Read URLs from data attributes on the container
     var container = document.getElementById('item-form-container');
     var urlUnit = container ? container.getAttribute('data-url-unit') : '';
     var urlCategory = container ? container.getAttribute('data-url-category') : '';
     var urlProgram = container ? container.getAttribute('data-url-program') : '';
+    var urlTherapeuticClass = container ? container.getAttribute('data-url-therapeutic-class') : '';
 
-    // Tambah Satuan
     var btnSaveUnit = document.getElementById('btn-save-unit');
     if (btnSaveUnit) {
         btnSaveUnit.addEventListener('click', function() {
@@ -97,7 +95,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Tambah Kategori
     var btnSaveCat = document.getElementById('btn-save-cat');
     if (btnSaveCat) {
         btnSaveCat.addEventListener('click', function() {
@@ -109,7 +106,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Tambah Program
     var btnSaveProg = document.getElementById('btn-save-prog');
     if (btnSaveProg) {
         btnSaveProg.addEventListener('click', function() {
@@ -118,6 +114,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 + '&name=' + encodeURIComponent(document.getElementById('prog-name').value.trim())
                 + '&description=' + encodeURIComponent(document.getElementById('prog-description').value.trim());
             quickCreate(urlProgram, body, 'prog-error', 'modal-program', programTom, ids);
+        });
+    }
+
+    var btnSaveTherapeutic = document.getElementById('btn-save-therapeutic');
+    if (btnSaveTherapeutic) {
+        btnSaveTherapeutic.addEventListener('click', function() {
+            var ids = ['therapeutic-code', 'therapeutic-name', 'therapeutic-description'];
+            var body = 'code=' + encodeURIComponent(document.getElementById('therapeutic-code').value.trim())
+                + '&name=' + encodeURIComponent(document.getElementById('therapeutic-name').value.trim())
+                + '&description=' + encodeURIComponent(document.getElementById('therapeutic-description').value.trim());
+            quickCreate(urlTherapeuticClass, body, 'therapeutic-error', 'modal-therapeutic-class', therapeuticTom, ids, {multiple: true});
         });
     }
 });

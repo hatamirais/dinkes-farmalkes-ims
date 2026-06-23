@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -7,7 +8,8 @@ from apps.core.models import TimeStampedModel
 
 
 def _normalize_spaces(value: str) -> str:
-    return " ".join(value.split())
+    normalized = unicodedata.normalize("NFC", value or "")
+    return " ".join(normalized.split())
 
 
 def _strip_picker_suffixes(value: str) -> str:
@@ -110,6 +112,31 @@ class Program(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
+class TherapeuticClass(TimeStampedModel):
+    """Drug therapeutic grouping lookup table for reporting."""
+
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "therapeutic_classes"
+        ordering = ["code"]
+        verbose_name = "Therapeutic Class"
+        verbose_name_plural = "Therapeutic Classes"
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        self.code = (self.code or "").strip().upper()
+        self.name = _normalize_spaces((self.name or "").strip())
+        self.description = _normalize_spaces((self.description or "").strip())
+        _validate_case_insensitive_name_uniqueness(self, TherapeuticClass)
+        super().save(*args, **kwargs)
+
+
 class Location(TimeStampedModel):
     """Storage location lookup table."""
 
@@ -204,6 +231,12 @@ class Item(TimeStampedModel):
         blank=True,
         related_name="items",
         help_text="Health program (TB, HIV, Malaria, etc.)",
+    )
+    therapeutic_classes = models.ManyToManyField(
+        TherapeuticClass,
+        blank=True,
+        related_name="items",
+        help_text="Drug therapeutic groups used for reporting.",
     )
     minimum_stock = models.DecimalField(
         max_digits=12,

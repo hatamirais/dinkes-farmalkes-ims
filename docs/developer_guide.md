@@ -56,6 +56,7 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `PRIVATE_MEDIA_ROOT`
 - `USER_BULK_ACTION_RATE_LIMIT`
 - `USER_MUTATION_RATE_LIMIT`
+- `ITEM_MUTATION_RATE_LIMIT`
 - `USER_PASSWORD_RESET_RATE_LIMIT`
 - `PASSWORD_CHANGE_RATE_LIMIT`
 - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`
@@ -75,6 +76,7 @@ Catatan:
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
 - Mutasi simpan/edit/hapus konfirmasi penerimaan Puskesmas (`/puskesmas/penerimaan/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas. Pratinjau pemuatan baris distribusi pada form buat berjalan lewat `GET` non-mutasi dan tidak memakai kuota ini. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap dibaca sebagai fallback kompatibilitas.
 - Mutasi pemakaian rinci Puskesmas (`/puskesmas/pemakaian/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas.
+- Mutasi create/update/delete barang dan quick-create lookup pada modul `items` juga memakai `django-ratelimit`; gunakan `ITEM_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator katalog tanpa memakan kuota mutasi modul `users`.
 - Mutasi impor XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) juga memakai `django-ratelimit`; gunakan `LPLPO_IMPORT_RATE_LIMIT` bila perlu menyesuaikan throughput input offline per operator.
 - Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
 
@@ -179,7 +181,7 @@ Saat file `VERSION` berubah di branch `main`, GitHub Actions menjalankan `.githu
 ## Seed dan Import
 
 - Template seed tersedia di `backend/seed/`.
-- Urutan import kanonis: `units -> categories -> funding_sources -> programs -> locations -> suppliers -> facilities -> items -> receiving`.
+- Urutan import kanonis: `units -> categories -> funding_sources -> programs -> therapeutic_classes -> locations -> suppliers -> facilities -> items -> receiving`.
 - Untuk stok awal, gunakan `receiving.csv` melalui endpoint import Receiving Admin di `/admin/receiving/receiving/import-csv/` agar stok dan `Transaction(IN)` terbentuk dalam satu alur yang konsisten.
 - Import penerimaan mengelompokkan baris berdasarkan `document_number`; baris pertama menjadi header dokumen, sementara `sumber_dana_code` dan `location_code` per baris dapat override nilai header.
 - Kolom opsional `receiving_type` pada import penerimaan default ke `GRANT` bila tidak diisi.
