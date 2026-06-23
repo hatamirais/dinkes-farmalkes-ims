@@ -8,10 +8,11 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from apps.core.decorators import perm_required
 from apps.core.rate_limits import item_mutation_ratelimit
+from .exports import export_items_excel
 from .forms import (
     CategoryForm,
     ItemForm,
@@ -49,9 +50,15 @@ def _json_form_errors(form):
     return " ".join(errors) or "Data tidak valid."
 
 
-@login_required
-@perm_required("items.view_item")
-def item_list(request):
+def _get_default_program():
+    return (
+        Program.objects.filter(code__iexact="DEFAULT").first()
+        or Program.objects.filter(name__iexact="DEFAULT").first()
+        or None
+    )
+
+
+def _get_filtered_items(request):
     queryset = (
         Item.objects.select_related("satuan", "kategori", "program")
         .prefetch_related("therapeutic_classes")
@@ -69,21 +76,43 @@ def item_list(request):
             | Q(therapeutic_classes__code__icontains=search)
         )
 
-    kategori = request.GET.get("kategori")
+    kategori = request.GET.get("kategori", "")
     if kategori:
         queryset = queryset.filter(kategori_id=kategori)
 
-    program = request.GET.get("program")
+    program = request.GET.get("program", "")
     if program == "1":
         queryset = queryset.filter(is_program_item=True)
     elif program == "0":
         queryset = queryset.filter(is_program_item=False)
 
-    therapeutic_class = request.GET.get("therapeutic_class")
+    essential = request.GET.get("essential", "")
+    if essential == "1":
+        queryset = queryset.filter(is_essential=True)
+    elif essential == "0":
+        queryset = queryset.filter(is_essential=False)
+
+    therapeutic_class = request.GET.get("therapeutic_class", "")
     if therapeutic_class:
         queryset = queryset.filter(therapeutic_classes__id=therapeutic_class)
 
-    queryset = queryset.distinct().order_by("kode_barang")
+    return queryset.distinct().order_by("kode_barang"), {
+        "search": search,
+        "kategori": kategori,
+        "program": program,
+        "essential": essential,
+        "therapeutic_class": therapeutic_class,
+    }
+
+
+@login_required
+@perm_required("items.view_item")
+def item_list(request):
+    queryset, filters = _get_filtered_items(request)
+    kategori = filters["kategori"]
+    program = filters["program"]
+    essential = filters["essential"]
+    therapeutic_class = filters["therapeutic_class"]
 
     paginator = Paginator(queryset, 25)
     page = request.GET.get("page")
@@ -106,12 +135,6 @@ def item_list(request):
         for tc in TherapeuticClass.objects.filter(is_active=True).order_by("name")
     ]
 
-    default_program = (
-        Program.objects.filter(code__iexact="DEFAULT").first()
-        or Program.objects.filter(name__iexact="DEFAULT").first()
-        or None
-    )
-
     return render(
         request,
         "items/item_list.html",
@@ -119,15 +142,26 @@ def item_list(request):
             "items": items,
             "categories": categories,
             "therapeutic_classes": therapeutic_classes,
-            "search": search,
+            "search": filters["search"],
             "selected_kategori": kategori or "",
             "selected_program": program or "",
+            "selected_essential": essential or "",
             "selected_therapeutic_class": therapeutic_class or "",
             "program_1_selected": "selected" if program == "1" else "",
             "program_0_selected": "selected" if program == "0" else "",
-            "default_program": default_program,
+            "essential_1_selected": "selected" if essential == "1" else "",
+            "essential_0_selected": "selected" if essential == "0" else "",
+            "default_program": _get_default_program(),
         },
     )
+
+
+@login_required
+@perm_required("items.view_item")
+@require_GET
+def item_export(request):
+    queryset, _filters = _get_filtered_items(request)
+    return export_items_excel(queryset, default_program=_get_default_program())
 
 
 @login_required

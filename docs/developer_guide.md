@@ -186,6 +186,7 @@ Saat file `VERSION` berubah di branch `main`, GitHub Actions menjalankan `.githu
 - Import penerimaan mengelompokkan baris berdasarkan `document_number`; baris pertama menjadi header dokumen, sementara `sumber_dana_code` dan `location_code` per baris dapat override nilai header.
 - Kolom opsional `receiving_type` pada import penerimaan default ke `GRANT` bila tidak diisi.
 - LPLPO draft/rejected mendukung input offline berbasis XLSX setelah dokumen bulanan dibuat dari flow situs biasa. Operator mengekspor workbook dari dokumen yang sudah ada, mengisi kolom editable secara offline, lalu mengimpornya kembali ke dokumen yang sama; `pemakaian` tetap dibaca dari modul Pemakaian Rinci dan seluruh nilai turunan dihitung ulang saat impor.
+- Modul `items` juga menyediakan export XLSX daftar barang aktif dari halaman daftar barang. Export mengikuti filter aktif (termasuk `Esensial`, program, kategori, terapi obat, dan pencarian) sehingga operator dapat menyiapkan data untuk aplikasi eksternal tanpa mengubah rule pemilihan item internal.
 
 Dokumen terkait:
 
