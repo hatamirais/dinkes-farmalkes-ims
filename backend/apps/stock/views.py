@@ -63,7 +63,7 @@ def _resolve_selected_id(value, allowed_ids):
 
 def _stock_expiry_badge(expiry_date, today, *, near_expiry_days=90):
     days_until_expiry = (expiry_date - today).days
-    if days_until_expiry < 0:
+    if days_until_expiry <= 0:
         return "text-bg-danger", "Kedaluwarsa", days_until_expiry
     if days_until_expiry <= near_expiry_days:
         return "text-bg-warning", f"≤{near_expiry_days} hari", days_until_expiry
@@ -138,19 +138,19 @@ def stock_list(request):
         quick = ""
 
     quick_counts = queryset.aggregate(
-        expired=Count("pk", filter=Q(expiry_date__lt=today)),
+        expired=Count("pk", filter=Q(expiry_date__lte=today)),
         expiring=Count(
             "pk",
-            filter=Q(expiry_date__gte=today, expiry_date__lte=warning_threshold),
+            filter=Q(expiry_date__gt=today, expiry_date__lte=warning_threshold),
         ),
         safe=Count("pk", filter=Q(expiry_date__gt=warning_threshold)),
     )
 
     if quick == "expired":
-        queryset = queryset.filter(expiry_date__lt=today)
+        queryset = queryset.filter(expiry_date__lte=today)
     elif quick == "expiring":
         queryset = queryset.filter(
-            expiry_date__gte=today,
+            expiry_date__gt=today,
             expiry_date__lte=warning_threshold,
         )
     elif quick == "safe":

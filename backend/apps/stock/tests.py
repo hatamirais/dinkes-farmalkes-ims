@@ -472,18 +472,35 @@ class StockListViewTests(TestCase):
             unit_price=Decimal('1000'),
             sumber_dana=self.funding_other,
         )
+        self.item_today = Item.objects.create(
+            kode_barang='ITM-TODAY',
+            nama_barang='Stok Hari Ini',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        self.today_stock = Stock.objects.create(
+            item=self.item_today,
+            location=self.location_a,
+            batch_lot='TODAY-01',
+            expiry_date=self.today,
+            quantity=Decimal('9'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_dau,
+        )
 
     def test_stock_list_exposes_read_only_table_and_whole_number_quantities(self):
         response = self.client.get(reverse('stock:stock_list'))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_list.html')
-        self.assertEqual(response.context['stock_stats']['total_entries'], 4)
-        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('42'))
+        self.assertEqual(response.context['stock_stats']['total_entries'], 5)
+        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('51'))
         self.assertEqual(response.context['stock_stats']['total_reserved'], Decimal('3'))
-        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('39'))
-        self.assertEqual(response.context['stock_stats']['attention_count'], 4)
-        self.assertEqual(response.context['quick_counts']['expired'], 1)
+        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('48'))
+        self.assertEqual(response.context['stock_stats']['attention_count'], 5)
+        self.assertEqual(response.context['quick_counts']['expired'], 2)
         self.assertEqual(response.context['quick_counts']['expiring'], 3)
         self.assertEqual(response.context['quick_counts']['safe'], 0)
 
@@ -491,18 +508,36 @@ class StockListViewTests(TestCase):
         self.assertEqual(stocks_by_batch['EXP-01'].expiry_badge_class, 'text-bg-danger')
         self.assertEqual(stocks_by_batch['WARN-01'].expiry_badge_class, 'text-bg-warning')
         self.assertEqual(stocks_by_batch['SAFE-01'].expiry_badge_class, 'text-bg-warning')
+        self.assertEqual(stocks_by_batch['TODAY-01'].expiry_badge_class, 'text-bg-danger')
         self.assertEqual(stocks_by_batch['EXP-01'].source_fund_badge_class, 'text-bg-warning')
         self.assertEqual(stocks_by_batch['WARN-01'].source_fund_badge_class, 'text-bg-info')
         self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
         self.assertContains(response, 'sticky-top')
-        self.assertContains(response, '>42<', html=False)
-        self.assertContains(response, '>39<', html=False)
+        self.assertContains(response, '>51<', html=False)
+        self.assertContains(response, '>48<', html=False)
         self.assertContains(response, '>20<', html=False)
         self.assertNotContains(response, 'Ada Reserved')
         self.assertNotContains(response, 'stock-bulk-bar')
         self.assertNotContains(response, 'data-row-actions')
         self.assertNotContains(response, 'data-row-checkbox')
         self.assertNotContains(response, 'Reserved')
+
+
+    def test_stock_list_treats_today_expiry_as_expired(self):
+        response = self.client.get(
+            reverse('stock:stock_list'),
+            {'quick': 'expired'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['selected_quick'], 'expired')
+        self.assertEqual(response.context['quick_counts']['expired'], 2)
+        self.assertEqual(
+            [stock.batch_lot for stock in response.context['stocks'].object_list],
+            ['EXP-01', 'TODAY-01'],
+        )
+        self.assertContains(response, 'TODAY-01')
+        self.assertNotContains(response, 'WARN-01')
 
     def test_stock_list_filters_by_quick_filter_and_expiry_range(self):
         response = self.client.get(
@@ -544,4 +579,4 @@ class StockListViewTests(TestCase):
         self.assertEqual(response.context['selected_quick'], '')
         self.assertIsNone(response.context['expiry_from'])
         self.assertIsNone(response.context['expiry_to'])
-        self.assertEqual(response.context['stocks'].paginator.count, 4)
+        self.assertEqual(response.context['stocks'].paginator.count, 5)
