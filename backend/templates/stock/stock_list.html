@@ -1,105 +1,199 @@
 {% extends "base.html" %}
+{% load number_format %}
 
 {% block title %}Stok Barang - Healthcare IMS{% endblock %}
 {% block page_title %}Stok Barang{% endblock %}
 
 {% block content %}
-<div class="table-container">
-    <div class="table-header">
-        <h5><i class="bi bi-boxes me-2"></i>Stok Barang</h5>
-    </div>
+<div class="d-flex flex-column gap-4">
+    <section class="row g-3">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-muted small fw-semibold mb-2">Batch Aktif</div>
+                    <div class="fs-3 fw-bold">{{ stock_stats.total_entries }}</div>
+                    <div class="text-muted small">Setelah filter aktif</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-muted small fw-semibold mb-2">Total Kuantitas</div>
+                    <div class="fs-3 fw-bold">{{ stock_stats.total_quantity|id_decimal:0 }}</div>
+                    <div class="text-muted small">Stok fisik lintas batch</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-muted small fw-semibold mb-2">Tersedia</div>
+                    <div class="fs-3 fw-bold">{{ stock_stats.total_available|id_decimal:0 }}</div>
+                    <div class="text-muted small">Total stok yang dapat dipakai</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-muted small fw-semibold mb-2">Perlu Perhatian</div>
+                    <div class="fs-3 fw-bold">{{ stock_stats.attention_count }}</div>
+                    <div class="text-muted small">Kedaluwarsa atau ≤90 hari</div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    <div class="px-3 py-2 border-bottom bg-light">
-        <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari barang/batch..." value="{{ search }}">
-            <select name="location" class="form-select">
-                <option value="">Semua Lokasi</option>
-                {% for loc in locations %}
-                <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
-                {% endfor %}
-            </select>
-            <select name="sumber_dana" class="form-select">
-                <option value="">Semua Sumber Dana</option>
-                {% for sd in funding_sources %}
-                <option value="{{ sd.id }}" {{ sd.selected }}>{{ sd.name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
-            {% if search or selected_location or selected_sumber_dana %}
-            <a href="{% url 'stock:stock_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
-            {% endif %}
-        </form>
-    </div>
+    <section class="card shadow-sm border-0">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-3 d-flex flex-column gap-3">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                <div>
+                    <h5 class="mb-1"><i class="bi bi-boxes me-2"></i>Stok Barang</h5>
+                    <p class="text-muted mb-0">Pantau batch, lokasi, sumber dana, dan risiko kedaluwarsa dalam satu tabel ringkas.</p>
+                </div>
+                <div class="d-flex align-items-center gap-2 text-muted small">
+                    <span class="badge text-bg-light border">{{ stocks.paginator.count }} baris</span>
+                    <span class="badge text-bg-light border">25 per halaman</span>
+                </div>
+            </div>
 
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Kode</th>
-                    <th>Nama Barang</th>
-                    <th>Lokasi</th>
-                    <th>Batch/Lot</th>
-                    <th>Tanggal Kedaluwarsa</th>
-                    <th class="text-end">Kuantitas</th>
-                    <th class="text-end">Reserved</th>
-                    <th>Sumber Dana</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for stock in stocks %}
-                <tr>
-                    <td><code>{{ stock.item.kode_barang }}</code></td>
-                    <td>{{ stock.item.nama_barang }}</td>
-                    <td>{{ stock.location.name }}</td>
-                    <td>{{ stock.batch_lot }}</td>
-                    <td>
-                        {% if stock.is_expired %}
-                        <span class="text-danger fw-bold">{{ stock.expiry_date|date:"d/m/Y" }}</span>
-                        {% elif stock.is_near_expiry %}
-                        <span class="text-warning">{{ stock.expiry_date|date:"d/m/Y" }}</span>
-                        {% else %}
-                        {{ stock.expiry_date|date:"d/m/Y" }}
+            <form method="get" class="row g-2 align-items-end">
+                {% if selected_quick %}
+                <input type="hidden" name="quick" value="{{ selected_quick }}">
+                {% endif %}
+                <div class="col-12 col-lg-3">
+                    <label for="stock-search" class="form-label small text-muted mb-1">Pencarian</label>
+                    <input id="stock-search" type="text" name="q" class="form-control" placeholder="Cari kode, nama, atau batch" value="{{ search }}">
+                </div>
+                <div class="col-12 col-md-4 col-lg-2">
+                    <label for="stock-location" class="form-label small text-muted mb-1">Lokasi</label>
+                    <select id="stock-location" name="location" class="form-select">
+                        <option value="">Semua Lokasi</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-lg-2">
+                    <label for="stock-funding" class="form-label small text-muted mb-1">Sumber Dana</label>
+                    <select id="stock-funding" name="sumber_dana" class="form-select">
+                        <option value="">Semua Sumber Dana</option>
+                        {% for sd in funding_sources %}
+                        <option value="{{ sd.id }}" {{ sd.selected }}>{{ sd.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2 col-lg-2">
+                    <label for="expiry-from" class="form-label small text-muted mb-1">ED Dari</label>
+                    <input id="expiry-from" type="date" name="expiry_from" class="form-control" value="{% if expiry_from %}{{ expiry_from|date:'Y-m-d' }}{% endif %}">
+                </div>
+                <div class="col-6 col-md-2 col-lg-2">
+                    <label for="expiry-to" class="form-label small text-muted mb-1">ED Sampai</label>
+                    <input id="expiry-to" type="date" name="expiry_to" class="form-control" value="{% if expiry_to %}{{ expiry_to|date:'Y-m-d' }}{% endif %}">
+                </div>
+                <div class="col-12 col-lg-1 d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search me-1"></i>Filter
+                    </button>
+                </div>
+                {% if search or selected_location or selected_sumber_dana or expiry_from or expiry_to or selected_quick %}
+                <div class="col-12 col-lg-12 d-flex justify-content-end">
+                    <a href="{% url 'stock:stock_list' %}" class="btn btn-outline-secondary btn-sm">Reset filter</a>
+                </div>
+                {% endif %}
+            </form>
+
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% querystring quick='' page=None %}" class="btn btn-sm {% if not selected_quick %}btn-dark{% else %}btn-outline-secondary{% endif %} rounded-pill">
+                    Semua
+                </a>
+                <a href="{% querystring quick='expired' page=None %}" class="btn btn-sm {% if selected_quick == 'expired' %}btn-danger{% else %}btn-outline-danger{% endif %} rounded-pill">
+                    Kedaluwarsa <span class="badge {% if selected_quick == 'expired' %}text-bg-light{% else %}text-bg-danger{% endif %} ms-1">{{ quick_counts.expired }}</span>
+                </a>
+                <a href="{% querystring quick='expiring' page=None %}" class="btn btn-sm {% if selected_quick == 'expiring' %}btn-warning{% else %}btn-outline-warning{% endif %} rounded-pill">
+                    ≤90 Hari <span class="badge {% if selected_quick == 'expiring' %}text-bg-light{% else %}text-bg-warning{% endif %} ms-1">{{ quick_counts.expiring }}</span>
+                </a>
+                <a href="{% querystring quick='safe' page=None %}" class="btn btn-sm {% if selected_quick == 'safe' %}btn-success{% else %}btn-outline-success{% endif %} rounded-pill">
+                    Aman <span class="badge {% if selected_quick == 'safe' %}text-bg-light{% else %}text-bg-success{% endif %} ms-1">{{ quick_counts.safe }}</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 65vh;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 260px;">Barang</th>
+                            <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 180px;">Lokasi</th>
+                            <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 140px;">Batch / Lot</th>
+                            <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 160px;">Tanggal Kedaluwarsa</th>
+                            <th class="sticky-top bg-light text-end" style="top: 0; z-index: 1; min-width: 120px;">Kuantitas</th>
+                            <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 140px;">Sumber Dana</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in stocks %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ stock.item.nama_barang }}</div>
+                                <div class="small text-muted d-flex flex-wrap gap-2">
+                                    <code>{{ stock.item.kode_barang }}</code>
+                                    <span>{{ stock.item.satuan.name }}</span>
+                                </div>
+                            </td>
+                            <td>{{ stock.location.name }}</td>
+                            <td><span class="font-monospace">{{ stock.batch_lot }}</span></td>
+                            <td>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span>{{ stock.expiry_date|date:"d/m/Y" }}</span>
+                                    <span class="badge {{ stock.expiry_badge_class }}">{{ stock.expiry_badge_label }}</span>
+                                </div>
+                            </td>
+                            <td class="text-end fw-semibold">{{ stock.quantity|id_decimal:0 }}</td>
+                            <td><span class="badge {{ stock.source_fund_badge_class }}">{{ stock.sumber_dana.name }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div class="d-flex flex-column align-items-center gap-2 text-muted">
+                                    <i class="bi bi-inbox fs-1"></i>
+                                    <div class="fw-semibold">Belum ada data stok yang cocok dengan filter.</div>
+                                    <div class="small">Coba ubah kata kunci, tanggal kedaluwarsa, atau quick filter.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if stocks.has_other_pages %}
+        <div class="card-footer bg-white border-0 px-4 py-3 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+            <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count }} baris</small>
+            <nav aria-label="Paginasi stok">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if stocks.has_previous %}
+                    <li class="page-item"><a class="page-link" href="{% querystring page=1 %}">&laquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="{% querystring page=stocks.previous_page_number %}">Sebelumnya</a></li>
+                    {% endif %}
+                    {% for num in stocks.paginator.page_range %}
+                        {% if num == stocks.number %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num >= stocks.number|add:'-2' and num <= stocks.number|add:'2' %}
+                        <li class="page-item"><a class="page-link" href="{% querystring page=num %}">{{ num }}</a></li>
                         {% endif %}
-                    </td>
-                    <td class="text-end fw-semibold">{{ stock.quantity }}</td>
-                    <td class="text-end">{{ stock.reserved }}</td>
-                    <td><span class="badge bg-light text-dark border">{{ stock.sumber_dana.name }}</span></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8">
-                        <div class="empty-state">
-                            <i class="bi bi-inbox d-block"></i>
-                            <p>Belum ada data stok</p>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    {% if stocks.has_other_pages %}
-    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">{{ stocks.start_index }}-{{ stocks.end_index }} dari {{ stocks.paginator.count
-            }}</small>
-        <nav>
-            <ul class="pagination pagination-sm mb-0">
-                {% if stocks.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ stocks.previous_page_number }}">&laquo;</a>
-                </li>
-                {% endif %}
-                {% for num in stocks.paginator.page_range %}
-                {% if stocks.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% endif %}
-                {% endfor %}
-                {% if stocks.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ stocks.next_page_number }}">&raquo;</a></li>
-                {% endif %}
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
+                    {% endfor %}
+                    {% if stocks.has_next %}
+                    <li class="page-item"><a class="page-link" href="{% querystring page=stocks.next_page_number %}">Berikutnya</a></li>
+                    <li class="page-item"><a class="page-link" href="{% querystring page=stocks.paginator.num_pages %}">&raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </section>
 </div>
 {% endblock %}

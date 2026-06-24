@@ -11,7 +11,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 | Item | Value |
 | --- | --- |
 | Python | 3.13+ |
-| Django | 6.0.5 |
+| Django | 6.0.6 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | None (In-Memory / LocMemCache) |
 | UI | Django templates + Bootstrap 5 |
@@ -216,6 +216,7 @@ Before opening a PR, verify:
 ### Validation
 
 URL consistency tests in `apps.core.tests.test_url_consistency` automatically verify:
+
 - All URL patterns end with trailing slashes
 - No hardcoded test URLs are missing trailing slashes
 
