@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 from django.test import SimpleTestCase
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -55,6 +56,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
         self.assertIn("'@BATCH-01", csv_output)
         self.assertIn(self.item.kode_barang, csv_output)
 
+@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockCardTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
@@ -381,3 +383,165 @@ class StockTransferModelTests(SimpleTestCase):
             exc.exception.message_dict["quantity"],
             ["Jumlah mutasi tidak boleh NaN atau Infinity."],
         )
+
+@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
+class StockListViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username='stock-list-admin',
+            password='secret12345',
+        )
+        self.client.force_login(self.user)
+
+        self.unit = Unit.objects.create(code='TAB2', name='Tablet 2')
+        self.category = Category.objects.create(code='OBT2', name='Obat 2', sort_order=1)
+        self.location_a = Location.objects.create(code='LOC-A', name='Gudang A')
+        self.location_b = Location.objects.create(code='LOC-B', name='Gudang B')
+        self.funding_hibah = FundingSource.objects.create(code='HIBAH', name='Hibah')
+        self.funding_dau = FundingSource.objects.create(code='DAU', name='Dana Alokasi Umum')
+        self.funding_pad = FundingSource.objects.create(code='PAD', name='Pendapatan Asli Daerah')
+        self.funding_other = FundingSource.objects.create(code='APBD', name='APBD')
+        self.today = timezone.localdate()
+
+        self.item_expired = Item.objects.create(
+            kode_barang='ITM-EXPIRED',
+            nama_barang='Stok Expired',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        self.item_expiring = Item.objects.create(
+            kode_barang='ITM-EXPIRING',
+            nama_barang='Stok Warning',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        self.item_safe = Item.objects.create(
+            kode_barang='ITM-SAFE',
+            nama_barang='Stok Aman',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        self.item_other = Item.objects.create(
+            kode_barang='ITM-OTHER',
+            nama_barang='Stok Lain',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+
+        self.expired_stock = Stock.objects.create(
+            item=self.item_expired,
+            location=self.location_a,
+            batch_lot='EXP-01',
+            expiry_date=self.today - timedelta(days=3),
+            quantity=Decimal('10'),
+            reserved=Decimal('2'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_hibah,
+        )
+        self.expiring_stock = Stock.objects.create(
+            item=self.item_expiring,
+            location=self.location_a,
+            batch_lot='WARN-01',
+            expiry_date=self.today + timedelta(days=10),
+            quantity=Decimal('5'),
+            reserved=Decimal('1'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_dau,
+        )
+        self.safe_stock = Stock.objects.create(
+            item=self.item_safe,
+            location=self.location_a,
+            batch_lot='SAFE-01',
+            expiry_date=self.today + timedelta(days=45),
+            quantity=Decimal('20'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_pad,
+        )
+        self.other_stock = Stock.objects.create(
+            item=self.item_other,
+            location=self.location_b,
+            batch_lot='OTHER-01',
+            expiry_date=self.today + timedelta(days=70),
+            quantity=Decimal('7'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_other,
+        )
+
+    def test_stock_list_exposes_read_only_table_and_whole_number_quantities(self):
+        response = self.client.get(reverse('stock:stock_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'stock/stock_list.html')
+        self.assertEqual(response.context['stock_stats']['total_entries'], 4)
+        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('42'))
+        self.assertEqual(response.context['stock_stats']['total_reserved'], Decimal('3'))
+        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('39'))
+        self.assertEqual(response.context['stock_stats']['attention_count'], 4)
+        self.assertEqual(response.context['quick_counts']['expired'], 1)
+        self.assertEqual(response.context['quick_counts']['expiring'], 3)
+        self.assertEqual(response.context['quick_counts']['safe'], 0)
+
+        stocks_by_batch = {stock.batch_lot: stock for stock in response.context['stocks'].object_list}
+        self.assertEqual(stocks_by_batch['EXP-01'].expiry_badge_class, 'text-bg-danger')
+        self.assertEqual(stocks_by_batch['WARN-01'].expiry_badge_class, 'text-bg-warning')
+        self.assertEqual(stocks_by_batch['SAFE-01'].expiry_badge_class, 'text-bg-warning')
+        self.assertEqual(stocks_by_batch['EXP-01'].source_fund_badge_class, 'text-bg-warning')
+        self.assertEqual(stocks_by_batch['WARN-01'].source_fund_badge_class, 'text-bg-info')
+        self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
+        self.assertContains(response, 'sticky-top')
+        self.assertContains(response, '>42<', html=False)
+        self.assertContains(response, '>39<', html=False)
+        self.assertContains(response, '>20<', html=False)
+        self.assertNotContains(response, 'Ada Reserved')
+        self.assertNotContains(response, 'stock-bulk-bar')
+        self.assertNotContains(response, 'data-row-actions')
+        self.assertNotContains(response, 'data-row-checkbox')
+        self.assertNotContains(response, 'Reserved')
+
+    def test_stock_list_filters_by_quick_filter_and_expiry_range(self):
+        response = self.client.get(
+            reverse('stock:stock_list'),
+            {
+                'quick': 'expiring',
+                'expiry_from': (self.today + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'expiry_to': (self.today + timedelta(days=90)).strftime('%Y-%m-%d'),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['selected_quick'], 'expiring')
+        self.assertEqual(
+            [stock.batch_lot for stock in response.context['stocks'].object_list],
+            ['SAFE-01', 'OTHER-01', 'WARN-01'],
+        )
+        self.assertEqual(response.context['stock_stats']['total_entries'], 3)
+        self.assertContains(response, 'WARN-01')
+        self.assertContains(response, 'SAFE-01')
+        self.assertContains(response, 'OTHER-01')
+        self.assertNotContains(response, 'EXP-01')
+
+    def test_stock_list_ignores_invalid_filter_values(self):
+        response = self.client.get(
+            reverse('stock:stock_list'),
+            {
+                'location': 'abc',
+                'sumber_dana': '999999',
+                'expiry_from': '2026-99-99',
+                'expiry_to': '0001-01-01',
+                'quick': 'unknown',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['selected_location'], '')
+        self.assertEqual(response.context['selected_sumber_dana'], '')
+        self.assertEqual(response.context['selected_quick'], '')
+        self.assertIsNone(response.context['expiry_from'])
+        self.assertIsNone(response.context['expiry_to'])
+        self.assertEqual(response.context['stocks'].paginator.count, 4)
