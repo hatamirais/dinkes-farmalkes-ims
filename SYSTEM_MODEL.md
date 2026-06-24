@@ -310,7 +310,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Period type: `MONTHLY`, `QUARTERLY`, `SEMESTER`, `YEARLY`
   - Status: `DRAFT`, `IN_PROGRESS`, `COMPLETED`
   - Fields: `document_number` (auto-generated `SO-YYYYMM-XXXXX` when blank), `period_start`, `period_end`, `notes`, `completed_at`
-  - FK: `created_by`
+  - FK: `created_by`, `completed_by` (nullable)
   - M2M: `categories` -> `items.Category`, `assigned_to` -> `users.User`
 
 - `stock_opname.StockOpnameItem` (`stock_opname_items`):
@@ -421,7 +421,7 @@ Operational mutation points (from app behavior and admin import logic):
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
-- Stock opname completion currently records workflow completion only (`status=COMPLETED`, `completed_at`) and does not mutate `Stock` or write `Transaction` rows
+- Stock opname completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, and `completed_at`, and does not mutate `Stock` or write `Transaction` rows
 - Allocation:
   - Approval phase auto-generates `Distribution(type=ALLOCATION, status=VERIFIED)` per facility — no stock mutation at this point
   - Per-distribution delivery confirmation decreases `Stock.quantity` and posts `Transaction(OUT, reference_type=ALLOCATION, reference_id=allocation.pk)`

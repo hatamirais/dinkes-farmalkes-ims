@@ -48,6 +48,14 @@
                             <dt class="col-5">Tanggal Dibuat</dt>
                             <dd class="col-7">{{ opname.created_at|date:"d/m/Y H:i" }}</dd>
                             {% if opname.completed_at %}
+                            <dt class="col-5">Diselesaikan Oleh</dt>
+                            <dd class="col-7">
+                                {% if opname.completed_by %}
+                                {{ opname.completed_by.full_name|default:opname.completed_by.username }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </dd>
                             <dt class="col-5">Selesai Pada</dt>
                             <dd class="col-7">{{ opname.completed_at|date:"d/m/Y H:i" }}</dd>
                             {% endif %}

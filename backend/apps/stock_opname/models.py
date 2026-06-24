@@ -42,6 +42,13 @@ class StockOpname(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name='created_stock_opnames',
     )
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='completed_stock_opnames',
+    )
     completed_at = models.DateTimeField(null=True, blank=True)
     categories = models.ManyToManyField(
         'items.Category',
