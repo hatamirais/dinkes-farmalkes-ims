@@ -442,6 +442,8 @@ def opname_print(request, pk):
             }
         locations[loc.pk]["items"].append(item)
 
+    from apps.core.models import SystemSettings
+
     return render(
         request,
         "stock_opname/opname_print.html",
@@ -450,6 +452,7 @@ def opname_print(request, pk):
             "locations": locations.values(),
             "total_discrepancies": discrepancy_items.count(),
             "print_date": timezone.now(),
+            "system_settings": SystemSettings.get_settings(),
         },
     )
 

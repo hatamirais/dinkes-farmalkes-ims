@@ -146,7 +146,7 @@ class StockOpname(TimeStampedModel):
         return int((self.counted_items / total) * 100)
 
 
-class StockOpnameItem(models.Model):
+class StockOpnameItem(TimeStampedModel):
     """Individual item row for a stock opname session."""
 
     stock_opname = models.ForeignKey(

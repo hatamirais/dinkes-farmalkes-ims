@@ -336,3 +336,53 @@ class StockOpnameModelTests(StockOpnameTestMixin, TestCase):
                 opname.save()
 
         self.assertEqual(generate_mock.call_count, 1)
+
+
+class StockOpnameMinorTests(StockOpnameTestMixin, TestCase):
+    def test_opname_detail_notes_rendering_with_linebreaks(self):
+        opname = self.create_opname()
+        opname.notes = "Line 1\nLine 2"
+        opname.save()
+        
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("stock_opname:opname_detail", args=[opname.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Line 1<br>Line 2")
+
+    def test_opname_print_context_carries_system_settings(self):
+        opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        # Create at least one discrepancy so it renders
+        StockOpnameItem.objects.create(
+            stock_opname=opname,
+            stock=self.stock,
+            system_quantity=Decimal("100"),
+            actual_quantity=Decimal("90"),
+        )
+        from apps.core.models import SystemSettings
+        settings = SystemSettings.get_settings()
+        settings.header_title = "Dinkes Test Header"
+        settings.facility_name = "Puskesmas Test Facility"
+        settings.save()
+
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("stock_opname:opname_print", args=[opname.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dinkes Test Header")
+        self.assertContains(response, "Puskesmas Test Facility")
+
+    def test_stock_opname_item_is_timestamped(self):
+        opname = self.create_opname()
+        item = StockOpnameItem.objects.create(
+            stock_opname=opname,
+            stock=self.stock,
+            system_quantity=Decimal("100"),
+        )
+        self.assertIsNotNone(item.created_at)
+        self.assertIsNotNone(item.updated_at)
+
