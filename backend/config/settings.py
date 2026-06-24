@@ -243,18 +243,21 @@ PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = os.getenv(
     "PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT", "20/m"
 )
 LPLPO_IMPORT_RATE_LIMIT = os.getenv("LPLPO_IMPORT_RATE_LIMIT", "5/h")
-STOCK_OPNAME_MUTATION_RATE_LIMIT = os.getenv("STOCK_OPNAME_MUTATION_RATE_LIMIT", "20/m")
+_raw_stock_opname_mutation_rate_limit = os.getenv("STOCK_OPNAME_MUTATION_RATE_LIMIT")
+STOCK_OPNAME_MUTATION_RATE_LIMIT = (
+    _raw_stock_opname_mutation_rate_limit or "20/m"
+)
 STOCK_OPNAME_FORM_RATE_LIMIT = os.getenv(
     "STOCK_OPNAME_FORM_RATE_LIMIT",
-    STOCK_OPNAME_MUTATION_RATE_LIMIT,
+    _raw_stock_opname_mutation_rate_limit or "20/m",
 )
 STOCK_OPNAME_INPUT_RATE_LIMIT = os.getenv(
     "STOCK_OPNAME_INPUT_RATE_LIMIT",
-    STOCK_OPNAME_MUTATION_RATE_LIMIT,
+    _raw_stock_opname_mutation_rate_limit or "60/m",
 )
 STOCK_OPNAME_WORKFLOW_RATE_LIMIT = os.getenv(
     "STOCK_OPNAME_WORKFLOW_RATE_LIMIT",
-    STOCK_OPNAME_MUTATION_RATE_LIMIT,
+    _raw_stock_opname_mutation_rate_limit or "20/m",
 )
 
 # ─── Production Security (enabled when DEBUG=False) ──────────────────

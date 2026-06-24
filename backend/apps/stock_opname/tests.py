@@ -1,4 +1,6 @@
 from datetime import date
+import importlib
+import os
 from decimal import Decimal
 from unittest import mock
 
@@ -70,6 +72,56 @@ class StockOpnameTestMixin:
         opname.categories.add(self.category)
         return opname
 
+
+
+
+class StockOpnameSettingsResolutionTests(TestCase):
+    def test_input_rate_defaults_to_60_when_only_legacy_default_is_used(self):
+        env = {
+            "DJANGO_SECRET_KEY": "test-secret",
+            "DEBUG": "False",
+        }
+        with mock.patch.dict(os.environ, env, clear=True):
+            from config import settings as project_settings
+
+            reloaded = importlib.reload(project_settings)
+
+            self.assertEqual(reloaded.STOCK_OPNAME_MUTATION_RATE_LIMIT, "20/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_FORM_RATE_LIMIT, "20/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_INPUT_RATE_LIMIT, "60/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_WORKFLOW_RATE_LIMIT, "20/m")
+
+    def test_input_rate_inherits_explicit_legacy_override_when_new_var_is_missing(self):
+        env = {
+            "DJANGO_SECRET_KEY": "test-secret",
+            "DEBUG": "False",
+            "STOCK_OPNAME_MUTATION_RATE_LIMIT": "45/m",
+        }
+        with mock.patch.dict(os.environ, env, clear=True):
+            from config import settings as project_settings
+
+            reloaded = importlib.reload(project_settings)
+
+            self.assertEqual(reloaded.STOCK_OPNAME_MUTATION_RATE_LIMIT, "45/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_FORM_RATE_LIMIT, "45/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_INPUT_RATE_LIMIT, "45/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_WORKFLOW_RATE_LIMIT, "45/m")
+
+    def test_input_rate_prefers_explicit_new_bucket_override(self):
+        env = {
+            "DJANGO_SECRET_KEY": "test-secret",
+            "DEBUG": "False",
+            "STOCK_OPNAME_MUTATION_RATE_LIMIT": "45/m",
+            "STOCK_OPNAME_INPUT_RATE_LIMIT": "75/m",
+        }
+        with mock.patch.dict(os.environ, env, clear=True):
+            from config import settings as project_settings
+
+            reloaded = importlib.reload(project_settings)
+
+            self.assertEqual(reloaded.STOCK_OPNAME_INPUT_RATE_LIMIT, "75/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_FORM_RATE_LIMIT, "45/m")
+            self.assertEqual(reloaded.STOCK_OPNAME_WORKFLOW_RATE_LIMIT, "45/m")
 
 class StockOpnameAccessAndWorkflowTests(StockOpnameTestMixin, TestCase):
     def test_detail_shows_missing_categories_for_legacy_rows(self):
