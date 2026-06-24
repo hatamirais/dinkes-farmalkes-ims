@@ -3,7 +3,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.models import TimeStampedModel
@@ -306,6 +306,254 @@ class StockOpnameInputValidationTests(StockOpnameTestMixin, TestCase):
             )
         )
 
+
+    def test_input_rejects_null_byte_notes(self):
+        self.client.force_login(self.gudang)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            {
+                f"qty_{self.opname_item.pk}": "95",
+                f"notes_{self.opname_item.pk}": "bad\x00note",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.opname_item.refresh_from_db()
+        self.assertIsNone(self.opname_item.actual_quantity)
+        self.assertContains(
+            response,
+            "Karakter null tidak diizinkan.",
+            status_code=400,
+        )
+
+    def test_input_rejects_invalid_location_filter_on_get(self):
+        self.client.force_login(self.gudang)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            {"location": "not-an-integer"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Permintaan tidak dapat diproses", status_code=400)
+
+    def test_input_rejects_invalid_location_filter_on_post(self):
+        self.client.force_login(self.gudang)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            {
+                "location": "not-an-integer",
+                f"qty_{self.opname_item.pk}": "90",
+                f"notes_{self.opname_item.pk}": "Rak depan",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Permintaan tidak dapat diproses", status_code=400)
+
+
+    def test_input_page_shows_row_note_limit_help_text(self):
+        self.client.force_login(self.gudang)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Maksimal 255 karakter.")
+
+
+class StockOpnameListAndFormValidationTests(StockOpnameTestMixin, TestCase):
+    def test_list_rejects_invalid_status_filter(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_list"),
+            {"status": "INVALID"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Permintaan tidak dapat diproses", status_code=400)
+
+    def test_list_rejects_invalid_period_filter(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_list"),
+            {"period": "INVALID"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Permintaan tidak dapat diproses", status_code=400)
+
+    def test_create_rejects_null_byte_notes(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_create"),
+            {
+                "period_type": StockOpname.PeriodType.MONTHLY,
+                "period_start": "2026-03-01",
+                "period_end": "2026-03-31",
+                "categories": [str(self.category.pk)],
+                "assigned_to": [str(self.gudang.pk)],
+                "notes": "catatan\x00rusak",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Karakter null tidak diizinkan.")
+        self.assertEqual(StockOpname.objects.count(), 0)
+
+    def test_create_rejects_out_of_range_period_year(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_create"),
+            {
+                "period_type": StockOpname.PeriodType.MONTHLY,
+                "period_start": "0999-03-01",
+                "period_end": "2026-03-31",
+                "categories": [str(self.category.pk)],
+                "assigned_to": [str(self.gudang.pk)],
+                "notes": "ok",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tahun tanggal mulai tidak valid.")
+        self.assertEqual(StockOpname.objects.count(), 0)
+
+
+    def test_create_form_shows_header_note_limit_help_text(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_create"),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Maksimal 1000 karakter.")
+
+
+@override_settings(
+    STOCK_OPNAME_FORM_RATE_LIMIT="1/m",
+    STOCK_OPNAME_INPUT_RATE_LIMIT="1/m",
+    STOCK_OPNAME_WORKFLOW_RATE_LIMIT="1/m",
+    RATELIMIT_USE_CACHE="locmem",
+)
+class StockOpnameMutationRateLimitTests(StockOpnameTestMixin, TestCase):
+    def test_create_returns_429_when_form_rate_limited(self):
+        self.client.force_login(self.admin)
+        payload = {
+            "period_type": StockOpname.PeriodType.MONTHLY,
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "categories": [str(self.category.pk)],
+            "assigned_to": [str(self.gudang.pk)],
+            "notes": "Sesi pertama",
+        }
+
+        first = self.client.post(
+            reverse("stock_opname:opname_create"),
+            payload,
+            secure=True,
+        )
+        payload["period_start"] = "2026-04-01"
+        payload["period_end"] = "2026-04-30"
+        payload["notes"] = "Sesi kedua"
+        second = self.client.post(
+            reverse("stock_opname:opname_create"),
+            payload,
+            secure=True,
+        )
+
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(second.status_code, 429)
+        self.assertContains(second, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+    def test_workflow_bucket_can_rate_limit_complete(self):
+        warmup = self.create_opname()
+        target = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        StockOpnameItem.objects.create(
+            stock_opname=target,
+            stock=self.stock,
+            system_quantity=Decimal("100"),
+            actual_quantity=Decimal("100"),
+        )
+        self.client.force_login(self.admin)
+
+        started = self.client.post(
+            reverse("stock_opname:opname_start", args=[warmup.pk]),
+            secure=True,
+        )
+        throttled = self.client.post(
+            reverse("stock_opname:opname_complete", args=[target.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(started.status_code, 302)
+        self.assertEqual(throttled.status_code, 429)
+        self.assertContains(throttled, "Terlalu banyak percobaan pada aksi ini", status_code=429)
+
+
+@override_settings(
+    STOCK_OPNAME_FORM_RATE_LIMIT="10/m",
+    STOCK_OPNAME_INPUT_RATE_LIMIT="1/m",
+    STOCK_OPNAME_WORKFLOW_RATE_LIMIT="10/m",
+    RATELIMIT_USE_CACHE="locmem",
+)
+class StockOpnameRateLimitSeparationTests(StockOpnameTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        self.opname_item = StockOpnameItem.objects.create(
+            stock_opname=self.opname,
+            stock=self.stock,
+            system_quantity=Decimal("100"),
+        )
+
+    def test_input_rate_limit_does_not_block_complete(self):
+        self.client.force_login(self.admin)
+        input_url = reverse("stock_opname:opname_input", args=[self.opname.pk])
+
+        first = self.client.post(
+            input_url,
+            {
+                f"qty_{self.opname_item.pk}": "100",
+                f"notes_{self.opname_item.pk}": "Hitung pertama",
+            },
+            secure=True,
+        )
+        throttled = self.client.post(
+            input_url,
+            {
+                f"qty_{self.opname_item.pk}": "100",
+                f"notes_{self.opname_item.pk}": "Hitung kedua",
+            },
+            secure=True,
+        )
+        completed = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(throttled.status_code, 429)
+        self.assertEqual(completed.status_code, 302)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.COMPLETED)
 
 class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
     def setUp(self):

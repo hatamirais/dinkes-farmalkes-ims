@@ -421,6 +421,8 @@ Operational mutation points (from app behavior and admin import logic):
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
+- Stock opname notes are capped at 1000 chars on the header and 255 chars per snapshot row
+- Stock opname create/edit POST actions are rate-limited by `STOCK_OPNAME_FORM_RATE_LIMIT`, counting input POST actions by `STOCK_OPNAME_INPUT_RATE_LIMIT`, and start/complete/delete workflow POST actions by `STOCK_OPNAME_WORKFLOW_RATE_LIMIT` (legacy `STOCK_OPNAME_MUTATION_RATE_LIMIT` remains a fallback)
 - Stock opname completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, and `completed_at`, and does not mutate `Stock` or write `Transaction` rows
 - Allocation:
   - Approval phase auto-generates `Distribution(type=ALLOCATION, status=VERIFIED)` per facility — no stock mutation at this point
@@ -451,6 +453,10 @@ From `backend/config/settings.py`:
   - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = 20/m` (legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains accepted as fallback)
   - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = 20/m`
   - `LPLPO_IMPORT_RATE_LIMIT = 5/h`
+  - `STOCK_OPNAME_MUTATION_RATE_LIMIT = 20/m` (compatibility fallback)
+  - `STOCK_OPNAME_FORM_RATE_LIMIT = 20/m`
+  - `STOCK_OPNAME_INPUT_RATE_LIMIT = 60/m`
+  - `STOCK_OPNAME_WORKFLOW_RATE_LIMIT = 20/m`
 - Rate-limited requests are rendered through the centralized error pipeline as HTTP `429`
 - `EMAIL_BACKEND` is environment-configurable and defaults to Django's console backend
 - `DJANGO_LOG_LEVEL` controls the Django logger level and defaults to `WARNING`

@@ -35,6 +35,9 @@
                         {% endif %}
                         {% else %}
                         {{ field }}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
                         {% endif %}
                         {% for error in field.errors %}
                         <div class="invalid-feedback d-block">{{ error }}</div>

@@ -88,6 +88,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - Endpoint mutasi pemakaian rinci Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
 - Endpoint mutasi master barang dan quick-create lookup `items` dibatasi melalui `django-ratelimit` dengan knob environment `ITEM_MUTATION_RATE_LIMIT`, terpisah dari kuota mutasi modul `users`.
 - Endpoint import XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) dibatasi melalui `django-ratelimit` dengan knob environment `LPLPO_IMPORT_RATE_LIMIT`.
+- Endpoint mutasi stock opname dibagi menjadi bucket terpisah: `STOCK_OPNAME_FORM_RATE_LIMIT` untuk `create/edit`, `STOCK_OPNAME_INPUT_RATE_LIMIT` untuk penyimpanan hasil hitung, dan `STOCK_OPNAME_WORKFLOW_RATE_LIMIT` untuk `start/complete/delete`. Knob lama `STOCK_OPNAME_MUTATION_RATE_LIMIT` tetap menjadi fallback kompatibilitas.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.

@@ -36,7 +36,11 @@ class StockOpname(TimeStampedModel):
         choices=Status.choices,
         default=Status.DRAFT,
     )
-    notes = models.TextField(blank=True)
+    notes = models.CharField(
+        max_length=1000,
+        blank=True,
+        help_text='Catatan umum stock opname (maksimal 1000 karakter)',
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -178,7 +182,11 @@ class StockOpnameItem(models.Model):
         blank=True,
         help_text='Actual counted quantity by staff',
     )
-    notes = models.TextField(blank=True, help_text='Catatan jika ada selisih')
+    notes = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Catatan jika ada selisih (maksimal 255 karakter)',
+    )
 
     class Meta:
         db_table = 'stock_opname_items'

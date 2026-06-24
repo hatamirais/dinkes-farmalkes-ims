@@ -9,11 +9,26 @@ DEFAULT_PASSWORD_CHANGE_RATE_LIMIT = "5/m"
 DEFAULT_PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_LPLPO_IMPORT_RATE_LIMIT = "5/h"
+DEFAULT_STOCK_OPNAME_MUTATION_RATE_LIMIT = "20/m"
+DEFAULT_STOCK_OPNAME_FORM_RATE_LIMIT = DEFAULT_STOCK_OPNAME_MUTATION_RATE_LIMIT
+DEFAULT_STOCK_OPNAME_INPUT_RATE_LIMIT = "60/m"
+DEFAULT_STOCK_OPNAME_WORKFLOW_RATE_LIMIT = "20/m"
 
 
 def _setting_rate(name, default):
     def _rate(group, request):
         return getattr(settings, name, default)
+
+    return _rate
+
+
+def _fallback_setting_rate(name, fallback_name, default):
+    def _rate(group, request):
+        return getattr(
+            settings,
+            name,
+            getattr(settings, fallback_name, default),
+        )
 
     return _rate
 
@@ -120,4 +135,40 @@ lplpo_import_ratelimit = ratelimit(
     ),
     block=True,
     group="lplpo.import_mutation",
+)
+
+stock_opname_form_mutation_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_fallback_setting_rate(
+        "STOCK_OPNAME_FORM_RATE_LIMIT",
+        "STOCK_OPNAME_MUTATION_RATE_LIMIT",
+        DEFAULT_STOCK_OPNAME_FORM_RATE_LIMIT,
+    ),
+    block=True,
+    group="stock_opname.form_mutation",
+)
+
+stock_opname_input_mutation_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_fallback_setting_rate(
+        "STOCK_OPNAME_INPUT_RATE_LIMIT",
+        "STOCK_OPNAME_MUTATION_RATE_LIMIT",
+        DEFAULT_STOCK_OPNAME_INPUT_RATE_LIMIT,
+    ),
+    block=True,
+    group="stock_opname.input_mutation",
+)
+
+stock_opname_workflow_mutation_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_fallback_setting_rate(
+        "STOCK_OPNAME_WORKFLOW_RATE_LIMIT",
+        "STOCK_OPNAME_MUTATION_RATE_LIMIT",
+        DEFAULT_STOCK_OPNAME_WORKFLOW_RATE_LIMIT,
+    ),
+    block=True,
+    group="stock_opname.workflow_mutation",
 )

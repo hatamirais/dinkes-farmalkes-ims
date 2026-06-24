@@ -67,7 +67,11 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <input type="text" name="notes_{{ item.pk }}" class="form-control form-control-sm" value="{{ item.input_notes|default:item.notes|default:'' }}">
+                                        <input type="text" name="notes_{{ item.pk }}" class="form-control form-control-sm {% if item.notes_error %}is-invalid{% endif %}" maxlength="255" placeholder="Maks. 255 karakter" value="{{ item.input_notes|default:item.notes|default:'' }}">
+                                        <div class="form-text">Maksimal 255 karakter.</div>
+                                        {% if item.notes_error %}
+                                        <div class="invalid-feedback d-block">{{ item.notes_error }}</div>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}

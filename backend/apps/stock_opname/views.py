@@ -1,30 +1,54 @@
 import logging
 from urllib.parse import urlencode
-from decimal import Decimal, InvalidOperation
 
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.paginator import Paginator
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import DatabaseError, transaction
 from django.db.models import F
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.rate_limits import (
+    stock_opname_form_mutation_ratelimit,
+    stock_opname_input_mutation_ratelimit,
+    stock_opname_workflow_mutation_ratelimit,
+)
+from apps.core.views import bad_request
 from apps.stock.models import Stock
 from apps.users.models import ModuleAccess
 
+from .forms import (
+    StockOpnameFilterForm,
+    StockOpnameForm,
+    StockOpnameItemInputForm,
+    StockOpnameLocationFilterForm,
+)
 from .models import StockOpname, StockOpnameItem
-from .forms import StockOpnameForm
 
 logger = logging.getLogger(__name__)
+
+
+def _invalid_request_response(request, *, message, log_message, extra=None):
+    logger.warning(log_message, extra=extra or {})
+    return bad_request(request, ValidationError(message))
 
 
 @login_required
 @perm_required("stock_opname.view_stockopname")
 def opname_list(request):
+    filter_form = StockOpnameFilterForm(request.GET or None)
+    if request.GET and not filter_form.is_valid():
+        return _invalid_request_response(
+            request,
+            message="Parameter filter stock opname tidak valid.",
+            log_message="Rejected invalid stock opname list filter",
+            extra={"user_id": request.user.pk},
+        )
+
     queryset = (
         StockOpname.objects.select_related("created_by")
         .prefetch_related(
@@ -34,16 +58,17 @@ def opname_list(request):
         .all()
     )
 
-    # Filters
-    status = request.GET.get("status")
+    cleaned_filters = filter_form.cleaned_data if filter_form.is_bound else {}
+    status = cleaned_filters.get("status") or ""
+    period = cleaned_filters.get("period") or ""
+    search = cleaned_filters.get("q") or ""
+
     if status:
         queryset = queryset.filter(status=status)
 
-    period = request.GET.get("period")
     if period:
         queryset = queryset.filter(period_type=period)
 
-    search = request.GET.get("q", "").strip()
     if search:
         queryset = queryset.filter(document_number__icontains=search)
 
@@ -57,8 +82,8 @@ def opname_list(request):
         {
             "opnames": opnames,
             "search": search,
-            "selected_status": status or "",
-            "selected_period": period or "",
+            "selected_status": status,
+            "selected_period": period,
             "status_choices": StockOpname.Status.choices,
             "period_choices": StockOpname.PeriodType.choices,
         },
@@ -67,6 +92,7 @@ def opname_list(request):
 
 @login_required
 @perm_required("stock_opname.add_stockopname")
+@stock_opname_form_mutation_ratelimit
 def opname_create(request):
     if request.method == "POST":
         form = StockOpnameForm(request.POST)
@@ -94,6 +120,7 @@ def opname_create(request):
 
 @login_required
 @perm_required("stock_opname.change_stockopname")
+@stock_opname_form_mutation_ratelimit
 def opname_edit(request, pk):
     opname = get_object_or_404(StockOpname, pk=pk)
     if opname.status == StockOpname.Status.COMPLETED:
@@ -116,7 +143,7 @@ def opname_edit(request, pk):
         "stock_opname/opname_form.html",
         {
             "form": form,
-            "title": f"Edit Stock Opname — {opname.document_number}",
+            "title": f"Edit Stock Opname - {opname.document_number}",
         },
     )
 
@@ -137,7 +164,6 @@ def opname_detail(request, pk):
         "stock__location__code", "stock__expiry_date", "stock__item__nama_barang"
     )
 
-    # Group by location for display
     locations = {}
     for item in items:
         loc = item.stock.location
@@ -172,8 +198,9 @@ def opname_detail(request, pk):
 
 @login_required
 @perm_required("stock_opname.change_stockopname")
+@stock_opname_workflow_mutation_ratelimit
 def opname_start(request, pk):
-    """Transition DRAFT → IN_PROGRESS and snapshot stock quantities filtered by categories."""
+    """Transition DRAFT -> IN_PROGRESS and snapshot stock quantities filtered by categories."""
     opname = get_object_or_404(StockOpname, pk=pk)
 
     if request.method != "POST":
@@ -253,6 +280,7 @@ def opname_start(request, pk):
 
 @login_required
 @perm_required("stock_opname.change_stockopnameitem")
+@stock_opname_input_mutation_ratelimit
 def opname_input(request, pk):
     """Input actual quantities for a stock opname session."""
     opname = get_object_or_404(
@@ -267,10 +295,31 @@ def opname_input(request, pk):
         )
         return redirect("stock_opname:opname_detail", pk=opname.pk)
 
-    # Get location filter (accept from GET or POST so filter is preserved when submitting the form)
-    location_id = request.GET.get("location") or request.POST.get("location")
+    location_filter_data = request.GET or None
+    if request.method == "POST":
+        location_filter_data = request.POST.copy()
+        if not location_filter_data.get("location") and request.GET.get("location"):
+            location_filter_data["location"] = request.GET.get("location")
 
-    items = opname.items.select_related(
+    location_filter_form = StockOpnameLocationFilterForm(
+        location_filter_data,
+        allowed_location_ids=list(
+            opname.items.values_list("stock__location_id", flat=True).distinct()
+        ),
+    )
+    if location_filter_form.is_bound and not location_filter_form.is_valid():
+        return _invalid_request_response(
+            request,
+            message="Filter lokasi stock opname tidak valid.",
+            log_message="Rejected invalid stock opname location filter",
+            extra={"stock_opname_id": opname.pk, "user_id": request.user.pk},
+        )
+
+    selected_location = None
+    if location_filter_form.is_bound:
+        selected_location = location_filter_form.cleaned_data.get("location")
+
+    items_queryset = opname.items.select_related(
         "stock__item",
         "stock__item__satuan",
         "stock__location",
@@ -279,70 +328,49 @@ def opname_input(request, pk):
         "stock__location__code", "stock__expiry_date", "stock__item__nama_barang"
     )
 
-    if location_id:
-        items = items.filter(stock__location_id=location_id)
+    if selected_location is not None:
+        items_queryset = items_queryset.filter(stock__location=selected_location)
 
-    # Get available locations for filter
-    from apps.items.models import Location
-
-    location_ids = opname.items.values_list("stock__location_id", flat=True).distinct()
-    locations = Location.objects.filter(pk__in=location_ids).order_by("code")
+    items = list(items_queryset)
+    locations = list(location_filter_form.fields["location"].queryset)
+    selected_location_value = str(selected_location.pk) if selected_location else ""
 
     for item in items:
         item.input_quantity = item.actual_quantity
         item.input_notes = item.notes
         item.quantity_error = ""
+        item.notes_error = ""
 
     if request.method == "POST":
         updated_items = []
         has_errors = False
+
         for item in items:
-            qty_key = f"qty_{item.pk}"
-            notes_key = f"notes_{item.pk}"
-            qty_val = request.POST.get(qty_key, "").strip()
-            notes_val = request.POST.get(notes_key, "").strip()
-            item.input_quantity = qty_val
-            item.input_notes = notes_val
+            raw_quantity = request.POST.get(f"qty_{item.pk}", "")
+            raw_notes = request.POST.get(f"notes_{item.pk}", "")
+            item.input_quantity = raw_quantity
+            item.input_notes = raw_notes
             item.quantity_error = ""
+            item.notes_error = ""
 
-            if not qty_val:
-                continue
-
-            try:
-                actual = Decimal(qty_val)
-            except InvalidOperation:
-                item.quantity_error = "Jumlah aktual harus berupa angka yang valid."
+            form = StockOpnameItemInputForm(
+                {
+                    "actual_quantity": raw_quantity,
+                    "notes": raw_notes,
+                }
+            )
+            if not form.is_valid():
+                item.quantity_error = " ".join(form.errors.get("actual_quantity", []))
+                item.notes_error = " ".join(form.errors.get("notes", []))
                 has_errors = True
                 continue
 
-            if not actual.is_finite():
-                item.quantity_error = "Jumlah aktual harus berupa angka yang valid."
-                has_errors = True
+            actual_quantity = form.cleaned_data["actual_quantity"]
+            if actual_quantity is None:
                 continue
 
-            if actual < 0:
-                item.quantity_error = "Jumlah aktual tidak boleh kurang dari 0."
-                has_errors = True
-                continue
-
-            item.actual_quantity = actual
-            item.notes = notes_val
-            try:
-                item.full_clean(exclude=["stock_opname", "stock", "system_quantity"])
-            except ValidationError as exc:
-                quantity_errors = exc.message_dict.get("actual_quantity", [])
-                other_errors = [
-                    error
-                    for field, errors in exc.message_dict.items()
-                    if field != "actual_quantity"
-                    for error in errors
-                ]
-                item.quantity_error = (
-                    " ".join(quantity_errors + other_errors) or "Data tidak valid."
-                )
-                has_errors = True
-                continue
-
+            item.actual_quantity = actual_quantity
+            item.notes = form.cleaned_data["notes"]
             updated_items.append(item)
 
         if has_errors:
@@ -352,7 +380,7 @@ def opname_input(request, pk):
             )
             messages.error(
                 request,
-                "Beberapa input jumlah aktual tidak valid. Periksa data yang ditandai.",
+                "Beberapa input Stock Opname tidak valid. Periksa data yang ditandai.",
             )
             return render(
                 request,
@@ -361,7 +389,7 @@ def opname_input(request, pk):
                     "opname": opname,
                     "items": items,
                     "locations": locations,
-                    "selected_location": location_id or "",
+                    "selected_location": selected_location_value,
                 },
                 status=400,
             )
@@ -400,10 +428,9 @@ def opname_input(request, pk):
             return redirect("stock_opname:opname_detail", pk=opname.pk)
 
         messages.success(request, f"{len(updated_items)} item berhasil diperbarui.")
-        # Redirect back with same location filter
         url = reverse("stock_opname:opname_input", args=[pk])
-        if location_id:
-            url = f"{url}?{urlencode({'location': location_id})}"
+        if selected_location_value:
+            url = f"{url}?{urlencode({'location': selected_location_value})}"
         return redirect(url)
 
     return render(
@@ -413,7 +440,7 @@ def opname_input(request, pk):
             "opname": opname,
             "items": items,
             "locations": locations,
-            "selected_location": location_id or "",
+            "selected_location": selected_location_value,
         },
     )
 
@@ -421,6 +448,7 @@ def opname_input(request, pk):
 @login_required
 @perm_required("stock_opname.change_stockopname")
 @module_scope_required(ModuleAccess.Module.STOCK_OPNAME, ModuleAccess.Scope.APPROVE)
+@stock_opname_workflow_mutation_ratelimit
 def opname_complete(request, pk):
     """Finalize a stock opname session."""
     opname = get_object_or_404(StockOpname, pk=pk)
@@ -490,7 +518,7 @@ def opname_complete(request, pk):
 @login_required
 @perm_required("stock_opname.view_stockopname")
 def opname_print(request, pk):
-    """Printable discrepancy report — shows only items where actual ≠ system."""
+    """Printable discrepancy report - shows only items where actual != system."""
     opname = get_object_or_404(
         StockOpname.objects.select_related("created_by", "completed_by"),
         pk=pk,
@@ -510,7 +538,6 @@ def opname_print(request, pk):
         )
     )
 
-    # Group by location
     locations = {}
     for item in discrepancy_items:
         loc = item.stock.location
@@ -535,6 +562,7 @@ def opname_print(request, pk):
 
 @login_required
 @perm_required("stock_opname.delete_stockopname")
+@stock_opname_workflow_mutation_ratelimit
 def opname_delete(request, pk):
     """Delete a stock opname session (only DRAFT or IN_PROGRESS)."""
     opname = get_object_or_404(
