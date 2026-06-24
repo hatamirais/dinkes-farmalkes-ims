@@ -59,6 +59,9 @@
             </div>
 
             <form method="get" class="row g-2 align-items-end">
+                {% if selected_quick %}
+                <input type="hidden" name="quick" value="{{ selected_quick }}">
+                {% endif %}
                 <div class="col-12 col-lg-3">
                     <label for="stock-search" class="form-label small text-muted mb-1">Pencarian</label>
                     <input id="stock-search" type="text" name="q" class="form-control" placeholder="Cari kode, nama, atau batch" value="{{ search }}">

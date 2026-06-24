@@ -561,6 +561,27 @@ class StockListViewTests(TestCase):
         self.assertContains(response, 'OTHER-01')
         self.assertNotContains(response, 'EXP-01')
 
+    def test_stock_list_preserves_active_quick_filter_in_filter_form(self):
+        response = self.client.get(
+            reverse('stock:stock_list'),
+            {'quick': 'expired', 'location': str(self.location_a.id)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['selected_quick'], 'expired')
+        self.assertContains(
+            response,
+            '<input type="hidden" name="quick" value="expired">',
+            html=True,
+        )
+
+    def test_stock_list_preloads_item_units_for_rendered_rows(self):
+        response = self.client.get(reverse('stock:stock_list'))
+
+        self.assertEqual(response.status_code, 200)
+        for stock in response.context['stocks'].object_list:
+            self.assertIn('satuan', stock.item._state.fields_cache)
+
     def test_stock_list_ignores_invalid_filter_values(self):
         response = self.client.get(
             reverse('stock:stock_list'),

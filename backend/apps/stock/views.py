@@ -101,7 +101,7 @@ def stock_list(request):
     active_funding_source_ids = {source.id for source in active_funding_sources}
 
     queryset = (
-        Stock.objects.select_related("item", "location", "sumber_dana")
+        Stock.objects.select_related("item", "item__satuan", "location", "sumber_dana")
         .filter(quantity__gt=0)
         .order_by("item__nama_barang", "expiry_date")
     )
