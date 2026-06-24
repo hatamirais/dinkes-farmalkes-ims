@@ -125,7 +125,7 @@ def opname_edit(request, pk):
 @perm_required("stock_opname.view_stockopname")
 def opname_detail(request, pk):
     opname = get_object_or_404(
-        StockOpname.objects.select_related("created_by"),
+        StockOpname.objects.select_related("created_by", "completed_by"),
         pk=pk,
     )
     items = opname.items.select_related(
@@ -258,8 +258,14 @@ def opname_input(request, pk):
     opname = get_object_or_404(
         StockOpname,
         pk=pk,
-        status=StockOpname.Status.IN_PROGRESS,
     )
+
+    if opname.status != StockOpname.Status.IN_PROGRESS:
+        messages.error(
+            request,
+            "Stock Opname ini sudah diselesaikan atau belum dimulai.",
+        )
+        return redirect("stock_opname:opname_detail", pk=opname.pk)
 
     # Get location filter (accept from GET or POST so filter is preserved when submitting the form)
     location_id = request.GET.get("location") or request.POST.get("location")
@@ -360,11 +366,38 @@ def opname_input(request, pk):
                 status=400,
             )
 
-        with transaction.atomic():
-            StockOpnameItem.objects.bulk_update(
-                updated_items,
-                ["actual_quantity", "notes"],
+        try:
+            with transaction.atomic():
+                locked_opname = StockOpname.objects.select_for_update().get(pk=pk)
+                if locked_opname.status != StockOpname.Status.IN_PROGRESS:
+                    messages.error(
+                        request,
+                        "Stock Opname ini sudah diselesaikan atau belum dimulai.",
+                    )
+                    return redirect("stock_opname:opname_detail", pk=locked_opname.pk)
+
+                updated_item_ids = [item.pk for item in updated_items]
+                if updated_item_ids:
+                    list(
+                        StockOpnameItem.objects.select_for_update()
+                        .filter(stock_opname=locked_opname, pk__in=updated_item_ids)
+                        .values_list("pk", flat=True)
+                    )
+
+                StockOpnameItem.objects.bulk_update(
+                    updated_items,
+                    ["actual_quantity", "notes"],
+                )
+        except DatabaseError:
+            logger.exception(
+                "Failed to save stock opname input",
+                extra={"stock_opname_id": opname.pk, "user_id": request.user.pk},
             )
+            messages.error(
+                request,
+                "Input Stock Opname gagal disimpan. Silakan coba lagi.",
+            )
+            return redirect("stock_opname:opname_detail", pk=opname.pk)
 
         messages.success(request, f"{len(updated_items)} item berhasil diperbarui.")
         # Redirect back with same location filter
@@ -390,16 +423,62 @@ def opname_input(request, pk):
 @module_scope_required(ModuleAccess.Module.STOCK_OPNAME, ModuleAccess.Scope.APPROVE)
 def opname_complete(request, pk):
     """Finalize a stock opname session."""
-    opname = get_object_or_404(
-        StockOpname,
-        pk=pk,
-        status=StockOpname.Status.IN_PROGRESS,
-    )
+    opname = get_object_or_404(StockOpname, pk=pk)
 
     if request.method == "POST":
-        opname.status = StockOpname.Status.COMPLETED
-        opname.completed_at = timezone.now()
-        opname.save(update_fields=["status", "completed_at", "updated_at"])
+        try:
+            with transaction.atomic():
+                opname = StockOpname.objects.select_for_update().get(pk=pk)
+                actual_quantities = list(
+                    opname.items.select_for_update()
+                    .order_by("pk")
+                    .values_list("actual_quantity", flat=True)
+                )
+                if opname.status != StockOpname.Status.IN_PROGRESS:
+                    messages.error(
+                        request,
+                        "Stock Opname ini sudah diselesaikan atau belum dimulai.",
+                    )
+                    return redirect("stock_opname:opname_detail", pk=opname.pk)
+                if not actual_quantities or all(
+                    quantity is None for quantity in actual_quantities
+                ):
+                    messages.error(
+                        request,
+                        "Stock Opname belum dapat diselesaikan karena belum ada item yang dihitung.",
+                    )
+                    return redirect("stock_opname:opname_detail", pk=opname.pk)
+                if any(quantity is None for quantity in actual_quantities):
+                    messages.error(
+                        request,
+                        "Stock Opname belum dapat diselesaikan karena masih ada item yang belum dihitung.",
+                    )
+                    return redirect("stock_opname:opname_detail", pk=opname.pk)
+
+                opname.status = StockOpname.Status.COMPLETED
+                opname.completed_by = request.user
+                opname.completed_at = timezone.now()
+                opname.save(
+                    update_fields=[
+                        "status",
+                        "completed_by",
+                        "completed_at",
+                        "updated_at",
+                    ]
+                )
+        except StockOpname.DoesNotExist:
+            raise
+        except DatabaseError:
+            logger.exception(
+                "Failed to complete stock opname",
+                extra={"stock_opname_id": pk, "user_id": request.user.pk},
+            )
+            messages.error(
+                request,
+                "Stock Opname gagal diselesaikan. Silakan coba lagi.",
+            )
+            return redirect("stock_opname:opname_detail", pk=pk)
+
         messages.success(
             request, f"Stock Opname {opname.document_number} telah diselesaikan."
         )
@@ -413,7 +492,7 @@ def opname_complete(request, pk):
 def opname_print(request, pk):
     """Printable discrepancy report — shows only items where actual ≠ system."""
     opname = get_object_or_404(
-        StockOpname.objects.select_related("created_by"),
+        StockOpname.objects.select_related("created_by", "completed_by"),
         pk=pk,
     )
 

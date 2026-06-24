@@ -271,6 +271,41 @@ class StockOpnameInputValidationTests(StockOpnameTestMixin, TestCase):
             f"{input_url}?location={self.location.pk}",
         )
 
+    def test_input_post_rejects_when_opname_was_completed_before_submit(self):
+        self.client.force_login(self.gudang)
+        input_url = reverse("stock_opname:opname_input", args=[self.opname.pk])
+
+        get_response = self.client.get(input_url, secure=True)
+        self.assertEqual(get_response.status_code, 200)
+
+        self.opname.status = StockOpname.Status.COMPLETED
+        self.opname.completed_by = self.admin
+        self.opname.completed_at = self.opname.created_at
+        self.opname.save(
+            update_fields=["status", "completed_by", "completed_at", "updated_at"]
+        )
+
+        response = self.client.post(
+            input_url,
+            {
+                f"qty_{self.opname_item.pk}": "90",
+                f"notes_{self.opname_item.pk}": "Terlambat disimpan",
+            },
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.opname_item.refresh_from_db()
+        self.assertIsNone(self.opname_item.actual_quantity)
+        messages = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "sudah diselesaikan atau belum dimulai" in str(message)
+                for message in messages
+            )
+        )
+
 
 class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
     def setUp(self):
@@ -284,6 +319,106 @@ class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
             stock=self.stock,
             system_quantity=Decimal("100"),
             actual_quantity=Decimal("100"),
+        )
+
+    def test_admin_can_complete_in_progress_opname(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.COMPLETED)
+        self.assertEqual(self.opname.completed_by, self.admin)
+        self.assertIsNotNone(self.opname.completed_at)
+
+    def test_complete_rejects_when_no_items_have_been_counted(self):
+        self.opname_item = StockOpnameItem.objects.get(stock_opname=self.opname, stock=self.stock)
+        self.opname_item.actual_quantity = None
+        self.opname_item.save(update_fields=["actual_quantity"])
+
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
+        self.assertIsNone(self.opname.completed_by)
+        self.assertIsNone(self.opname.completed_at)
+        messages = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "belum ada item yang dihitung" in str(message)
+                for message in messages
+            )
+        )
+
+    def test_complete_rejects_when_any_snapshot_item_is_uncounted(self):
+        second_stock = Stock.objects.create(
+            item=self.item,
+            location=self.location,
+            batch_lot="BATCH-OP-02",
+            expiry_date="2030-02-01",
+            quantity=Decimal("50"),
+            reserved=Decimal("0"),
+            unit_price=Decimal("1000"),
+            sumber_dana=self.funding,
+        )
+        StockOpnameItem.objects.create(
+            stock_opname=self.opname,
+            stock=second_stock,
+            system_quantity=Decimal("50"),
+            actual_quantity=None,
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
+        self.assertIsNone(self.opname.completed_by)
+        self.assertIsNone(self.opname.completed_at)
+        messages = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "masih ada item yang belum dihitung" in str(message)
+                for message in messages
+            )
+        )
+
+    def test_second_completion_attempt_is_rejected_after_status_changes(self):
+        self.opname.status = StockOpname.Status.COMPLETED
+        self.opname.completed_at = self.opname.created_at
+        self.opname.save(update_fields=["status", "completed_at", "updated_at"])
+
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.COMPLETED)
+        messages = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "sudah diselesaikan atau belum dimulai" in str(message)
+                for message in messages
+            )
         )
 
     def test_gudang_cannot_complete_opname(self):
