@@ -234,11 +234,14 @@ def opname_start(request, pk):
             if selected_category_ids:
                 stocks = stocks.filter(item__kategori_id__in=selected_category_ids)
 
+            snapshot_time = timezone.now()
             opname_items = [
                 StockOpnameItem(
                     stock_opname=opname,
                     stock=stock,
                     system_quantity=stock.quantity,
+                    created_at=snapshot_time,
+                    updated_at=snapshot_time,
                 )
                 for stock in stocks
             ]
@@ -397,9 +400,13 @@ def opname_input(request, pk):
                         .values_list("pk", flat=True)
                     )
 
+                update_time = timezone.now()
+                for item in updated_items:
+                    item.updated_at = update_time
+
                 StockOpnameItem.objects.bulk_update(
                     updated_items,
-                    ["actual_quantity", "notes"],
+                    ["actual_quantity", "notes", "updated_at"],
                 )
         except DatabaseError:
             logger.exception(

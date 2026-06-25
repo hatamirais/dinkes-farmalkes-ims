@@ -315,7 +315,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `stock_opname.StockOpnameItem` (`stock_opname_items`):
   - FKs: `stock_opname`, `stock`
-  - Fields: `system_quantity`, `actual_quantity` (nullable), `notes`
+  - Fields: `system_quantity`, `actual_quantity` (nullable), `notes`, `created_at`, `updated_at`
   - Unique: `(stock_opname, stock)`
 
 ### 4.11 Reports

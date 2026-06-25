@@ -1,12 +1,13 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest import mock
 
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
-from apps.core.models import TimeStampedModel
+from apps.core.models import SystemSettings, TimeStampedModel
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock
 from apps.stock_opname.models import StockOpname, StockOpnameItem
@@ -133,6 +134,8 @@ class StockOpnameAccessAndWorkflowTests(StockOpnameTestMixin, TestCase):
         self.assertEqual(opname.status, StockOpname.Status.IN_PROGRESS)
         snapshot = StockOpnameItem.objects.get(stock_opname=opname, stock=self.stock)
         self.assertEqual(snapshot.system_quantity, Decimal("100"))
+        self.assertIsNotNone(snapshot.created_at)
+        self.assertIsNotNone(snapshot.updated_at)
 
     def test_start_rejects_non_draft_session_without_creating_new_rows(self):
         opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
@@ -239,6 +242,24 @@ class StockOpnameInputValidationTests(StockOpnameTestMixin, TestCase):
         self.opname_item.refresh_from_db()
         self.assertEqual(self.opname_item.actual_quantity, Decimal("95.50"))
         self.assertEqual(self.opname_item.notes, "Disesuaikan")
+
+    def test_valid_actual_quantity_updates_item_timestamp(self):
+        self.client.force_login(self.gudang)
+        earlier = timezone.now() - timedelta(days=1)
+        StockOpnameItem.objects.filter(pk=self.opname_item.pk).update(updated_at=earlier)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            {
+                f"qty_{self.opname_item.pk}": "94",
+                f"notes_{self.opname_item.pk}": "Koreksi hitung",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.opname_item.refresh_from_db()
+        self.assertGreater(self.opname_item.updated_at, earlier)
 
     def test_location_filter_is_preserved_after_post(self):
         self.client.force_login(self.gudang)
@@ -473,6 +494,69 @@ class StockOpnameModelTests(StockOpnameTestMixin, TestCase):
         self.assertEqual(generate_mock.call_count, 1)
 
 
+class StockOpnamePresentationAndAuditTests(StockOpnameTestMixin, TestCase):
+    def test_detail_renders_notes_with_line_breaks(self):
+        opname = self.create_opname()
+        opname.notes = "Baris pertama\nBaris kedua"
+        opname.save(update_fields=["notes", "updated_at"])
+
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("stock_opname:opname_detail", args=[opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Baris pertama<br>Baris kedua", html=True)
+
+    def test_print_uses_system_settings_header_context(self):
+        opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        StockOpnameItem.objects.create(
+            stock_opname=opname,
+            stock=self.stock,
+            system_quantity=Decimal("100"),
+            actual_quantity=Decimal("95"),
+            notes="Selisih lima",
+        )
+        settings_obj = SystemSettings.get_settings()
+        settings_obj.header_title = "DINAS KESEHATAN KABUPATEN"
+        settings_obj.facility_name = "Instalasi Farmasi Daerah"
+        settings_obj.save()
+
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("stock_opname:opname_print", args=[opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "DINAS KESEHATAN KABUPATEN")
+        self.assertContains(response, "Instalasi Farmasi Daerah")
+
+    def test_delete_completed_opname_returns_404(self):
+        opname = self.create_opname(status=StockOpname.Status.COMPLETED)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_delete", args=[opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_stock_opname_item_has_timestamps(self):
+        opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        item = StockOpnameItem.objects.create(
+            stock_opname=opname,
+            stock=self.stock,
+            system_quantity=Decimal("100"),
+        )
+
+        self.assertIsNotNone(item.created_at)
+        self.assertIsNotNone(item.updated_at)
+
+
+
 class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
     """Tests for F9–F15 quality / convention fixes."""
 
@@ -559,8 +643,9 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
                     reverse("stock_opname:opname_edit", args=[in_progress.pk]),
                     secure=True,
                 )
-                self.assertRedirects(
-                    response,
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(
+                    response.headers["Location"],
                     reverse("stock_opname:opname_detail", args=[in_progress.pk]),
                 )
 
@@ -572,8 +657,9 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
             reverse("stock_opname:opname_edit", args=[completed.pk]),
             secure=True,
         )
-        self.assertRedirects(
-            response,
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.headers["Location"],
             reverse("stock_opname:opname_detail", args=[completed.pk]),
         )
 
