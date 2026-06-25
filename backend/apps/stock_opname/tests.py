@@ -471,3 +471,152 @@ class StockOpnameModelTests(StockOpnameTestMixin, TestCase):
                 opname.save()
 
         self.assertEqual(generate_mock.call_count, 1)
+
+
+class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
+    """Tests for F9–F15 quality / convention fixes."""
+
+    # ------------------------------------------------------------------
+    # F10 — assigned_to must exclude inactive users
+    # ------------------------------------------------------------------
+    def test_form_excludes_inactive_users_from_assigned_to(self):
+        inactive = User.objects.create_user(
+            username="inactive_gudang_q",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+        from apps.stock_opname.forms import StockOpnameForm
+
+        # Create form: inactive user must NOT appear.
+        form = StockOpnameForm()
+        qs = form.fields["assigned_to"].queryset
+        self.assertIn(self.gudang, qs)
+        self.assertNotIn(inactive, qs)
+
+    def test_edit_form_preserves_deactivated_assignee_in_queryset(self):
+        """Reviewer concern: deactivating an assigned user must not silently
+        drop them when a staff member later saves an unrelated edit on the
+        same draft opname."""
+        inactive = User.objects.create_user(
+            username="inactive_was_assigned_q",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            is_active=True,  # active at assignment time
+        )
+        from apps.stock_opname.forms import StockOpnameForm
+
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        draft.assigned_to.add(inactive)
+
+        # Now deactivate the user (simulating real-world deactivation after assignment)
+        inactive.is_active = False
+        inactive.save(update_fields=["is_active"])
+
+        # The edit form must still include the now-inactive user in the queryset
+        # so the M2M relation is not silently cleared on save.
+        edit_form = StockOpnameForm(instance=draft)
+        qs = edit_form.fields["assigned_to"].queryset
+        self.assertIn(inactive, qs, "Deactivated current assignee must remain in edit queryset")
+        self.assertIn(self.gudang, qs, "Active users must still appear")
+
+    def test_create_form_excludes_deactivated_user_even_if_previously_assigned(self):
+        """A deactivated user must never appear on a fresh create form."""
+        inactive = User.objects.create_user(
+            username="inactive_create_check_q",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+        from apps.stock_opname.forms import StockOpnameForm
+
+        form = StockOpnameForm()  # no instance
+        qs = form.fields["assigned_to"].queryset
+        self.assertNotIn(inactive, qs)
+
+
+    # ------------------------------------------------------------------
+    # F9 — FormHelper must be configured (crispy-forms)
+    # ------------------------------------------------------------------
+    def test_form_has_crispy_helper(self):
+        from apps.stock_opname.forms import StockOpnameForm
+        from crispy_forms.helper import FormHelper
+
+        form = StockOpnameForm()
+        self.assertIsInstance(form.helper, FormHelper)
+        self.assertFalse(form.helper.form_tag)
+
+    # ------------------------------------------------------------------
+    # F14 — edit blocked for IN_PROGRESS and COMPLETED opnames
+    # ------------------------------------------------------------------
+    def test_edit_redirects_for_in_progress_opname(self):
+        in_progress = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        self.client.force_login(self.admin)
+
+        for method in ("get", "post"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(
+                    reverse("stock_opname:opname_edit", args=[in_progress.pk]),
+                    secure=True,
+                )
+                self.assertRedirects(
+                    response,
+                    reverse("stock_opname:opname_detail", args=[in_progress.pk]),
+                )
+
+    def test_edit_redirects_for_completed_opname(self):
+        completed = self.create_opname(status=StockOpname.Status.COMPLETED)
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_edit", args=[completed.pk]),
+            secure=True,
+        )
+        self.assertRedirects(
+            response,
+            reverse("stock_opname:opname_detail", args=[completed.pk]),
+        )
+
+    def test_edit_allowed_for_draft_opname(self):
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("stock_opname:opname_edit", args=[draft.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+    # ------------------------------------------------------------------
+    # F13 — pagination must preserve query filters
+    # ------------------------------------------------------------------
+    def test_pagination_links_preserve_filters(self):
+        # Create 25 DRAFT opnames so pagination kicks in (page_size=20)
+        for i in range(25):
+            self.create_opname(document_number=f"SO-FILT-{i:04d}")
+
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("stock_opname:opname_list") + "?q=FILT&status=DRAFT",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # The querystring tag should embed existing params in pagination hrefs
+        self.assertIn("q=FILT", content)
+        self.assertIn("status=DRAFT", content)
+
+    # ------------------------------------------------------------------
+    # F15 — admin get_queryset must use select_related + prefetch_related
+    # ------------------------------------------------------------------
+    def test_admin_get_queryset_uses_prefetch_and_select_related(self):
+        from django.contrib.admin.sites import AdminSite
+        from apps.stock_opname.admin import StockOpnameAdmin
+
+        ma = StockOpnameAdmin(StockOpname, AdminSite())
+        qs = ma.get_queryset(mock.Mock())
+        # select_related stores a dict of joined tables
+        self.assertIn("created_by", qs.query.select_related)
+        # prefetch_related stores a list of lookups
+        self.assertIn("assigned_to", qs._prefetch_related_lookups)
+

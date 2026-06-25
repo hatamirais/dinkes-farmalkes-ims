@@ -96,8 +96,10 @@ def opname_create(request):
 @perm_required("stock_opname.change_stockopname")
 def opname_edit(request, pk):
     opname = get_object_or_404(StockOpname, pk=pk)
-    if opname.status == StockOpname.Status.COMPLETED:
-        messages.error(request, "Stock Opname yang sudah selesai tidak dapat diedit.")
+    # F14: Only DRAFT opnames may have their header edited; once a snapshot
+    # has been taken (IN_PROGRESS) the category list is locked to match it.
+    if opname.status != StockOpname.Status.DRAFT:
+        messages.error(request, "Hanya Stock Opname berstatus Draft yang dapat diubah.")
         return redirect("stock_opname:opname_detail", pk=opname.pk)
 
     if request.method == "POST":
@@ -156,16 +158,27 @@ def opname_detail(request, pk):
             if item.has_discrepancy:
                 locations[loc.pk]["discrepancies"] += 1
 
+    # F11: Compute summary from the already-evaluated `items` queryset so we
+    # don't fire 5 extra COUNT queries that duplicate the loop above.
+    items_list = list(items)
+    total_items = len(items_list)
+    counted_items = sum(1 for i in items_list if i.actual_quantity is not None)
+    discrepancy_count = sum(
+        1 for i in items_list
+        if i.actual_quantity is not None and i.has_discrepancy
+    )
+    progress = int((counted_items / total_items) * 100) if total_items > 0 else 0
+
     return render(
         request,
         "stock_opname/opname_detail.html",
         {
             "opname": opname,
             "locations": locations.values(),
-            "total_items": opname.total_items,
-            "counted_items": opname.counted_items,
-            "discrepancy_count": opname.discrepancy_count,
-            "progress": opname.progress_percentage,
+            "total_items": total_items,
+            "counted_items": counted_items,
+            "discrepancy_count": discrepancy_count,
+            "progress": progress,
         },
     )
 
@@ -521,13 +534,16 @@ def opname_print(request, pk):
             }
         locations[loc.pk]["items"].append(item)
 
+    # F12: discrepancy_items was already evaluated by the for-loop above;
+    # use len() to avoid a second COUNT query against the database.
+    discrepancy_list = list(discrepancy_items)  # materialise once
     return render(
         request,
         "stock_opname/opname_print.html",
         {
             "opname": opname,
             "locations": locations.values(),
-            "total_discrepancies": discrepancy_items.count(),
+            "total_discrepancies": len(discrepancy_list),
             "print_date": timezone.now(),
         },
     )
