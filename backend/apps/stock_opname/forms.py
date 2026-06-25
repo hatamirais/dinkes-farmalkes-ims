@@ -30,10 +30,16 @@ class StockOpnameForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # F10: Only active users may be assigned to an opname session.
-        self.fields['assigned_to'].queryset = (
-            User.objects.filter(is_active=True).order_by('full_name', 'username')
-        )
+        # F10: Only active users may be assigned to new opname sessions.
+        # For existing instances (edit), also include any currently assigned
+        # users who may have since been deactivated, so saving an unrelated
+        # field change does not silently drop them from the M2M relation.
+        active_qs = User.objects.filter(is_active=True)
+        if self.instance and self.instance.pk:
+            current_assignees = self.instance.assigned_to.filter(is_active=False)
+            if current_assignees.exists():
+                active_qs = (active_qs | current_assignees).distinct()
+        self.fields['assigned_to'].queryset = active_qs.order_by('full_name', 'username')
         self.fields['categories'].required = True
 
         # F9: crispy-forms helper — renders via {% crispy form %} in the template.

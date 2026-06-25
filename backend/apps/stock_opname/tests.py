@@ -488,10 +488,52 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         )
         from apps.stock_opname.forms import StockOpnameForm
 
+        # Create form: inactive user must NOT appear.
         form = StockOpnameForm()
         qs = form.fields["assigned_to"].queryset
         self.assertIn(self.gudang, qs)
         self.assertNotIn(inactive, qs)
+
+    def test_edit_form_preserves_deactivated_assignee_in_queryset(self):
+        """Reviewer concern: deactivating an assigned user must not silently
+        drop them when a staff member later saves an unrelated edit on the
+        same draft opname."""
+        inactive = User.objects.create_user(
+            username="inactive_was_assigned_q",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            is_active=True,  # active at assignment time
+        )
+        from apps.stock_opname.forms import StockOpnameForm
+
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        draft.assigned_to.add(inactive)
+
+        # Now deactivate the user (simulating real-world deactivation after assignment)
+        inactive.is_active = False
+        inactive.save(update_fields=["is_active"])
+
+        # The edit form must still include the now-inactive user in the queryset
+        # so the M2M relation is not silently cleared on save.
+        edit_form = StockOpnameForm(instance=draft)
+        qs = edit_form.fields["assigned_to"].queryset
+        self.assertIn(inactive, qs, "Deactivated current assignee must remain in edit queryset")
+        self.assertIn(self.gudang, qs, "Active users must still appear")
+
+    def test_create_form_excludes_deactivated_user_even_if_previously_assigned(self):
+        """A deactivated user must never appear on a fresh create form."""
+        inactive = User.objects.create_user(
+            username="inactive_create_check_q",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+        from apps.stock_opname.forms import StockOpnameForm
+
+        form = StockOpnameForm()  # no instance
+        qs = form.fields["assigned_to"].queryset
+        self.assertNotIn(inactive, qs)
+
 
     # ------------------------------------------------------------------
     # F9 — FormHelper must be configured (crispy-forms)
