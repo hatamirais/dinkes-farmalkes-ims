@@ -26,3 +26,13 @@ class StockOpnameAdmin(admin.ModelAdmin):
         return ', '.join(
             u.full_name or u.username for u in obj.assigned_to.all()
         ) or '-'
+
+    # F15: pre-fetch M2M and FK so get_assigned_to does not fire N+1 queries.
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related('created_by')
+            .prefetch_related('assigned_to')
+        )
+

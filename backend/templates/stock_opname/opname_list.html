@@ -88,11 +88,13 @@
                                 </td>
                                 <td>{{ o.created_at|date:'d/m/Y H:i' }}</td>
                                 <td class="text-center">
-                                    {% if o.status != 'COMPLETED' %}
+                                    {% if o.status == 'DRAFT' %}
                                     <a href="{% url 'stock_opname:opname_edit' o.pk %}"
                                         class="btn btn-outline-warning btn-sm me-1" title="Ubah">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
+                                    {% endif %}
+                                    {% if o.status == 'DRAFT' or o.status == 'IN_PROGRESS' %}
                                     <a href="{% url 'stock_opname:opname_delete' o.pk %}"
                                         class="btn btn-outline-danger btn-sm" title="Hapus">
                                         <i class="bi bi-trash"></i>
@@ -112,22 +114,22 @@
                     </table>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination — F13: use {% querystring %} so filters survive page changes -->
                 {% if opnames.has_other_pages %}
                 <nav>
                     <ul class="pagination pagination-sm justify-content-center">
                         {% if opnames.has_previous %}
                         <li class="page-item"><a class="page-link"
-                                href="?page={{ opnames.previous_page_number }}">&laquo;</a></li>
+                                href="{% querystring page=opnames.previous_page_number %}">&laquo;</a></li>
                         {% endif %}
                         {% for num in opnames.paginator.page_range %}
                         <li class="page-item {% if opnames.number == num %}active{% endif %}">
-                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            <a class="page-link" href="{% querystring page=num %}">{{ num }}</a>
                         </li>
                         {% endfor %}
                         {% if opnames.has_next %}
                         <li class="page-item"><a class="page-link"
-                                href="?page={{ opnames.next_page_number }}">&raquo;</a></li>
+                                href="{% querystring page=opnames.next_page_number %}">&raquo;</a></li>
                         {% endif %}
                     </ul>
                 </nav>

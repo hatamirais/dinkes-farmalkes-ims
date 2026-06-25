@@ -1,5 +1,9 @@
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Layout
 from django import forms
+
 from apps.users.models import User
+
 from .models import StockOpname
 
 
@@ -26,8 +30,24 @@ class StockOpnameForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['assigned_to'].queryset = User.objects.all().order_by('full_name', 'username')
+        # F10: Only active users may be assigned to an opname session.
+        self.fields['assigned_to'].queryset = (
+            User.objects.filter(is_active=True).order_by('full_name', 'username')
+        )
         self.fields['categories'].required = True
+
+        # F9: crispy-forms helper — renders via {% crispy form %} in the template.
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Div('period_type', css_class='mb-3'),
+            Div('period_start', css_class='mb-3'),
+            Div('period_end', css_class='mb-3'),
+            Div('categories', css_class='mb-3'),
+            Div('assigned_to', css_class='mb-3'),
+            Div('notes', css_class='mb-0'),
+        )
 
     def clean(self):
         cleaned_data = super().clean()
