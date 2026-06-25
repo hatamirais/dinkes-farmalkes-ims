@@ -234,11 +234,14 @@ def opname_start(request, pk):
             if selected_category_ids:
                 stocks = stocks.filter(item__kategori_id__in=selected_category_ids)
 
+            snapshot_time = timezone.now()
             opname_items = [
                 StockOpnameItem(
                     stock_opname=opname,
                     stock=stock,
                     system_quantity=stock.quantity,
+                    created_at=snapshot_time,
+                    updated_at=snapshot_time,
                 )
                 for stock in stocks
             ]
