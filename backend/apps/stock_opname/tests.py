@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest import mock
 
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.core.models import SystemSettings, TimeStampedModel
 from apps.items.models import Category, FundingSource, Item, Location, Unit
@@ -241,6 +242,24 @@ class StockOpnameInputValidationTests(StockOpnameTestMixin, TestCase):
         self.opname_item.refresh_from_db()
         self.assertEqual(self.opname_item.actual_quantity, Decimal("95.50"))
         self.assertEqual(self.opname_item.notes, "Disesuaikan")
+
+    def test_valid_actual_quantity_updates_item_timestamp(self):
+        self.client.force_login(self.gudang)
+        earlier = timezone.now() - timedelta(days=1)
+        StockOpnameItem.objects.filter(pk=self.opname_item.pk).update(updated_at=earlier)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_input", args=[self.opname.pk]),
+            {
+                f"qty_{self.opname_item.pk}": "94",
+                f"notes_{self.opname_item.pk}": "Koreksi hitung",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.opname_item.refresh_from_db()
+        self.assertGreater(self.opname_item.updated_at, earlier)
 
     def test_location_filter_is_preserved_after_post(self):
         self.client.force_login(self.gudang)

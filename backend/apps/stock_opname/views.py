@@ -400,9 +400,13 @@ def opname_input(request, pk):
                         .values_list("pk", flat=True)
                     )
 
+                update_time = timezone.now()
+                for item in updated_items:
+                    item.updated_at = update_time
+
                 StockOpnameItem.objects.bulk_update(
                     updated_items,
-                    ["actual_quantity", "notes"],
+                    ["actual_quantity", "notes", "updated_at"],
                 )
         except DatabaseError:
             logger.exception(
