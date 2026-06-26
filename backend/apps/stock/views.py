@@ -150,6 +150,21 @@ def _get_latest_lplpo_facilities(year, facility_id=""):
     )
 
 
+def _build_snapshot_category_filters(stock_rows):
+    category_filters = []
+    seen_keys = set()
+    for row in stock_rows:
+        category_key = row["kategori_key"]
+        if category_key in seen_keys:
+            continue
+        seen_keys.add(category_key)
+        category_filters.append({
+            "key": category_key,
+            "label": row["kategori"],
+        })
+    return category_filters
+
+
 def _build_puskesmas_stock_snapshot(year, facility_id=""):
     facilities = _get_latest_lplpo_facilities(year, facility_id=facility_id)
     latest_facilities = [facility for facility in facilities if facility.latest_lplpo_id]
@@ -343,6 +358,7 @@ def puskesmas_stock(request):
             "stock_stats": stock_stats,
             "selected_facility": selected_facility,
             "selected_year": filter_form.cleaned_data.get("year") if filter_form.is_valid() else initial["year"],
+            "category_filters": _build_snapshot_category_filters(stock_rows),
         },
     )
 
