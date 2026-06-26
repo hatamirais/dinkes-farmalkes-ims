@@ -840,16 +840,14 @@ class PuskesmasStockViewTests(TestCase):
         self.assertContains(response, 'id="id_facility"')
         self.assertNotContains(response, 'type="radio"')
 
-    def test_puskesmas_stock_template_contains_sanitized_csv_export_script(self):
+    def test_puskesmas_stock_template_uses_external_snapshot_script(self):
         response = self.client.get(reverse('stock:puskesmas_stock'))
 
         self.assertEqual(response.status_code, 200)
         content = response.content.decode('utf-8')
-        self.assertIn('function sanitizeCsvCell(value)', content)
-        self.assertIn(r"return /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;", content)
-        self.assertIn(r'return /[",\r\n]/.test(text)', content)
-        self.assertIn('text.replace(/"/g, \'""\')', content)
-        self.assertNotIn('return /[",\n]/.test(text)', content)
+        self.assertIn("js/puskesmas-stock.js", content)
+        self.assertNotIn('function sanitizeCsvCell(value)', content)
+        self.assertNotIn('window.initPuskesmasStockPage = function initPuskesmasStockPage()', content)
 
     def test_puskesmas_stock_server_renders_snapshot_rows_before_javascript_runs(self):
         response = self.client.get(reverse('stock:puskesmas_stock'))
