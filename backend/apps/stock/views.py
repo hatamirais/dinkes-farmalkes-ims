@@ -93,6 +93,26 @@ def _funding_badge_class(funding_source):
 logger = logging.getLogger(__name__)
 
 
+INDONESIAN_MONTH_LABELS = {
+    1: "Januari",
+    2: "Februari",
+    3: "Maret",
+    4: "April",
+    5: "Mei",
+    6: "Juni",
+    7: "Juli",
+    8: "Agustus",
+    9: "September",
+    10: "Oktober",
+    11: "November",
+    12: "Desember",
+}
+
+
+def _get_month_label(month_number):
+    return INDONESIAN_MONTH_LABELS.get(int(month_number), str(month_number))
+
+
 SNAPSHOT_BASELINE_LPLPO_STATUSES = frozenset(
     {
         LPLPO.Status.SUBMITTED,
@@ -239,16 +259,23 @@ def _build_puskesmas_stock_snapshot(year, facility_id=""):
         current_stock = baseline_stock + receipt_adjustment - consumption_adjustment
         total_stock += current_stock
         visible_facilities.add(facility_pk)
+        category_name = item_obj.kategori.name if item_obj.kategori else "Lainnya"
+        minimum_stock = normalize_whole_number(item_obj.minimum_stock)
+        base_month = facility_state[facility_pk]["base_month"]
         stock_rows.append(
             {
                 "facility_id": facility_pk,
                 "facility_name": facility_state[facility_pk]["facility_name"],
                 "kode_barang": item_obj.kode_barang,
                 "nama_barang": item_obj.nama_barang,
-                "kategori": item_obj.kategori.name if item_obj.kategori else "Lainnya",
+                "kategori": category_name,
+                "kategori_key": unicodedata.normalize("NFC", category_name).strip().casefold(),
                 "satuan": item_obj.satuan.name if item_obj.satuan else "-",
                 "stock_current": current_stock,
-                "base_month": facility_state[facility_pk]["base_month"],
+                "minimum_stock": minimum_stock,
+                "is_below_threshold": current_stock < minimum_stock,
+                "base_month": base_month,
+                "base_month_label": _get_month_label(base_month),
                 "receipt_adjustment": receipt_adjustment,
                 "consumption_adjustment": consumption_adjustment,
             }
@@ -315,6 +342,7 @@ def puskesmas_stock(request):
             "stock_rows": stock_rows,
             "stock_stats": stock_stats,
             "selected_facility": selected_facility,
+            "selected_year": filter_form.cleaned_data.get("year") if filter_form.is_valid() else initial["year"],
         },
     )
 

@@ -6,6 +6,7 @@ from django import forms
 from django.utils import timezone
 
 from apps.items.models import Facility, Location
+from apps.lplpo.models import LPLPO
 
 from .models import StockTransfer
 
@@ -56,19 +57,17 @@ class StockTransferForm(forms.ModelForm):
 
 
 class PuskesmasStockFilterForm(forms.Form):
-    year = forms.IntegerField(
+    year = forms.TypedChoiceField(
         label="Tahun",
-        min_value=1000,
-        max_value=9999,
-        widget=forms.NumberInput(
-            attrs={"class": "form-control", "min": "1000", "max": "9999", "step": "1"}
-        ),
+        coerce=int,
+        choices=[],
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
     facility = forms.ChoiceField(
         label="Puskesmas",
         required=False,
         choices=[],
-        widget=forms.RadioSelect,
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -80,19 +79,37 @@ class PuskesmasStockFilterForm(forms.Form):
             .order_by("name")
             .values_list("id", "name")
         )
+        self.year_choices = self._build_year_choices()
         super().__init__(*args, **kwargs)
 
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.disable_csrf = True
         self.helper.layout = Layout(
-            Div("year", css_class="mb-3"),
+            Div("year", css_class="mb-0"),
             Div("facility", css_class="mb-0"),
         )
 
+        self.fields["year"].choices = [
+            (str(year), str(year)) for year in self.year_choices
+        ]
         self.fields["facility"].choices = [("", "Semua Puskesmas")] + [
             (str(facility_id), name) for facility_id, name in self.facility_choices
         ]
+
+    @classmethod
+    def _build_year_choices(cls):
+        current_year = timezone.localdate().year
+        available_years = set(
+            LPLPO.objects.order_by()
+            .values_list("tahun", flat=True)
+            .distinct()
+        )
+        available_years.update(range(current_year - 3, current_year + 2))
+        return sorted(
+            {year for year in available_years if 1000 <= int(year) <= 9999},
+            reverse=True,
+        )
 
     @classmethod
     def get_default_initial(cls):
@@ -102,6 +119,8 @@ class PuskesmasStockFilterForm(forms.Form):
         year = self.cleaned_data.get("year")
         if year is None or not 1000 <= year <= 9999:
             raise forms.ValidationError("Tahun harus berada pada rentang 1000-9999.")
+        if year not in self.year_choices:
+            raise forms.ValidationError("Pilihan tahun tidak valid.")
         return year
 
     def clean_facility(self):
