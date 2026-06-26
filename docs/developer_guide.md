@@ -79,6 +79,7 @@ Catatan:
 - Mutasi create/update/delete barang dan quick-create lookup pada modul `items` juga memakai `django-ratelimit`; gunakan `ITEM_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator katalog tanpa memakan kuota mutasi modul `users`.
 - Mutasi impor XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) juga memakai `django-ratelimit`; gunakan `LPLPO_IMPORT_RATE_LIMIT` bila perlu menyesuaikan throughput input offline per operator.
 - Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
+- Setelah sebuah migration pernah dibagikan, di-review, atau diaplikasikan di environment mana pun, nama file migration tersebut harus dianggap immutable. Jangan rename, hapus, atau tulis ulang history migration yang sudah terpublikasi; gunakan migration kompatibilitas dan merge migration bila ada dua lineage yang sempat beredar.
 
 ### 3. Jalankan infrastruktur
 
