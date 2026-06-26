@@ -1,11 +1,14 @@
+from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timedelta
+import logging
 import unicodedata
 
 from django.contrib import messages
 from django.db import transaction as db_transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import (
     Case,
@@ -14,6 +17,8 @@ from django.db.models import (
     ExpressionWrapper,
     Q,
     F,
+    OuterRef,
+    Subquery,
     Sum,
     Value,
     When,
@@ -23,9 +28,13 @@ from django.http import JsonResponse
 from django.utils import timezone
 
 from apps.core.decorators import perm_required
-from .forms import StockTransferForm
-from .models import Stock, Transaction, StockTransfer, StockTransferItem
-from apps.items.models import Location, FundingSource, Item
+from apps.items.models import Facility, FundingSource, Item, Location
+from apps.lplpo.models import LPLPO, LPLPOItem, normalize_whole_number
+from apps.puskesmas.models import PuskesmasConsumptionEntry, PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
+from apps.users.models import User
+
+from .forms import PuskesmasStockFilterForm, StockTransferForm
+from .models import Stock, StockTransfer, StockTransferItem, Transaction
 
 def _normalize_text_param(value, *, max_length=100):
     normalized = unicodedata.normalize("NFC", value or "")
@@ -79,6 +88,235 @@ def _funding_badge_class(funding_source):
     if funding_code == "PAD":
         return "text-bg-success"
     return "text-bg-secondary"
+
+
+logger = logging.getLogger(__name__)
+
+
+SNAPSHOT_BASELINE_LPLPO_STATUSES = frozenset(
+    {
+        LPLPO.Status.SUBMITTED,
+        LPLPO.Status.PIC_VERIFIED,
+        LPLPO.Status.REJECTED_PIC,
+        LPLPO.Status.REVIEWED,
+        LPLPO.Status.APPROVED,
+        LPLPO.Status.DISTRIBUTED,
+        LPLPO.Status.CLOSED,
+    }
+)
+
+
+def _get_latest_lplpo_facilities(year, facility_id=""):
+    facilities = Facility.objects.filter(
+        facility_type=Facility.FacilityType.PUSKESMAS,
+        is_active=True,
+    ).order_by("name")
+    if facility_id:
+        facilities = facilities.filter(pk=int(facility_id))
+
+    latest_lplpo_queryset = (
+        LPLPO.objects.filter(
+            facility=OuterRef("pk"),
+            tahun=year,
+            status__in=SNAPSHOT_BASELINE_LPLPO_STATUSES,
+        )
+        .order_by("-bulan", "-id")
+    )
+    return list(
+        facilities.annotate(
+            latest_lplpo_id=Subquery(latest_lplpo_queryset.values("id")[:1]),
+            latest_lplpo_month=Subquery(latest_lplpo_queryset.values("bulan")[:1]),
+        )
+    )
+
+
+def _build_puskesmas_stock_snapshot(year, facility_id=""):
+    facilities = _get_latest_lplpo_facilities(year, facility_id=facility_id)
+    latest_facilities = [facility for facility in facilities if facility.latest_lplpo_id]
+    if not latest_facilities:
+        return {
+            "rows": [],
+            "stats": {
+                "total_facilities": 0,
+                "total_item_rows": 0,
+                "total_stock": 0,
+            },
+        }
+
+    facility_state = {
+        facility.pk: {
+            "facility_name": facility.name,
+            "base_month": int(facility.latest_lplpo_month),
+            "latest_lplpo_id": int(facility.latest_lplpo_id),
+        }
+        for facility in latest_facilities
+    }
+    facility_ids = list(facility_state.keys())
+    latest_lplpo_ids = [state["latest_lplpo_id"] for state in facility_state.values()]
+
+    receipt_adjustments = defaultdict(int)
+    receipt_rows = (
+        PuskesmasReceiptConfirmationItem.objects.filter(
+            sbbk__facility_id__in=facility_ids,
+            sbbk__received_date__year=year,
+            sbbk__status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+        )
+        .values("sbbk__facility_id", "item_id", "sbbk__received_date__month")
+        .annotate(total=Coalesce(Sum("quantity"), Value(Decimal("0"))))
+    )
+    for row in receipt_rows:
+        facility_pk = row["sbbk__facility_id"]
+        if row["sbbk__received_date__month"] > facility_state[facility_pk]["base_month"]:
+            receipt_adjustments[(facility_pk, row["item_id"])] += normalize_whole_number(row["total"])
+
+    consumption_adjustments = defaultdict(int)
+    consumption_rows = (
+        PuskesmasConsumptionEntry.objects.filter(
+            consumption__facility_id__in=facility_ids,
+            consumption__tahun=year,
+        )
+        .values("consumption__facility_id", "item_id", "consumption__bulan")
+        .annotate(total=Coalesce(Sum("quantity"), Value(0)))
+    )
+    for row in consumption_rows:
+        facility_pk = row["consumption__facility_id"]
+        if row["consumption__bulan"] > facility_state[facility_pk]["base_month"]:
+            consumption_adjustments[(facility_pk, row["item_id"])] += int(row["total"] or 0)
+
+    lplpo_items = list(
+        LPLPOItem.objects.filter(lplpo_id__in=latest_lplpo_ids)
+        .select_related("item", "item__satuan", "item__kategori", "lplpo", "lplpo__facility")
+        .order_by("lplpo__facility__name", "item__kategori__sort_order", "item__nama_barang")
+    )
+    baseline_items = {(row.lplpo.facility_id, row.item_id): row for row in lplpo_items}
+    adjustment_keys = set(receipt_adjustments.keys()) | set(consumption_adjustments.keys())
+    row_keys = set(baseline_items.keys()) | adjustment_keys
+
+    if not row_keys:
+        return {
+            "rows": [],
+            "stats": {
+                "total_facilities": 0,
+                "total_item_rows": 0,
+                "total_stock": 0,
+            },
+        }
+
+    missing_item_ids = {item_id for _, item_id in row_keys if item_id not in {row.item_id for row in lplpo_items}}
+    adjustment_items = {
+        item.pk: item
+        for item in Item.objects.filter(pk__in=missing_item_ids).select_related("satuan", "kategori")
+    }
+
+    def _get_snapshot_item_obj(row_key):
+        baseline_row = baseline_items.get(row_key)
+        if baseline_row is not None:
+            return baseline_row.item
+        return adjustment_items[row_key[1]]
+
+    stock_rows = []
+    total_stock = 0
+    visible_facilities = set()
+    for facility_pk, item_id in sorted(
+        row_keys,
+        key=lambda key: (
+            facility_state[key[0]]["facility_name"],
+            _get_snapshot_item_obj(key).kategori.sort_order
+            if _get_snapshot_item_obj(key).kategori
+            else 999999,
+            _get_snapshot_item_obj(key).nama_barang,
+        ),
+    ):
+        baseline_row = baseline_items.get((facility_pk, item_id))
+        item_obj = _get_snapshot_item_obj((facility_pk, item_id))
+        receipt_adjustment = receipt_adjustments[(facility_pk, item_id)]
+        consumption_adjustment = consumption_adjustments[(facility_pk, item_id)]
+        baseline_stock = (
+            normalize_whole_number(baseline_row.stock_keseluruhan)
+            if baseline_row is not None
+            else 0
+        )
+        current_stock = baseline_stock + receipt_adjustment - consumption_adjustment
+        total_stock += current_stock
+        visible_facilities.add(facility_pk)
+        stock_rows.append(
+            {
+                "facility_id": facility_pk,
+                "facility_name": facility_state[facility_pk]["facility_name"],
+                "kode_barang": item_obj.kode_barang,
+                "nama_barang": item_obj.nama_barang,
+                "kategori": item_obj.kategori.name if item_obj.kategori else "Lainnya",
+                "satuan": item_obj.satuan.name if item_obj.satuan else "-",
+                "stock_current": current_stock,
+                "base_month": facility_state[facility_pk]["base_month"],
+                "receipt_adjustment": receipt_adjustment,
+                "consumption_adjustment": consumption_adjustment,
+            }
+        )
+
+    return {
+        "rows": stock_rows,
+        "stats": {
+            "total_facilities": len(visible_facilities),
+            "total_item_rows": len(stock_rows),
+            "total_stock": total_stock,
+        },
+    }
+
+
+@login_required
+@perm_required("stock.view_stock")
+def puskesmas_stock(request):
+    if request.user.role == User.Role.PUSKESMAS:
+        raise PermissionDenied("Operator Puskesmas tidak dapat mengakses stok Puskesmas lintas fasilitas.")
+
+    initial = PuskesmasStockFilterForm.get_default_initial()
+    effective_get = request.GET.copy()
+    for key, value in initial.items():
+        if not effective_get.get(key):
+            effective_get[key] = str(value)
+
+    filter_form = PuskesmasStockFilterForm(effective_get)
+    stock_rows = []
+    stock_stats = {
+        "total_facilities": 0,
+        "total_item_rows": 0,
+        "total_stock": 0,
+    }
+    selected_facility = None
+
+    if filter_form.is_valid():
+        selected_year = filter_form.cleaned_data["year"]
+        selected_facility_id = filter_form.cleaned_data["facility"]
+        if selected_facility_id:
+            selected_facility = Facility.objects.filter(pk=int(selected_facility_id)).first()
+
+        snapshot = _build_puskesmas_stock_snapshot(
+            selected_year,
+            facility_id=selected_facility_id,
+        )
+        stock_rows = snapshot["rows"]
+        stock_stats = snapshot["stats"]
+        logger.info(
+            "puskesmas_stock_viewed",
+            extra={
+                "username": request.user.username,
+                "role": request.user.role,
+                "year": selected_year,
+                "facility_id": int(selected_facility_id) if selected_facility_id else None,
+            },
+        )
+
+    return render(
+        request,
+        "stock/puskesmas_stock.html",
+        {
+            "filter_form": filter_form,
+            "stock_rows": stock_rows,
+            "stock_stats": stock_stats,
+            "selected_facility": selected_facility,
+        },
+    )
 
 
 @login_required

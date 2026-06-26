@@ -47,6 +47,7 @@ Global error handlers in `backend/config/urls.py`:
 Module highlights:
 
 - Stock card: `/stock/stock-card/`, `/stock/stock-card/<item_id>/`
+- Puskesmas stock snapshot: `/stock/puskesmas-stock/`
 - Stock transfer: `/stock/transfers/*`
 - Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`, `/receiving/<pk>/documents/<document_pk>/download/`
 - Receiving plan: `/receiving/plans/*`
@@ -321,6 +322,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 ### 4.11 Reports
 
 - `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. The combined outbound recap remains available on `/reports/pengeluaran/`, while the distribution module exposes route-based filtered variants for `SPECIAL_REQUEST`, `ALLOCATION`, and `LPLPO` under `/distribution/report/*`. No bespoke database models, aggregates data from other apps.
+- `stock` also exposes an Instalasi Farmasi-facing read-only `/stock/puskesmas-stock/` page that computes current Puskesmas stock from the latest usable yearly LPLPO baseline plus later same-year `CONFIRMED` receipt confirmations minus later same-year detailed consumption. The page is intentionally non-CRUD and hidden from `PUSKESMAS` role users.
   The Puskesmas-side rekap persediaan view now also aggregates valuation data from `lplpo.LPLPOItem.harga_satuan` into category-level summary rows.
   The Puskesmas-side rincian/rekap persediaan filters use yearly, quarterly (`Triwulan I-IV`), and semester (`Semester I-II`) period selectors.
 
