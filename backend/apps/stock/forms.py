@@ -1,8 +1,27 @@
-from django import forms
+import unicodedata
 
-from apps.items.models import Location
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Layout
+from django import forms
+from django.utils import timezone
+
+from apps.items.models import Facility, Location
 
 from .models import StockTransfer
+
+
+def _normalize_text_value(value, *, field_label, max_length=None):
+    if value in (None, ""):
+        return ""
+
+    normalized = unicodedata.normalize("NFC", str(value)).strip()
+    if "\x00" in normalized:
+        raise forms.ValidationError(f"{field_label} tidak boleh mengandung null byte.")
+    if max_length is not None and len(normalized) > max_length:
+        raise forms.ValidationError(
+            f"{field_label} tidak boleh lebih dari {max_length} karakter."
+        )
+    return normalized
 
 
 class StockTransferForm(forms.ModelForm):
@@ -34,3 +53,69 @@ class StockTransferForm(forms.ModelForm):
                 "Lokasi tujuan harus berbeda dari lokasi asal.",
             )
         return cleaned
+
+
+class PuskesmasStockFilterForm(forms.Form):
+    year = forms.IntegerField(
+        label="Tahun",
+        min_value=1000,
+        max_value=9999,
+        widget=forms.NumberInput(
+            attrs={"class": "form-control", "min": "1000", "max": "9999", "step": "1"}
+        ),
+    )
+    facility = forms.ChoiceField(
+        label="Puskesmas",
+        required=False,
+        choices=[],
+        widget=forms.RadioSelect,
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.facility_choices = list(
+            Facility.objects.filter(
+                facility_type=Facility.FacilityType.PUSKESMAS,
+                is_active=True,
+            )
+            .order_by("name")
+            .values_list("id", "name")
+        )
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Div("year", css_class="mb-3"),
+            Div("facility", css_class="mb-0"),
+        )
+
+        self.fields["facility"].choices = [("", "Semua Puskesmas")] + [
+            (str(facility_id), name) for facility_id, name in self.facility_choices
+        ]
+
+    @classmethod
+    def get_default_initial(cls):
+        return {"year": timezone.localdate().year, "facility": ""}
+
+    def clean_year(self):
+        year = self.cleaned_data.get("year")
+        if year is None or not 1000 <= year <= 9999:
+            raise forms.ValidationError("Tahun harus berada pada rentang 1000-9999.")
+        return year
+
+    def clean_facility(self):
+        facility = _normalize_text_value(
+            self.cleaned_data.get("facility"),
+            field_label="Puskesmas",
+            max_length=20,
+        )
+        if not facility:
+            return ""
+        if not facility.isdigit():
+            raise forms.ValidationError("Pilihan puskesmas tidak valid.")
+
+        allowed_ids = {str(facility_id) for facility_id, _ in self.facility_choices}
+        if facility not in allowed_ids:
+            raise forms.ValidationError("Pilihan puskesmas tidak valid.")
+        return facility

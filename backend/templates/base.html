@@ -65,6 +65,14 @@
                     title="Stok">
                     <i class="bi bi-boxes"></i><span>Stok</span>
                 </a>
+                {% if request.user.role != 'PUSKESMAS' %}
+                <a href="{% url 'stock:puskesmas_stock' %}"
+                    class="sidebar-link {% if request.resolver_match.url_name == 'puskesmas_stock' %}active{% endif %}"
+                    data-label="Stok Puskesmas"
+                    title="Stok Puskesmas">
+                    <i class="bi bi-hospital"></i><span>Stok Puskesmas</span>
+                </a>
+                {% endif %}
                 {% endif %}
                 {% endif %}
 

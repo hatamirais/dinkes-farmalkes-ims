@@ -5,6 +5,7 @@ app_name = "stock"
 
 urlpatterns = [
     path("", views.stock_list, name="stock_list"),
+    path("puskesmas-stock/", views.puskesmas_stock, name="puskesmas_stock"),
     path("transactions/", views.transaction_list, name="transaction_list"),
     path("transfers/", views.transfer_list, name="transfer_list"),
     path("transfers/create/", views.transfer_create, name="transfer_create"),
