@@ -825,6 +825,39 @@ class PuskesmasStockViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['filter_form'].cleaned_data['year'], self.year)
 
+    def test_puskesmas_stock_renders_inline_filter_toolbar_and_selects(self):
+        response = self.client.get(reverse('stock:puskesmas_stock'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Terapkan Filter')
+        self.assertContains(response, 'Reset')
+        self.assertContains(response, 'Export')
+        self.assertContains(response, 'Cari nama atau kode barang')
+        self.assertContains(response, 'data-category-chip="obat pkm"')
+        self.assertContains(response, '>Obat PKM<', html=False)
+        self.assertContains(response, 'data-inline-filter-form')
+        self.assertContains(response, 'id="id_year"')
+        self.assertContains(response, 'id="id_facility"')
+        self.assertNotContains(response, 'type="radio"')
+
+    def test_puskesmas_stock_template_uses_external_snapshot_script(self):
+        response = self.client.get(reverse('stock:puskesmas_stock'))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8')
+        self.assertIn("js/puskesmas-stock.js", content)
+        self.assertNotIn('function sanitizeCsvCell(value)', content)
+        self.assertNotIn('window.initPuskesmasStockPage = function initPuskesmasStockPage()', content)
+
+    def test_puskesmas_stock_server_renders_snapshot_rows_before_javascript_runs(self):
+        response = self.client.get(reverse('stock:puskesmas_stock'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.facility_a.name)
+        self.assertContains(response, 'ITM-PKM-001')
+        self.assertContains(response, self.item_a.nama_barang)
+        self.assertNotContains(response, 'Memuat snapshot stok...')
+
     def test_puskesmas_stock_invalid_filters_do_not_widen_scope(self):
         response = self.client.get(
             reverse('stock:puskesmas_stock'),
