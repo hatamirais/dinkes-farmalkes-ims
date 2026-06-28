@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
@@ -36,13 +37,16 @@ def _build_expired_audit_filter_form(request):
 def _can_approve_expired_actions(user):
     if not getattr(user, "is_authenticated", False):
         return False
+
     if user.role not in {User.Role.ADMIN, User.Role.KEPALA}:
         return False
+
     return has_module_scope(
         user,
         ModuleAccess.Module.EXPIRED,
         ModuleAccess.Scope.APPROVE,
     )
+
 
 @login_required
 def expired_list(request):
@@ -360,9 +364,7 @@ def expired_detail(request, pk):
         {
             "expired_doc": expired_doc,
             "items": items,
-            "can_approve_expired_actions": _can_approve_expired_actions(
-                request.user
-            ),
+            "can_approve_expired_actions": _can_approve_expired_actions(request.user),
         },
     )
 
@@ -458,6 +460,9 @@ def expired_submit(request, pk):
 @perm_required("expired.change_expired")
 @module_scope_required(ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.APPROVE)
 def expired_verify(request, pk):
+    if not _can_approve_expired_actions(request.user):
+        raise PermissionDenied("Anda tidak memiliki izin untuk memverifikasi dokumen ini.")
+
     expired_doc = get_object_or_404(Expired, pk=pk)
     if request.method != "POST":
         return redirect("expired:expired_detail", pk=pk)
@@ -528,6 +533,11 @@ def expired_verify(request, pk):
 @perm_required("expired.change_expired")
 @module_scope_required(ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.APPROVE)
 def expired_dispose(request, pk):
+    if not _can_approve_expired_actions(request.user):
+        raise PermissionDenied(
+            "Anda tidak memiliki izin untuk menandai dokumen ini sebagai dimusnahkan."
+        )
+
     expired_doc = get_object_or_404(Expired, pk=pk)
     if request.method != "POST":
         return redirect("expired:expired_detail", pk=pk)

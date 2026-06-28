@@ -302,6 +302,27 @@ class ExpiredWorkflowTest(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_custom_non_kepala_approver_cannot_verify_expired(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        custom_approver = User.objects.create_user(
+            username="expired_custom_approver",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(custom_approver, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=custom_approver,
+            module=ModuleAccess.Module.EXPIRED,
+            defaults={"scope": ModuleAccess.Scope.APPROVE},
+        )
+        self.client.force_login(custom_approver)
+
+        response = self.client.post(
+            reverse("expired:expired_verify", args=[expired_doc.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_expired_detail_hides_verify_button_for_gudang(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
         gudang = User.objects.create_user(
@@ -341,6 +362,7 @@ class ExpiredWorkflowTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<i class="bi bi-patch-check me-1"></i>Verifikasi', html=False)
+
     # --- Pending quantity handling ---
 
     def test_expired_create_prefills_only_remaining_quantity_after_submitted_docs(self):
