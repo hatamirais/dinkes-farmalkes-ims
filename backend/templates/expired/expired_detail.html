@@ -61,12 +61,14 @@
             <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
+            {% if can_approve_expired_actions %}
             <form method="post" action="{% url 'expired:expired_verify' expired_doc.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-sm" data-confirm="Verifikasi dokumen ini? Stok akan dikurangi sesuai item yang dilaporkan.">
                     <i class="bi bi-patch-check me-1"></i>Verifikasi
                 </button>
             </form>
+            {% endif %}
             <form method="post" action="{% url 'expired:expired_reset_to_draft' expired_doc.pk %}" data-confirm-submit="Kembalikan dokumen ini ke Draft?">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-warning btn-sm">
@@ -74,12 +76,14 @@
                 </button>
             </form>
             {% elif expired_doc.status == 'VERIFIED' %}
+            {% if can_approve_expired_actions %}
             <form method="post" action="{% url 'expired:expired_dispose' expired_doc.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-sm" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">
                     <i class="bi bi-check2-circle me-1"></i>Tandai Dimusnahkan
                 </button>
             </form>
+            {% endif %}
             {% elif expired_doc.status == 'DISPOSED' %}
             <form method="post" action="{% url 'expired:expired_step_back' expired_doc.pk %}" data-confirm-submit="Kembalikan status dokumen ke Terverifikasi?">
                 {% csrf_token %}

@@ -302,6 +302,45 @@ class ExpiredWorkflowTest(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_expired_detail_hides_verify_button_for_gudang(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        gudang = User.objects.create_user(
+            username="gudang_hidden_verify",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.get(reverse("expired:expired_detail", args=[expired_doc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, '<i class="bi bi-patch-check me-1"></i>Verifikasi', html=False)
+
+    def test_expired_detail_hides_verify_button_for_admin_umum(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        admin_umum = User.objects.create_user(
+            username="admin_umum_hidden_verify",
+            password="secret12345",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ensure_default_module_access(admin_umum, overwrite=True)
+        self.client.force_login(admin_umum)
+
+        response = self.client.get(reverse("expired:expired_detail", args=[expired_doc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, '<i class="bi bi-patch-check me-1"></i>Verifikasi', html=False)
+
+    def test_expired_detail_shows_verify_button_for_kepala(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        ensure_default_module_access(self.kepala_user, overwrite=True)
+        self.client.force_login(self.kepala_user)
+
+        response = self.client.get(reverse("expired:expired_detail", args=[expired_doc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<i class="bi bi-patch-check me-1"></i>Verifikasi', html=False)
     # --- Pending quantity handling ---
 
     def test_expired_create_prefills_only_remaining_quantity_after_submitted_docs(self):

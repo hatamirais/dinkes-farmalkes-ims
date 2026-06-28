@@ -12,8 +12,9 @@ from django.utils import timezone
 from datetime import timedelta
 
 from apps.core.decorators import module_scope_required, perm_required
-from apps.stock.models import Stock, Transaction
 from apps.items.models import Location
+from apps.stock.models import Stock, Transaction
+from apps.users.access import has_module_scope
 from apps.users.models import ModuleAccess, User
 
 from .forms import ExpiredAuditReportFilterForm, ExpiredForm, ExpiredItemFormSet
@@ -31,6 +32,17 @@ def _build_expired_audit_filter_form(request):
         initial=ExpiredAuditReportFilterForm.get_default_initial()
     )
 
+
+def _can_approve_expired_actions(user):
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.role not in {User.Role.ADMIN, User.Role.KEPALA}:
+        return False
+    return has_module_scope(
+        user,
+        ModuleAccess.Module.EXPIRED,
+        ModuleAccess.Scope.APPROVE,
+    )
 
 @login_required
 def expired_list(request):
@@ -348,6 +360,9 @@ def expired_detail(request, pk):
         {
             "expired_doc": expired_doc,
             "items": items,
+            "can_approve_expired_actions": _can_approve_expired_actions(
+                request.user
+            ),
         },
     )
 
