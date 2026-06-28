@@ -7,6 +7,26 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-06-28
+
+### Added
+
+- Stock: new read-only `Stok Puskesmas` report-ledger surface under `/stock/puskesmas-stock/` with dedicated `Penerimaan`, `Pemakaian`, and `Stok Saat Ini` tabs for Instalasi Farmasi-side lookup and review.
+- Stock: compact GET-driven ledger filters for year, Puskesmas, item search, active tab, and tab-specific pagination on the same route.
+- Stock tests: expanded coverage for tab switching, facility/item filtering, receiving aggregation, yearly consumption summaries, current-stock math, and active-tab pagination behavior.
+
+### Changed
+
+- `Stok Puskesmas` no longer presents as a client-side snapshot dashboard; it now uses a formal report-ledger layout with server-rendered tables, compact summary strip, and low-chrome tabbed navigation.
+- `Penerimaan` now reads from confirmed `PuskesmasReceiptConfirmationItem` rows and aggregates yearly totals per facility, item, batch, expiry date, and unit price.
+- `Pemakaian` now reads from `PuskesmasConsumptionEntry` rows and summarizes yearly per-item usage per facility instead of mixing that view into the stock snapshot table.
+- `Stok Saat Ini` keeps the operational source rule of latest usable LPLPO closing stock plus later confirmed receiving minus later detailed consumption, while remaining searchable and paginated in the new ledger shell.
+
+### Fixed
+
+- Removed the old `Stok Puskesmas` client-side toolbar/search/export dependency so the page no longer relies on JavaScript-only row filtering for its primary reporting workflow.
+- Preserved strict filter validation and permission behavior while preventing invalid year, facility, or tab inputs from widening the rendered report scope.
+
 ## [1.26.0] - 2026-06-12
 
 ### Added

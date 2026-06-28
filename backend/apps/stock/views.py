@@ -150,29 +150,234 @@ def _get_latest_lplpo_facilities(year, facility_id=""):
     )
 
 
-def _build_snapshot_category_filters(stock_rows):
-    category_filters = []
-    seen_keys = set()
-    for row in stock_rows:
-        category_key = row["kategori_key"]
-        if category_key in seen_keys:
-            continue
-        seen_keys.add(category_key)
-        category_filters.append({
-            "key": category_key,
-            "label": row["kategori"],
-        })
-    return category_filters
+def _build_ledgers_stats(rows, *, quantity_key, quantity_alias=None):
+    total_quantity = 0
+    visible_facilities = set()
+    for row in rows:
+        visible_facilities.add(row["facility_id"])
+        total_quantity += row[quantity_key]
+
+    stats = {
+        "total_facilities": len(visible_facilities),
+        "total_rows": len(rows),
+        "total_quantity": total_quantity,
+    }
+    if quantity_alias:
+        stats[quantity_alias] = total_quantity
+    return stats
 
 
-def _build_puskesmas_stock_snapshot(year, facility_id=""):
+def _matches_stock_search(item_obj, search_term):
+    if not search_term:
+        return True
+    normalized_search = search_term.casefold()
+    return normalized_search in (item_obj.kode_barang or "").casefold() or normalized_search in (
+        item_obj.nama_barang or ""
+    ).casefold()
+
+
+def _default_ledger_stats(*, quantity_alias=None):
+    stats = {
+        "total_facilities": 0,
+        "total_rows": 0,
+        "total_quantity": 0,
+    }
+    if quantity_alias:
+        stats[quantity_alias] = 0
+    return stats
+
+
+def _get_receiving_ledger_base_queryset(year, facility_id="", search_term=""):
+    queryset = PuskesmasReceiptConfirmationItem.objects.filter(
+        sbbk__status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+        sbbk__received_date__year=year,
+    )
+    if facility_id:
+        queryset = queryset.filter(sbbk__facility_id=int(facility_id))
+    if search_term:
+        queryset = queryset.filter(
+            Q(item__kode_barang__icontains=search_term)
+            | Q(item__nama_barang__icontains=search_term)
+        )
+    return queryset
+
+
+def _get_receiving_ledger_queryset(base_queryset):
+    return (
+        base_queryset.values(
+            "sbbk__facility_id",
+            "sbbk__facility__name",
+            "item_id",
+            "item__kode_barang",
+            "item__nama_barang",
+            "batch_lot",
+            "expiry_date",
+            "unit_price",
+        )
+        .annotate(total_received=Coalesce(Sum("quantity"), Value(Decimal("0"))))
+        .order_by(
+            "sbbk__facility__name",
+            "item__nama_barang",
+            "batch_lot",
+            "expiry_date",
+            "unit_price",
+        )
+    )
+
+
+def _build_receiving_ledger_stats(year, facility_id="", search_term=""):
+    base_queryset = _get_receiving_ledger_base_queryset(
+        year,
+        facility_id=facility_id,
+        search_term=search_term,
+    )
+    grouped_queryset = _get_receiving_ledger_queryset(base_queryset)
+    aggregates = base_queryset.aggregate(
+        total_facilities=Count("sbbk__facility_id", distinct=True),
+        total_received=Coalesce(Sum("quantity"), Value(Decimal("0"))),
+    )
+    return {
+        "total_facilities": aggregates["total_facilities"] or 0,
+        "total_rows": grouped_queryset.count(),
+        "total_quantity": normalize_whole_number(aggregates["total_received"]),
+        "total_received": normalize_whole_number(aggregates["total_received"]),
+    }
+
+
+def _build_receiving_ledger_page(year, facility_id="", search_term="", page_number=None):
+    base_queryset = _get_receiving_ledger_base_queryset(
+        year,
+        facility_id=facility_id,
+        search_term=search_term,
+    )
+    grouped_queryset = _get_receiving_ledger_queryset(base_queryset)
+    page = _paginate_ledger_rows(grouped_queryset, page_number)
+    rows = []
+    for row in page.object_list:
+        rows.append(
+            {
+                "facility_id": row["sbbk__facility_id"],
+                "facility_name": row["sbbk__facility__name"],
+                "item_id": row["item_id"],
+                "kode_barang": row["item__kode_barang"],
+                "nama_barang": row["item__nama_barang"],
+                "batch_lot": row["batch_lot"] or "-",
+                "expiry_date": row["expiry_date"],
+                "expiry_display": row["expiry_date"].strftime("%d/%m/%Y")
+                if row["expiry_date"]
+                else "-",
+                "unit_price": row["unit_price"] or Decimal("0"),
+                "total_received": normalize_whole_number(row["total_received"]),
+            }
+        )
+    page.object_list = rows
+    return {
+        "rows": rows,
+        "page": page,
+        "stats": _build_receiving_ledger_stats(
+            year,
+            facility_id=facility_id,
+            search_term=search_term,
+        ),
+    }
+
+
+def _get_consumption_ledger_base_queryset(year, facility_id="", search_term=""):
+    queryset = PuskesmasConsumptionEntry.objects.filter(consumption__tahun=year)
+    if facility_id:
+        queryset = queryset.filter(consumption__facility_id=int(facility_id))
+    if search_term:
+        queryset = queryset.filter(
+            Q(item__kode_barang__icontains=search_term)
+            | Q(item__nama_barang__icontains=search_term)
+        )
+    return queryset
+
+
+def _get_consumption_ledger_queryset(base_queryset):
+    return (
+        base_queryset.values(
+            "consumption__facility_id",
+            "consumption__facility__name",
+            "item_id",
+            "item__kode_barang",
+            "item__nama_barang",
+            "item__kategori__name",
+            "item__satuan__name",
+        )
+        .annotate(total_consumption=Coalesce(Sum("quantity"), Value(0)))
+        .order_by(
+            "consumption__facility__name",
+            "item__kategori__sort_order",
+            "item__nama_barang",
+        )
+    )
+
+
+def _build_consumption_ledger_stats(year, facility_id="", search_term=""):
+    base_queryset = _get_consumption_ledger_base_queryset(
+        year,
+        facility_id=facility_id,
+        search_term=search_term,
+    )
+    grouped_queryset = _get_consumption_ledger_queryset(base_queryset)
+    aggregates = base_queryset.aggregate(
+        total_facilities=Count("consumption__facility_id", distinct=True),
+        total_consumption=Coalesce(Sum("quantity"), Value(0)),
+    )
+    return {
+        "total_facilities": aggregates["total_facilities"] or 0,
+        "total_rows": grouped_queryset.count(),
+        "total_quantity": int(aggregates["total_consumption"] or 0),
+        "total_consumption": int(aggregates["total_consumption"] or 0),
+    }
+
+
+def _build_consumption_ledger_page(year, facility_id="", search_term="", page_number=None):
+    base_queryset = _get_consumption_ledger_base_queryset(
+        year,
+        facility_id=facility_id,
+        search_term=search_term,
+    )
+    grouped_queryset = _get_consumption_ledger_queryset(base_queryset)
+    page = _paginate_ledger_rows(grouped_queryset, page_number)
+    rows = []
+    for row in page.object_list:
+        rows.append(
+            {
+                "facility_id": row["consumption__facility_id"],
+                "facility_name": row["consumption__facility__name"],
+                "item_id": row["item_id"],
+                "kode_barang": row["item__kode_barang"],
+                "nama_barang": row["item__nama_barang"],
+                "kategori": row["item__kategori__name"] or "Lainnya",
+                "satuan": row["item__satuan__name"] or "-",
+                "total_consumption": int(row["total_consumption"] or 0),
+            }
+        )
+    page.object_list = rows
+    return {
+        "rows": rows,
+        "page": page,
+        "stats": _build_consumption_ledger_stats(
+            year,
+            facility_id=facility_id,
+            search_term=search_term,
+        ),
+    }
+
+
+def _build_puskesmas_stock_snapshot(year, facility_id="", search_term="", page_number=None, include_rows=True):
     facilities = _get_latest_lplpo_facilities(year, facility_id=facility_id)
     latest_facilities = [facility for facility in facilities if facility.latest_lplpo_id]
     if not latest_facilities:
         return {
             "rows": [],
+            "page": _paginate_ledger_rows([], page_number),
             "stats": {
                 "total_facilities": 0,
+                "total_rows": 0,
+                "total_quantity": 0,
                 "total_item_rows": 0,
                 "total_stock": 0,
             },
@@ -230,14 +435,18 @@ def _build_puskesmas_stock_snapshot(year, facility_id=""):
     if not row_keys:
         return {
             "rows": [],
+            "page": _paginate_ledger_rows([], page_number),
             "stats": {
                 "total_facilities": 0,
+                "total_rows": 0,
+                "total_quantity": 0,
                 "total_item_rows": 0,
                 "total_stock": 0,
             },
         }
 
-    missing_item_ids = {item_id for _, item_id in row_keys if item_id not in {row.item_id for row in lplpo_items}}
+    baseline_item_ids = {row.item_id for row in lplpo_items}
+    missing_item_ids = {item_id for _, item_id in row_keys if item_id not in baseline_item_ids}
     adjustment_items = {
         item.pk: item
         for item in Item.objects.filter(pk__in=missing_item_ids).select_related("satuan", "kategori")
@@ -251,6 +460,7 @@ def _build_puskesmas_stock_snapshot(year, facility_id=""):
 
     stock_rows = []
     total_stock = 0
+    total_rows = 0
     visible_facilities = set()
     for facility_pk, item_id in sorted(
         row_keys,
@@ -264,6 +474,9 @@ def _build_puskesmas_stock_snapshot(year, facility_id=""):
     ):
         baseline_row = baseline_items.get((facility_pk, item_id))
         item_obj = _get_snapshot_item_obj((facility_pk, item_id))
+        if not _matches_stock_search(item_obj, search_term):
+            continue
+
         receipt_adjustment = receipt_adjustments[(facility_pk, item_id)]
         consumption_adjustment = consumption_adjustments[(facility_pk, item_id)]
         baseline_stock = (
@@ -273,7 +486,12 @@ def _build_puskesmas_stock_snapshot(year, facility_id=""):
         )
         current_stock = baseline_stock + receipt_adjustment - consumption_adjustment
         total_stock += current_stock
+        total_rows += 1
         visible_facilities.add(facility_pk)
+
+        if not include_rows:
+            continue
+
         category_name = item_obj.kategori.name if item_obj.kategori else "Lainnya"
         minimum_stock = normalize_whole_number(item_obj.minimum_stock)
         base_month = facility_state[facility_pk]["base_month"]
@@ -296,14 +514,32 @@ def _build_puskesmas_stock_snapshot(year, facility_id=""):
             }
         )
 
-    return {
-        "rows": stock_rows,
-        "stats": {
-            "total_facilities": len(visible_facilities),
-            "total_item_rows": len(stock_rows),
-            "total_stock": total_stock,
-        },
+    stats = {
+        "total_facilities": len(visible_facilities),
+        "total_rows": total_rows,
+        "total_quantity": total_stock,
+        "total_item_rows": total_rows,
+        "total_stock": total_stock,
     }
+    if not include_rows:
+        return {
+            "rows": [],
+            "page": _paginate_ledger_rows([], page_number),
+            "stats": stats,
+        }
+
+    page = _paginate_ledger_rows(stock_rows, page_number)
+    page.object_list = list(page.object_list)
+    return {
+        "rows": list(page.object_list),
+        "page": page,
+        "stats": stats,
+    }
+
+
+def _paginate_ledger_rows(rows, page_number):
+    paginator = Paginator(rows, 25)
+    return paginator.get_page(page_number)
 
 
 @login_required
@@ -319,26 +555,103 @@ def puskesmas_stock(request):
             effective_get[key] = str(value)
 
     filter_form = PuskesmasStockFilterForm(effective_get)
+    selected_facility = None
+    active_tab = PuskesmasStockFilterForm.TAB_STOCK
+    search_term = ""
+    selected_year = initial["year"]
+    ledger_rows = []
+    ledger_page = _paginate_ledger_rows([], request.GET.get("page"))
+    ledger_stats = _default_ledger_stats()
+    receiving_rows = []
+    consumption_rows = []
     stock_rows = []
+    receiving_stats = _default_ledger_stats(quantity_alias="total_received")
+    consumption_stats = _default_ledger_stats(quantity_alias="total_consumption")
     stock_stats = {
         "total_facilities": 0,
+        "total_rows": 0,
+        "total_quantity": 0,
         "total_item_rows": 0,
         "total_stock": 0,
     }
-    selected_facility = None
 
     if filter_form.is_valid():
         selected_year = filter_form.cleaned_data["year"]
         selected_facility_id = filter_form.cleaned_data["facility"]
+        active_tab = filter_form.cleaned_data["tab"]
+        search_term = filter_form.cleaned_data["q"]
         if selected_facility_id:
             selected_facility = Facility.objects.filter(pk=int(selected_facility_id)).first()
 
-        snapshot = _build_puskesmas_stock_snapshot(
-            selected_year,
-            facility_id=selected_facility_id,
-        )
-        stock_rows = snapshot["rows"]
-        stock_stats = snapshot["stats"]
+        if active_tab == PuskesmasStockFilterForm.TAB_RECEIVING:
+            receiving_ledger = _build_receiving_ledger_page(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+                page_number=request.GET.get("page"),
+            )
+            receiving_rows = receiving_ledger["rows"]
+            receiving_stats = receiving_ledger["stats"]
+            ledger_rows = receiving_rows
+            ledger_page = receiving_ledger["page"]
+            ledger_stats = receiving_stats
+            consumption_stats = _build_consumption_ledger_stats(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+            )
+            stock_stats = _build_puskesmas_stock_snapshot(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+                include_rows=False,
+            )["stats"]
+        elif active_tab == PuskesmasStockFilterForm.TAB_CONSUMPTION:
+            consumption_ledger = _build_consumption_ledger_page(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+                page_number=request.GET.get("page"),
+            )
+            consumption_rows = consumption_ledger["rows"]
+            consumption_stats = consumption_ledger["stats"]
+            ledger_rows = consumption_rows
+            ledger_page = consumption_ledger["page"]
+            ledger_stats = consumption_stats
+            receiving_stats = _build_receiving_ledger_stats(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+            )
+            stock_stats = _build_puskesmas_stock_snapshot(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+                include_rows=False,
+            )["stats"]
+        else:
+            stock_snapshot = _build_puskesmas_stock_snapshot(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+                page_number=request.GET.get("page"),
+            )
+            stock_rows = stock_snapshot["rows"]
+            stock_stats = stock_snapshot["stats"]
+            ledger_rows = stock_rows
+            ledger_page = stock_snapshot["page"]
+            ledger_stats = stock_stats
+            receiving_stats = _build_receiving_ledger_stats(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+            )
+            consumption_stats = _build_consumption_ledger_stats(
+                selected_year,
+                facility_id=selected_facility_id,
+                search_term=search_term,
+            )
+
         logger.info(
             "puskesmas_stock_viewed",
             extra={
@@ -346,19 +659,48 @@ def puskesmas_stock(request):
                 "role": request.user.role,
                 "year": selected_year,
                 "facility_id": int(selected_facility_id) if selected_facility_id else None,
+                "tab": active_tab,
+                "has_search_term": bool(search_term),
             },
         )
+
+    tabs = [
+        {
+            "key": PuskesmasStockFilterForm.TAB_RECEIVING,
+            "label": "Penerimaan",
+            "count": receiving_stats.get("total_rows", 0),
+        },
+        {
+            "key": PuskesmasStockFilterForm.TAB_CONSUMPTION,
+            "label": "Pemakaian",
+            "count": consumption_stats.get("total_rows", 0),
+        },
+        {
+            "key": PuskesmasStockFilterForm.TAB_STOCK,
+            "label": "Stok Saat Ini",
+            "count": stock_stats.get("total_rows", 0),
+        },
+    ]
 
     return render(
         request,
         "stock/puskesmas_stock.html",
         {
             "filter_form": filter_form,
+            "selected_facility": selected_facility,
+            "selected_year": selected_year,
+            "search_term": search_term,
+            "active_tab": active_tab,
+            "tabs": tabs,
+            "ledger_page": ledger_page,
+            "ledger_rows": ledger_rows,
+            "ledger_stats": ledger_stats,
+            "receiving_rows": receiving_rows,
+            "receiving_stats": receiving_stats,
+            "consumption_rows": consumption_rows,
+            "consumption_stats": consumption_stats,
             "stock_rows": stock_rows,
             "stock_stats": stock_stats,
-            "selected_facility": selected_facility,
-            "selected_year": filter_form.cleaned_data.get("year") if filter_form.is_valid() else initial["year"],
-            "category_filters": _build_snapshot_category_filters(stock_rows),
         },
     )
 
