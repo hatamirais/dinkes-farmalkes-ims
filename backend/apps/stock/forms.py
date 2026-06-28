@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.items.models import Facility, Location
 from apps.lplpo.models import LPLPO
+from apps.puskesmas.models import PuskesmasConsumption, PuskesmasReceiptConfirmation
 
 from .models import StockTransfer
 
@@ -57,6 +58,15 @@ class StockTransferForm(forms.ModelForm):
 
 
 class PuskesmasStockFilterForm(forms.Form):
+    TAB_RECEIVING = "receiving"
+    TAB_CONSUMPTION = "consumption"
+    TAB_STOCK = "stock"
+    TAB_CHOICES = (
+        (TAB_RECEIVING, "Penerimaan"),
+        (TAB_CONSUMPTION, "Pemakaian"),
+        (TAB_STOCK, "Stok Saat Ini"),
+    )
+
     year = forms.TypedChoiceField(
         label="Tahun",
         coerce=int,
@@ -68,6 +78,23 @@ class PuskesmasStockFilterForm(forms.Form):
         required=False,
         choices=[],
         widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    q = forms.CharField(
+        label="Cari Barang",
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Cari kode atau nama barang",
+            }
+        ),
+    )
+    tab = forms.ChoiceField(
+        label="Tab",
+        required=False,
+        choices=TAB_CHOICES,
+        widget=forms.HiddenInput(),
     )
 
     def __init__(self, *args, **kwargs):
@@ -88,6 +115,8 @@ class PuskesmasStockFilterForm(forms.Form):
         self.helper.layout = Layout(
             Div("year", css_class="mb-0"),
             Div("facility", css_class="mb-0"),
+            Div("q", css_class="mb-0"),
+            Div("tab", css_class="mb-0"),
         )
 
         self.fields["year"].choices = [
@@ -105,6 +134,20 @@ class PuskesmasStockFilterForm(forms.Form):
             .values_list("tahun", flat=True)
             .distinct()
         )
+        available_years.update(
+            year
+            for year in PuskesmasReceiptConfirmation.objects.order_by()
+            .values_list("received_date__year", flat=True)
+            .distinct()
+            if year is not None
+        )
+        available_years.update(
+            year
+            for year in PuskesmasConsumption.objects.order_by()
+            .values_list("tahun", flat=True)
+            .distinct()
+            if year is not None
+        )
         available_years.update(range(current_year - 3, current_year + 2))
         return sorted(
             {year for year in available_years if 1000 <= int(year) <= 9999},
@@ -113,7 +156,12 @@ class PuskesmasStockFilterForm(forms.Form):
 
     @classmethod
     def get_default_initial(cls):
-        return {"year": timezone.localdate().year, "facility": ""}
+        return {
+            "year": timezone.localdate().year,
+            "facility": "",
+            "q": "",
+            "tab": cls.TAB_STOCK,
+        }
 
     def clean_year(self):
         year = self.cleaned_data.get("year")
@@ -138,3 +186,23 @@ class PuskesmasStockFilterForm(forms.Form):
         if facility not in allowed_ids:
             raise forms.ValidationError("Pilihan puskesmas tidak valid.")
         return facility
+
+    def clean_q(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("q"),
+            field_label="Cari Barang",
+            max_length=100,
+        )
+
+    def clean_tab(self):
+        tab = _normalize_text_value(
+            self.cleaned_data.get("tab"),
+            field_label="Tab",
+            max_length=20,
+        )
+        allowed_tabs = {choice[0] for choice in self.TAB_CHOICES}
+        if not tab:
+            return self.TAB_STOCK
+        if tab not in allowed_tabs:
+            raise forms.ValidationError("Pilihan tab tidak valid.")
+        return tab

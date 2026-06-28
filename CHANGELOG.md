@@ -7,6 +7,43 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-06-28
+
+### Added
+
+- Puskesmas: new detailed `Pemakaian` breakdown workflow with facility-scoped list, create, edit, and detail screens, historical reference preservation, and supporting tests.
+- Puskesmas: new receipt-confirmation workflow for LPLPO receiving follow-up, including checklist-style drafts, discrepancy notes, split validation, and synchronized operational handling for confirmed documents.
+- LPLPO: new XLSX import/export support with hardened file handling, rate limiting, and expanded offline test coverage for spreadsheet workflows.
+- Items: new therapeutic class master-data support plus item-form/admin integration, seed template coverage, and related regression tests.
+- Items: new essential-item list filter and XLSX export support for item master-data review.
+- Stock: redesigned stock list surface with richer filtering, expiry tracking, and analytics-focused summary behavior for Instalasi Farmasi operations.
+- Stock: new read-only `Stok Puskesmas` report-ledger surface under `/stock/puskesmas-stock/` with dedicated `Penerimaan`, `Pemakaian`, and `Stok Saat Ini` tabs for Instalasi Farmasi-side lookup and review.
+- Stock: compact GET-driven ledger filters for year, Puskesmas, item search, active tab, and tab-specific pagination on the same route.
+- Stock tests: expanded coverage for stock list analytics, tab switching, facility/item filtering, receiving aggregation, yearly consumption summaries, current-stock math, and active-tab pagination behavior.
+
+### Changed
+
+- LPLPO access for Instalasi Farmasi was reworked so submitted documents are reachable again under the intended workflow stage gates, while cross-facility access remains constrained by the updated authorization rules.
+- LPLPO monthly carry and suggestion logic now better handles months that have both `penerimaan` and `pemakaian`, and January bootstrap suggestions now prefer confirmed receipt values where available.
+- Puskesmas receipt confirmation was simplified from the earlier heavier flow into checklist-oriented drafts with document-level discrepancy notes and cleaner mutation behavior.
+- `Stok Puskesmas` no longer presents as a client-side snapshot dashboard; it now uses a formal report-ledger layout with server-rendered tables, compact summary strip, and low-chrome tabbed navigation.
+- `Penerimaan` now reads from confirmed `PuskesmasReceiptConfirmationItem` rows and aggregates yearly totals per facility, item, batch, expiry date, and unit price.
+- `Pemakaian` now reads from `PuskesmasConsumptionEntry` rows and summarizes yearly per-item usage per facility instead of mixing that view into the stock snapshot table.
+- `Stok Saat Ini` keeps the operational source rule of latest usable LPLPO closing stock plus later confirmed receiving minus later detailed consumption, while remaining searchable and paginated in the new ledger shell.
+- Stock list filtering now preserves quick-filter context more reliably and aligns expiry bucket behavior with the canonical expired-item semantics used elsewhere in the system.
+- Documentation and seed references were expanded for the new item, stock, and LPLPO workflows, including design guidance for the updated inventory-table UI.
+
+### Fixed
+
+- Puskesmas: fixed consumption-review regressions and preserved historical consumption references during later edits and detail inspection.
+- Puskesmas receipt confirmation: fixed legacy edit compatibility, preview throttling behavior, create-time discrepancy-note validation, permission compatibility, and aggregate validation on split confirmation flows.
+- Error handling: guarded centralized error handlers so they degrade safely when `request.user` is unavailable.
+- Stock opname: hardened completion audit handling, preserved deactivated assignees in edit flows, refreshed item audit timestamps correctly, and stabilized snapshot timestamp persistence.
+- Migrations: reconciled outstanding model drift in `users`, `receiving`, and `lplpo`, and fixed stock-opname migration compatibility issues.
+- Expired workflow: hid approval actions from non-approver roles and aligned approval endpoints with the restricted UI behavior.
+- Removed the old `Stok Puskesmas` client-side toolbar/search/export dependency so the page no longer relies on JavaScript-only row filtering for its primary reporting workflow.
+- Preserved strict filter validation and permission behavior while preventing invalid year, facility, or tab inputs from widening the rendered report scope.
+
 ## [1.26.0] - 2026-06-12
 
 ### Added

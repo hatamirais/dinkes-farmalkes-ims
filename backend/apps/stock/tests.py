@@ -620,6 +620,11 @@ class PuskesmasStockViewTests(TestCase):
             password='secret12345',
             role=User.Role.GUDANG,
         )
+        ModuleAccess.objects.update_or_create(
+            user=self.admin,
+            module=ModuleAccess.Module.STOCK,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
         self.client.force_login(self.admin)
 
         self.unit = Unit.objects.create(code='TAB-PKM', name='Tablet Puskesmas')
@@ -629,7 +634,7 @@ class PuskesmasStockViewTests(TestCase):
             nama_barang='Amoxicillin',
             satuan=self.unit,
             kategori=self.category,
-            minimum_stock=Decimal('0'),
+            minimum_stock=Decimal('5'),
         )
         self.item_b = Item.objects.create(
             kode_barang='ITM-PKM-002',
@@ -663,6 +668,10 @@ class PuskesmasStockViewTests(TestCase):
         )
 
         self.year = timezone.localdate().year
+
+        self.subunit_a = self._create_subunit(self.facility_a, 'Poli Umum A')
+        self.subunit_a_2 = self._create_subunit(self.facility_a, 'Poli Gigi A')
+        self.subunit_b = self._create_subunit(self.facility_b, 'Poli Umum B')
 
         lplpo_a = LPLPO.objects.create(
             facility=self.facility_a,
@@ -713,6 +722,15 @@ class PuskesmasStockViewTests(TestCase):
             quantity=Decimal('4'),
             unit_price=Decimal('1000'),
             batch_lot='RCV-A1',
+            expiry_date=date(self.year + 1, 1, 31),
+        )
+        PuskesmasReceiptConfirmationItem.objects.create(
+            sbbk=receipt_a,
+            item=self.item_a,
+            quantity=Decimal('3'),
+            unit_price=Decimal('1000'),
+            batch_lot='RCV-A1',
+            expiry_date=date(self.year + 1, 1, 31),
         )
 
         receipt_b = PuskesmasReceiptConfirmation.objects.create(
@@ -727,6 +745,22 @@ class PuskesmasStockViewTests(TestCase):
             quantity=Decimal('5'),
             unit_price=Decimal('1500'),
             batch_lot='RCV-B1',
+            expiry_date=date(self.year + 1, 2, 28),
+        )
+
+        draft_receipt = PuskesmasReceiptConfirmation.objects.create(
+            facility=self.facility_a,
+            received_date=date(self.year, 7, 15),
+            status=PuskesmasReceiptConfirmation.ReceiptStatus.DRAFT,
+            created_by=self.admin,
+        )
+        PuskesmasReceiptConfirmationItem.objects.create(
+            sbbk=draft_receipt,
+            item=self.item_a,
+            quantity=Decimal('99'),
+            unit_price=Decimal('2000'),
+            batch_lot='DRAFT-A',
+            expiry_date=date(self.year + 1, 3, 31),
         )
 
         consumption_a = PuskesmasConsumption.objects.create(
@@ -736,12 +770,17 @@ class PuskesmasStockViewTests(TestCase):
             notes='',
             created_by=self.admin,
         )
-        subunit_a = self._create_subunit(self.facility_a, 'Poli Umum A')
         PuskesmasConsumptionEntry.objects.create(
             consumption=consumption_a,
             item=self.item_a,
-            subunit=subunit_a,
+            subunit=self.subunit_a,
             quantity=2,
+        )
+        PuskesmasConsumptionEntry.objects.create(
+            consumption=consumption_a,
+            item=self.item_a,
+            subunit=self.subunit_a_2,
+            quantity=3,
         )
 
         consumption_b = PuskesmasConsumption.objects.create(
@@ -751,11 +790,10 @@ class PuskesmasStockViewTests(TestCase):
             notes='',
             created_by=self.admin,
         )
-        subunit_b = self._create_subunit(self.facility_b, 'Poli Umum B')
         PuskesmasConsumptionEntry.objects.create(
             consumption=consumption_b,
             item=self.item_c,
-            subunit=subunit_b,
+            subunit=self.subunit_b,
             quantity=7,
         )
 
@@ -773,6 +811,7 @@ class PuskesmasStockViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/puskesmas_stock.html')
+        self.assertEqual(response.context['active_tab'], 'stock')
 
     def test_puskesmas_stock_denies_puskesmas_role_even_with_stock_scope(self):
         puskesmas_user = User.objects.create_user(
@@ -824,61 +863,159 @@ class PuskesmasStockViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['filter_form'].cleaned_data['year'], self.year)
+        self.assertEqual(response.context['active_tab'], 'stock')
 
-    def test_puskesmas_stock_renders_inline_filter_toolbar_and_selects(self):
+    def test_puskesmas_stock_renders_ledger_filters_and_tabs(self):
         response = self.client.get(reverse('stock:puskesmas_stock'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Terapkan Filter')
-        self.assertContains(response, 'Reset')
-        self.assertContains(response, 'Export')
-        self.assertContains(response, 'Cari nama atau kode barang')
-        self.assertContains(response, 'data-category-chip="obat pkm"')
-        self.assertContains(response, '>Obat PKM<', html=False)
-        self.assertContains(response, 'data-inline-filter-form')
+        self.assertContains(response, 'Report Ledger')
+        self.assertContains(response, 'Penerimaan')
+        self.assertContains(response, 'Pemakaian')
+        self.assertContains(response, 'Stok Saat Ini')
         self.assertContains(response, 'id="id_year"')
         self.assertContains(response, 'id="id_facility"')
+        self.assertContains(response, 'id="id_q"')
         self.assertNotContains(response, 'type="radio"')
-
-    def test_puskesmas_stock_template_uses_external_snapshot_script(self):
-        response = self.client.get(reverse('stock:puskesmas_stock'))
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode('utf-8')
-        self.assertIn("js/puskesmas-stock.js", content)
-        self.assertNotIn('function sanitizeCsvCell(value)', content)
-        self.assertNotIn('window.initPuskesmasStockPage = function initPuskesmasStockPage()', content)
-
-    def test_puskesmas_stock_server_renders_snapshot_rows_before_javascript_runs(self):
-        response = self.client.get(reverse('stock:puskesmas_stock'))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.facility_a.name)
-        self.assertContains(response, 'ITM-PKM-001')
-        self.assertContains(response, self.item_a.nama_barang)
-        self.assertNotContains(response, 'Memuat snapshot stok...')
+        self.assertNotContains(response, 'js/puskesmas-stock.js')
 
     def test_puskesmas_stock_invalid_filters_do_not_widen_scope(self):
         response = self.client.get(
             reverse('stock:puskesmas_stock'),
-            {'year': '99999', 'facility': 'not-a-facility'},
+            {'year': '99999', 'facility': 'not-a-facility', 'tab': 'oops'},
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context['filter_form'].errors)
         self.assertEqual(response.context['stock_rows'], [])
-        self.assertEqual(response.context['stock_stats']['total_item_rows'], 0)
+        self.assertEqual(response.context['receiving_rows'], [])
+        self.assertEqual(response.context['consumption_rows'], [])
+        self.assertEqual(response.context['ledger_stats']['total_rows'], 0)
 
-    def test_puskesmas_stock_filters_single_facility(self):
+    def test_puskesmas_stock_filters_single_facility_for_all_tabs(self):
         response = self.client.get(
             reverse('stock:puskesmas_stock'),
-            {'year': str(self.year), 'facility': str(self.facility_b.pk)},
+            {'year': str(self.year), 'facility': str(self.facility_b.pk), 'tab': 'receiving'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['selected_facility'], self.facility_b)
+        self.assertEqual(len(response.context['receiving_rows']), 1)
+        self.assertEqual(response.context['receiving_rows'][0]['facility_name'], self.facility_b.name)
+        self.assertEqual(response.context['ledger_page'].object_list[0]['facility_name'], self.facility_b.name)
+
+    def test_puskesmas_stock_year_choices_include_receipt_or_consumption_only_years(self):
+        from apps.puskesmas.models import PuskesmasConsumption, PuskesmasConsumptionEntry, PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
+
+        historical_year = self.year - 6
+
+        receipt = PuskesmasReceiptConfirmation.objects.create(
+            facility=self.facility_a,
+            received_date=date(historical_year, 2, 10),
+            status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+            created_by=self.admin,
+        )
+        PuskesmasReceiptConfirmationItem.objects.create(
+            sbbk=receipt,
+            item=self.item_a,
+            quantity=Decimal('1'),
+            unit_price=Decimal('900'),
+            batch_lot='OLD-RCV',
+        )
+        consumption = PuskesmasConsumption.objects.create(
+            facility=self.facility_b,
+            bulan=3,
+            tahun=historical_year,
+            notes='',
+            created_by=self.admin,
+        )
+        PuskesmasConsumptionEntry.objects.create(
+            consumption=consumption,
+            item=self.item_c,
+            subunit=self.subunit_b,
+            quantity=2,
+        )
+
+        response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(historical_year)})
+
+        self.assertEqual(response.status_code, 200)
+        year_choices = [int(value) for value, _ in response.context['filter_form'].fields['year'].choices]
+        self.assertIn(historical_year, year_choices)
+        self.assertEqual(response.context['filter_form'].cleaned_data['year'], historical_year)
+
+    def test_puskesmas_stock_only_populates_rows_for_active_tab(self):
+        response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'tab': 'receiving'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['receiving_rows'])
+        self.assertEqual(response.context['consumption_rows'], [])
+        self.assertEqual(response.context['stock_rows'], [])
+        self.assertGreater(response.context['consumption_stats']['total_rows'], 0)
+        self.assertGreater(response.context['stock_stats']['total_rows'], 0)
+
+    def test_puskesmas_stock_search_filters_by_item_code_or_name(self):
+        response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'q': 'amoxi'},
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context['stock_rows']), 1)
-        self.assertEqual(response.context['stock_rows'][0]['facility_name'], self.facility_b.name)
-        self.assertEqual(response.context['selected_facility'], self.facility_b)
+        self.assertEqual(response.context['stock_rows'][0]['kode_barang'], 'ITM-PKM-001')
+        self.assertContains(response, 'Amoxicillin')
+        self.assertNotContains(response, 'Vitamin C')
+
+    def test_puskesmas_stock_tab_query_param_switches_rendered_dataset(self):
+        receiving_response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'tab': 'receiving'},
+        )
+        consumption_response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'tab': 'consumption'},
+        )
+
+        self.assertEqual(receiving_response.status_code, 200)
+        self.assertEqual(receiving_response.context['active_tab'], 'receiving')
+        self.assertContains(receiving_response, 'Harga Satuan')
+        self.assertContains(receiving_response, 'Total Penerimaan')
+        self.assertNotContains(receiving_response, 'Total Pemakaian')
+
+        self.assertEqual(consumption_response.status_code, 200)
+        self.assertEqual(consumption_response.context['active_tab'], 'consumption')
+        self.assertContains(consumption_response, 'Total Pemakaian')
+        self.assertNotContains(consumption_response, 'Harga Satuan')
+
+    def test_puskesmas_stock_receiving_aggregates_by_batch_and_excludes_draft(self):
+        response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'tab': 'receiving', 'facility': str(self.facility_a.pk)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['receiving_rows']), 1)
+        row = response.context['receiving_rows'][0]
+        self.assertEqual(row['batch_lot'], 'RCV-A1')
+        self.assertEqual(row['unit_price'], Decimal('1000'))
+        self.assertEqual(row['total_received'], 7)
+        self.assertNotContains(response, 'DRAFT-A')
+        self.assertEqual(response.context['receiving_stats']['total_received'], 7)
+
+    def test_puskesmas_stock_consumption_aggregates_yearly_totals(self):
+        response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'tab': 'consumption', 'facility': str(self.facility_a.pk)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['consumption_rows']), 1)
+        row = response.context['consumption_rows'][0]
+        self.assertEqual(row['kode_barang'], 'ITM-PKM-001')
+        self.assertEqual(row['total_consumption'], 5)
+        self.assertEqual(response.context['consumption_stats']['total_consumption'], 5)
 
     def test_puskesmas_stock_uses_latest_lplpo_only_when_no_later_adjustments_exist(self):
         response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year)})
@@ -889,29 +1026,14 @@ class PuskesmasStockViewTests(TestCase):
         self.assertEqual(row['receipt_adjustment'], 0)
         self.assertEqual(row['consumption_adjustment'], 0)
 
-    def test_puskesmas_stock_adds_confirmed_receipts_after_lplpo(self):
-        response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year)})
-
-        self.assertEqual(response.status_code, 200)
-        row = next(row for row in response.context['stock_rows'] if row['kode_barang'] == 'ITM-PKM-001')
-        self.assertEqual(row['receipt_adjustment'], 4)
-
-    def test_puskesmas_stock_subtracts_consumption_after_lplpo(self):
-        response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year), 'facility': str(self.facility_b.pk)})
-
-        self.assertEqual(response.status_code, 200)
-        row = response.context['stock_rows'][0]
-        self.assertEqual(row['consumption_adjustment'], 7)
-        self.assertEqual(row['stock_current'], 28)
-
     def test_puskesmas_stock_applies_receipt_and_consumption_adjustments_together(self):
         response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year), 'facility': str(self.facility_a.pk)})
 
         self.assertEqual(response.status_code, 200)
         row = next(row for row in response.context['stock_rows'] if row['kode_barang'] == 'ITM-PKM-001')
+        self.assertEqual(row['receipt_adjustment'], 7)
+        self.assertEqual(row['consumption_adjustment'], 5)
         self.assertEqual(row['stock_current'], 14)
-        self.assertEqual(row['receipt_adjustment'], 4)
-        self.assertEqual(row['consumption_adjustment'], 2)
 
     def test_puskesmas_stock_ignores_cross_facility_draft_lplpo_as_baseline(self):
         from apps.lplpo.models import LPLPO, LPLPOItem
@@ -969,37 +1091,6 @@ class PuskesmasStockViewTests(TestCase):
         self.assertEqual(row['base_month'], 8)
         self.assertEqual(row['stock_current'], 42)
 
-    def test_puskesmas_stock_includes_receipt_only_item_after_baseline(self):
-        from apps.puskesmas.models import (
-            PuskesmasReceiptConfirmation,
-            PuskesmasReceiptConfirmationItem,
-        )
-
-        receipt = PuskesmasReceiptConfirmation.objects.create(
-            facility=self.facility_a,
-            received_date=date(self.year, 6, 20),
-            status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
-            created_by=self.admin,
-        )
-        PuskesmasReceiptConfirmationItem.objects.create(
-            sbbk=receipt,
-            item=self.item_c,
-            quantity=Decimal('9'),
-            unit_price=Decimal('1750'),
-            batch_lot='RCV-A2',
-        )
-
-        response = self.client.get(
-            reverse('stock:puskesmas_stock'),
-            {'year': str(self.year), 'facility': str(self.facility_a.pk)},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        row = next(row for row in response.context['stock_rows'] if row['kode_barang'] == 'ITM-PKM-003')
-        self.assertEqual(row['receipt_adjustment'], 9)
-        self.assertEqual(row['consumption_adjustment'], 0)
-        self.assertEqual(row['stock_current'], 9)
-
     def test_puskesmas_stock_returns_empty_rows_when_facility_has_no_usable_lplpo(self):
         response = self.client.get(
             reverse('stock:puskesmas_stock'),
@@ -1010,9 +1101,45 @@ class PuskesmasStockViewTests(TestCase):
         self.assertEqual(response.context['stock_rows'], [])
         self.assertEqual(response.context['stock_stats']['total_facilities'], 0)
 
+    def test_puskesmas_stock_active_tab_paginates_results(self):
+        from apps.puskesmas.models import PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
+
+        for index in range(30):
+            item = Item.objects.create(
+                kode_barang=f'ITM-RCV-{index:03d}',
+                nama_barang=f'Barang Terima {index:03d}',
+                satuan=self.unit,
+                kategori=self.category,
+                minimum_stock=Decimal('0'),
+            )
+            receipt = PuskesmasReceiptConfirmation.objects.create(
+                facility=self.facility_a,
+                received_date=date(self.year, 8, 1),
+                status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+                created_by=self.admin,
+            )
+            PuskesmasReceiptConfirmationItem.objects.create(
+                sbbk=receipt,
+                item=item,
+                quantity=Decimal('1'),
+                unit_price=Decimal('500'),
+                batch_lot=f'B-{index:03d}',
+            )
+
+        response = self.client.get(
+            reverse('stock:puskesmas_stock'),
+            {'year': str(self.year), 'tab': 'receiving', 'page': '2'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_tab'], 'receiving')
+        self.assertEqual(response.context['ledger_page'].number, 2)
+        self.assertGreater(response.context['ledger_page'].paginator.num_pages, 1)
+        self.assertLessEqual(len(response.context['ledger_page'].object_list), 25)
+
     def test_puskesmas_stock_render_does_not_regress_into_obvious_n_plus_one_queries(self):
         with CaptureQueriesContext(connection) as captured_queries:
-            response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year)})
+            response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year), 'tab': 'stock'})
 
         self.assertEqual(response.status_code, 200)
         self.assertLessEqual(len(captured_queries), 60)
