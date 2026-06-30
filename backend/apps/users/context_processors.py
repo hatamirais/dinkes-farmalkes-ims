@@ -1,4 +1,4 @@
-from .access import has_module_scope
+from .access import has_module_scope, is_super_admin
 from .models import ModuleAccess
 
 
@@ -19,6 +19,7 @@ def access_flags(request):
             "can_view_reports": False,
             "can_view_puskesmas": False,
             "can_view_lplpo": False,
+            "is_super_admin_user": False,
         }
 
     return {
@@ -61,4 +62,5 @@ def access_flags(request):
         "can_view_lplpo": has_module_scope(
             user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.VIEW
         ),
+        "is_super_admin_user": is_super_admin(user),
     }

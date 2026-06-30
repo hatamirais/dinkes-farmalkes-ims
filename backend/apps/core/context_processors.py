@@ -24,7 +24,7 @@ def nav_notifications(request):
     if not user or not user.is_authenticated:
         return {"nav_notification_count": 0, "nav_notification_items": []}
 
-    from apps.users.access import get_user_module_scope
+    from apps.users.access import get_user_module_scope, is_super_admin
     from apps.users.models import ModuleAccess, User
 
     notification_items = []
@@ -211,7 +211,7 @@ def nav_notifications(request):
             "bi-clipboard-check",
         )
 
-    if puskesmas_scope >= ModuleAccess.Scope.VIEW:
+    if is_super_admin(user) and puskesmas_scope >= ModuleAccess.Scope.VIEW:
         from apps.puskesmas.models import PuskesmasRequest
 
         count = PuskesmasRequest.objects.filter(

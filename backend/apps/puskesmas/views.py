@@ -18,7 +18,7 @@ from apps.core.rate_limits import (
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.lplpo.models import LPLPO
-from apps.users.access import has_module_permission, has_module_scope
+from apps.users.access import has_module_permission, has_module_scope, is_super_admin
 from apps.users.models import ModuleAccess, User
 from apps.items.models import Facility, Item
 
@@ -57,12 +57,8 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 
-def _is_super_admin(user):
-    return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
-
-
 def _get_required_facility(user):
-    if _is_super_admin(user):
+    if is_super_admin(user):
         return None
 
     facility = getattr(user, "facility", None)
@@ -77,7 +73,7 @@ def _can_review_request(user):
     if not getattr(user, "is_authenticated", False):
         return False
 
-    if _is_super_admin(user):
+    if is_super_admin(user):
         return True
 
     if getattr(user, "role", None) == "PUSKESMAS":
@@ -96,7 +92,7 @@ def _can_manage_request(user, req=None):
     if not getattr(user, "is_authenticated", False):
         return False
 
-    if _is_super_admin(user):
+    if is_super_admin(user):
         return True
 
     facility = getattr(user, "facility", None)
@@ -129,7 +125,7 @@ def _can_reset_request_to_draft(user, req):
 
 
 def _check_request_facility_access(request, req):
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
 
     facility = _get_required_facility(request.user)
@@ -146,7 +142,7 @@ def _check_puskesmas_request_creator_access(request):
 
 
 def _check_puskesmas_receiving_creator_access(request):
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
     if getattr(request.user, "role", None) != User.Role.PUSKESMAS:
         raise_receiving_creator_denied()
@@ -154,7 +150,7 @@ def _check_puskesmas_receiving_creator_access(request):
 
 
 def _check_receiving_facility_access(request, receipt_confirmation):
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
 
     facility = _get_required_facility(request.user)
@@ -166,7 +162,7 @@ def _check_receiving_facility_access(request, receipt_confirmation):
 
 
 def _check_subunit_facility_access(request, subunit):
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
 
     facility = _get_required_facility(request.user)
@@ -176,7 +172,7 @@ def _check_subunit_facility_access(request, subunit):
 
 
 def _check_consumption_facility_access(request, consumption):
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
 
     facility = _get_required_facility(request.user)
@@ -186,7 +182,7 @@ def _check_consumption_facility_access(request, consumption):
 
 
 def _check_puskesmas_consumption_creator_access(request):
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
     if getattr(request.user, "role", None) != User.Role.PUSKESMAS:
         raise_consumption_creator_denied()
@@ -197,7 +193,7 @@ def _get_candidate_consumption_facility(request, *, consumption=None):
     if consumption is not None:
         return consumption.facility
 
-    if not _is_super_admin(request.user):
+    if not is_super_admin(request.user):
         return _get_required_facility(request.user)
 
     facility_id = request.POST.get("facility") or request.GET.get("facility")
@@ -290,7 +286,7 @@ def _get_receiving_distribution_queryset(user, *, include_pk=None):
     else:
         queryset = queryset.filter(receipt_confirmation__isnull=True)
 
-    if not _is_super_admin(user):
+    if not is_super_admin(user):
         facility = _get_required_facility(user)
         queryset = queryset.filter(facility_id=facility.pk)
 
@@ -451,7 +447,7 @@ def subunit_list(request):
         "facility__name", "created_at", "name"
     )
 
-    if not _is_super_admin(request.user):
+    if not is_super_admin(request.user):
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility_id=facility.pk)
 
@@ -593,7 +589,7 @@ def consumption_list(request):
         "facility", "created_by", "updated_by"
     ).order_by("-tahun", "-bulan", "facility__name")
 
-    if not _is_super_admin(request.user):
+    if not is_super_admin(request.user):
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility_id=facility.pk)
 
@@ -643,7 +639,7 @@ def consumption_create(request):
         )
         if form.is_valid():
             should_load_matrix = (
-                _is_super_admin(request.user)
+                is_super_admin(request.user)
                 and request.POST.get("action") == "load_matrix"
             )
             if should_load_matrix:
@@ -774,7 +770,7 @@ def consumption_detail(request, pk):
             "subunits": subunits,
             "matrix_rows": matrix_rows,
             "grand_total": grand_total,
-            "can_manage": _is_super_admin(request.user)
+            "can_manage": is_super_admin(request.user)
             or request.user.role == User.Role.PUSKESMAS,
         },
     )
@@ -937,7 +933,7 @@ def receiving_list(request):
         "facility", "created_by", "distribution"
     ).order_by("-received_date", "-created_at")
 
-    if not _is_super_admin(request.user):
+    if not is_super_admin(request.user):
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility_id=facility.pk)
 
@@ -1089,7 +1085,7 @@ def receiving_detail(request, pk):
         "item__program",
         "distribution_item",
     )
-    can_manage = _is_super_admin(request.user) or request.user.role == User.Role.PUSKESMAS
+    can_manage = is_super_admin(request.user) or request.user.role == User.Role.PUSKESMAS
 
     locked_lplpo = LPLPO.objects.filter(
         facility=receipt_confirmation.facility,
@@ -1373,7 +1369,7 @@ def request_list(request):
         "facility", "created_by", "program"
     ).order_by("-request_date")
 
-    if not _is_super_admin(request.user):
+    if not is_super_admin(request.user):
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility_id=facility.pk)
 
@@ -1881,7 +1877,7 @@ def puskesmas_report_penerimaan(request):
 
     # Facility chooser for super admin
     all_facilities = []
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -1986,7 +1982,7 @@ def puskesmas_report_pemakaian(request):
 
     # Facility chooser for super admin
     all_facilities = []
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -2195,7 +2191,7 @@ def puskesmas_report_persediaan(request):
 
     # Facility chooser for super admin
     all_facilities = []
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -2385,7 +2381,7 @@ def puskesmas_report_rekap_persediaan(request):
             )
 
     all_facilities = []
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")

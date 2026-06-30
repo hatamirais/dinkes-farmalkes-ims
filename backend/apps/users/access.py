@@ -112,6 +112,12 @@ def get_user_module_scope(user: User, module: str) -> int:
     return default_scope_for_role(getattr(user, "role", ""), module)
 
 
+def is_super_admin(user: User) -> bool:
+    return bool(getattr(user, "is_superuser", False)) or (
+        getattr(user, "role", None) == User.Role.ADMIN
+    )
+
+
 def has_module_scope(user: User, module: str, min_scope: int) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
