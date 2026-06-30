@@ -626,6 +626,35 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
         self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
 
+    def test_receiving_forms_require_explicit_receiving_type_selection(self):
+        regular_form = ReceivingForm(
+            data={
+                "document_number": "",
+                "receiving_type": "",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+            }
+        )
+        planned_form = PlannedReceivingForm(
+            data={
+                "document_number": "",
+                "receiving_type": "",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+            }
+        )
+
+        self.assertEqual(regular_form.fields["receiving_type"].widget.choices[0], ("", "---------"))
+        self.assertEqual(planned_form.fields["receiving_type"].widget.choices[0], ("", "---------"))
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(regular_form.errors["receiving_type"], ["Tipe penerimaan wajib dipilih."])
+        self.assertEqual(planned_form.errors["receiving_type"], ["Tipe penerimaan wajib dipilih."])
+
     def test_planned_receiving_create_accepts_custom_receiving_type(self):
         ReceivingTypeOption.objects.create(code="DON", name="Donasi")
 

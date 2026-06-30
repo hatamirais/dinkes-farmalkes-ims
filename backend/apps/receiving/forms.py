@@ -32,6 +32,10 @@ def _get_receiving_type_choices():
     return list(Receiving.ReceivingType.choices) + custom_choices
 
 
+def _get_receiving_type_widget_choices():
+    return [("", "---------")] + _get_receiving_type_choices()
+
+
 def _normalize_choice_value(value):
     normalized = unicodedata.normalize("NFC", (value or "").strip())
     if "\x00" in normalized:
@@ -41,12 +45,13 @@ def _normalize_choice_value(value):
 
 class BaseReceivingForm(forms.ModelForm):
     receiving_type = forms.CharField(
+        error_messages={"required": "Tipe penerimaan wajib dipilih."},
         widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["receiving_type"].widget.choices = _get_receiving_type_choices()
+        self.fields["receiving_type"].widget.choices = _get_receiving_type_widget_choices()
 
     def clean_receiving_type(self):
         receiving_type = _normalize_choice_value(
