@@ -481,6 +481,30 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(receiving_form.fields["item"].label_from_instance(self.item), "Paracetamol 500mg")
         self.assertNotIn("kode_barang", receipt_form.fields)
 
+    def test_receiving_str_uses_safe_label_for_builtin_and_custom_types(self):
+        builtin_receiving = Receiving.objects.create(
+            document_number="RCV-2026-STR-001",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+        ReceivingTypeOption.objects.create(code="DON", name="Donasi")
+        custom_receiving = Receiving.objects.create(
+            document_number="RCV-2026-STR-002",
+            receiving_type="DON",
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+
+        self.assertEqual(str(builtin_receiving), "RCV-2026-STR-001 (Hibah)")
+        self.assertEqual(str(custom_receiving), "RCV-2026-STR-002 (Donasi)")
+
     def test_receiving_create_includes_item_picker_table_script(self):
         response = self.client.get(reverse("receiving:receiving_create"))
 

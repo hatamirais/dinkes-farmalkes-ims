@@ -119,7 +119,7 @@ class Receiving(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.document_number} ({self.get_receiving_type_display()})"
+        return f"{self.document_number} ({self.receiving_type_label})"
 
     @property
     def receiving_type_label(self):
