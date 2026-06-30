@@ -216,6 +216,8 @@ function initTypeaheadSelects() {
             }
         };
 
+        select.syncTypeaheadSelection = syncSelectFromInput;
+
         const renderOptions = (query) => {
             const q = (query || '').trim().toLowerCase();
             dropdown.innerHTML = '';
@@ -324,13 +326,6 @@ function initTypeaheadSelects() {
         document.addEventListener('click', (e) => {
             if (!wrapper.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
         });
-
-        const form = select.form;
-        if (form) {
-            form.addEventListener('submit', () => {
-                syncSelectFromInput();
-            });
-        }
 
         // If select changes programmatically, reflect in input
         select.addEventListener('change', () => {
