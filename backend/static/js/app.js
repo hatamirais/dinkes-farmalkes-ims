@@ -163,9 +163,57 @@ function initTypeaheadSelects() {
             updateDropdownPosition();
         };
 
+        const getSelectedOption = () =>
+            select.selectedOptions?.[0] || select.options[select.selectedIndex] || null;
+
+        const normalizeTypeaheadValue = (value) => (value || '').trim().toLocaleLowerCase();
+
         const syncInputFromSelect = () => {
-            const selectedOption = select.selectedOptions?.[0] || select.options[select.selectedIndex] || null;
+            const selectedOption = getSelectedOption();
             input.value = selectedOption && selectedOption.value ? selectedOption.text : '';
+        };
+
+        const findExactOptionMatch = (query) => {
+            const normalizedQuery = normalizeTypeaheadValue(query);
+            if (!normalizedQuery) {
+                return null;
+            }
+
+            return optionsSnapshot.find((opt) => (
+                !opt.disabled &&
+                opt.value &&
+                normalizeTypeaheadValue(opt.text) === normalizedQuery
+            )) || null;
+        };
+
+        const syncSelectFromInput = () => {
+            const normalizedInput = normalizeTypeaheadValue(input.value);
+            const selectedOption = getSelectedOption();
+            const normalizedSelectedText = selectedOption && selectedOption.value
+                ? normalizeTypeaheadValue(selectedOption.text)
+                : '';
+
+            if (!normalizedInput) {
+                if (select.value) {
+                    select.value = '';
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                return;
+            }
+
+            const exactMatch = findExactOptionMatch(input.value);
+            if (exactMatch) {
+                if (select.value !== exactMatch.value) {
+                    select.value = exactMatch.value;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                return;
+            }
+
+            if (select.value && normalizedSelectedText !== normalizedInput) {
+                select.value = '';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         };
 
         const renderOptions = (query) => {
@@ -247,6 +295,9 @@ function initTypeaheadSelects() {
             renderOptions(input.value);
             setActiveIndex(0);
         });
+        input.addEventListener('blur', () => {
+            window.setTimeout(syncSelectFromInput, 0);
+        });
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeDropdown();
@@ -273,6 +324,13 @@ function initTypeaheadSelects() {
         document.addEventListener('click', (e) => {
             if (!wrapper.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
         });
+
+        const form = select.form;
+        if (form) {
+            form.addEventListener('submit', () => {
+                syncSelectFromInput();
+            });
+        }
 
         // If select changes programmatically, reflect in input
         select.addEventListener('change', () => {
