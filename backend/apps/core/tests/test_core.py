@@ -782,6 +782,7 @@ class DashboardViewTests(TestCase):
         self.assertNotContains(response, "Poli/Pustu Puskesmas")
         self.assertNotContains(response, "Input Pemakaian")
         self.assertNotContains(response, "Permintaan Barang")
+
     def test_superuser_dashboard_keeps_puskesmas_sidebar_visible(self):
         admin_user = User.objects.create_superuser(
             username="dashboard-admin-puskesmas",
@@ -790,6 +791,24 @@ class DashboardViewTests(TestCase):
         )
         self.client.force_login(admin_user)
         response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Konfirmasi Penerimaan")
+        self.assertContains(response, "Poli/Pustu Puskesmas")
+        self.assertContains(response, "Input Pemakaian")
+        self.assertContains(response, "Permintaan Barang")
+
+    def test_legacy_admin_role_dashboard_keeps_puskesmas_sidebar_visible(self):
+        admin_user = User.objects.create_superuser(
+            username="dashboard-legacy-admin-puskesmas",
+            email="dashboard-legacy-admin-puskesmas@example.com",
+            password="TestPassword123!",
+        )
+        User.objects.filter(pk=admin_user.pk).update(is_superuser=False, is_staff=False)
+        admin_user.refresh_from_db()
+
+        self.client.force_login(admin_user)
+        response = self.client.get(reverse("dashboard"))
+
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Konfirmasi Penerimaan")
         self.assertContains(response, "Poli/Pustu Puskesmas")
@@ -1424,6 +1443,41 @@ class NavNotificationsContextProcessorTests(TestCase):
 
         self.assertFalse(
             any(item["label"] == "Permintaan Puskesmas" for item in context["nav_notification_items"])
+        )
+
+    def test_legacy_admin_role_keeps_puskesmas_request_notifications(self):
+        admin_user = User.objects.create_superuser(
+            username="nav-legacy-admin-puskesmas",
+            email="nav-legacy-admin-puskesmas@example.com",
+            password="TestPassword123!",
+        )
+        User.objects.filter(pk=admin_user.pk).update(is_superuser=False, is_staff=False)
+        admin_user.refresh_from_db()
+        self._set_scope(
+            admin_user,
+            ModuleAccess.Module.PUSKESMAS,
+            ModuleAccess.Scope.MANAGE,
+        )
+        facility = Facility.objects.create(
+            code="PKM-NAV-ADM",
+            name="Puskesmas Legacy Admin",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        PuskesmasRequest.objects.create(
+            facility=facility,
+            created_by=admin_user,
+            status=PuskesmasRequest.Status.SUBMITTED,
+        )
+
+        request = self.factory.get("/")
+        request.user = admin_user
+        context = nav_notifications(request)
+
+        self.assertTrue(
+            any(
+                item["label"] == "Permintaan Puskesmas"
+                for item in context["nav_notification_items"]
+            )
         )
 
     def test_explicit_none_scope_hides_puskesmas_request_notifications(self):

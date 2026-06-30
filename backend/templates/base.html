@@ -202,7 +202,7 @@
                 {% endif %}
                 {% endif %}
 
-                {% if request.user.is_superuser or request.user.role == 'PUSKESMAS' %}
+                {% if is_super_admin_user or request.user.role == 'PUSKESMAS' %}
                 <div class="sidebar-section-title">Puskesmas</div>
                 {% if can_view_puskesmas %}
                 <a href="{% url 'puskesmas:receiving_list' %}"

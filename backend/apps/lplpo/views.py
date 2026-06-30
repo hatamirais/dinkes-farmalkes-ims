@@ -20,7 +20,7 @@ from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Facility, Item
 from apps.stock.models import Stock
-from apps.users.access import has_module_permission, has_module_scope
+from apps.users.access import has_module_permission, has_module_scope, is_super_admin
 from apps.users.models import ModuleAccess, User
 
 from .forms import (
@@ -47,10 +47,6 @@ from .xlsx_io import apply_lplpo_workbook_import, export_lplpo_workbook
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger("security")
-
-
-def _is_super_admin(user):
-    return bool(getattr(user, "is_superuser", False)) or getattr(user, "role", None) == User.Role.ADMIN
 
 
 def _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj):
@@ -154,7 +150,7 @@ def _get_cross_facility_queue_statuses(user):
 
 
 def _get_required_facility(user):
-    if _is_super_admin(user):
+    if is_super_admin(user):
         return None
 
     facility = getattr(user, "facility", None)
@@ -167,7 +163,7 @@ def _check_facility_access(request, lplpo_obj, *, route_kind):
     """
     Enforce per-facility access for facility-bound roles.
     """
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return None
 
     if _can_access_lplpo_cross_facility(
@@ -216,7 +212,7 @@ def _can_create_manual_lplpo_distribution(user):
 
 def _check_puskesmas_creator_access(request):
     """Restrict create flow to PUSKESMAS operators and super admin."""
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return
     if request.user.role != User.Role.PUSKESMAS:
         raise PermissionDenied("Hanya operator Puskesmas yang dapat membuat LPLPO.")
@@ -224,7 +220,7 @@ def _check_puskesmas_creator_access(request):
 
 def _check_puskesmas_draft_action_access(request):
     """Restrict draft LPLPO mutations to PUSKESMAS operators and super admin."""
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         return
     if request.user.role != User.Role.PUSKESMAS:
         raise PermissionDenied(
@@ -238,7 +234,7 @@ def _get_submission_month_choices():
 
 def _resolve_lplpo_create_facility(form, user):
     facility = getattr(user, "facility", None)
-    if _is_super_admin(user) or not facility:
+    if is_super_admin(user) or not facility:
         facility = form.cleaned_data.get("facility")
     return facility
 
@@ -342,7 +338,7 @@ def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
     if submitted_year:
         queryset = queryset.filter(submitted_at__year=submitted_year)
 
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         pass
     elif _can_access_lplpo_cross_facility(
         request.user,
@@ -377,7 +373,7 @@ def lplpo_list(request):
 
     queryset, filter_context = _get_filtered_lplpo_queryset(
         request,
-        submitted_only=not _is_super_admin(request.user),
+        submitted_only=not is_super_admin(request.user),
     )
 
     paginator = Paginator(queryset, 25)
@@ -390,7 +386,7 @@ def lplpo_list(request):
             "lplpos": page,
             **filter_context,
             "is_all": True,
-            "can_manage_all_lplpo": _is_super_admin(request.user),
+            "can_manage_all_lplpo": is_super_admin(request.user),
             "can_create_manual_lplpo_distribution": _can_create_manual_lplpo_distribution(
                 request.user
             ),
@@ -571,7 +567,7 @@ def lplpo_create(request):
 
                 LPLPOItem.objects.bulk_create(lplpo_items)
 
-            if _is_super_admin(request.user):
+            if is_super_admin(request.user):
                 logger.info(
                     "super_admin_created_lplpo",
                     extra={
@@ -601,7 +597,7 @@ def api_prefill_penerimaan(request):
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     facility = None
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         facility_id = request.GET.get("facility")
         if facility_id:
             facility = get_object_or_404(
@@ -699,7 +695,7 @@ def lplpo_detail(request, pk):
             "items": items,
             "can_review": can_review,
             "can_approve": can_approve,
-            "can_manage_draft": _is_super_admin(request.user)
+            "can_manage_draft": is_super_admin(request.user)
             or request.user.role == User.Role.PUSKESMAS,
         },
     )
@@ -822,7 +818,7 @@ def lplpo_edit(request, pk):
                     ],
                 )
 
-            if _is_super_admin(request.user):
+            if is_super_admin(request.user):
                 logger.info(
                     "super_admin_updated_lplpo_draft",
                     extra={
@@ -1099,7 +1095,7 @@ def lplpo_submit(request, pk):
             ]
         )
 
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         logger.info(
             "super_admin_submitted_lplpo",
             extra={
@@ -1546,7 +1542,7 @@ def lplpo_delete(request, pk):
     doc_number = lplpo_obj.document_number
     facility_id = lplpo_obj.facility_id
     lplpo_obj.delete()
-    if _is_super_admin(request.user):
+    if is_super_admin(request.user):
         logger.info(
             "super_admin_deleted_lplpo",
             extra={
