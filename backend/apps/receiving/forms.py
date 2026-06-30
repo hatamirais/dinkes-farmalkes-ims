@@ -36,6 +36,10 @@ def _get_receiving_type_widget_choices():
     return [("", "---------")] + _get_receiving_type_choices()
 
 
+def _get_reserved_receiving_type_codes():
+    return {"RETURN_RS", *(choice[0] for choice in Receiving.ReceivingType.choices)}
+
+
 def _normalize_choice_value(value):
     normalized = unicodedata.normalize("NFC", (value or "").strip())
     if "\x00" in normalized:
@@ -65,6 +69,9 @@ class BaseReceivingForm(forms.ModelForm):
         builtin_codes = {choice[0] for choice in Receiving.ReceivingType.choices}
         if receiving_type in builtin_codes:
             return receiving_type
+
+        if receiving_type in _get_reserved_receiving_type_codes():
+            raise forms.ValidationError("Masukkan pilihan yang valid.")
 
         custom_exists = ReceivingTypeOption.objects.filter(
             code=receiving_type,

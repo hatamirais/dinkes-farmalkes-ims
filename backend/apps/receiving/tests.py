@@ -471,6 +471,16 @@ class ReceivingWorkflowCleanupTest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_quick_create_receiving_type_rejects_reserved_internal_code(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_receiving_type"),
+            {"code": "RETURN_RS", "name": "Pengembalian RS"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(ReceivingTypeOption.objects.filter(code="RETURN_RS").exists())
+
     def test_receiving_item_forms_use_name_only_item_labels(self):
         self.item.nama_barang = "Paracetamol 500mg [P]"
         self.item.save(update_fields=["nama_barang", "updated_at"])
@@ -612,6 +622,24 @@ class ReceivingWorkflowCleanupTest(TestCase):
         form_data = {
             "document_number": "",
             "receiving_type": "TIDAKADA",
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+        self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+
+    def test_receiving_forms_reject_reserved_internal_receiving_type(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": "RETURN_RS",
             "receiving_date": "2026-03-16",
             "supplier": "",
             "sumber_dana": self.funding.pk,
