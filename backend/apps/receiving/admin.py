@@ -5,7 +5,7 @@ from csv import Error as CSVError
 from django.contrib import admin
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.urls import path
 from django import forms
 from django.db import transaction
@@ -349,7 +349,7 @@ class ReceivingAdmin(admin.ModelAdmin):
             )
 
             # Create Receiving (parent)
-            receiving = Receiving.objects.create(
+            receiving = Receiving(
                 document_number=doc_number,
                 receiving_type=first_row.get("receiving_type", "GRANT"),
                 receiving_date=receiving_date,
@@ -361,6 +361,15 @@ class ReceivingAdmin(admin.ModelAdmin):
                 verified_at=timezone.now(),
                 notes=f"Imported via CSV on {timezone.now().strftime('%Y-%m-%d %H:%M')}",
             )
+            try:
+                receiving.full_clean()
+            except ValidationError as exc:
+                messages = []
+                for field_errors in exc.message_dict.values():
+                    messages.extend(field_errors)
+                detail = "; ".join(messages) if messages else "tipe penerimaan tidak valid"
+                raise ValueError(f"Baris {first_row_num}: {detail}") from exc
+            receiving.save()
             counts["receivings"] += 1
 
             # Create ReceivingItem + Stock + Transaction for each row

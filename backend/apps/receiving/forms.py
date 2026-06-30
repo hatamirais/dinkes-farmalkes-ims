@@ -1,5 +1,4 @@
 from decimal import Decimal, InvalidOperation
-import unicodedata
 
 from django import forms
 from django.db.utils import OperationalError, ProgrammingError
@@ -7,7 +6,13 @@ from django.forms import inlineformset_factory
 
 from apps.core.decimal_validation import validate_finite_decimal
 
-from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
+from .models import (
+    Receiving,
+    ReceivingItem,
+    ReceivingOrderItem,
+    ReceivingTypeOption,
+    validate_receiving_type_code,
+)
 
 
 def _format_id_decimal(value, places=2):
@@ -36,15 +41,6 @@ def _get_receiving_type_widget_choices():
     return [("", "---------")] + _get_receiving_type_choices()
 
 
-def _get_reserved_receiving_type_codes():
-    return {"RETURN_RS", *(choice[0] for choice in Receiving.ReceivingType.choices)}
-
-
-def _normalize_choice_value(value):
-    normalized = unicodedata.normalize("NFC", (value or "").strip())
-    if "\x00" in normalized:
-        raise forms.ValidationError("Tipe penerimaan mengandung karakter tidak valid.")
-    return normalized
 
 
 class BaseReceivingForm(forms.ModelForm):
@@ -58,39 +54,8 @@ class BaseReceivingForm(forms.ModelForm):
         self.fields["receiving_type"].widget.choices = _get_receiving_type_widget_choices()
 
     def clean_receiving_type(self):
-        receiving_type = _normalize_choice_value(
-            self.cleaned_data.get("receiving_type")
-        ).upper()
-        if not receiving_type:
-            raise forms.ValidationError("Tipe penerimaan wajib dipilih.")
-        if len(receiving_type) > 20:
-            raise forms.ValidationError("Tipe penerimaan terlalu panjang.")
+        return validate_receiving_type_code(self.cleaned_data.get("receiving_type"))
 
-        builtin_codes = {choice[0] for choice in Receiving.ReceivingType.choices}
-        if receiving_type in builtin_codes:
-            return receiving_type
-
-        if receiving_type in _get_reserved_receiving_type_codes():
-            raise forms.ValidationError("Masukkan pilihan yang valid.")
-
-        custom_exists = ReceivingTypeOption.objects.filter(
-            code=receiving_type,
-            is_active=True,
-        ).exists()
-        if custom_exists:
-            return receiving_type
-
-        raise forms.ValidationError("Masukkan pilihan yang valid.")
-
-    def clean(self):
-        cleaned_data = super().clean()
-        receiving_type = cleaned_data.get("receiving_type")
-        supplier = cleaned_data.get("supplier")
-
-        if receiving_type == Receiving.ReceivingType.PROCUREMENT and not supplier:
-            self.add_error("supplier", "Supplier wajib diisi untuk tipe Pengadaan.")
-
-        return cleaned_data
 
 
 class ReceivingForm(BaseReceivingForm):

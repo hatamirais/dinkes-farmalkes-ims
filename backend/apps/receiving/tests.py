@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.contrib.admin.sites import AdminSite
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -248,6 +249,16 @@ class ReceivingCSVImportTest(TestCase):
         self.assertEqual(ReceivingItem.objects.count(), 0)
         self.assertEqual(Stock.objects.count(), 0)
         self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_process_csv_rejects_invalid_receiving_type(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,FOO,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(ValueError, "Baris 2: Masukkan pilihan yang valid."):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
 
 
 class ReceivingWorkflowCleanupTest(TestCase):
@@ -653,6 +664,44 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertFalse(planned_form.is_valid())
         self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
         self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+
+    def test_receiving_model_full_clean_rejects_invalid_receiving_type(self):
+        receiving = Receiving(
+            document_number="RCV-2026-INVALID",
+            receiving_type="FOO",
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            receiving.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["receiving_type"],
+            ["Masukkan pilihan yang valid."],
+        )
+
+    def test_receiving_model_full_clean_requires_supplier_for_procurement(self):
+        receiving = Receiving(
+            document_number="RCV-2026-PROC-001",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            receiving.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["supplier"],
+            ["Supplier wajib diisi untuk tipe Pengadaan."],
+        )
 
     def test_receiving_forms_require_explicit_receiving_type_selection(self):
         regular_form = ReceivingForm(
