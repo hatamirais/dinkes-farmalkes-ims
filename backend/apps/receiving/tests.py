@@ -647,6 +647,30 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
         self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
 
+    def test_receiving_forms_reject_null_byte_receiving_type_as_field_error(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": "DON\x00ASI",
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(
+            regular_form.errors["receiving_type"],
+            ["Karakter null tidak diizinkan."],
+        )
+        self.assertEqual(
+            planned_form.errors["receiving_type"],
+            ["Karakter null tidak diizinkan."],
+        )
+
     def test_receiving_forms_reject_reserved_internal_receiving_type(self):
         form_data = {
             "document_number": "",

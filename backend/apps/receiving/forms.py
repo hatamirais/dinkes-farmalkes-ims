@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.db.utils import OperationalError, ProgrammingError
 from django.forms import inlineformset_factory
 
@@ -54,7 +55,12 @@ class BaseReceivingForm(forms.ModelForm):
         self.fields["receiving_type"].widget.choices = _get_receiving_type_widget_choices()
 
     def clean_receiving_type(self):
-        return validate_receiving_type_code(self.cleaned_data.get("receiving_type"))
+        try:
+            return validate_receiving_type_code(self.cleaned_data.get("receiving_type"))
+        except ValidationError as exc:
+            if hasattr(exc, "error_dict") and "receiving_type" in exc.error_dict:
+                raise forms.ValidationError(exc.error_dict["receiving_type"])
+            raise
 
 
 
