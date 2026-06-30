@@ -25,6 +25,7 @@ from .models import (
     ReceivingItem,
     ReceivingOrderItem,
     ReceivingTypeOption,
+    get_reserved_receiving_type_codes,
 )
 from .forms import (
     build_planned_receipt_item_formset,
@@ -743,7 +744,7 @@ def quick_create_receiving_type(request):
     if not code or not name:
         return JsonResponse({"error": "Kode dan Nama wajib diisi."}, status=400)
 
-    reserved = {choice[0] for choice in Receiving.ReceivingType.choices}
+    reserved = get_reserved_receiving_type_codes()
     if code in reserved:
         return JsonResponse(
             {"error": f'Kode "{code}" sudah digunakan tipe bawaan sistem.'},

@@ -1,5 +1,8 @@
+import unicodedata
+
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from apps.core.models import TimeStampedModel
 from .storage import ReceivingDocumentStorage
@@ -25,6 +28,43 @@ class ReceivingTypeOption(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
+def get_reserved_receiving_type_codes():
+    return {"RETURN_RS", *(choice[0] for choice in Receiving.ReceivingType.choices)}
+
+
+def normalize_receiving_type_code(value):
+    normalized = unicodedata.normalize("NFC", (value or "").strip())
+    if "\x00" in normalized:
+        raise ValidationError(
+            {"receiving_type": "Tipe penerimaan mengandung karakter tidak valid."}
+        )
+    return normalized.upper()
+
+
+def validate_receiving_type_code(value):
+    receiving_type = normalize_receiving_type_code(value)
+    if not receiving_type:
+        return receiving_type
+    if len(receiving_type) > 20:
+        raise ValidationError({"receiving_type": "Tipe penerimaan terlalu panjang."})
+
+    builtin_codes = {choice[0] for choice in Receiving.ReceivingType.choices}
+    if receiving_type in builtin_codes:
+        return receiving_type
+
+    if receiving_type in get_reserved_receiving_type_codes():
+        raise ValidationError({"receiving_type": "Masukkan pilihan yang valid."})
+
+    custom_exists = ReceivingTypeOption.objects.filter(
+        code=receiving_type,
+        is_active=True,
+    ).exists()
+    if custom_exists:
+        return receiving_type
+
+    raise ValidationError({"receiving_type": "Masukkan pilihan yang valid."})
+
+
 class Receiving(TimeStampedModel):
     """Document for incoming stock (procurement or grants)."""
 
@@ -41,7 +81,7 @@ class Receiving(TimeStampedModel):
         CLOSED = "CLOSED", "Ditutup"
         VERIFIED = "VERIFIED", "Terverifikasi"
 
-    receiving_type = models.CharField(max_length=20, choices=ReceivingType.choices)
+    receiving_type = models.CharField(max_length=20)
     document_number = models.CharField(max_length=100, unique=True, blank=True)
     receiving_date = models.DateField()
     is_planned = models.BooleanField(default=False)
@@ -119,7 +159,7 @@ class Receiving(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.document_number} ({self.get_receiving_type_display()})"
+        return f"{self.document_number} ({self.receiving_type_label})"
 
     @property
     def receiving_type_label(self):
@@ -133,6 +173,14 @@ class Receiving(TimeStampedModel):
             .first()
         )
         return custom_label or self.receiving_type
+
+    def clean(self):
+        super().clean()
+        self.receiving_type = validate_receiving_type_code(self.receiving_type)
+        if self.receiving_type == self.ReceivingType.PROCUREMENT and not self.supplier_id:
+            raise ValidationError(
+                {"supplier": "Supplier wajib diisi untuk tipe Pengadaan."}
+            )
 
     @staticmethod
     def generate_document_number():

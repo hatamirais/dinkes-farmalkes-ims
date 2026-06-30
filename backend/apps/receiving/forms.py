@@ -1,12 +1,19 @@
 from decimal import Decimal, InvalidOperation
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.db.utils import OperationalError, ProgrammingError
 from django.forms import inlineformset_factory
 
 from apps.core.decimal_validation import validate_finite_decimal
 
-from .models import Receiving, ReceivingItem, ReceivingOrderItem, ReceivingTypeOption
+from .models import (
+    Receiving,
+    ReceivingItem,
+    ReceivingOrderItem,
+    ReceivingTypeOption,
+    validate_receiving_type_code,
+)
 
 
 def _format_id_decimal(value, places=2):
@@ -31,20 +38,30 @@ def _get_receiving_type_choices():
     return list(Receiving.ReceivingType.choices) + custom_choices
 
 
+def _get_receiving_type_widget_choices():
+    return [("", "---------")] + _get_receiving_type_choices()
+
+
+
+
 class BaseReceivingForm(forms.ModelForm):
+    receiving_type = forms.CharField(
+        error_messages={"required": "Tipe penerimaan wajib dipilih."},
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["receiving_type"].choices = _get_receiving_type_choices()
+        self.fields["receiving_type"].widget.choices = _get_receiving_type_widget_choices()
 
-    def clean(self):
-        cleaned_data = super().clean()
-        receiving_type = cleaned_data.get("receiving_type")
-        supplier = cleaned_data.get("supplier")
+    def clean_receiving_type(self):
+        try:
+            return validate_receiving_type_code(self.cleaned_data.get("receiving_type"))
+        except ValidationError as exc:
+            if hasattr(exc, "error_dict") and "receiving_type" in exc.error_dict:
+                raise forms.ValidationError(exc.error_dict["receiving_type"])
+            raise
 
-        if receiving_type == Receiving.ReceivingType.PROCUREMENT and not supplier:
-            self.add_error("supplier", "Supplier wajib diisi untuk tipe Pengadaan.")
-
-        return cleaned_data
 
 
 class ReceivingForm(BaseReceivingForm):
@@ -66,7 +83,6 @@ class ReceivingForm(BaseReceivingForm):
         ]
         widgets = {
             "document_number": forms.TextInput(attrs={"class": "form-control"}),
-            "receiving_type": forms.Select(attrs={"class": "form-select"}),
             "receiving_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -94,7 +110,6 @@ class PlannedReceivingForm(BaseReceivingForm):
         ]
         widgets = {
             "document_number": forms.TextInput(attrs={"class": "form-control"}),
-            "receiving_type": forms.Select(attrs={"class": "form-select"}),
             "receiving_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),

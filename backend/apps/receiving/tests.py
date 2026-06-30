@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.contrib.admin.sites import AdminSite
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -249,6 +250,16 @@ class ReceivingCSVImportTest(TestCase):
         self.assertEqual(Stock.objects.count(), 0)
         self.assertEqual(Transaction.objects.count(), 0)
 
+    def test_process_csv_rejects_invalid_receiving_type(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,FOO,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(ValueError, "Baris 2: Masukkan pilihan yang valid."):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
+
 
 class ReceivingWorkflowCleanupTest(TestCase):
     def setUp(self):
@@ -344,6 +355,45 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertContains(response, "Masukkan sebuah bilangan.")
         self.assertEqual(Receiving.objects.count(), 0)
 
+    def test_regular_receiving_create_accepts_custom_receiving_type(self):
+        ReceivingTypeOption.objects.create(code="DON", name="Donasi")
+
+        response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": "DON",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "10",
+                "items-0-batch_lot": "BATCH-DON-001",
+                "items-0-expiry_date": "2030-01-01",
+                "items-0-unit_price": "1500",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        receiving = Receiving.objects.get(document_number__startswith="RCV-")
+        self.assertEqual(receiving.receiving_type, "DON")
+        self.assertEqual(receiving.receiving_type_label, "Donasi")
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                reference_id=receiving.pk,
+                transaction_type=Transaction.TransactionType.IN,
+            ).count(),
+            1,
+        )
+
 
     def test_plan_close_blocked_when_remaining_items_not_cancelled(self):
         receiving = Receiving.objects.create(
@@ -386,14 +436,44 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.post(
             reverse("receiving:quick_create_receiving_type"),
             {"code": "MUTASI", "name": "Mutasi Internal"},
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(ReceivingTypeOption.objects.filter(code="MUTASI").exists())
 
-        form_page = self.client.get(reverse("receiving:receiving_create"))
+        form_page = self.client.get(
+            reverse("receiving:receiving_create"),
+            secure=True,
+        )
         self.assertEqual(form_page.status_code, 200)
         self.assertContains(form_page, "Mutasi Internal")
+
+        create_response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": "MUTASI",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "4",
+                "items-0-batch_lot": "BATCH-MUT-001",
+                "items-0-expiry_date": "2030-01-01",
+                "items-0-unit_price": "1000",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(create_response.status_code, 302)
+        self.assertTrue(Receiving.objects.filter(receiving_type="MUTASI").exists())
 
     def test_quick_create_receiving_type_rejects_builtin_code(self):
         response = self.client.post(
@@ -401,6 +481,16 @@ class ReceivingWorkflowCleanupTest(TestCase):
             {"code": "GRANT", "name": "Hibah Khusus"},
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_quick_create_receiving_type_rejects_reserved_internal_code(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_receiving_type"),
+            {"code": "RETURN_RS", "name": "Pengembalian RS"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(ReceivingTypeOption.objects.filter(code="RETURN_RS").exists())
 
     def test_receiving_item_forms_use_name_only_item_labels(self):
         self.item.nama_barang = "Paracetamol 500mg [P]"
@@ -411,6 +501,30 @@ class ReceivingWorkflowCleanupTest(TestCase):
 
         self.assertEqual(receiving_form.fields["item"].label_from_instance(self.item), "Paracetamol 500mg")
         self.assertNotIn("kode_barang", receipt_form.fields)
+
+    def test_receiving_str_uses_safe_label_for_builtin_and_custom_types(self):
+        builtin_receiving = Receiving.objects.create(
+            document_number="RCV-2026-STR-001",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+        ReceivingTypeOption.objects.create(code="DON", name="Donasi")
+        custom_receiving = Receiving.objects.create(
+            document_number="RCV-2026-STR-002",
+            receiving_type="DON",
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+
+        self.assertEqual(str(builtin_receiving), "RCV-2026-STR-001 (Hibah)")
+        self.assertEqual(str(custom_receiving), "RCV-2026-STR-002 (Donasi)")
 
     def test_receiving_create_includes_item_picker_table_script(self):
         response = self.client.get(reverse("receiving:receiving_create"))
@@ -514,6 +628,164 @@ class ReceivingWorkflowCleanupTest(TestCase):
             planned_form.errors["supplier"],
             ["Supplier wajib diisi untuk tipe Pengadaan."],
         )
+
+    def test_receiving_forms_reject_unknown_custom_receiving_type(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": "TIDAKADA",
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+        self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+
+    def test_receiving_forms_reject_null_byte_receiving_type_as_field_error(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": "DON\x00ASI",
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(
+            regular_form.errors["receiving_type"],
+            ["Karakter null tidak diizinkan."],
+        )
+        self.assertEqual(
+            planned_form.errors["receiving_type"],
+            ["Karakter null tidak diizinkan."],
+        )
+
+    def test_receiving_forms_reject_reserved_internal_receiving_type(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": "RETURN_RS",
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+        self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+
+    def test_receiving_model_full_clean_rejects_invalid_receiving_type(self):
+        receiving = Receiving(
+            document_number="RCV-2026-INVALID",
+            receiving_type="FOO",
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            receiving.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["receiving_type"],
+            ["Masukkan pilihan yang valid."],
+        )
+
+    def test_receiving_model_full_clean_requires_supplier_for_procurement(self):
+        receiving = Receiving(
+            document_number="RCV-2026-PROC-001",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            receiving.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["supplier"],
+            ["Supplier wajib diisi untuk tipe Pengadaan."],
+        )
+
+    def test_receiving_forms_require_explicit_receiving_type_selection(self):
+        regular_form = ReceivingForm(
+            data={
+                "document_number": "",
+                "receiving_type": "",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+            }
+        )
+        planned_form = PlannedReceivingForm(
+            data={
+                "document_number": "",
+                "receiving_type": "",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+            }
+        )
+
+        self.assertEqual(regular_form.fields["receiving_type"].widget.choices[0], ("", "---------"))
+        self.assertEqual(planned_form.fields["receiving_type"].widget.choices[0], ("", "---------"))
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(regular_form.errors["receiving_type"], ["Tipe penerimaan wajib dipilih."])
+        self.assertEqual(planned_form.errors["receiving_type"], ["Tipe penerimaan wajib dipilih."])
+
+    def test_planned_receiving_create_accepts_custom_receiving_type(self):
+        ReceivingTypeOption.objects.create(code="DON", name="Donasi")
+
+        response = self.client.post(
+            reverse("receiving:receiving_plan_create"),
+            {
+                "document_number": "",
+                "receiving_type": "DON",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-planned_quantity": "5",
+                "items-0-unit_price": "1000",
+                "items-0-notes": "",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        receiving = Receiving.objects.get(is_planned=True)
+        self.assertEqual(receiving.receiving_type, "DON")
+        self.assertEqual(receiving.receiving_type_label, "Donasi")
+        self.assertEqual(receiving.status, Receiving.Status.DRAFT)
+        self.assertTrue(receiving.order_items.filter(item=self.item).exists())
 
     def test_plan_receive_page_uses_fixed_rows_without_delete_control(self):
         receiving = Receiving.objects.create(
