@@ -41,7 +41,7 @@ class Receiving(TimeStampedModel):
         CLOSED = "CLOSED", "Ditutup"
         VERIFIED = "VERIFIED", "Terverifikasi"
 
-    receiving_type = models.CharField(max_length=20, choices=ReceivingType.choices)
+    receiving_type = models.CharField(max_length=20)
     document_number = models.CharField(max_length=100, unique=True, blank=True)
     receiving_date = models.DateField()
     is_planned = models.BooleanField(default=False)

@@ -344,6 +344,45 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertContains(response, "Masukkan sebuah bilangan.")
         self.assertEqual(Receiving.objects.count(), 0)
 
+    def test_regular_receiving_create_accepts_custom_receiving_type(self):
+        ReceivingTypeOption.objects.create(code="DON", name="Donasi")
+
+        response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": "DON",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "10",
+                "items-0-batch_lot": "BATCH-DON-001",
+                "items-0-expiry_date": "2030-01-01",
+                "items-0-unit_price": "1500",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        receiving = Receiving.objects.get(document_number__startswith="RCV-")
+        self.assertEqual(receiving.receiving_type, "DON")
+        self.assertEqual(receiving.receiving_type_label, "Donasi")
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                reference_id=receiving.pk,
+                transaction_type=Transaction.TransactionType.IN,
+            ).count(),
+            1,
+        )
+
 
     def test_plan_close_blocked_when_remaining_items_not_cancelled(self):
         receiving = Receiving.objects.create(
@@ -386,14 +425,44 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.post(
             reverse("receiving:quick_create_receiving_type"),
             {"code": "MUTASI", "name": "Mutasi Internal"},
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(ReceivingTypeOption.objects.filter(code="MUTASI").exists())
 
-        form_page = self.client.get(reverse("receiving:receiving_create"))
+        form_page = self.client.get(
+            reverse("receiving:receiving_create"),
+            secure=True,
+        )
         self.assertEqual(form_page.status_code, 200)
         self.assertContains(form_page, "Mutasi Internal")
+
+        create_response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": "MUTASI",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "4",
+                "items-0-batch_lot": "BATCH-MUT-001",
+                "items-0-expiry_date": "2030-01-01",
+                "items-0-unit_price": "1000",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(create_response.status_code, 302)
+        self.assertTrue(Receiving.objects.filter(receiving_type="MUTASI").exists())
 
     def test_quick_create_receiving_type_rejects_builtin_code(self):
         response = self.client.post(
@@ -514,6 +583,55 @@ class ReceivingWorkflowCleanupTest(TestCase):
             planned_form.errors["supplier"],
             ["Supplier wajib diisi untuk tipe Pengadaan."],
         )
+
+    def test_receiving_forms_reject_unknown_custom_receiving_type(self):
+        form_data = {
+            "document_number": "",
+            "receiving_type": "TIDAKADA",
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+        }
+
+        regular_form = ReceivingForm(data=form_data)
+        planned_form = PlannedReceivingForm(data=form_data)
+
+        self.assertFalse(regular_form.is_valid())
+        self.assertFalse(planned_form.is_valid())
+        self.assertEqual(regular_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+        self.assertEqual(planned_form.errors["receiving_type"], ["Masukkan pilihan yang valid."])
+
+    def test_planned_receiving_create_accepts_custom_receiving_type(self):
+        ReceivingTypeOption.objects.create(code="DON", name="Donasi")
+
+        response = self.client.post(
+            reverse("receiving:receiving_plan_create"),
+            {
+                "document_number": "",
+                "receiving_type": "DON",
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-planned_quantity": "5",
+                "items-0-unit_price": "1000",
+                "items-0-notes": "",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        receiving = Receiving.objects.get(is_planned=True)
+        self.assertEqual(receiving.receiving_type, "DON")
+        self.assertEqual(receiving.receiving_type_label, "Donasi")
+        self.assertEqual(receiving.status, Receiving.Status.DRAFT)
+        self.assertTrue(receiving.order_items.filter(item=self.item).exists())
 
     def test_plan_receive_page_uses_fixed_rows_without_delete_control(self):
         receiving = Receiving.objects.create(

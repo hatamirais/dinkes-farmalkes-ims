@@ -1,4 +1,5 @@
 from decimal import Decimal, InvalidOperation
+import unicodedata
 
 from django import forms
 from django.db.utils import OperationalError, ProgrammingError
@@ -31,10 +32,43 @@ def _get_receiving_type_choices():
     return list(Receiving.ReceivingType.choices) + custom_choices
 
 
+def _normalize_choice_value(value):
+    normalized = unicodedata.normalize("NFC", (value or "").strip())
+    if "\x00" in normalized:
+        raise forms.ValidationError("Tipe penerimaan mengandung karakter tidak valid.")
+    return normalized
+
+
 class BaseReceivingForm(forms.ModelForm):
+    receiving_type = forms.CharField(
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["receiving_type"].choices = _get_receiving_type_choices()
+        self.fields["receiving_type"].widget.choices = _get_receiving_type_choices()
+
+    def clean_receiving_type(self):
+        receiving_type = _normalize_choice_value(
+            self.cleaned_data.get("receiving_type")
+        ).upper()
+        if not receiving_type:
+            raise forms.ValidationError("Tipe penerimaan wajib dipilih.")
+        if len(receiving_type) > 20:
+            raise forms.ValidationError("Tipe penerimaan terlalu panjang.")
+
+        builtin_codes = {choice[0] for choice in Receiving.ReceivingType.choices}
+        if receiving_type in builtin_codes:
+            return receiving_type
+
+        custom_exists = ReceivingTypeOption.objects.filter(
+            code=receiving_type,
+            is_active=True,
+        ).exists()
+        if custom_exists:
+            return receiving_type
+
+        raise forms.ValidationError("Masukkan pilihan yang valid.")
 
     def clean(self):
         cleaned_data = super().clean()
@@ -66,7 +100,6 @@ class ReceivingForm(BaseReceivingForm):
         ]
         widgets = {
             "document_number": forms.TextInput(attrs={"class": "form-control"}),
-            "receiving_type": forms.Select(attrs={"class": "form-select"}),
             "receiving_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
@@ -94,7 +127,6 @@ class PlannedReceivingForm(BaseReceivingForm):
         ]
         widgets = {
             "document_number": forms.TextInput(attrs={"class": "form-control"}),
-            "receiving_type": forms.Select(attrs={"class": "form-select"}),
             "receiving_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
             ),
