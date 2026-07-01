@@ -385,9 +385,11 @@ class ReceivingAdmin(admin.ModelAdmin):
                     ) from exc
 
                 quantity = self._parse_decimal(
-                    row.get("quantity", "0"),
+                    row.get("quantity", ""),
                     row_num=row_num,
                     field_name="quantity",
+                    required=True,
+                    must_be_positive=True,
                 )
                 unit_price = self._parse_decimal(
                     row.get("unit_price", "0"),
@@ -515,11 +517,33 @@ class ReceivingAdmin(admin.ModelAdmin):
         )
 
     @staticmethod
-    def _parse_decimal(value, row_num=None, field_name="nilai"):
+    def _parse_decimal(
+        value,
+        row_num=None,
+        field_name="nilai",
+        *,
+        required=False,
+        must_be_positive=False,
+    ):
         """Parse decimal value, handling comma as decimal separator."""
+        raw_value = (value or "").strip()
+        if required and not raw_value:
+            if row_num is not None:
+                raise ValueError(f"Baris {row_num}: {field_name} wajib diisi")
+            raise ValueError(f"{field_name} wajib diisi")
+
         try:
-            return parse_decimal_input(value, field_label=field_name)
+            decimal_value = parse_decimal_input(value, field_label=field_name)
         except forms.ValidationError as exc:
             if row_num is not None:
                 raise ValueError(f"Baris {row_num}: {exc.messages[0]}") from exc
             raise ValueError(exc.messages[0]) from exc
+
+        if must_be_positive and decimal_value <= 0:
+            message = f"{field_name} harus lebih dari 0"
+            if row_num is not None:
+                raise ValueError(f"Baris {row_num}: {message}")
+            raise ValueError(message)
+
+        return decimal_value
+

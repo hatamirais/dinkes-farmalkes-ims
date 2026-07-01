@@ -112,7 +112,7 @@ class ReceivingCSVImportTest(TestCase):
         csv_content = (
             "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
-            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,,,,\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,,,\n"
         )
 
         result = self.admin._process_csv(self._csv_file(csv_content), self.user)
@@ -123,14 +123,59 @@ class ReceivingCSVImportTest(TestCase):
         self.assertEqual(result["transactions"], 1)
 
         receiving_item = ReceivingItem.objects.get()
-        self.assertEqual(receiving_item.quantity, Decimal("0"))
+        self.assertEqual(receiving_item.quantity, Decimal("10"))
         self.assertEqual(receiving_item.unit_price, Decimal("0"))
         self.assertEqual(receiving_item.batch_lot, "SALDO-0002")
         self.assertEqual(receiving_item.expiry_date, date(2099, 12, 31))
 
         stock = Stock.objects.get()
-        self.assertEqual(stock.quantity, Decimal("0"))
+        self.assertEqual(stock.quantity, Decimal("10"))
         self.assertEqual(stock.batch_lot, "SALDO-0002")
+
+    def test_process_csv_rejects_blank_quantity(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(ValueError, "Baris 2: quantity wajib diisi"):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+        self.assertEqual(Receiving.objects.count(), 0)
+        self.assertEqual(ReceivingItem.objects.count(), 0)
+        self.assertEqual(Stock.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_process_csv_rejects_zero_quantity(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,0,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(ValueError, "Baris 2: quantity harus lebih dari 0"):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+        self.assertEqual(Receiving.objects.count(), 0)
+        self.assertEqual(ReceivingItem.objects.count(), 0)
+        self.assertEqual(Stock.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_process_csv_rejects_negative_quantity(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,-5,B-001,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(ValueError, "Baris 2: quantity harus lebih dari 0"):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+        self.assertEqual(Receiving.objects.count(), 0)
+        self.assertEqual(ReceivingItem.objects.count(), 0)
+        self.assertEqual(Stock.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
 
     def test_process_csv_handles_missing_cell_without_strip_crash(self):
         csv_content = (
@@ -166,6 +211,11 @@ class ReceivingCSVImportTest(TestCase):
         ):
             self.admin._process_csv(self._csv_file(csv_content), self.user)
 
+        self.assertEqual(Receiving.objects.count(), 0)
+        self.assertEqual(ReceivingItem.objects.count(), 0)
+        self.assertEqual(Stock.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
     def test_process_csv_rejects_nan_decimal(self):
         csv_content = (
             "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
@@ -177,6 +227,11 @@ class ReceivingCSVImportTest(TestCase):
             ValueError, "Baris 2: quantity tidak boleh NaN atau Infinity"
         ):
             self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+        self.assertEqual(Receiving.objects.count(), 0)
+        self.assertEqual(ReceivingItem.objects.count(), 0)
+        self.assertEqual(Stock.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
 
     def test_import_view_requires_add_permission(self):
         user = User.objects.create_user(
@@ -1305,3 +1360,4 @@ class ReceivingDocumentAccessTest(TestCase):
                 for message in logs.output
             )
         )
+

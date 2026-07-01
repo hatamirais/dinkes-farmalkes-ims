@@ -154,7 +154,7 @@ Expected columns for custom receiving import:
 - `sumber_dana_code` (required on the first row of each `document_number`; later rows may inherit or override it)
 - `location_code` (required on the first row of each `document_number`; later rows may inherit or override it)
 - `item_code` (required, maps to `Item.kode_barang`)
-- `quantity` (required)
+- `quantity` (required; must be a finite decimal greater than `0`)
 - `batch_lot` (optional; auto-generated if blank)
 - `expiry_date` (optional; defaults to `2099-12-31` when blank)
 - `unit_price` (optional; default `0`)
@@ -163,6 +163,7 @@ Import notes:
 
 - Baris pertama per `document_number` menjadi sumber data header `Receiving`.
 - `sumber_dana_code` dan `location_code` pada baris item akan override nilai header bila diisi.
+- Baris dengan `quantity` kosong, `0`, negatif, `NaN`, atau `Infinity` akan ditolak pada validasi import.
 
 Date formats accepted by parser:
 
@@ -176,3 +177,4 @@ Decimal parsing accepts comma separator.
 ### `stock.csv` (reference only)
 
 The repository still contains `stock.csv` template and stock admin import resources, but for first-time inventory bootstrap, `receiving.csv` is preferred because it posts auditable inbound transactions.
+

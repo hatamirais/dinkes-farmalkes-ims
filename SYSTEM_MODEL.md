@@ -474,7 +474,7 @@ From `backend/config/settings.py`:
 Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 
 - Endpoint: `/admin/receiving/receiving/import-csv/`
-- Required columns: `document_number`, `receiving_date`, `item_code`, `sumber_dana_code`, `location_code`, `quantity`
+- Required columns: `document_number`, `receiving_date`, `item_code`, `sumber_dana_code`, `location_code`, `quantity` (`quantity` must be a finite decimal greater than `0`)
 - Optional columns: `receiving_type` (defaults to `GRANT`), `supplier_code`, `batch_lot`, `expiry_date`, `unit_price`
 - Rows are grouped by `document_number`; first-row supplier and header values seed the parent `Receiving`
 - Row-level `sumber_dana_code` and `location_code` may override the first-row values for each line item
@@ -483,7 +483,7 @@ Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
   - `YYYY-MM-DD`
   - `DD-MM-YYYY`
   - `DD/MM/YY`
-- Decimal parser supports comma decimal separator
+- Decimal parser supports comma decimal separator and rejects blank, `0`, negative, `NaN`, and `Infinity` quantities
 - Runs in `@transaction.atomic`
 
 ## 8) Documentation Maintenance Policy
@@ -498,3 +498,4 @@ If model fields, routes, settings, permission logic, or import behavior change:
    - `/django/django`
    - `/websites/django-import-export_readthedocs_io_en`
    - `/jazzband/django-axes`
+
