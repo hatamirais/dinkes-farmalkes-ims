@@ -148,6 +148,10 @@ function bindItemPickerTable(form) {
                 return;
             }
 
+            if (typeof item.syncTypeaheadSelection === 'function') {
+                item.syncTypeaheadSelection();
+            }
+
             clearRowError(row);
 
             if (!item.value) {
