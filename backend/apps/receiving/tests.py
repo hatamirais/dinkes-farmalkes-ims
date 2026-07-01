@@ -1,13 +1,16 @@
 from io import BytesIO
 import shutil
+import threading
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.db import connections
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from apps.distribution.models import Distribution, DistributionItem
@@ -956,6 +959,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
                 "items-0-unit_price": "1000",
                 "items-0-location": "",
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 302)
@@ -1018,6 +1022,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
                 "items-1-unit_price": "200.00",
                 "items-1-location": str(self.location.pk),
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 302)
@@ -1043,6 +1048,72 @@ class ReceivingWorkflowCleanupTest(TestCase):
                 unit_price=Decimal("200.00"),
             ).exists()
         )
+
+    def test_plan_receive_rejects_stale_locked_overage(self):
+        from apps.receiving import views as receiving_views
+
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-99991",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        order_item = ReceivingOrderItem.objects.create(
+            receiving=receiving,
+            item=self.item,
+            planned_quantity=Decimal("5"),
+            received_quantity=Decimal("0"),
+            unit_price=Decimal("1000"),
+            is_cancelled=False,
+        )
+
+        original_helper = receiving_views._get_locked_planned_receiving_order_items
+
+        def mutate_before_lock(order_item_ids):
+            locked_order_items = original_helper(order_item_ids)
+            locked_order_items[order_item.pk].received_quantity = Decimal("4")
+            return locked_order_items
+
+        with patch(
+            "apps.receiving.views._get_locked_planned_receiving_order_items",
+            side_effect=mutate_before_lock,
+        ):
+            response = self.client.post(
+                reverse("receiving:receiving_plan_receive", args=[receiving.pk]),
+                {
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "0",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-order_item": str(order_item.pk),
+                    "items-0-quantity": "3",
+                    "items-0-batch_lot": "BATCH-STALE",
+                    "items-0-expiry_date": "2030-01-01",
+                    "items-0-unit_price": "1000",
+                    "items-0-location": str(self.location.pk),
+                },
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jumlah melebihi sisa pesanan.")
+        order_item.refresh_from_db()
+        receiving.refresh_from_db()
+        self.assertEqual(order_item.received_quantity, Decimal("0"))
+        self.assertEqual(receiving.status, Receiving.Status.APPROVED)
+        self.assertEqual(ReceivingItem.objects.filter(receiving=receiving).count(), 0)
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                reference_id=receiving.pk,
+            ).count(),
+            0,
+        )
+        self.assertFalse(Stock.objects.filter(batch_lot="BATCH-STALE").exists())
 
     def test_plan_receive_invalid_post_rerenders_row_errors(self):
         receiving = Receiving.objects.create(
@@ -1078,6 +1149,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
                 "items-0-unit_price": "1000",
                 "items-0-location": "",
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1138,6 +1210,131 @@ class ReceivingWorkflowCleanupTest(TestCase):
             reverse("receiving:receiving_plan_approve", args=[receiving.pk])
         )
         self.assertEqual(response.status_code, 403)
+
+
+class PlannedReceivingConcurrencyTest(TransactionTestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="admin_receiving_concurrency",
+            password="secret12345",
+        )
+        unit = Unit.objects.create(code="TABC", name="Tablet Concurrency")
+        category = Category.objects.create(code="OBATC", name="Obat C", sort_order=3)
+        self.item = Item.objects.create(
+            kode_barang="ITM-TEST-CONC-0001",
+            nama_barang="Cefixime 200mg",
+            satuan=unit,
+            kategori=category,
+            minimum_stock=Decimal("0"),
+        )
+        self.funding = FundingSource.objects.create(code="DAKC", name="DAK C")
+        self.location = Location.objects.create(code="LOC-C1", name="Gudang Concurrency")
+
+    def _build_payload(self, order_item):
+        return {
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "0",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-order_item": str(order_item.pk),
+            "items-0-quantity": "5",
+            "items-0-batch_lot": "BATCH-CONC",
+            "items-0-expiry_date": "2030-01-01",
+            "items-0-unit_price": "1000",
+            "items-0-location": str(self.location.pk),
+        }
+
+    def _post_receipt(self, client, receiving_pk, order_item, results, key):
+        try:
+            response = client.post(
+                reverse("receiving:receiving_plan_receive", args=[receiving_pk]),
+                self._build_payload(order_item),
+                secure=True,
+            )
+            results[key] = {
+                "status_code": response.status_code,
+                "body": response.content.decode("utf-8", errors="ignore"),
+            }
+        finally:
+            connections.close_all()
+
+    def test_plan_receive_concurrent_posts_do_not_over_receive(self):
+        from apps.receiving import views as receiving_views
+
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-CONC-0001",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        order_item = ReceivingOrderItem.objects.create(
+            receiving=receiving,
+            item=self.item,
+            planned_quantity=Decimal("5"),
+            received_quantity=Decimal("0"),
+            unit_price=Decimal("1000"),
+            is_cancelled=False,
+        )
+
+        barrier = threading.Barrier(2)
+        original_helper = receiving_views._get_locked_planned_receiving_order_items
+
+        def synchronized_lock(order_item_ids):
+            barrier.wait(timeout=5)
+            return original_helper(order_item_ids)
+
+        client_one = Client()
+        client_two = Client()
+        client_one.force_login(self.user)
+        client_two.force_login(self.user)
+        results = {}
+
+        with patch(
+            "apps.receiving.views._get_locked_planned_receiving_order_items",
+            side_effect=synchronized_lock,
+        ):
+            thread_one = threading.Thread(
+                target=self._post_receipt,
+                args=(client_one, receiving.pk, order_item, results, "one"),
+            )
+            thread_two = threading.Thread(
+                target=self._post_receipt,
+                args=(client_two, receiving.pk, order_item, results, "two"),
+            )
+            thread_one.start()
+            thread_two.start()
+            thread_one.join(timeout=10)
+            thread_two.join(timeout=10)
+
+        self.assertFalse(thread_one.is_alive())
+        self.assertFalse(thread_two.is_alive())
+        self.assertEqual(sorted(result["status_code"] for result in results.values()), [200, 302])
+        self.assertTrue(
+            any(
+                "Jumlah melebihi sisa pesanan." in result["body"]
+                for result in results.values()
+                if result["status_code"] == 200
+            )
+        )
+
+        order_item.refresh_from_db()
+        receiving.refresh_from_db()
+        self.assertEqual(order_item.received_quantity, Decimal("5"))
+        self.assertEqual(receiving.status, Receiving.Status.RECEIVED)
+        self.assertEqual(ReceivingItem.objects.filter(receiving=receiving).count(), 1)
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                reference_id=receiving.pk,
+            ).count(),
+            1,
+        )
+        stock = Stock.objects.get(batch_lot="BATCH-CONC")
+        self.assertEqual(stock.quantity, Decimal("5"))
 
 
 class ReceivingDocumentUploadValidationTest(TestCase):
