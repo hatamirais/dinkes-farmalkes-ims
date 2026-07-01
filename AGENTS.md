@@ -188,7 +188,7 @@ Before opening a PR, verify:
 - Receipt-confirmation throttling is mutation-only: create/edit/delete saves are POST-limited, while the create-form distribution preview uses non-mutating `GET` and must not consume that quota.
 - Throttled requests must continue through the centralized error pipeline and render as HTTP `429`.
 - `@user_mutation_ratelimit` covers all user mutation endpoints: create, update, toggle-active, and delete.
-- `@item_mutation_ratelimit` is reserved for item catalog and item-lookup POST mutations so item maintenance does not consume the user-management throttle bucket.
+- `@item_mutation_ratelimit` covers item catalog lookup POST mutations plus receiving quick-create lookup POST mutations so those writes do not consume the user-management throttle bucket.
 
 ## URL Routing Convention
 

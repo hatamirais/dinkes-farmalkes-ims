@@ -1,3 +1,4 @@
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 from django import forms
@@ -6,12 +7,14 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.forms import inlineformset_factory
 
 from apps.core.decimal_validation import validate_finite_decimal
+from apps.items.models import FundingSource, Supplier
 
 from .models import (
     Receiving,
     ReceivingItem,
     ReceivingOrderItem,
     ReceivingTypeOption,
+    get_reserved_receiving_type_codes,
     validate_receiving_type_code,
 )
 
@@ -42,6 +45,142 @@ def _get_receiving_type_widget_choices():
     return [("", "---------")] + _get_receiving_type_choices()
 
 
+def _normalize_text_value(value, *, field_label, max_length=None, allow_blank=True):
+    if value is None:
+        return "" if allow_blank else value
+
+    raw_value = str(value)
+    if "\x00" in raw_value:
+        raise forms.ValidationError(f"{field_label} mengandung karakter yang tidak valid.")
+
+    normalized = unicodedata.normalize("NFC", raw_value)
+    normalized = " ".join(normalized.strip().split())
+    if not normalized and not allow_blank:
+        raise forms.ValidationError(f"{field_label} wajib diisi.")
+    if max_length is not None and len(normalized) > max_length:
+        raise forms.ValidationError(
+            f"{field_label} tidak boleh lebih dari {max_length} karakter."
+        )
+    return normalized
+
+
+class ReceivingQuickCreateValidationMixin:
+    code_field_name = "code"
+    name_field_name = "name"
+
+    def _normalize_code(self, *, field_label="Kode", max_length=20):
+        code = _normalize_text_value(
+            self.cleaned_data.get(self.code_field_name),
+            field_label=field_label,
+            max_length=max_length,
+            allow_blank=False,
+        )
+        return code.upper()
+
+    def _normalize_name(self, *, field_label="Nama", max_length=100):
+        return _normalize_text_value(
+            self.cleaned_data.get(self.name_field_name),
+            field_label=field_label,
+            max_length=max_length,
+            allow_blank=False,
+        )
+
+    def _normalize_optional_text(self, field_name, *, field_label, max_length=None):
+        return _normalize_text_value(
+            self.cleaned_data.get(field_name),
+            field_label=field_label,
+            max_length=max_length,
+            allow_blank=True,
+        )
+
+    def _validate_unique_code(self, model_class, code):
+        queryset = model_class.objects.filter(code__iexact=code)
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise forms.ValidationError("Kode sudah digunakan. Gunakan kode lain.")
+        return code
+
+    def _validate_unique_name(self, model_class, value, *, field_name="name"):
+        queryset = model_class.objects.filter(**{f"{field_name}__iexact": value})
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise forms.ValidationError("Nama sudah digunakan. Gunakan nama lain.")
+        return value
+
+
+class ReceivingQuickCreateSupplierForm(ReceivingQuickCreateValidationMixin, forms.ModelForm):
+    class Meta:
+        model = Supplier
+        fields = ["code", "name", "address", "phone", "email", "notes"]
+
+    def clean_code(self):
+        code = self._normalize_code(max_length=20)
+        return self._validate_unique_code(Supplier, code)
+
+    def clean_name(self):
+        name = self._normalize_name(max_length=255)
+        return self._validate_unique_name(Supplier, name)
+
+    def clean_address(self):
+        return self._normalize_optional_text("address", field_label="Alamat")
+
+    def clean_phone(self):
+        return self._normalize_optional_text(
+            "phone",
+            field_label="Telepon",
+            max_length=50,
+        )
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if not email:
+            return ""
+        return _normalize_text_value(
+            email,
+            field_label="Email",
+            max_length=254,
+            allow_blank=True,
+        )
+
+    def clean_notes(self):
+        return self._normalize_optional_text("notes", field_label="Catatan")
+
+
+class ReceivingQuickCreateFundingSourceForm(ReceivingQuickCreateValidationMixin, forms.ModelForm):
+    class Meta:
+        model = FundingSource
+        fields = ["code", "name", "description"]
+
+    def clean_code(self):
+        code = self._normalize_code(max_length=20)
+        return self._validate_unique_code(FundingSource, code)
+
+    def clean_name(self):
+        name = self._normalize_name(max_length=100)
+        return self._validate_unique_name(FundingSource, name)
+
+    def clean_description(self):
+        return self._normalize_optional_text("description", field_label="Keterangan")
+
+
+class ReceivingQuickCreateReceivingTypeForm(ReceivingQuickCreateValidationMixin, forms.ModelForm):
+    class Meta:
+        model = ReceivingTypeOption
+        fields = ["code", "name"]
+
+    def clean_code(self):
+        code = self._normalize_code(max_length=20)
+        if code in get_reserved_receiving_type_codes():
+            raise forms.ValidationError(
+                f'Kode "{code}" sudah digunakan tipe bawaan sistem.'
+            )
+        return self._validate_unique_code(ReceivingTypeOption, code)
+
+    def clean_name(self):
+        name = self._normalize_name(max_length=100)
+        return self._validate_unique_name(ReceivingTypeOption, name)
 
 
 class BaseReceivingForm(forms.ModelForm):

@@ -15,8 +15,8 @@ from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.rate_limits import item_mutation_ratelimit
 from apps.core.upload_validation import sanitize_uploaded_filename
-from apps.items.models import Supplier, FundingSource
 from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess
 from .models import (
@@ -24,22 +24,30 @@ from .models import (
     ReceivingDocument,
     ReceivingItem,
     ReceivingOrderItem,
-    ReceivingTypeOption,
-    get_reserved_receiving_type_codes,
     increment_receiving_stock,
 )
 from .forms import (
     build_planned_receipt_item_formset,
+    PlannedReceivingForm,
+    ReceivingCloseForm,
     ReceivingForm,
     ReceivingItemFormSet,
-    PlannedReceivingForm,
-    ReceivingOrderItemFormSet,
-    ReceivingReceiptItemFormSet,
-    ReceivingCloseForm,
     ReceivingOrderCloseItemFormSet,
+    ReceivingOrderItemFormSet,
+    ReceivingQuickCreateFundingSourceForm,
+    ReceivingQuickCreateReceivingTypeForm,
+    ReceivingQuickCreateSupplierForm,
+    ReceivingReceiptItemFormSet,
 )
 
 logger = logging.getLogger("security")
+
+
+def _json_form_errors(form):
+    errors = []
+    for field_errors in form.errors.values():
+        errors.extend(field_errors)
+    return " ".join(errors) or "Data tidak valid."
 
 
 def _safe_download_filename(document):
@@ -736,78 +744,42 @@ def receiving_plan_receive(request, pk):
 
 @login_required
 @perm_required("receiving.add_receiving")
+@item_mutation_ratelimit
 @require_POST
 def quick_create_supplier(request):
     """AJAX endpoint to create a new Supplier."""
-    code = request.POST.get("code", "").strip()
-    name = request.POST.get("name", "").strip()
+    form = ReceivingQuickCreateSupplierForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"error": _json_form_errors(form)}, status=400)
 
-    if not code or not name:
-        return JsonResponse({"error": "Kode dan Nama wajib diisi."}, status=400)
-
-    if Supplier.objects.filter(code=code).exists():
-        return JsonResponse(
-            {"error": f'Supplier dengan kode "{code}" sudah ada.'}, status=400
-        )
-
-    supplier = Supplier.objects.create(
-        code=code,
-        name=name,
-        address=request.POST.get("address", "").strip(),
-        phone=request.POST.get("phone", "").strip(),
-        email=request.POST.get("email", "").strip(),
-        notes=request.POST.get("notes", "").strip(),
-    )
+    supplier = form.save()
     return JsonResponse({"id": supplier.pk, "text": str(supplier)})
 
 
 @login_required
 @perm_required("receiving.add_receiving")
+@item_mutation_ratelimit
 @require_POST
 def quick_create_funding_source(request):
     """AJAX endpoint to create a new FundingSource."""
-    code = request.POST.get("code", "").strip()
-    name = request.POST.get("name", "").strip()
+    form = ReceivingQuickCreateFundingSourceForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"error": _json_form_errors(form)}, status=400)
 
-    if not code or not name:
-        return JsonResponse({"error": "Kode dan Nama wajib diisi."}, status=400)
-
-    if FundingSource.objects.filter(code=code).exists():
-        return JsonResponse(
-            {"error": f'Sumber dana dengan kode "{code}" sudah ada.'}, status=400
-        )
-
-    source = FundingSource.objects.create(
-        code=code,
-        name=name,
-        description=request.POST.get("description", "").strip(),
-    )
+    source = form.save()
     return JsonResponse({"id": source.pk, "text": str(source)})
 
 
 @login_required
 @perm_required("receiving.add_receiving")
+@item_mutation_ratelimit
 @require_POST
 def quick_create_receiving_type(request):
     """AJAX endpoint to create a new custom receiving type."""
-    code = request.POST.get("code", "").strip().upper()
-    name = request.POST.get("name", "").strip()
+    form = ReceivingQuickCreateReceivingTypeForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"error": _json_form_errors(form)}, status=400)
 
-    if not code or not name:
-        return JsonResponse({"error": "Kode dan Nama wajib diisi."}, status=400)
-
-    reserved = get_reserved_receiving_type_codes()
-    if code in reserved:
-        return JsonResponse(
-            {"error": f'Kode "{code}" sudah digunakan tipe bawaan sistem.'},
-            status=400,
-        )
-
-    if ReceivingTypeOption.objects.filter(code=code).exists():
-        return JsonResponse(
-            {"error": f'Tipe penerimaan dengan kode "{code}" sudah ada.'}, status=400
-        )
-
-    option = ReceivingTypeOption.objects.create(code=code, name=name)
+    option = form.save()
     return JsonResponse({"id": option.code, "text": option.name})
 

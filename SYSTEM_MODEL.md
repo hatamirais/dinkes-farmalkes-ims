@@ -448,6 +448,7 @@ From `backend/config/settings.py`:
 - Sensitive POST throttling uses `django-ratelimit` with settings-backed defaults:
   - `USER_BULK_ACTION_RATE_LIMIT = 10/m`
   - `USER_MUTATION_RATE_LIMIT = 20/m`
+  - `ITEM_MUTATION_RATE_LIMIT = 20/m` (shared by item lookup quick-create POSTs and receiving lookup quick-create POSTs)
   - `USER_PASSWORD_RESET_RATE_LIMIT = 5/m`
   - `PASSWORD_CHANGE_RATE_LIMIT = 5/m`
   - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = 20/m` (legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains accepted as fallback)
