@@ -57,7 +57,7 @@ class PlannedReceiptQuantityConflict(ValueError):
 def _get_locked_planned_receiving_order_items(order_item_ids):
     return {
         order_item.pk: order_item
-        for order_item in ReceivingOrderItem.objects.select_for_update()
+        for order_item in ReceivingOrderItem.objects.select_for_update(of=("self",))
         .select_related("item")
         .filter(pk__in=order_item_ids)
         .order_by("pk")
