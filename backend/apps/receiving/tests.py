@@ -14,7 +14,7 @@ from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from apps.distribution.models import Distribution, DistributionItem
-from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.receiving.admin import ReceivingAdmin, ReceivingCSVImportForm
 from apps.receiving.forms import (
     PlannedReceivingForm,
@@ -491,6 +491,101 @@ class ReceivingWorkflowCleanupTest(TestCase):
         receiving.refresh_from_db()
         self.assertNotEqual(receiving.status, Receiving.Status.CLOSED)
 
+    def test_quick_create_supplier_creates_normalized_lookup(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_supplier"),
+            {
+                "code": " sup-01 ",
+                "name": "  PT   Farmasi Nusantara  ",
+                "address": "  Jl.  Merdeka   10  ",
+                "phone": " 08123  ",
+                "email": "vendor@example.com",
+                "notes": "  Mitra   utama  ",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        supplier = Supplier.objects.get(code="SUP-01")
+        self.assertEqual(supplier.name, "PT Farmasi Nusantara")
+        self.assertEqual(supplier.address, "Jl. Merdeka 10")
+        self.assertEqual(supplier.phone, "08123")
+        self.assertEqual(supplier.notes, "Mitra utama")
+
+    def test_quick_create_supplier_rejects_invalid_email(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_supplier"),
+            {"code": "SUP-01", "name": "PT Farmasi", "email": "tidak-valid"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Masukkan alamat email yang valid.", response.json()["error"])
+        self.assertEqual(Supplier.objects.count(), 0)
+
+    def test_quick_create_supplier_rejects_null_byte_input(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_supplier"),
+            {"code": "SUP-01", "name": "PT Farma\x00si"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Karakter null tidak diizinkan.", response.json()["error"])
+        self.assertEqual(Supplier.objects.count(), 0)
+
+    def test_quick_create_supplier_rejects_duplicate_name_case_insensitive(self):
+        Supplier.objects.create(code="SUP-00", name="PT Farmasi Nusantara")
+
+        response = self.client.post(
+            reverse("receiving:quick_create_supplier"),
+            {"code": "SUP-01", "name": "  pt   farmasi   nusantara  "},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Nama sudah digunakan", response.json()["error"])
+        self.assertEqual(Supplier.objects.count(), 1)
+
+    def test_quick_create_funding_source_creates_normalized_lookup(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_funding_source"),
+            {
+                "code": " apbn ",
+                "name": "  Dana   Alokasi Khusus  ",
+                "description": "  Bantuan   pusat  ",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        funding = FundingSource.objects.get(code="APBN")
+        self.assertEqual(funding.name, "Dana Alokasi Khusus")
+        self.assertEqual(funding.description, "Bantuan pusat")
+
+    def test_quick_create_funding_source_rejects_overlong_code(self):
+        response = self.client.post(
+            reverse("receiving:quick_create_funding_source"),
+            {"code": "X" * 21, "name": "Dana Baru"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("paling banyak 20 karakter", response.json()["error"])
+        self.assertEqual(FundingSource.objects.count(), 1)
+
+    def test_quick_create_funding_source_rejects_duplicate_name_case_insensitive(self):
+        FundingSource.objects.create(code="DAU", name="Dana Alokasi Umum")
+
+        response = self.client.post(
+            reverse("receiving:quick_create_funding_source"),
+            {"code": "DAU-2", "name": "  dana   alokasi umum  "},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Nama sudah digunakan", response.json()["error"])
+
     def test_quick_create_receiving_type_adds_option_to_form_choices(self):
         response = self.client.post(
             reverse("receiving:quick_create_receiving_type"),
@@ -538,6 +633,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.post(
             reverse("receiving:quick_create_receiving_type"),
             {"code": "GRANT", "name": "Hibah Khusus"},
+            secure=True,
         )
         self.assertEqual(response.status_code, 400)
 
@@ -550,6 +646,34 @@ class ReceivingWorkflowCleanupTest(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertFalse(ReceivingTypeOption.objects.filter(code="RETURN_RS").exists())
+
+    def test_quick_create_receiving_type_rejects_duplicate_name_case_insensitive(self):
+        ReceivingTypeOption.objects.create(code="MUTASI", name="Mutasi Internal")
+
+        response = self.client.post(
+            reverse("receiving:quick_create_receiving_type"),
+            {"code": "MUT-2", "name": "  mutasi   internal  "},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Nama sudah digunakan", response.json()["error"])
+
+    @override_settings(ITEM_MUTATION_RATE_LIMIT="1/m", RATELIMIT_USE_CACHE="locmem")
+    def test_receiving_quick_create_uses_shared_item_mutation_rate_limit(self):
+        first = self.client.post(
+            reverse("receiving:quick_create_supplier"),
+            {"code": "SUP-01", "name": "PT Farmasi"},
+            secure=True,
+        )
+        second = self.client.post(
+            reverse("receiving:quick_create_supplier"),
+            {"code": "SUP-02", "name": "PT Farmasi Dua"},
+            secure=True,
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
 
     def test_receiving_item_forms_use_name_only_item_labels(self):
         self.item.nama_barang = "Paracetamol 500mg [P]"
