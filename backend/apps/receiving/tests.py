@@ -365,6 +365,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
                 "items-0-unit_price": "1500",
                 "items-0-location": self.location.pk,
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 302)
@@ -1335,6 +1336,368 @@ class PlannedReceivingConcurrencyTest(TransactionTestCase):
         )
         stock = Stock.objects.get(batch_lot="BATCH-CONC")
         self.assertEqual(stock.quantity, Decimal("5"))
+
+
+class ReceivingStockConcurrencyTest(TransactionTestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="admin_receiving_stock_concurrency",
+            password="secret12345",
+        )
+        unit = Unit.objects.create(code="TABS", name="Tablet Stock")
+        category = Category.objects.create(code="OBATS", name="Obat Stock", sort_order=4)
+        self.item = Item.objects.create(
+            kode_barang="ITM-TEST-STOCK-0001",
+            nama_barang="Azithromycin 500mg",
+            satuan=unit,
+            kategori=category,
+            minimum_stock=Decimal("0"),
+        )
+        self.funding = FundingSource.objects.create(code="APBDS", name="APBD Stock")
+        self.location = Location.objects.create(code="LOC-S1", name="Gudang Stock Race")
+        self.batch_lot = "BATCH-STOCK-RACE"
+        self.expiry_date = "2030-01-01"
+
+    @staticmethod
+    def _csv_file(content):
+        return SimpleUploadedFile(
+            "receiving.csv",
+            content.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+    def _regular_payload(self, document_number, quantity):
+        return {
+            "document_number": document_number,
+            "receiving_type": Receiving.ReceivingType.GRANT,
+            "receiving_date": "2026-03-16",
+            "supplier": "",
+            "sumber_dana": self.funding.pk,
+            "notes": "",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "0",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-item": self.item.pk,
+            "items-0-quantity": str(quantity),
+            "items-0-batch_lot": self.batch_lot,
+            "items-0-expiry_date": self.expiry_date,
+            "items-0-unit_price": "1500",
+            "items-0-location": self.location.pk,
+        }
+
+    def _planned_payload(self, order_item, quantity):
+        return {
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "0",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-order_item": str(order_item.pk),
+            "items-0-quantity": str(quantity),
+            "items-0-batch_lot": self.batch_lot,
+            "items-0-expiry_date": self.expiry_date,
+            "items-0-unit_price": "1000",
+            "items-0-location": str(self.location.pk),
+        }
+
+    def _csv_content(self, document_number, quantity):
+        return (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            f"{document_number},GRANT,12/03/2026,,{self.funding.code},{self.location.code},"
+            f"{self.item.kode_barang},{quantity},{self.batch_lot},01/01/2030,1000\n"
+        )
+
+    def _post_regular_receiving(self, client, payload, results, key):
+        try:
+            response = client.post(
+                reverse("receiving:receiving_create"),
+                payload,
+                secure=True,
+            )
+            results[key] = {"status_code": response.status_code}
+        except Exception as exc:
+            results[key] = {"error": repr(exc)}
+        finally:
+            connections.close_all()
+
+    def _post_planned_receiving(self, client, receiving_pk, payload, results, key):
+        try:
+            response = client.post(
+                reverse("receiving:receiving_plan_receive", args=[receiving_pk]),
+                payload,
+                secure=True,
+            )
+            results[key] = {"status_code": response.status_code}
+        except Exception as exc:
+            results[key] = {"error": repr(exc)}
+        finally:
+            connections.close_all()
+
+    def _run_csv_import(self, csv_content, results, key):
+        admin = ReceivingAdmin(Receiving, AdminSite())
+        try:
+            counts = admin._process_csv(self._csv_file(csv_content), self.user)
+            results[key] = {"counts": counts}
+        except Exception as exc:
+            results[key] = {"error": repr(exc)}
+        finally:
+            connections.close_all()
+
+    def test_regular_receiving_concurrent_posts_accumulate_single_stock_row(self):
+        from apps.receiving import models as receiving_models
+
+        barrier = threading.Barrier(2)
+        original_create = receiving_models._create_receiving_stock_row
+
+        def synchronized_create(**kwargs):
+            barrier.wait(timeout=5)
+            return original_create(**kwargs)
+
+        client_one = Client()
+        client_two = Client()
+        client_one.force_login(self.user)
+        client_two.force_login(self.user)
+        results = {}
+
+        with patch(
+            "apps.receiving.models._create_receiving_stock_row",
+            side_effect=synchronized_create,
+        ):
+            thread_one = threading.Thread(
+                target=self._post_regular_receiving,
+                args=(
+                    client_one,
+                    self._regular_payload("RCV-2026-RACE-REG-1", Decimal("3")),
+                    results,
+                    "one",
+                ),
+            )
+            thread_two = threading.Thread(
+                target=self._post_regular_receiving,
+                args=(
+                    client_two,
+                    self._regular_payload("RCV-2026-RACE-REG-2", Decimal("4")),
+                    results,
+                    "two",
+                ),
+            )
+            thread_one.start()
+            thread_two.start()
+            thread_one.join(timeout=10)
+            thread_two.join(timeout=10)
+
+        self.assertFalse(thread_one.is_alive())
+        self.assertFalse(thread_two.is_alive())
+        self.assertNotIn("error", results.get("one", {}))
+        self.assertNotIn("error", results.get("two", {}))
+        self.assertEqual(
+            sorted(result["status_code"] for result in results.values()),
+            [302, 302],
+        )
+        stock = Stock.objects.get(
+            item=self.item,
+            location=self.location,
+            batch_lot=self.batch_lot,
+            sumber_dana=self.funding,
+        )
+        self.assertEqual(stock.quantity, Decimal("7"))
+        self.assertEqual(
+            Stock.objects.filter(
+                item=self.item,
+                location=self.location,
+                batch_lot=self.batch_lot,
+                sumber_dana=self.funding,
+            ).count(),
+            1,
+        )
+        self.assertEqual(Receiving.objects.count(), 2)
+        self.assertEqual(ReceivingItem.objects.count(), 2)
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+            ).count(),
+            2,
+        )
+
+    def test_planned_receiving_concurrent_posts_accumulate_existing_stock(self):
+        from apps.receiving import models as receiving_models
+
+        Stock.objects.create(
+            item=self.item,
+            location=self.location,
+            batch_lot=self.batch_lot,
+            sumber_dana=self.funding,
+            expiry_date=date(2030, 1, 1),
+            quantity=Decimal("10"),
+            unit_price=Decimal("800"),
+        )
+        receiving_one = Receiving.objects.create(
+            document_number="RCV-2026-RACE-PLAN-1",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        receiving_two = Receiving.objects.create(
+            document_number="RCV-2026-RACE-PLAN-2",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        order_item_one = ReceivingOrderItem.objects.create(
+            receiving=receiving_one,
+            item=self.item,
+            planned_quantity=Decimal("3"),
+            received_quantity=Decimal("0"),
+            unit_price=Decimal("1000"),
+            is_cancelled=False,
+        )
+        order_item_two = ReceivingOrderItem.objects.create(
+            receiving=receiving_two,
+            item=self.item,
+            planned_quantity=Decimal("4"),
+            received_quantity=Decimal("0"),
+            unit_price=Decimal("1000"),
+            is_cancelled=False,
+        )
+
+        barrier = threading.Barrier(2)
+
+        def synchronized_increment(**kwargs):
+            barrier.wait(timeout=5)
+            return receiving_models.increment_receiving_stock(**kwargs)
+
+        client_one = Client()
+        client_two = Client()
+        client_one.force_login(self.user)
+        client_two.force_login(self.user)
+        results = {}
+
+        with patch(
+            "apps.receiving.views.increment_receiving_stock",
+            side_effect=synchronized_increment,
+        ):
+            thread_one = threading.Thread(
+                target=self._post_planned_receiving,
+                args=(
+                    client_one,
+                    receiving_one.pk,
+                    self._planned_payload(order_item_one, Decimal("3")),
+                    results,
+                    "one",
+                ),
+            )
+            thread_two = threading.Thread(
+                target=self._post_planned_receiving,
+                args=(
+                    client_two,
+                    receiving_two.pk,
+                    self._planned_payload(order_item_two, Decimal("4")),
+                    results,
+                    "two",
+                ),
+            )
+            thread_one.start()
+            thread_two.start()
+            thread_one.join(timeout=10)
+            thread_two.join(timeout=10)
+
+        self.assertFalse(thread_one.is_alive())
+        self.assertFalse(thread_two.is_alive())
+        self.assertNotIn("error", results.get("one", {}))
+        self.assertNotIn("error", results.get("two", {}))
+        self.assertEqual(
+            sorted(result["status_code"] for result in results.values()),
+            [302, 302],
+        )
+        stock = Stock.objects.get(
+            item=self.item,
+            location=self.location,
+            batch_lot=self.batch_lot,
+            sumber_dana=self.funding,
+        )
+        self.assertEqual(stock.quantity, Decimal("17"))
+        order_item_one.refresh_from_db()
+        order_item_two.refresh_from_db()
+        self.assertEqual(order_item_one.received_quantity, Decimal("3"))
+        self.assertEqual(order_item_two.received_quantity, Decimal("4"))
+        self.assertEqual(ReceivingItem.objects.filter(batch_lot=self.batch_lot).count(), 2)
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                batch_lot=self.batch_lot,
+            ).count(),
+            2,
+        )
+
+    def test_csv_import_concurrent_runs_accumulate_single_stock_row(self):
+        from apps.receiving import models as receiving_models
+
+        barrier = threading.Barrier(2)
+        original_create = receiving_models._create_receiving_stock_row
+
+        def synchronized_create(**kwargs):
+            barrier.wait(timeout=5)
+            return original_create(**kwargs)
+
+        results = {}
+
+        with patch(
+            "apps.receiving.models._create_receiving_stock_row",
+            side_effect=synchronized_create,
+        ):
+            thread_one = threading.Thread(
+                target=self._run_csv_import,
+                args=(
+                    self._csv_content("RCV-2026-RACE-CSV-1", Decimal("6")),
+                    results,
+                    "one",
+                ),
+            )
+            thread_two = threading.Thread(
+                target=self._run_csv_import,
+                args=(
+                    self._csv_content("RCV-2026-RACE-CSV-2", Decimal("8")),
+                    results,
+                    "two",
+                ),
+            )
+            thread_one.start()
+            thread_two.start()
+            thread_one.join(timeout=10)
+            thread_two.join(timeout=10)
+
+        self.assertFalse(thread_one.is_alive())
+        self.assertFalse(thread_two.is_alive())
+        self.assertNotIn("error", results.get("one", {}))
+        self.assertNotIn("error", results.get("two", {}))
+        self.assertEqual(results["one"]["counts"]["stock"], 1)
+        self.assertEqual(results["two"]["counts"]["stock"], 1)
+        stock = Stock.objects.get(
+            item=self.item,
+            location=self.location,
+            batch_lot=self.batch_lot,
+            sumber_dana=self.funding,
+        )
+        self.assertEqual(stock.quantity, Decimal("14"))
+        self.assertEqual(Receiving.objects.count(), 2)
+        self.assertEqual(ReceivingItem.objects.count(), 2)
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                batch_lot=self.batch_lot,
+            ).count(),
+            2,
+        )
+
 
 
 class ReceivingDocumentUploadValidationTest(TestCase):
