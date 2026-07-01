@@ -48,6 +48,38 @@ def _safe_download_filename(document):
         return PurePath(document.file.name).name or f"receiving-{document.pk}"
 
 
+class PlannedReceiptQuantityConflict(ValueError):
+    def __init__(self, order_item_id, message):
+        super().__init__(message)
+        self.order_item_id = order_item_id
+
+
+def _get_locked_planned_receiving_order_items(order_item_ids):
+    return {
+        order_item.pk: order_item
+        for order_item in ReceivingOrderItem.objects.select_for_update()
+        .select_related("item")
+        .filter(pk__in=order_item_ids)
+        .order_by("pk")
+    }
+
+
+def _add_planned_receipt_form_error(formset, order_item_id, message):
+    for form in formset.forms:
+        cleaned = getattr(form, "cleaned_data", None)
+        if not cleaned or cleaned.get("DELETE"):
+            continue
+        order_item = cleaned.get("order_item")
+        quantity = cleaned.get("quantity")
+        if (
+            order_item
+            and order_item.pk == order_item_id
+            and quantity is not None
+            and quantity > 0
+        ):
+            form.add_error("quantity", message)
+
+
 def _create_verified_receiving(request, form, formset):
     with transaction.atomic():
         receiving = form.save(commit=False)
@@ -573,27 +605,44 @@ def receiving_plan_receive(request, pk):
                         status=200,
                     )
 
+        receipt_forms = []
+        for form in formset.forms:
+            cleaned = form.cleaned_data
+            if not cleaned:
+                continue
+            quantity = cleaned.get("quantity")
+            if quantity is None or quantity <= 0:
+                continue
+            receipt_forms.append(form)
+
         try:
             with transaction.atomic():
-                pending_transactions = []
-                for form in formset.forms:
-                    cleaned = form.cleaned_data
-                    if not cleaned:
-                        continue
-                    item = form.save(commit=False)
-                    if item.quantity is None or item.quantity <= 0:
-                        continue
+                locked_order_items = _get_locked_planned_receiving_order_items(
+                    totals.keys()
+                )
+                for order_item_id, total_quantity in totals.items():
+                    order_item = locked_order_items.get(order_item_id)
+                    if order_item is None or order_item.is_cancelled:
+                        raise PlannedReceiptQuantityConflict(
+                            order_item_id,
+                            "Item pesanan ini sudah dibatalkan.",
+                        )
+                    if order_item.remaining_quantity < total_quantity:
+                        raise PlannedReceiptQuantityConflict(
+                            order_item_id,
+                            "Jumlah melebihi sisa pesanan.",
+                        )
 
+                pending_transactions = []
+                for form in receipt_forms:
+                    item = form.save(commit=False)
+                    order_item = locked_order_items[item.order_item_id]
                     item.receiving = receiving
                     item.received_by = request.user
                     item.received_at = timezone.now()
-                    if item.order_item_id:
-                        item.item = item.order_item.item
+                    item.item = order_item.item
                     item.save()
 
-                    order_item = ReceivingOrderItem.objects.select_for_update().get(
-                        pk=item.order_item_id
-                    )
                     order_item.received_quantity = (
                         order_item.received_quantity + item.quantity
                     )
@@ -644,6 +693,18 @@ def receiving_plan_receive(request, pk):
                 )
                 receiving.save(update_fields=["status", "updated_at"])
 
+        except PlannedReceiptQuantityConflict as exc:
+            _add_planned_receipt_form_error(formset, exc.order_item_id, str(exc))
+            messages.error(request, str(exc))
+            return render(
+                request,
+                "receiving/receiving_plan_receive.html",
+                {
+                    "receiving": receiving,
+                    "formset": formset,
+                },
+                status=200,
+            )
         except ValueError as exc:
             messages.error(request, str(exc))
             return render(
@@ -758,3 +819,4 @@ def quick_create_receiving_type(request):
 
     option = ReceivingTypeOption.objects.create(code=code, name=name)
     return JsonResponse({"id": option.code, "text": option.name})
+
