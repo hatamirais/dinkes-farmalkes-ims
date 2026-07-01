@@ -1,8 +1,9 @@
 import unicodedata
 
-from django.db import models
+from django.db import IntegrityError, models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db.models import F
 from django.utils import timezone
 from apps.core.models import TimeStampedModel
 from .storage import ReceivingDocumentStorage
@@ -63,6 +64,84 @@ def validate_receiving_type_code(value):
         return receiving_type
 
     raise ValidationError({"receiving_type": "Masukkan pilihan yang valid."})
+
+
+def _create_receiving_stock_row(
+    *,
+    item,
+    location,
+    batch_lot,
+    sumber_dana,
+    expiry_date,
+    quantity,
+    unit_price,
+    receiving_ref,
+):
+    from apps.stock.models import Stock
+
+    return Stock.objects.create(
+        item=item,
+        location=location,
+        batch_lot=batch_lot,
+        sumber_dana=sumber_dana,
+        expiry_date=expiry_date,
+        quantity=quantity,
+        unit_price=unit_price,
+        receiving_ref=receiving_ref,
+    )
+
+
+def increment_receiving_stock(
+    *,
+    item,
+    location,
+    batch_lot,
+    sumber_dana,
+    expiry_date,
+    quantity,
+    unit_price,
+    receiving_ref,
+):
+    if not transaction.get_connection().in_atomic_block:
+        raise RuntimeError("increment_receiving_stock harus dipanggil dalam transaksi.")
+
+    from apps.stock.models import Stock
+
+    stock_filters = {
+        "item": item,
+        "location": location,
+        "batch_lot": batch_lot,
+        "sumber_dana": sumber_dana,
+    }
+    updated_at = timezone.now()
+
+    updated = Stock.objects.filter(**stock_filters).update(
+        quantity=F("quantity") + quantity,
+        updated_at=updated_at,
+    )
+    if updated:
+        return
+
+    try:
+        with transaction.atomic():
+            _create_receiving_stock_row(
+                item=item,
+                location=location,
+                batch_lot=batch_lot,
+                sumber_dana=sumber_dana,
+                expiry_date=expiry_date,
+                quantity=quantity,
+                unit_price=unit_price,
+                receiving_ref=receiving_ref,
+            )
+    except IntegrityError:
+        updated = Stock.objects.filter(**stock_filters).update(
+            quantity=F("quantity") + quantity,
+            updated_at=updated_at,
+        )
+        if updated:
+            return
+        raise
 
 
 class Receiving(TimeStampedModel):

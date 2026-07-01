@@ -24,6 +24,7 @@ from .models import (
     ReceivingDocument,
     ReceivingOrderItem,
     ReceivingTypeOption,
+    increment_receiving_stock,
 )
 from apps.items.models import Item, FundingSource, Location, Supplier
 from apps.core.upload_validation import validate_csv_upload, validate_receiving_document_upload
@@ -459,21 +460,16 @@ class ReceivingAdmin(admin.ModelAdmin):
                 counts["items"] += 1
 
                 # Stock — update or create
-                stock, created = Stock.objects.get_or_create(
+                increment_receiving_stock(
                     item=item,
                     location=row_location,
                     batch_lot=batch_lot,
                     sumber_dana=row_sumber_dana,
-                    defaults={
-                        "expiry_date": expiry_date,
-                        "quantity": quantity,
-                        "unit_price": unit_price,
-                        "receiving_ref": receiving,
-                    },
+                    expiry_date=expiry_date,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    receiving_ref=receiving,
                 )
-                if not created:
-                    stock.quantity += quantity
-                    stock.save()
                 counts["stock"] += 1
 
                 # Transaction

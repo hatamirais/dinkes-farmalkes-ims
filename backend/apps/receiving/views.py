@@ -26,6 +26,7 @@ from .models import (
     ReceivingOrderItem,
     ReceivingTypeOption,
     get_reserved_receiving_type_codes,
+    increment_receiving_stock,
 )
 from .forms import (
     build_planned_receipt_item_formset,
@@ -101,21 +102,16 @@ def _create_verified_receiving(request, form, formset):
             item.received_at = timezone.now()
             item.save()
 
-            stock, created = Stock.objects.get_or_create(
+            increment_receiving_stock(
                 item=item.item,
                 location=item.location,
                 batch_lot=item.batch_lot,
                 sumber_dana=receiving.sumber_dana,
-                defaults={
-                    "expiry_date": item.expiry_date,
-                    "quantity": item.quantity,
-                    "unit_price": item.unit_price,
-                    "receiving_ref": receiving,
-                },
+                expiry_date=item.expiry_date,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                receiving_ref=receiving,
             )
-            if not created:
-                stock.quantity += item.quantity
-                stock.save(update_fields=["quantity", "updated_at"])
 
             pending_transactions.append(
                 Transaction(
@@ -648,21 +644,16 @@ def receiving_plan_receive(request, pk):
                     )
                     order_item.save(update_fields=["received_quantity", "updated_at"])
 
-                    stock, created = Stock.objects.get_or_create(
+                    increment_receiving_stock(
                         item=item.item,
                         location=item.location,
                         batch_lot=item.batch_lot,
                         sumber_dana=receiving.sumber_dana,
-                        defaults={
-                            "expiry_date": item.expiry_date,
-                            "quantity": item.quantity,
-                            "unit_price": item.unit_price,
-                            "receiving_ref": receiving,
-                        },
+                        expiry_date=item.expiry_date,
+                        quantity=item.quantity,
+                        unit_price=item.unit_price,
+                        receiving_ref=receiving,
                     )
-                    if not created:
-                        stock.quantity += item.quantity
-                        stock.save(update_fields=["quantity", "updated_at"])
 
                     pending_transactions.append(
                         Transaction(
