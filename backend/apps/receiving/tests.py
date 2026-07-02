@@ -9,12 +9,13 @@ from unittest.mock import patch
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import connections
+from django.db import IntegrityError, connections
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
+from apps.procurement.models import ProcurementContract
 from apps.receiving.admin import ReceivingAdmin, ReceivingCSVImportForm
 from apps.receiving.forms import (
     PlannedReceivingForm,
@@ -769,6 +770,14 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertNotContains(response, '>Pengadaan</option>', html=False)
         self.assertContains(response, '>Hibah</option>', html=False)
 
+    def test_planned_receiving_list_keeps_manual_create_for_non_procurement_types(self):
+        response = self.client.get(reverse("receiving:receiving_plan_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("receiving:receiving_plan_create"))
+        self.assertContains(response, "Buat Rencana Non-Pengadaan")
+        self.assertContains(response, "Gunakan buat manual hanya untuk hibah")
+
     def test_regular_receiving_detail_rejects_planned_receiving(self):
         planned_receiving = Receiving.objects.create(
             document_number="RCV-2026-99993",
@@ -998,6 +1007,82 @@ class ReceivingWorkflowCleanupTest(TestCase):
             response.context["form"].errors["receiving_type"],
         )
         self.assertFalse(Receiving.objects.filter(is_planned=True).exists())
+
+    def test_receiving_full_clean_rejects_duplicate_planned_contract_link(self):
+        supplier = Supplier.objects.create(code="SUP-RCV-001", name="PT Supplier Receiving")
+        contract = ProcurementContract.objects.create(
+            document_number="SPJ-RCV-001",
+            contract_date=date(2026, 3, 16),
+            supplier=supplier,
+            sumber_dana=self.funding,
+            notes="Kontrak receiving",
+            created_by=self.user,
+        )
+        Receiving.objects.create(
+            document_number="RCV-2026-CONTRACT-001",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            is_planned=True,
+            contract=contract,
+            supplier=supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            created_by=self.user,
+        )
+        duplicate = Receiving(
+            document_number="RCV-2026-CONTRACT-002",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 17),
+            is_planned=True,
+            contract=contract,
+            supplier=supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.DRAFT,
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            duplicate.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["contract"],
+            ["Setiap kontrak SPJ hanya boleh memiliki satu rencana penerimaan."],
+        )
+
+    def test_receiving_db_constraint_rejects_duplicate_planned_contract_link(self):
+        supplier = Supplier.objects.create(code="SUP-RCV-002", name="PT Supplier Receiving 2")
+        contract = ProcurementContract.objects.create(
+            document_number="SPJ-RCV-002",
+            contract_date=date(2026, 3, 16),
+            supplier=supplier,
+            sumber_dana=self.funding,
+            notes="Kontrak receiving",
+            created_by=self.user,
+        )
+        Receiving.objects.create(
+            document_number="RCV-2026-CONTRACT-003",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            is_planned=True,
+            contract=contract,
+            supplier=supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            created_by=self.user,
+        )
+
+        with self.assertRaises(IntegrityError):
+            Receiving.objects.create(
+                document_number="RCV-2026-CONTRACT-004",
+                receiving_type=Receiving.ReceivingType.PROCUREMENT,
+                receiving_date=date(2026, 3, 17),
+                is_planned=True,
+                contract=contract,
+                supplier=supplier,
+                sumber_dana=self.funding,
+                status=Receiving.Status.DRAFT,
+                created_by=self.user,
+            )
 
     def test_plan_receive_page_uses_fixed_rows_without_delete_control(self):
         receiving = Receiving.objects.create(

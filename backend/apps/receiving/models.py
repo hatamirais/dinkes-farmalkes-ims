@@ -243,6 +243,13 @@ class Receiving(TimeStampedModel):
                 fields=["status", "receiving_date"], name="idx_recv_status_date"
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["contract"],
+                condition=models.Q(contract__isnull=False, is_planned=True),
+                name="uniq_planned_receiving_contract",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.document_number} ({self.receiving_type_label})"
@@ -272,6 +279,11 @@ class Receiving(TimeStampedModel):
                 raise ValidationError({"contract": "Kontrak hanya boleh ditautkan ke rencana penerimaan."})
             if self.receiving_type != self.ReceivingType.PROCUREMENT:
                 raise ValidationError({"receiving_type": "Rencana dari kontrak harus bertipe Pengadaan."})
+            duplicate_qs = Receiving.objects.filter(contract_id=self.contract_id, is_planned=True)
+            if self.pk:
+                duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+            if duplicate_qs.exists():
+                raise ValidationError({"contract": "Setiap kontrak SPJ hanya boleh memiliki satu rencana penerimaan."})
 
     @staticmethod
     def generate_document_number():
