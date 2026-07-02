@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}Detail Rencana {{ receiving.document_number }} — Healthcare IMS{% endblock %}
+{% block title %}Detail Rencana {{ receiving.document_number }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Rencana Penerimaan{% endblock %}
 
 {% block content %}
@@ -34,6 +34,13 @@
                     <dt class="col-5 text-muted">Dibuat oleh</dt>
                     <dd class="col-7">{{ receiving.created_by }}</dd>
 
+                    {% if receiving.contract_id %}
+                    <dt class="col-5 text-muted">Kontrak SPJ</dt>
+                    <dd class="col-7">
+                        <a href="{% url 'procurement:contract_detail' receiving.contract_id %}">{{ receiving.contract.document_number }}</a>
+                    </dd>
+                    {% endif %}
+
                     {% if receiving.approved_by %}
                     <dt class="col-5 text-muted">Disetujui</dt>
                     <dd class="col-7">{{ receiving.approved_by }} <br><small class="text-muted">{{ receiving.approved_at|date:"d/m/Y H:i" }}</small></dd>
@@ -58,14 +65,14 @@
         </div>
 
         <div class="d-flex flex-wrap gap-2 mt-3">
-            {% if receiving.status == 'DRAFT' %}
+            {% if not receiving.contract_id and receiving.status == 'DRAFT' %}
             <form method="post" action="{% url 'receiving:receiving_plan_submit' receiving.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary btn-sm">
                     <i class="bi bi-send me-1"></i>Ajukan
                 </button>
             </form>
-            {% elif receiving.status == 'SUBMITTED' %}
+            {% elif not receiving.contract_id and receiving.status == 'SUBMITTED' %}
             <form method="post" action="{% url 'receiving:receiving_plan_approve' receiving.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-sm">

@@ -408,10 +408,10 @@ def export_penerimaan_hibah_excel(report_data, start_date, end_date):
 def export_pengadaan_excel(report_data, start_date, end_date):
     """Export the Penerimaan Pengadaan report to Excel."""
     headers = [
-        "No", "No. Dokumen", "Supplier", "Nama Barang", "Satuan", "Batch",
+        "No", "No. Dokumen", "No. SPJ", "Supplier", "Nama Barang", "Satuan", "Batch",
         "Kedaluwarsa", "Harga Satuan (Rp)", "Jumlah Diterima", "Total Nilai (Rp)"
     ]
-    col_widths = [6, 22, 24, 30, 10, 15, 14, 20, 16, 22]
+    col_widths = [6, 22, 22, 24, 30, 10, 15, 14, 20, 16, 22]
 
     def row_builder(idx, row):
         expiry = row.get('expiry_date')
@@ -422,6 +422,7 @@ def export_pengadaan_excel(report_data, start_date, end_date):
         return [
             idx,
             row.get('document_number', ''),
+            row.get('contract_document_number', ''),
             row.get('supplier', ''),
             row.get('nama_barang', ''),
             row.get('satuan', ''),

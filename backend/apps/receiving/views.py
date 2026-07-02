@@ -151,7 +151,7 @@ def _create_verified_receiving(request, form, formset):
 @perm_required("receiving.view_receiving")
 def receiving_list(request):
     queryset = (
-        Receiving.objects.select_related("supplier", "sumber_dana", "created_by")
+        Receiving.objects.select_related("supplier", "sumber_dana", "created_by", "contract")
         .filter(is_planned=False)
         .exclude(receiving_type="RETURN_RS")
         .order_by("-receiving_date")
@@ -187,7 +187,7 @@ def receiving_list(request):
 @perm_required("receiving.view_receiving")
 def receiving_plan_list(request):
     queryset = (
-        Receiving.objects.select_related("supplier", "sumber_dana", "created_by")
+        Receiving.objects.select_related("supplier", "sumber_dana", "created_by", "contract")
         .filter(is_planned=True)
         .order_by("-receiving_date")
     )
@@ -277,6 +277,12 @@ def receiving_plan_create(request):
 
         if form.is_valid() and formset.is_valid():
             receiving = form.save(commit=False)
+            if receiving.receiving_type == Receiving.ReceivingType.PROCUREMENT:
+                messages.error(
+                    request,
+                    "Rencana penerimaan pengadaan baru wajib dibuat melalui modul SPJ / Pengadaan.",
+                )
+                return redirect("procurement:contract_list")
             receiving.created_by = request.user
             receiving.is_planned = True
             receiving.status = Receiving.Status.DRAFT
@@ -375,7 +381,7 @@ def receiving_document_download(request, pk, document_pk):
 def receiving_plan_detail(request, pk):
     receiving = get_object_or_404(
         Receiving.objects.select_related(
-            "supplier", "sumber_dana", "created_by", "approved_by"
+            "supplier", "sumber_dana", "created_by", "approved_by", "contract"
         ),
         pk=pk,
         is_planned=True,
@@ -405,6 +411,13 @@ def receiving_plan_submit(request, pk):
         messages.error(request, "Hanya rencana penerimaan Draft yang dapat diajukan.")
         return redirect("receiving:receiving_plan_detail", pk=pk)
 
+    if receiving.contract_id:
+        messages.error(
+            request,
+            "Rencana penerimaan yang berasal dari SPJ disetujui melalui modul SPJ / Pengadaan.",
+        )
+        return redirect("receiving:receiving_plan_detail", pk=pk)
+
     if not receiving.order_items.exists():
         messages.error(request, "Tambahkan minimal 1 item rencana sebelum diajukan.")
         return redirect("receiving:receiving_plan_detail", pk=pk)
@@ -428,6 +441,13 @@ def receiving_plan_approve(request, pk):
     if receiving.status != Receiving.Status.SUBMITTED:
         messages.error(
             request, "Hanya rencana penerimaan Diajukan yang dapat disetujui."
+        )
+        return redirect("receiving:receiving_plan_detail", pk=pk)
+
+    if receiving.contract_id:
+        messages.error(
+            request,
+            "Rencana penerimaan yang berasal dari SPJ tidak memerlukan persetujuan terpisah.",
         )
         return redirect("receiving:receiving_plan_detail", pk=pk)
 
@@ -782,4 +802,3 @@ def quick_create_receiving_type(request):
 
     option = form.save()
     return JsonResponse({"id": option.code, "text": option.name})
-

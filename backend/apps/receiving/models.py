@@ -164,6 +164,13 @@ class Receiving(TimeStampedModel):
     document_number = models.CharField(max_length=100, unique=True, blank=True)
     receiving_date = models.DateField()
     is_planned = models.BooleanField(default=False)
+    contract = models.ForeignKey(
+        "procurement.ProcurementContract",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="receivings",
+    )
     supplier = models.ForeignKey(
         "items.Supplier",
         on_delete=models.PROTECT,
@@ -236,6 +243,13 @@ class Receiving(TimeStampedModel):
                 fields=["status", "receiving_date"], name="idx_recv_status_date"
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["contract"],
+                condition=models.Q(contract__isnull=False, is_planned=True),
+                name="uniq_planned_receiving_contract",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.document_number} ({self.receiving_type_label})"
@@ -260,6 +274,16 @@ class Receiving(TimeStampedModel):
             raise ValidationError(
                 {"supplier": "Supplier wajib diisi untuk tipe Pengadaan."}
             )
+        if self.contract_id:
+            if not self.is_planned:
+                raise ValidationError({"contract": "Kontrak hanya boleh ditautkan ke rencana penerimaan."})
+            if self.receiving_type != self.ReceivingType.PROCUREMENT:
+                raise ValidationError({"receiving_type": "Rencana dari kontrak harus bertipe Pengadaan."})
+            duplicate_qs = Receiving.objects.filter(contract_id=self.contract_id, is_planned=True)
+            if self.pk:
+                duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+            if duplicate_qs.exists():
+                raise ValidationError({"contract": "Setiap kontrak SPJ hanya boleh memiliki satu rencana penerimaan."})
 
     @staticmethod
     def generate_document_number():
@@ -379,6 +403,13 @@ class ReceivingOrderItem(TimeStampedModel):
     item = models.ForeignKey(
         "items.Item",
         on_delete=models.PROTECT,
+        related_name="receiving_order_items",
+    )
+    contract_line = models.ForeignKey(
+        "procurement.ProcurementContractLine",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="receiving_order_items",
     )
     planned_quantity = models.DecimalField(max_digits=12, decimal_places=2)

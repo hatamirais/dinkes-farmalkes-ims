@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "apps.recall",
     "apps.expired",
     "apps.reports",
+    "apps.procurement",
     "apps.stock_opname",
     "apps.puskesmas",
     "apps.lplpo",
@@ -242,6 +243,7 @@ PUSKESMAS_SBBK_MUTATION_RATE_LIMIT = (
 PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = os.getenv(
     "PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT", "20/m"
 )
+PROCUREMENT_MUTATION_RATE_LIMIT = os.getenv("PROCUREMENT_MUTATION_RATE_LIMIT", "20/m")
 LPLPO_IMPORT_RATE_LIMIT = os.getenv("LPLPO_IMPORT_RATE_LIMIT", "5/h")
 
 # ─── Production Security (enabled when DEBUG=False) ──────────────────

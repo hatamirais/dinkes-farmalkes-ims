@@ -236,6 +236,19 @@ class PlannedReceivingForm(BaseReceivingForm):
         self.fields["document_number"].widget.attrs["placeholder"] = (
             "Kosongkan untuk generate otomatis"
         )
+        self.fields["receiving_type"].widget.choices = [
+            choice
+            for choice in self.fields["receiving_type"].widget.choices
+            if choice[0] != Receiving.ReceivingType.PROCUREMENT
+        ]
+
+    def clean_receiving_type(self):
+        receiving_type = super().clean_receiving_type()
+        if receiving_type == Receiving.ReceivingType.PROCUREMENT:
+            raise forms.ValidationError(
+                "Rencana penerimaan pengadaan baru wajib dibuat melalui modul SPJ / Pengadaan."
+            )
+        return receiving_type
 
     class Meta:
         model = Receiving

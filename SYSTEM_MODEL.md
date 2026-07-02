@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-06-23
+Last verified: 2026-07-02
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`
 
 ## 1) Domain Overview
@@ -13,6 +13,7 @@ Core domains:
 
 - Master data and item catalog (`items`)
 - Stock and movement journal (`stock`)
+- Procurement contracts and amendments (`procurement`)
 - Inbound receiving (`receiving`)
 - Outbound distribution (`distribution`)
 - Pre-distribution allocation orchestration (`allocation`)
@@ -35,7 +36,7 @@ Root route include map from `backend/config/urls.py`:
 - `/administration/history/receiving/` -> placeholder riwayat penerimaan administrasi (`apps.core.views.administration_receiving_history`)
 - `/administration/history/distribution/` -> placeholder riwayat pengeluaran administrasi (`apps.core.views.administration_distribution_history`)
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
-- `/users/`, `/items/`, `/stock/`, `/receiving/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
+- `/users/`, `/items/`, `/stock/`, `/receiving/`, `/procurement/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
 
 Global error handlers in `backend/config/urls.py`:
 
@@ -51,6 +52,8 @@ Module highlights:
 - Stock transfer: `/stock/transfers/*`
 - Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`, `/receiving/<pk>/documents/<document_pk>/download/`
 - Receiving plan: `/receiving/plans/*`
+  - Procurement-linked plans (`Receiving.contract != NULL`) are created and synchronized from approved SPJ contracts/amendments; legacy manual planned receivings without `contract` remain readable and executable
+- Procurement: `/procurement/`, `/procurement/create/`, `/procurement/<pk>/`, `/procurement/<pk>/edit/`, `/procurement/<pk>/submit/`, `/procurement/<pk>/approve/`, `/procurement/<pk>/close/`, `/procurement/<pk>/amend/`, `/procurement/amendments/<pk>/`, `/procurement/amendments/<pk>/edit/`, `/procurement/amendments/<pk>/submit/`, `/procurement/amendments/<pk>/approve/`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
 - Items: `/items/`, `/items/export/`, `/items/create/`, `/items/<pk>/edit/`, `/items/<pk>/delete/`, plus quick-create lookup APIs under `/items/api/`
 - Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/lplpo/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
@@ -95,7 +98,7 @@ Permission denials are expected to raise `PermissionDenied` so the centralized 4
 
 `ModuleAccess.module` values:
 
-- `users`, `items`, `stock`, `receiving`, `distribution`, `allocation`, `recall`, `expired`, `stock_opname`, `reports`, `puskesmas`, `lplpo`, `admin_panel`
+- `users`, `items`, `stock`, `receiving`, `procurement`, `distribution`, `allocation`, `recall`, `expired`, `stock_opname`, `reports`, `puskesmas`, `lplpo`, `admin_panel`
 
 `ModuleAccess.scope` values:
 
@@ -191,7 +194,35 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Fields: `quantity`, `notes`
   - Validation: quantity must be `> 0` and selected `item` must match the source stock batch
 
-### 4.5 Receiving
+### 4.5 Procurement
+
+- `procurement.ProcurementContract` (`procurement_contracts`):
+  - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `CLOSED`
+  - Fields: `document_number` (auto-generated `SPJ-YYYY-NNNNN` when blank), `contract_date`, `notes`
+  - FKs: `supplier`, `sumber_dana`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
+  - Timestamps: `submitted_at`, `approved_at`, `closed_at`
+  - Index: `idx_proc_contract_status_date`
+  - Approval atomically creates or updates exactly one linked planned `receiving.Receiving(contract=this, is_planned=True)` document
+
+- `procurement.ProcurementContractLine` (`procurement_contract_lines`):
+  - FKs: `contract`, `item`
+  - Fields: `original_quantity`, `original_unit_price`, `notes`
+  - Unique: `(contract, item)`
+
+- `procurement.ProcurementAmendment` (`procurement_amendments`):
+  - Status: `DRAFT`, `SUBMITTED`, `APPROVED`
+  - Fields: `document_number` (auto-generated `AMD-YYYY-NNNNN` when blank), `amendment_date`, `notes`
+  - FKs: `contract`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable)
+  - Timestamps: `submitted_at`, `approved_at`
+  - Index: `idx_proc_amend_status_date`
+  - Approval re-syncs the linked planned procurement receiving against the newly effective contract state and rejects revised quantities below already received quantities
+
+- `procurement.ProcurementAmendmentLine` (`procurement_amendment_lines`):
+  - FKs: `amendment`, `contract_line`
+  - Fields: `revised_quantity`, `revised_unit_price`, `notes`
+  - Unique: `(amendment, contract_line)`
+
+### 4.6 Receiving
 
 - `receiving.ReceivingTypeOption` (`receiving_type_options`): `code`, `name`, `is_active`
   - Used by quick-create receiving type UI and by `Receiving.receiving_type_label` to resolve non-built-in labels
@@ -200,7 +231,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Type: `PROCUREMENT`, `GRANT`
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIAL`, `RECEIVED`, `CLOSED`, `VERIFIED`
   - Fields: `document_number` (auto-generated `RCV-YYYY-NNNNN` when blank), `receiving_date`, `is_planned`, `grant_origin`, `program`, `closed_reason`, `notes`
-  - FKs: `supplier` (nullable), `facility` (nullable), `sumber_dana`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
+  - FKs: `contract` (nullable FK to `procurement.ProcurementContract`), `supplier` (nullable), `facility` (nullable), `sumber_dana`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
   - Timestamps: `verified_at`, `approved_at`, `closed_at`
   - Index: `idx_recv_status_date`
   - Properties: `receiving_type_label`
@@ -217,7 +248,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - `file` uses private filesystem storage rooted at `PRIVATE_MEDIA_ROOT`; user access is mediated by the authenticated receiving download route rather than `MEDIA_URL`
 
 - `receiving.ReceivingOrderItem` (`receiving_order_items`):
-  - FKs: `receiving`, `item`
+  - FKs: `receiving`, `item`, `contract_line` (nullable FK to `procurement.ProcurementContractLine`)
   - Fields: `planned_quantity`, `received_quantity`, `unit_price`, `notes`, `is_cancelled`, `cancel_reason`
   - Property: `remaining_quantity`
 
@@ -321,7 +352,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 ### 4.11 Reports
 
-- `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. The combined outbound recap remains available on `/reports/pengeluaran/`, while the distribution module exposes route-based filtered variants for `SPECIAL_REQUEST`, `ALLOCATION`, and `LPLPO` under `/distribution/report/*`. No bespoke database models, aggregates data from other apps.
+- `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. The procurement receiving report now includes `Receiving.contract.document_number` so realized receipts can be traced back to SPJ contracts. The combined outbound recap remains available on `/reports/pengeluaran/`, while the distribution module exposes route-based filtered variants for `SPECIAL_REQUEST`, `ALLOCATION`, and `LPLPO` under `/distribution/report/*`. No bespoke database models, aggregates data from other apps.
 - `stock` also exposes an Instalasi Farmasi-facing read-only `/stock/puskesmas-stock/` page that computes current Puskesmas stock from the latest usable yearly LPLPO baseline plus later same-year `CONFIRMED` receipt confirmations minus later same-year detailed consumption. The page is intentionally non-CRUD and hidden from `PUSKESMAS` role users.
   The Puskesmas-side rekap persediaan view now also aggregates valuation data from `lplpo.LPLPOItem.harga_satuan` into category-level summary rows.
   The Puskesmas-side rincian/rekap persediaan filters use yearly, quarterly (`Triwulan I-IV`), and semester (`Semester I-II`) period selectors.
@@ -405,6 +436,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 Operational mutation points (from app behavior and admin import logic):
 
+- Procurement contract/amendment approval never mutates stock; it only creates or re-syncs the linked planned receiving execution document.
 - Receiving verify/receive path posts `Transaction(IN)` and updates/creates `Stock`.
 - Receiving CSV admin import (`import-csv/`) posts:
   - `Receiving(status=VERIFIED)`
@@ -453,6 +485,7 @@ From `backend/config/settings.py`:
   - `PASSWORD_CHANGE_RATE_LIMIT = 5/m`
   - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = 20/m` (legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains accepted as fallback)
   - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = 20/m`
+  - `PROCUREMENT_MUTATION_RATE_LIMIT = 20/m`
   - `LPLPO_IMPORT_RATE_LIMIT = 5/h`
 - Rate-limited requests are rendered through the centralized error pipeline as HTTP `429`
 - `EMAIL_BACKEND` is environment-configurable and defaults to Django's console backend

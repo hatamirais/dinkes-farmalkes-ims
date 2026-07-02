@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from apps.core.decorators import perm_required
 from django.db import models
 from django.db.models import Sum, Q, F, Case, When, OuterRef, Subquery, Count
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDate
 from django.urls import reverse
 
 from .forms import InventoryReportFilterForm, NumberingHistoryFilterForm
@@ -475,24 +475,30 @@ def reports_pengadaan(request):
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
 
-        completed_statuses = ['RECEIVED', 'CLOSED', 'VERIFIED']
+        completed_statuses = ['PARTIAL', 'RECEIVED', 'CLOSED', 'VERIFIED']
 
-        qs = ReceivingItem.objects.filter(
+        qs = ReceivingItem.objects.annotate(
+            actual_receiving_date=Coalesce(
+                TruncDate('received_at'),
+                F('receiving__receiving_date'),
+            )
+        ).filter(
             receiving__receiving_type='PROCUREMENT',
-            receiving__receiving_date__range=[start_date, end_date],
+            actual_receiving_date__range=[start_date, end_date],
             receiving__status__in=completed_statuses,
         ).select_related(
-            'receiving', 'receiving__supplier', 'receiving__sumber_dana',
+            'receiving', 'receiving__supplier', 'receiving__sumber_dana', 'receiving__contract',
             'item', 'item__satuan',
         ).order_by(
-            'receiving__receiving_date', 'receiving__document_number', 'item__nama_barang',
+            'actual_receiving_date', 'receiving__document_number', 'item__nama_barang',
         )
 
         for ri in qs:
             report_data.append({
                 'document_number': ri.receiving.document_number,
-                'receiving_date': ri.receiving.receiving_date,
+                'receiving_date': ri.actual_receiving_date,
                 'supplier': ri.receiving.supplier.name if ri.receiving.supplier else '-',
+                'contract_document_number': ri.receiving.contract.document_number if getattr(ri.receiving, 'contract', None) else '-',
                 'sumber_dana': ri.receiving.sumber_dana.name if ri.receiving.sumber_dana else '-',
                 'nama_barang': ri.item.nama_barang,
                 'satuan': ri.item.satuan.name if ri.item.satuan else '-',

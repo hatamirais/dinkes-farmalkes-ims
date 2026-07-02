@@ -1,11 +1,16 @@
 from io import BytesIO
+from datetime import date, datetime
+from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from openpyxl import load_workbook
 
 from apps.distribution.models import Distribution
-from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
+from apps.procurement.models import ProcurementContract
+from apps.receiving.models import Receiving, ReceivingItem
 from apps.reports.exports import export_numbering_history_excel, export_pengeluaran_excel
 from apps.stock.models import Stock
 from apps.users.models import User
@@ -383,3 +388,226 @@ class PengeluaranReportTests(TestCase):
 		self.assertEqual(sheet["I5"].data_type, "n")
 		self.assertEqual(sheet["J5"].data_type, "n")
 		self.assertEqual(sheet["K5"].data_type, "n")
+
+
+class ProcurementReportTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser(
+            username="proc-report-admin",
+            password="secret12345",
+        )
+        cls.unit = Unit.objects.create(code="PRT", name="Pcs")
+        cls.category = Category.objects.create(code="PRC", name="Procurement Category", sort_order=3)
+        cls.item = Item.objects.create(
+            kode_barang="REP-PROC-001",
+            nama_barang="Vitamin C 500mg",
+            satuan=cls.unit,
+            kategori=cls.category,
+        )
+        cls.location = Location.objects.create(code="REP-PROC-LOC", name="Gudang Pengadaan")
+        cls.funding = FundingSource.objects.create(code="APBD", name="APBD")
+        cls.supplier = Supplier.objects.create(code="REP-SUP", name="PT Report Supplier")
+        cls.contract = ProcurementContract.objects.create(
+            document_number="SPJ-2026-00077",
+            contract_date="2026-07-01",
+            supplier=cls.supplier,
+            sumber_dana=cls.funding,
+            status=ProcurementContract.Status.APPROVED,
+            created_by=cls.user,
+            approved_by=cls.user,
+        )
+        cls.receiving = Receiving.objects.create(
+            document_number="RCV-2026-00999",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date="2026-07-10",
+            supplier=cls.supplier,
+            sumber_dana=cls.funding,
+            status=Receiving.Status.VERIFIED,
+            is_planned=False,
+            contract=cls.contract,
+            created_by=cls.user,
+            verified_by=cls.user,
+        )
+        ReceivingItem.objects.create(
+            receiving=cls.receiving,
+            item=cls.item,
+            quantity=5,
+            batch_lot="REP-BATCH-001",
+            expiry_date="2030-01-01",
+            unit_price=1200,
+            location=cls.location,
+            received_by=cls.user,
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_procurement_report_shows_contract_reference(self):
+        response = self.client.get(
+            reverse("reports:pengadaan"),
+            {"start_date": "2026-07-01", "end_date": "2026-07-31"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SPJ-2026-00077")
+        self.assertEqual(response.context["report_data"][0]["contract_document_number"], "SPJ-2026-00077")
+
+    def test_procurement_report_excel_includes_spj_column(self):
+        response = self.client.get(
+            reverse("reports:pengadaan"),
+            {"start_date": "2026-07-01", "end_date": "2026-07-31", "format": "excel"},
+            secure=True,
+        )
+
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        self.assertEqual(sheet["C4"].value, "No. SPJ")
+        self.assertEqual(sheet["C5"].value, "SPJ-2026-00077")
+
+
+class ProcurementReceivingReportTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser(
+            username="report-proc-admin",
+            password="secret12345",
+        )
+        cls.unit = Unit.objects.create(code="PRT", name="Pcs")
+        cls.category = Category.objects.create(
+            code="PROC-REP",
+            name="Procurement Report",
+            sort_order=2,
+        )
+        cls.item = Item.objects.create(
+            kode_barang="PROC-REP-001",
+            nama_barang="Rapid Test",
+            satuan=cls.unit,
+            kategori=cls.category,
+            minimum_stock=0,
+        )
+        cls.location = Location.objects.create(code="PROC-REP-LOC", name="Gudang Report")
+        cls.funding_source = FundingSource.objects.create(code="PROC-REP-FS", name="Procurement FS")
+        cls.supplier = Supplier.objects.create(code="PROC-REP-SUP", name="Supplier Report")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_pengadaan_report_includes_contract_reference(self):
+        from apps.procurement.models import ProcurementContract, ProcurementContractLine
+        from apps.procurement.services import approve_contract
+        from apps.receiving.models import Receiving, ReceivingOrderItem
+
+        contract = ProcurementContract.objects.create(
+            document_number="",
+            contract_date=date(2026, 6, 28),
+            supplier=self.supplier,
+            sumber_dana=self.funding_source,
+            notes="Kontrak report",
+            created_by=self.user,
+            status=ProcurementContract.Status.SUBMITTED,
+            submitted_by=self.user,
+            submitted_at=timezone.now(),
+        )
+        line = ProcurementContractLine.objects.create(
+            contract=contract,
+            item=self.item,
+            original_quantity=Decimal("8"),
+            original_unit_price=Decimal("11000"),
+        )
+        approve_contract(contract, self.user)
+        receiving = Receiving.objects.get(contract=contract)
+        order_item = ReceivingOrderItem.objects.get(receiving=receiving, contract_line=line)
+        receiving.receiving_date = date(2026, 6, 28)
+        receiving.save(update_fields=["receiving_date", "updated_at"])
+
+        response = self.client.post(
+            reverse("receiving:receiving_plan_receive", args=[receiving.pk]),
+            {
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-order_item": str(order_item.pk),
+                "items-0-quantity": "8",
+                "items-0-batch_lot": "PROC-REPORT-BATCH",
+                "items-0-expiry_date": "2031-12-31",
+                "items-0-unit_price": "11000",
+                "items-0-location": str(self.location.pk),
+            },
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+        receipt = ReceivingItem.objects.get(receiving=receiving)
+        receipt.received_at = timezone.make_aware(datetime(2026, 7, 10, 9, 0, 0))
+        receipt.save(update_fields=["received_at"])
+
+        page = self.client.get(
+            reverse("reports:pengadaan"),
+            {"start_date": "2026-07-01", "end_date": "2026-07-31"},
+            secure=True,
+        )
+
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, contract.document_number)
+        self.assertContains(page, receiving.document_number)
+        self.assertContains(page, "NO. SPJ")
+        self.assertEqual(page.context["report_data"][0]["receiving_date"], date(2026, 7, 10))
+
+    def test_pengadaan_report_includes_partial_procurement_receipts(self):
+        from apps.receiving.models import Receiving
+
+        contract = ProcurementContract.objects.create(
+            document_number="SPJ-2026-00123",
+            contract_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding_source,
+            notes="Kontrak partial report",
+            created_by=self.user,
+            status=ProcurementContract.Status.APPROVED,
+            approved_by=self.user,
+            approved_at=timezone.now(),
+        )
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-00123",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding_source,
+            status=Receiving.Status.PARTIAL,
+            is_planned=True,
+            contract=contract,
+            created_by=self.user,
+            approved_by=self.user,
+            approved_at=timezone.now(),
+        )
+        ReceivingItem.objects.create(
+            receiving=receiving,
+            item=self.item,
+            quantity=Decimal("4"),
+            batch_lot="PROC-PARTIAL-BATCH",
+            expiry_date=date(2031, 12, 31),
+            unit_price=Decimal("12000"),
+            location=self.location,
+            received_by=self.user,
+            received_at=timezone.make_aware(datetime(2026, 7, 11, 10, 0, 0)),
+        )
+
+        page = self.client.get(
+            reverse("reports:pengadaan"),
+            {"start_date": "2026-07-01", "end_date": "2026-07-31"},
+            secure=True,
+        )
+
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, contract.document_number)
+        self.assertContains(page, receiving.document_number)
+        self.assertTrue(
+            any(
+                row["contract_document_number"] == contract.document_number
+                and row["receiving_date"] == date(2026, 7, 11)
+                and row["quantity"] == Decimal("4")
+                for row in page.context["report_data"]
+            )
+        )

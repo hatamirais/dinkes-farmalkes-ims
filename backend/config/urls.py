@@ -62,6 +62,7 @@ urlpatterns = [
     path("recall/", include("apps.recall.urls")),
     path("expired/", include("apps.expired.urls")),
     path("reports/", include("apps.reports.urls")),
+    path("procurement/", include("apps.procurement.urls")),
     path("stock-opname/", include("apps.stock_opname.urls")),
     path("puskesmas/", include("apps.puskesmas.urls")),
     path("lplpo/", include("apps.lplpo.urls")),

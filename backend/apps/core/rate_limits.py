@@ -8,6 +8,7 @@ DEFAULT_USER_PASSWORD_RESET_RATE_LIMIT = "5/m"
 DEFAULT_PASSWORD_CHANGE_RATE_LIMIT = "5/m"
 DEFAULT_PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT = "20/m"
+DEFAULT_PROCUREMENT_MUTATION_RATE_LIMIT = "20/m"
 DEFAULT_LPLPO_IMPORT_RATE_LIMIT = "5/h"
 
 
@@ -63,7 +64,6 @@ item_mutation_ratelimit = ratelimit(
     group="items.mutation",
 )
 
-
 user_password_reset_ratelimit = ratelimit(
     key="user_or_ip",
     method="POST",
@@ -94,11 +94,7 @@ puskesmas_receipt_confirmation_mutation_ratelimit = ratelimit(
     group="puskesmas.receipt_confirmation_mutation",
 )
 
-# Backward-compatible alias for older imports while the receipt-confirmation
-# naming propagates through the codebase and deployment config.
-puskesmas_sbbk_mutation_ratelimit = (
-    puskesmas_receipt_confirmation_mutation_ratelimit
-)
+puskesmas_sbbk_mutation_ratelimit = puskesmas_receipt_confirmation_mutation_ratelimit
 
 puskesmas_consumption_mutation_ratelimit = ratelimit(
     key="user_or_ip",
@@ -109,6 +105,17 @@ puskesmas_consumption_mutation_ratelimit = ratelimit(
     ),
     block=True,
     group="puskesmas.consumption_mutation",
+)
+
+procurement_mutation_ratelimit = ratelimit(
+    key="user_or_ip",
+    method="POST",
+    rate=_setting_rate(
+        "PROCUREMENT_MUTATION_RATE_LIMIT",
+        DEFAULT_PROCUREMENT_MUTATION_RATE_LIMIT,
+    ),
+    block=True,
+    group="procurement.mutation",
 )
 
 lplpo_import_ratelimit = ratelimit(

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}SPJ / Pengadaan - Healthcare IMS{% endblock %}
+{% block page_title %}SPJ / Pengadaan{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <h5><i class="bi bi-file-earmark-text me-2"></i>Daftar SPJ / Pengadaan</h5>
+        <a href="{% url 'procurement:contract_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Buat SPJ
+        </a>
+    </div>
+    <div class="px-3 py-2 border-bottom bg-light">
+        <form method="get" class="filter-form">
+            <input type="text" name="q" class="form-control" placeholder="Cari nomor SPJ / supplier / barang..." value="{{ search }}">
+            <select name="status" class="form-select">
+                <option value="">Semua Status</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+                {% if search or selected_status %}
+                <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Nomor SPJ</th>
+                    <th>Tanggal</th>
+                    <th>Supplier</th>
+                    <th>Sumber Dana</th>
+                    <th class="text-end">Baris</th>
+                    <th class="text-end">Amandemen</th>
+                    <th>Status</th>
+                    <th class="text-end">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract in contracts %}
+                <tr>
+                    <td><a href="{% url 'procurement:contract_detail' contract.pk %}" class="fw-semibold text-decoration-none">{{ contract.document_number }}</a></td>
+                    <td>{{ contract.contract_date|date:"d/m/Y" }}</td>
+                    <td>{{ contract.supplier.name }}</td>
+                    <td>{{ contract.sumber_dana.code }}</td>
+                    <td class="text-end">{{ contract.line_count }}</td>
+                    <td class="text-end">{{ contract.amendment_count }}</td>
+                    <td><span class="badge-status badge-{{ contract.status|lower }}">{{ contract.get_status_display }}</span></td>
+                    <td class="text-end"><a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-file-earmark-text d-block"></i>
+                            <p>Belum ada SPJ / Pengadaan</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

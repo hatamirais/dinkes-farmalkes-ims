@@ -11,6 +11,7 @@ def access_flags(request):
             "can_view_items": False,
             "can_view_stock": False,
             "can_view_receiving": False,
+            "can_view_procurement": False,
             "can_view_distribution": False,
             "can_view_allocation": False,
             "can_view_recall": False,
@@ -37,6 +38,9 @@ def access_flags(request):
         ),
         "can_view_receiving": has_module_scope(
             user, ModuleAccess.Module.RECEIVING, ModuleAccess.Scope.VIEW
+        ),
+        "can_view_procurement": has_module_scope(
+            user, ModuleAccess.Module.PROCUREMENT, ModuleAccess.Scope.VIEW
         ),
         "can_view_distribution": has_module_scope(
             user, ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.VIEW

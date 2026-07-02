@@ -87,6 +87,7 @@ class ModuleAccess(models.Model):
         ITEMS = "items", "Master Barang"
         STOCK = "stock", "Stok"
         RECEIVING = "receiving", "Penerimaan"
+        PROCUREMENT = "procurement", "SPJ / Pengadaan"
         DISTRIBUTION = "distribution", "Distribusi"
         ALLOCATION = "allocation", "Alokasi"
         RECALL = "recall", "Recall / Retur"

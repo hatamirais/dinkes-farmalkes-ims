@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} - Healthcare IMS{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-10">
+        <div class="card content-card">
+            <div class="card-header"><span>{{ title }}</span></div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% crispy form %}
+
+                    <div class="mt-4">
+                        <h6 class="fw-semibold mb-3">Baris Kontrak</h6>
+                        {{ formset.management_form }}
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Barang</th>
+                                        <th class="text-end">Jumlah Awal</th>
+                                        <th class="text-end">Harga Awal</th>
+                                        <th>Catatan</th>
+                                        <th>Hapus</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for line_form in formset %}
+                                    <tr>
+                                        <td>
+                                            {{ line_form.id }}
+                                            {{ line_form.item }}
+                                            {{ line_form.item.errors }}
+                                        </td>
+                                        <td class="text-end">{{ line_form.original_quantity }}{{ line_form.original_quantity.errors }}</td>
+                                        <td class="text-end">{{ line_form.original_unit_price }}{{ line_form.original_unit_price.errors }}</td>
+                                        <td>{{ line_form.notes }}{{ line_form.notes.errors }}</td>
+                                        <td class="text-center">{% if line_form.instance.pk %}{{ line_form.DELETE }}{% endif %}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Simpan</button>
+                        {% if contract %}
+                        <a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        {% else %}
+                        <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

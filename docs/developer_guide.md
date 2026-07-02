@@ -62,6 +62,7 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`
 - `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` (legacy compatibility fallback)
 - `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`
+- `PROCUREMENT_MUTATION_RATE_LIMIT`
 - `LPLPO_IMPORT_RATE_LIMIT`
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS`
 - `FEATURE_ALLOCATION_UI_ENABLED`
@@ -78,6 +79,7 @@ Catatan:
 - Mutasi pemakaian rinci Puskesmas (`/puskesmas/pemakaian/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas.
 - Mutasi create/update/delete barang dan quick-create lookup pada modul `items` juga memakai `django-ratelimit`; gunakan `ITEM_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator katalog tanpa memakan kuota mutasi modul `users`.
 - Mutasi impor XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) juga memakai `django-ratelimit`; gunakan `LPLPO_IMPORT_RATE_LIMIT` bila perlu menyesuaikan throughput input offline per operator.
+- Mutasi modul `procurement` (`/procurement/*`) juga memakai `django-ratelimit`; gunakan `PROCUREMENT_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput pembuatan, pengajuan, approval, dan amandemen SPJ.
 - Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
 - Setelah sebuah migration pernah dibagikan, di-review, atau diaplikasikan di environment mana pun, nama file migration tersebut harus dianggap immutable. Jangan rename, hapus, atau tulis ulang history migration yang sudah terpublikasi; gunakan migration kompatibilitas dan merge migration bila ada dua lineage yang sempat beredar.
 
@@ -188,6 +190,7 @@ Saat file `VERSION` berubah di branch `main`, GitHub Actions menjalankan `.githu
 - Bulk update `Terapi Obat` saat ini masih mengikuti workflow re-import penuh `items.csv` dan dicocokkan berdasarkan `nama_barang`; belum ada importer khusus mapping-only berbasis `kode_barang`.
 - Untuk stok awal, gunakan `receiving.csv` melalui endpoint import Receiving Admin di `/admin/receiving/receiving/import-csv/` agar stok dan `Transaction(IN)` terbentuk dalam satu alur yang konsisten.
 - Import penerimaan mengelompokkan baris berdasarkan `document_number`; baris pertama menjadi header dokumen, sementara `sumber_dana_code` dan `location_code` per baris dapat override nilai header.
+- Untuk procurement baru, jangan buat rencana penerimaan manual di modul `receiving`; approval kontrak SPJ di modul `procurement` akan membuat atau memperbarui tepat satu planned receiving yang ditautkan ke kontrak tersebut.
 - Kolom opsional `receiving_type` pada import penerimaan default ke `GRANT` bila tidak diisi.
 - LPLPO draft/rejected mendukung input offline berbasis XLSX setelah dokumen bulanan dibuat dari flow situs biasa. Operator mengekspor workbook dari dokumen yang sudah ada, mengisi kolom editable secara offline, lalu mengimpornya kembali ke dokumen yang sama; `pemakaian` tetap dibaca dari modul Pemakaian Rinci dan seluruh nilai turunan dihitung ulang saat impor.
 - Modul `items` juga menyediakan export XLSX daftar barang aktif dari halaman daftar barang. Export mengikuti filter aktif (termasuk `Esensial`, program, kategori, terapi obat, dan pencarian) sehingga operator dapat menyiapkan data untuk aplikasi eksternal tanpa mengubah rule pemilihan item internal.

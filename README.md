@@ -36,9 +36,10 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 - `items`: CRUD master barang dan lookup, filter daftar termasuk atribut esensial `[E]`, export XLSX daftar barang terfilter untuk kebutuhan operasional, endpoint AJAX untuk pembuatan referensi cepat, serta pengelompokan multi-nilai `Terapi Obat` untuk pelaporan.
 - `stock`: daftar stok, daftar transaksi, kartu stok, pencarian stok per lokasi, alur transfer stok antar lokasi, serta halaman baca-saja `Stok Puskesmas` untuk membantu Instalasi Farmasi memantau snapshot stok per Puskesmas dari LPLPO terakhir yang disesuaikan dengan konfirmasi penerimaan terkonfirmasi dan pemakaian rinci setelahnya.
-- `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, tipe penerimaan kustom, serta lampiran dokumen yang disimpan di private storage dan diunduh lewat route terautentikasi pada detail penerimaan.
+- `receiving`: alur penerimaan reguler dan rencana penerimaan, quick-create referensi dari form, tipe penerimaan kustom, serta lampiran dokumen yang disimpan di private storage dan diunduh lewat route terautentikasi pada detail penerimaan. Untuk pengadaan baru, rencana penerimaan procurement sekarang dibuat otomatis dari kontrak SPJ yang disetujui; dokumen `Receiving(is_planned=True, contract IS NULL)` lama tetap berjalan sebagai scope kompatibilitas.
+- `procurement`: sumber kebenaran kontrak SPJ / pengadaan dan dokumen amandemennya. Approval kontrak atau amandemen oleh Kepala akan menyinkronkan tepat satu rencana penerimaan procurement terbuka tanpa memutasi stok sampai barang benar-benar diterima.
 - `distribution`: alur persiapan, pengajuan, verifikasi, hingga distribusi dengan penugasan petugas per dokumen. Distribusi reguler dan permintaan khusus kini menempatkan kontrol tahap persiapan pada petugas yang ditugaskan, sementara approver memverifikasi dokumen yang sudah diajukan sebelum distribusi. Reset, step-back, dan delete untuk dokumen yang masih mutable mengikuti rule otorisasi object-level yang sama dengan edit/persiapan/pengajuan: petugas yang ditugaskan berwenang, dan approver menjadi fallback hanya bila belum ada penugasan petugas. Permintaan khusus menampilkan nomor dokumen usulan dari rule aktif dan mengharuskan konfirmasi sebelum edit manual. Distribusi draft yang dihasilkan dari LPLPO mengunci baris item serta kuantitas diminta/disetujui pada layar edit agar tahap tersebut dipakai khusus untuk pemilihan batch, catatan, dan petugas, dan dapat dibatalkan untuk mengembalikan LPLPO induk ke Puskesmas sebelum distribusi selesai. Untuk kebutuhan rollout atau catch-up tengah tahun, Instalasi Farmasi juga dapat membuat distribusi LPLPO manual dari modul distribusi tanpa harus menunggu backfill dokumen LPLPO bulanan; distribusi manual ini tetap masuk bucket nomor dan laporan LPLPO, tetapi tidak terhubung ke dokumen LPLPO sumber.
-- `allocation`: perencanaan dan orkestrasi pra-distribusi. Lifecycle Draft→Submitted→Approved membuat satu `Distribution` per fasilitas secara otomatis pada saat approval. Allocation yang sudah disetujui dapat dikembalikan ke Submitted oleh approver, yang menghapus child distributions agar approval dapat diulang. Pengurangan stok ditangguhkan ke konfirmasi pengiriman per distribusi.
+- `allocation`: perencanaan dan orkestrasi pra-distribusi. Lifecycle Draftâ†’Submittedâ†’Approved membuat satu `Distribution` per fasilitas secara otomatis pada saat approval. Allocation yang sudah disetujui dapat dikembalikan ke Submitted oleh approver, yang menghapus child distributions agar approval dapat diulang. Pengurangan stok ditangguhkan ke konfirmasi pengiriman per distribusi.
 - `recall`: alur retur ke supplier dari draft sampai selesai.
 - `expired`: alur penanganan barang kedaluwarsa dari draft sampai disposal, termasuk halaman alert kedaluwarsa.
 - `stock_opname`: proses hitung fisik dan cetak laporan selisih. Dokumen hanya dapat diselesaikan setelah seluruh baris snapshot dihitung, sistem menyimpan petugas penyelesai beserta waktu penyelesaiannya, dan setiap baris hasil snapshot kini memiliki cap waktu `created_at` / `updated_at`.
@@ -53,8 +54,9 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 ## Ringkasan Workflow
 
-- Receiving terencana: `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`
+- Receiving terencana manual legacy: `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`; receiving plan procurement baru mengikuti approval kontrak/amandemen SPJ lalu dieksekusi pada status `APPROVED -> PARTIAL/RECEIVED -> CLOSED` tanpa approval receiving terpisah.
 - Receiving reguler, tipe kustom, atau hasil import: umumnya tercatat sebagai `VERIFIED` setelah posting.
+- Procurement contract: `DRAFT -> SUBMITTED -> APPROVED -> CLOSED`; amendment: `DRAFT -> SUBMITTED -> APPROVED`. Approval Kepala hanya menyinkronkan rencana penerimaan procurement, tidak memutasi stok.
 - Distribution: `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED`, dapat berakhir `REJECTED`, dan dokumen yang belum terdistribusi dapat dikembalikan ke `DRAFT`. Distribution hasil approval Allocation langsung dibuat pada status `VERIFIED`.
 - Allocation: `DRAFT -> SUBMITTED -> APPROVED -> PARTIALLY_FULFILLED -> FULFILLED`, dapat berakhir `REJECTED`. Child distributions otomatis dibuat saat approval dan dihapus saat step-back ke SUBMITTED.
 - Recall: `DRAFT -> SUBMITTED -> VERIFIED -> COMPLETED`
@@ -72,8 +74,8 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 ## Model Data Singkat
 
 - Tabel inti inventaris: `items`, `stock`, `transactions`
-- Header dokumen: `receivings`, `distributions`, `allocations`, `recalls`, `expired_docs`, `stock_transfers`, `stock_opnames`
-- Baris dokumen: `receiving_items`, `receiving_order_items`, `distribution_items`, `allocation_items`, `allocation_item_facilities`, `recall_items`, `expired_items`, `stock_transfer_items`, `stock_opname_items`
+- Header dokumen: `procurement_contracts`, `procurement_amendments`, `receivings`, `distributions`, `allocations`, `recalls`, `expired_docs`, `stock_transfers`, `stock_opnames`
+- Baris dokumen: `procurement_contract_lines`, `procurement_amendment_lines`, `receiving_items`, `receiving_order_items`, `distribution_items`, `allocation_items`, `allocation_item_facilities`, `recall_items`, `expired_items`, `stock_transfer_items`, `stock_opname_items`
 - Penugasan petugas: `distribution_staff_assignments`, `allocation_staff_assignments`
 - Penghubung fasilitas alokasi: `allocation_facilities`
 - Tabel otorisasi: `users`, `user_module_accesses`
