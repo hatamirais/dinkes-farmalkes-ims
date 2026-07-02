@@ -475,7 +475,7 @@ def reports_pengadaan(request):
         start_date = form.cleaned_data.get('start_date')
         end_date = form.cleaned_data.get('end_date')
 
-        completed_statuses = ['RECEIVED', 'CLOSED', 'VERIFIED']
+        completed_statuses = ['PARTIAL', 'RECEIVED', 'CLOSED', 'VERIFIED']
 
         qs = ReceivingItem.objects.annotate(
             actual_receiving_date=Coalesce(

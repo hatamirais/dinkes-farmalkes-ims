@@ -554,3 +554,60 @@ class ProcurementReceivingReportTests(TestCase):
         self.assertContains(page, receiving.document_number)
         self.assertContains(page, "NO. SPJ")
         self.assertEqual(page.context["report_data"][0]["receiving_date"], date(2026, 7, 10))
+
+    def test_pengadaan_report_includes_partial_procurement_receipts(self):
+        from apps.receiving.models import Receiving
+
+        contract = ProcurementContract.objects.create(
+            document_number="SPJ-2026-00123",
+            contract_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding_source,
+            notes="Kontrak partial report",
+            created_by=self.user,
+            status=ProcurementContract.Status.APPROVED,
+            approved_by=self.user,
+            approved_at=timezone.now(),
+        )
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-00123",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding_source,
+            status=Receiving.Status.PARTIAL,
+            is_planned=True,
+            contract=contract,
+            created_by=self.user,
+            approved_by=self.user,
+            approved_at=timezone.now(),
+        )
+        ReceivingItem.objects.create(
+            receiving=receiving,
+            item=self.item,
+            quantity=Decimal("4"),
+            batch_lot="PROC-PARTIAL-BATCH",
+            expiry_date=date(2031, 12, 31),
+            unit_price=Decimal("12000"),
+            location=self.location,
+            received_by=self.user,
+            received_at=timezone.make_aware(datetime(2026, 7, 11, 10, 0, 0)),
+        )
+
+        page = self.client.get(
+            reverse("reports:pengadaan"),
+            {"start_date": "2026-07-01", "end_date": "2026-07-31"},
+            secure=True,
+        )
+
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, contract.document_number)
+        self.assertContains(page, receiving.document_number)
+        self.assertTrue(
+            any(
+                row["contract_document_number"] == contract.document_number
+                and row["receiving_date"] == date(2026, 7, 11)
+                and row["quantity"] == Decimal("4")
+                for row in page.context["report_data"]
+            )
+        )
