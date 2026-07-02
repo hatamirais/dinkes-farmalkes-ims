@@ -1,5 +1,5 @@
 from io import BytesIO
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.test import TestCase
@@ -501,7 +501,7 @@ class ProcurementReceivingReportTests(TestCase):
 
         contract = ProcurementContract.objects.create(
             document_number="",
-            contract_date=date(2026, 7, 8),
+            contract_date=date(2026, 6, 28),
             supplier=self.supplier,
             sumber_dana=self.funding_source,
             notes="Kontrak report",
@@ -519,6 +519,8 @@ class ProcurementReceivingReportTests(TestCase):
         approve_contract(contract, self.user)
         receiving = Receiving.objects.get(contract=contract)
         order_item = ReceivingOrderItem.objects.get(receiving=receiving, contract_line=line)
+        receiving.receiving_date = date(2026, 6, 28)
+        receiving.save(update_fields=["receiving_date", "updated_at"])
 
         response = self.client.post(
             reverse("receiving:receiving_plan_receive", args=[receiving.pk]),
@@ -537,6 +539,9 @@ class ProcurementReceivingReportTests(TestCase):
             secure=True,
         )
         self.assertEqual(response.status_code, 302)
+        receipt = ReceivingItem.objects.get(receiving=receiving)
+        receipt.received_at = timezone.make_aware(datetime(2026, 7, 10, 9, 0, 0))
+        receipt.save(update_fields=["received_at"])
 
         page = self.client.get(
             reverse("reports:pengadaan"),
@@ -548,3 +553,4 @@ class ProcurementReceivingReportTests(TestCase):
         self.assertContains(page, contract.document_number)
         self.assertContains(page, receiving.document_number)
         self.assertContains(page, "NO. SPJ")
+        self.assertEqual(page.context["report_data"][0]["receiving_date"], date(2026, 7, 10))

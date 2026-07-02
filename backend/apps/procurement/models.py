@@ -37,6 +37,17 @@ class ProcurementWorkflowError(ValueError):
     """Raised when a procurement workflow action violates business rules."""
 
 
+def _next_prefixed_sequence(model, prefix):
+    sequence = 0
+    for document_number in model.objects.filter(document_number__startswith=prefix).values_list(
+        "document_number", flat=True
+    ):
+        suffix = (document_number or "").removeprefix(prefix)
+        if suffix.isdigit():
+            sequence = max(sequence, int(suffix))
+    return sequence + 1
+
+
 class ProcurementContract(TimeStampedModel):
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -116,19 +127,7 @@ class ProcurementContract(TimeStampedModel):
     def generate_document_number():
         year = timezone.now().year
         prefix = f"SPJ-{year}-"
-        last = (
-            ProcurementContract.objects.filter(document_number__startswith=prefix)
-            .order_by("-document_number")
-            .values_list("document_number", flat=True)
-            .first()
-        )
-        if last:
-            try:
-                sequence = int(last.split("-")[-1]) + 1
-            except (TypeError, ValueError, IndexError):
-                sequence = 1
-        else:
-            sequence = 1
+        sequence = _next_prefixed_sequence(ProcurementContract, prefix)
         return f"{prefix}{sequence:05d}"
 
     def save(self, *args, **kwargs):
@@ -274,19 +273,7 @@ class ProcurementAmendment(TimeStampedModel):
     def generate_document_number():
         year = timezone.now().year
         prefix = f"AMD-{year}-"
-        last = (
-            ProcurementAmendment.objects.filter(document_number__startswith=prefix)
-            .order_by("-document_number")
-            .values_list("document_number", flat=True)
-            .first()
-        )
-        if last:
-            try:
-                sequence = int(last.split("-")[-1]) + 1
-            except (TypeError, ValueError, IndexError):
-                sequence = 1
-        else:
-            sequence = 1
+        sequence = _next_prefixed_sequence(ProcurementAmendment, prefix)
         return f"{prefix}{sequence:05d}"
 
     def save(self, *args, **kwargs):

@@ -94,7 +94,7 @@ def synchronize_contract_receiving_plan(contract, *, approved_by):
         receiving = Receiving(
             contract=contract,
             receiving_type=Receiving.ReceivingType.PROCUREMENT,
-            receiving_date=contract.contract_date,
+            receiving_date=timezone.localdate(),
             is_planned=True,
             supplier=contract.supplier,
             sumber_dana=contract.sumber_dana,
@@ -106,7 +106,6 @@ def synchronize_contract_receiving_plan(contract, *, approved_by):
         )
         receiving.save()
     else:
-        receiving.receiving_date = contract.contract_date
         receiving.supplier = contract.supplier
         receiving.sumber_dana = contract.sumber_dana
         receiving.approved_by = approved_by
@@ -115,7 +114,6 @@ def synchronize_contract_receiving_plan(contract, *, approved_by):
             receiving.status = Receiving.Status.APPROVED
         receiving.save(
             update_fields=[
-                "receiving_date",
                 "supplier",
                 "sumber_dana",
                 "approved_by",

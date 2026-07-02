@@ -1,4 +1,5 @@
 from datetime import date
+from unittest.mock import patch
 from decimal import Decimal
 
 from django.contrib.messages import get_messages
@@ -129,6 +130,22 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(order_item.planned_quantity, Decimal("12"))
         self.assertEqual(order_item.unit_price, Decimal("7500"))
 
+    def test_contract_approval_uses_plan_creation_date_not_contract_date(self):
+        contract, _line = self._create_contract(quantity="12", unit_price="7500")
+        contract.status = ProcurementContract.Status.SUBMITTED
+        contract.submitted_by = self.admin
+        contract.submitted_at = timezone.now()
+        contract.save(
+            update_fields=["status", "submitted_by", "submitted_at", "updated_at"]
+        )
+
+        with patch("apps.procurement.services.timezone.localdate", return_value=date(2026, 7, 2)):
+            approve_contract(contract, self.kepala)
+
+        receiving = Receiving.objects.get(contract=contract)
+        self.assertEqual(receiving.receiving_date, date(2026, 7, 2))
+        self.assertNotEqual(receiving.receiving_date, contract.contract_date)
+
     def test_amendment_approval_resyncs_open_receiving_plan(self):
         contract, line = self._approve_contract(quantity="10", unit_price="5000")
         amendment = ProcurementAmendment.objects.create(
@@ -147,6 +164,8 @@ class ProcurementWorkflowTests(TestCase):
             notes="Naik qty",
         )
 
+        original_receiving_date = Receiving.objects.get(contract=contract).receiving_date
+
         approve_amendment(amendment, self.kepala)
 
         amendment.refresh_from_db()
@@ -156,6 +175,7 @@ class ProcurementWorkflowTests(TestCase):
             contract_line=line,
         )
         self.assertEqual(amendment.status, ProcurementAmendment.Status.APPROVED)
+        self.assertEqual(receiving.receiving_date, original_receiving_date)
         self.assertEqual(order_item.planned_quantity, Decimal("15"))
         self.assertEqual(order_item.unit_price, Decimal("6500"))
 
@@ -334,6 +354,66 @@ class ProcurementWorkflowTests(TestCase):
         self.client.force_login(self.puskesmas)
         denied = self.client.get(reverse("procurement:contract_list"), secure=True)
         self.assertEqual(denied.status_code, 403)
+
+    def test_contract_number_generation_ignores_nonnumeric_suffixes(self):
+        year = timezone.now().year
+        prefix = f"SPJ-{year}-"
+        ProcurementContract.objects.create(
+            document_number=f"{prefix}00009",
+            contract_date=date(year, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            notes="Generated baseline",
+            created_by=self.admin,
+        )
+        ProcurementContract.objects.create(
+            document_number=f"{prefix}MANUAL",
+            contract_date=date(year, 7, 2),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            notes="Manual suffix",
+            created_by=self.admin,
+        )
+
+        generated = ProcurementContract.objects.create(
+            document_number="",
+            contract_date=date(year, 7, 3),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            notes="Auto number",
+            created_by=self.admin,
+        )
+
+        self.assertEqual(generated.document_number, f"{prefix}00010")
+
+    def test_amendment_number_generation_ignores_nonnumeric_suffixes(self):
+        contract, line = self._approve_contract(quantity="10", unit_price="5000")
+        year = timezone.now().year
+        prefix = f"AMD-{year}-"
+        ProcurementAmendment.objects.create(
+            contract=contract,
+            document_number=f"{prefix}00003",
+            amendment_date=date(year, 7, 4),
+            notes="Generated baseline",
+            created_by=self.admin,
+        )
+        ProcurementAmendment.objects.create(
+            contract=contract,
+            document_number=f"{prefix}REV-A",
+            amendment_date=date(year, 7, 5),
+            notes="Manual suffix",
+            created_by=self.admin,
+        )
+
+        generated = ProcurementAmendment.objects.create(
+            contract=contract,
+            document_number="",
+            amendment_date=date(year, 7, 6),
+            notes="Auto number",
+            created_by=self.admin,
+        )
+
+        self.assertEqual(generated.document_number, f"{prefix}00004")
 
     @override_settings(
         PROCUREMENT_MUTATION_RATE_LIMIT="1/m",
