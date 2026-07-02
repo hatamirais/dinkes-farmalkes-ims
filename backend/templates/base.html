@@ -76,20 +76,21 @@
                 {% endif %}
                 {% endif %}
 
-                {% if can_view_receiving or can_view_distribution or can_view_allocation or can_view_recall or can_view_expired %}
+                {% if can_view_receiving or can_view_procurement or can_view_distribution or can_view_allocation or can_view_recall or can_view_expired %}
                 <div class="sidebar-section-title">Transaksi</div>
-                {% if can_view_receiving %}
-                <button class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.app_name == 'receiving' %}active{% endif %}"
+                {% if can_view_receiving or can_view_procurement %}
+                <button class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}active{% endif %}"
                     data-label="Penerimaan"
                     title="Penerimaan"
                     data-bs-toggle="collapse"
                     data-bs-target="#sidebar-receiving"
-                    aria-expanded="{% if request.resolver_match.app_name == 'receiving' %}true{% else %}false{% endif %}"
+                    aria-expanded="{% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}true{% else %}false{% endif %}"
                     type="button">
                     <i class="bi bi-inbox-fill"></i><span>Penerimaan</span>
                     <i class="bi bi-chevron-down chevron"></i>
                 </button>
-                <div class="collapse sidebar-submenu {% if request.resolver_match.app_name == 'receiving' %}show{% endif %}" id="sidebar-receiving">
+                <div class="collapse sidebar-submenu {% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}show{% endif %}" id="sidebar-receiving">
+                    {% if can_view_receiving %}
                     <a href="{% url 'receiving:receiving_list' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'receiving_list' %}active{% endif %}"
                         data-label="Buat Penerimaan"
@@ -102,6 +103,15 @@
                         title="Rencana Penerimaan">
                         <i class="bi bi-clipboard-check"></i><span>Rencana Penerimaan</span>
                     </a>
+                    {% endif %}
+                    {% if can_view_procurement %}
+                    <a href="{% url 'procurement:contract_list' %}"
+                        class="sidebar-link {% if request.resolver_match.app_name == 'procurement' %}active{% endif %}"
+                        data-label="SPJ / Pengadaan"
+                        title="SPJ / Pengadaan">
+                        <i class="bi bi-file-earmark-text"></i><span>SPJ / Pengadaan</span>
+                    </a>
+                    {% endif %}
                 </div>
                 {% endif %}
                 {% if can_view_distribution or can_view_allocation or can_view_recall or can_view_expired or can_view_lplpo %}
@@ -407,6 +417,10 @@
                         {% elif request.resolver_match.url_name == 'expired_alerts' %}
                         <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Kedaluwarsa">
                             <i class="bi bi-arrow-left me-1"></i>Kedaluwarsa
+                        </a>
+                        {% elif request.resolver_match.app_name == 'procurement' and request.resolver_match.url_name != 'contract_list' %}
+                        <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke SPJ / Pengadaan">
+                            <i class="bi bi-arrow-left me-1"></i>SPJ / Pengadaan
                         </a>
                         {% elif request.resolver_match.app_name == 'receiving' and 'receiving_plan_' in request.resolver_match.url_name and request.resolver_match.url_name != 'receiving_plan_list' %}
                         <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Rencana Penerimaan">

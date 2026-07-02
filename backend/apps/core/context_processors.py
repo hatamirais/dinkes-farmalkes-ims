@@ -10,16 +10,13 @@ def app_version(_request):
 def system_settings_processor(_request):
     try:
         from apps.core.models import SystemSettings
+
         return {"system_settings": SystemSettings.get_settings()}
     except Exception:
         return {"system_settings": None}
 
 
 def nav_notifications(request):
-    """
-    Provides notification summary data for the navbar bell dropdown.
-    Runs on every authenticated request and only includes actionable items.
-    """
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         return {"nav_notification_count": 0, "nav_notification_items": []}
@@ -75,6 +72,7 @@ def nav_notifications(request):
         }
 
     receiving_scope = get_user_module_scope(user, ModuleAccess.Module.RECEIVING)
+    procurement_scope = get_user_module_scope(user, ModuleAccess.Module.PROCUREMENT)
     distribution_scope = get_user_module_scope(user, ModuleAccess.Module.DISTRIBUTION)
     allocation_scope = get_user_module_scope(user, ModuleAccess.Module.ALLOCATION)
     recall_scope = get_user_module_scope(user, ModuleAccess.Module.RECALL)
@@ -117,6 +115,22 @@ def nav_notifications(request):
                 "bi-inbox-fill",
             )
 
+    if procurement_scope >= ModuleAccess.Scope.APPROVE:
+        from apps.procurement.models import ProcurementAmendment, ProcurementContract
+
+        contract_count = ProcurementContract.objects.filter(
+            status=ProcurementContract.Status.SUBMITTED
+        ).count()
+        amendment_count = ProcurementAmendment.objects.filter(
+            status=ProcurementAmendment.Status.SUBMITTED
+        ).count()
+        add_notification_item(
+            "SPJ / Pengadaan",
+            contract_count + amendment_count,
+            reverse("procurement:contract_list"),
+            "bi-file-earmark-text",
+        )
+
     if distribution_scope >= ModuleAccess.Scope.OPERATE:
         from apps.distribution.models import Distribution
 
@@ -145,7 +159,6 @@ def nav_notifications(request):
             reverse("distribution:distribution_list"),
             "bi-send",
         )
-
 
     if allocation_scope >= ModuleAccess.Scope.OPERATE:
         from apps.allocation.models import Allocation
@@ -227,20 +240,25 @@ def nav_notifications(request):
     if lplpo_scope >= ModuleAccess.Scope.OPERATE:
         from apps.lplpo.models import LPLPO
 
-        lplpo_statuses = []
-        if lplpo_scope >= ModuleAccess.Scope.OPERATE:
-            lplpo_statuses.extend(
-                [
-                    LPLPO.Status.SUBMITTED,
-                    LPLPO.Status.PIC_VERIFIED,
-                    LPLPO.Status.REJECTED_PIC,
-                ]
-            )
+        lplpo_statuses = [
+            LPLPO.Status.SUBMITTED,
+            LPLPO.Status.PIC_VERIFIED,
+            LPLPO.Status.REJECTED_PIC,
+        ]
         if lplpo_scope >= ModuleAccess.Scope.APPROVE:
             lplpo_statuses.append(LPLPO.Status.REVIEWED)
 
-        count = LPLPO.objects.filter(status__in=lplpo_statuses).count() if lplpo_statuses else 0
-        add_notification_item("LPLPO", count, reverse("lplpo:lplpo_list"), "bi-file-earmark-medical")
+        count = (
+            LPLPO.objects.filter(status__in=lplpo_statuses).count()
+            if lplpo_statuses
+            else 0
+        )
+        add_notification_item(
+            "LPLPO",
+            count,
+            reverse("lplpo:lplpo_list"),
+            "bi-file-earmark-medical",
+        )
 
     total = sum(item["count"] for item in notification_items)
     return {

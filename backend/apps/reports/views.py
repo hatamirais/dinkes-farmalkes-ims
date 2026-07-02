@@ -482,7 +482,7 @@ def reports_pengadaan(request):
             receiving__receiving_date__range=[start_date, end_date],
             receiving__status__in=completed_statuses,
         ).select_related(
-            'receiving', 'receiving__supplier', 'receiving__sumber_dana',
+            'receiving', 'receiving__supplier', 'receiving__sumber_dana', 'receiving__contract',
             'item', 'item__satuan',
         ).order_by(
             'receiving__receiving_date', 'receiving__document_number', 'item__nama_barang',
@@ -493,6 +493,7 @@ def reports_pengadaan(request):
                 'document_number': ri.receiving.document_number,
                 'receiving_date': ri.receiving.receiving_date,
                 'supplier': ri.receiving.supplier.name if ri.receiving.supplier else '-',
+                'contract_document_number': ri.receiving.contract.document_number if getattr(ri.receiving, 'contract', None) else '-',
                 'sumber_dana': ri.receiving.sumber_dana.name if ri.receiving.sumber_dana else '-',
                 'nama_barang': ri.item.nama_barang,
                 'satuan': ri.item.satuan.name if ri.item.satuan else '-',
