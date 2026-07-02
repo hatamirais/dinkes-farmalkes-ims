@@ -766,7 +766,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertContains(response, 'Receiving type <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Sumber dana <span class="text-danger">*</span>', html=False)
-        self.assertContains(response, '>Pengadaan</option>', html=False)
+        self.assertNotContains(response, '>Pengadaan</option>', html=False)
         self.assertContains(response, '>Hibah</option>', html=False)
 
     def test_regular_receiving_detail_rejects_planned_receiving(self):
@@ -808,8 +808,8 @@ class ReceivingWorkflowCleanupTest(TestCase):
             ["Supplier wajib diisi untuk tipe Pengadaan."],
         )
         self.assertEqual(
-            planned_form.errors["supplier"],
-            ["Supplier wajib diisi untuk tipe Pengadaan."],
+            planned_form.errors["receiving_type"],
+            ["Rencana penerimaan pengadaan baru wajib dibuat melalui modul SPJ / Pengadaan."],
         )
 
     def test_receiving_forms_reject_unknown_custom_receiving_type(self):
@@ -969,6 +969,35 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(receiving.receiving_type_label, "Donasi")
         self.assertEqual(receiving.status, Receiving.Status.DRAFT)
         self.assertTrue(receiving.order_items.filter(item=self.item).exists())
+
+    def test_planned_receiving_create_blocks_manual_procurement_type(self):
+        response = self.client.post(
+            reverse("receiving:receiving_plan_create"),
+            {
+                "document_number": "",
+                "receiving_type": Receiving.ReceivingType.PROCUREMENT,
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-planned_quantity": "5",
+                "items-0-unit_price": "1000",
+                "items-0-notes": "",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "Rencana penerimaan pengadaan baru wajib dibuat melalui modul SPJ / Pengadaan.",
+            response.context["form"].errors["receiving_type"],
+        )
+        self.assertFalse(Receiving.objects.filter(is_planned=True).exists())
 
     def test_plan_receive_page_uses_fixed_rows_without_delete_control(self):
         receiving = Receiving.objects.create(

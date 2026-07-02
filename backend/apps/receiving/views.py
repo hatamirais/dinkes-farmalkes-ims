@@ -277,6 +277,12 @@ def receiving_plan_create(request):
 
         if form.is_valid() and formset.is_valid():
             receiving = form.save(commit=False)
+            if receiving.receiving_type == Receiving.ReceivingType.PROCUREMENT:
+                messages.error(
+                    request,
+                    "Rencana penerimaan pengadaan baru wajib dibuat melalui modul SPJ / Pengadaan.",
+                )
+                return redirect("procurement:contract_list")
             receiving.created_by = request.user
             receiving.is_planned = True
             receiving.status = Receiving.Status.DRAFT
