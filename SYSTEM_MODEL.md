@@ -53,7 +53,7 @@ Module highlights:
 - Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`, `/receiving/<pk>/documents/<document_pk>/download/`
 - Receiving plan: `/receiving/plans/*`
   - Procurement-linked plans (`Receiving.contract != NULL`) are created and synchronized from approved SPJ contracts/amendments; legacy manual planned receivings without `contract` remain readable and executable
-- Procurement: `/procurement/`, `/procurement/create/`, `/procurement/<pk>/`, `/procurement/<pk>/edit/`, `/procurement/<pk>/submit/`, `/procurement/<pk>/approve/`, `/procurement/<pk>/close/`, `/procurement/<pk>/amend/`, `/procurement/amendments/<pk>/`, `/procurement/amendments/<pk>/edit/`, `/procurement/amendments/<pk>/submit/`, `/procurement/amendments/<pk>/approve/`
+- Procurement: `/procurement/`, `/procurement/create/`, `/procurement/api/quick-create-supplier/`, `/procurement/api/quick-create-funding-source/`, `/procurement/<pk>/`, `/procurement/<pk>/edit/`, `/procurement/<pk>/submit/`, `/procurement/<pk>/approve/`, `/procurement/<pk>/close/`, `/procurement/<pk>/amend/`, `/procurement/amendments/<pk>/`, `/procurement/amendments/<pk>/edit/`, `/procurement/amendments/<pk>/submit/`, `/procurement/amendments/<pk>/approve/`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
 - Items: `/items/`, `/items/export/`, `/items/create/`, `/items/<pk>/edit/`, `/items/<pk>/delete/`, plus quick-create lookup APIs under `/items/api/`
 - Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/lplpo/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
@@ -202,6 +202,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - FKs: `supplier`, `sumber_dana`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`, `closed_at`
   - Index: `idx_proc_contract_status_date`
+  - Contract create/edit templates expose authenticated quick-create modals for `Supplier` and `FundingSource` through procurement-scoped POST endpoints that reuse receiving lookup validation
   - Approval atomically creates or updates exactly one linked planned `receiving.Receiving(contract=this, is_planned=True)` document
 
 - `procurement.ProcurementContractLine` (`procurement_contract_lines`):
@@ -480,7 +481,7 @@ From `backend/config/settings.py`:
 - Sensitive POST throttling uses `django-ratelimit` with settings-backed defaults:
   - `USER_BULK_ACTION_RATE_LIMIT = 10/m`
   - `USER_MUTATION_RATE_LIMIT = 20/m`
-  - `ITEM_MUTATION_RATE_LIMIT = 20/m` (shared by item lookup quick-create POSTs and receiving lookup quick-create POSTs)
+  - `ITEM_MUTATION_RATE_LIMIT = 20/m` (shared by item lookup quick-create POSTs plus receiving and procurement lookup quick-create POSTs)
   - `USER_PASSWORD_RESET_RATE_LIMIT = 5/m`
   - `PASSWORD_CHANGE_RATE_LIMIT = 5/m`
   - `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT = 20/m` (legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains accepted as fallback)

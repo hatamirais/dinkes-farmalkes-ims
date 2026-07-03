@@ -1,13 +1,21 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.core.decorators import module_scope_required, perm_required
-from apps.core.rate_limits import procurement_mutation_ratelimit
+from apps.core.rate_limits import item_mutation_ratelimit, procurement_mutation_ratelimit
 from apps.users.models import ModuleAccess
+from apps.receiving.forms import (
+    ReceivingQuickCreateFundingSourceForm,
+    ReceivingQuickCreateSupplierForm,
+)
 
 from .forms import (
     ProcurementAmendmentForm,
@@ -30,6 +38,50 @@ from .services import (
     submit_amendment,
     submit_contract,
 )
+
+
+logger = logging.getLogger(__name__)
+
+
+def _json_form_errors(form):
+    errors = []
+    for field_errors in form.errors.values():
+        errors.extend(field_errors)
+    return " ".join(errors) or "Data tidak valid."
+
+
+@login_required
+@perm_required("procurement.add_procurementcontract")
+@item_mutation_ratelimit
+@require_POST
+def quick_create_supplier(request):
+    form = ReceivingQuickCreateSupplierForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"error": _json_form_errors(form)}, status=400)
+
+    supplier = form.save()
+    logger.info(
+        "Created procurement supplier via quick create",
+        extra={"supplier_id": supplier.pk, "user_id": request.user.pk},
+    )
+    return JsonResponse({"id": supplier.pk, "text": str(supplier)})
+
+
+@login_required
+@perm_required("procurement.add_procurementcontract")
+@item_mutation_ratelimit
+@require_POST
+def quick_create_funding_source(request):
+    form = ReceivingQuickCreateFundingSourceForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"error": _json_form_errors(form)}, status=400)
+
+    source = form.save()
+    logger.info(
+        "Created procurement funding source via quick create",
+        extra={"funding_source_id": source.pk, "user_id": request.user.pk},
+    )
+    return JsonResponse({"id": source.pk, "text": str(source)})
 
 
 def _redirect_contract_detail(pk):

@@ -355,6 +355,63 @@ class ProcurementWorkflowTests(TestCase):
         denied = self.client.get(reverse("procurement:contract_list"), secure=True)
         self.assertEqual(denied.status_code, 403)
 
+    def test_contract_create_page_renders_quick_create_hooks(self):
+        response = self.client.get(reverse("procurement:contract_create"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="modal-supplier"')
+        self.assertContains(
+            response,
+            reverse("procurement:quick_create_supplier"),
+        )
+        self.assertContains(response, 'id="modal-sumber_dana"')
+        self.assertContains(
+            response,
+            reverse("procurement:quick_create_funding_source"),
+        )
+
+    def test_procurement_quick_create_supplier_creates_lookup(self):
+        response = self.client.post(
+            reverse("procurement:quick_create_supplier"),
+            {
+                "code": " sup-proc-new ",
+                "name": "  PT Pengadaan Baru  ",
+                "address": "  Jl. Pengadaan 1  ",
+                "phone": " 021-555 ",
+                "email": " supplier@example.com ",
+                "notes": "  Mitra kontrak  ",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        supplier = Supplier.objects.get(code="SUP-PROC-NEW")
+        self.assertEqual(supplier.name, "PT Pengadaan Baru")
+        self.assertEqual(supplier.address, "Jl. Pengadaan 1")
+        self.assertEqual(supplier.phone, "021-555")
+        self.assertEqual(supplier.email, "supplier@example.com")
+        self.assertEqual(supplier.notes, "Mitra kontrak")
+        self.assertEqual(response.json()["id"], supplier.pk)
+
+    def test_procurement_quick_create_funding_source_creates_lookup(self):
+        response = self.client.post(
+            reverse("procurement:quick_create_funding_source"),
+            {
+                "code": "  blud  ",
+                "name": "  Badan Layanan Umum Daerah  ",
+                "description": "  Dana operasional  ",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        funding_source = FundingSource.objects.get(code="BLUD")
+        self.assertEqual(funding_source.name, "Badan Layanan Umum Daerah")
+        self.assertEqual(funding_source.description, "Dana operasional")
+        self.assertEqual(response.json()["id"], funding_source.pk)
+
     def test_contract_number_generation_ignores_nonnumeric_suffixes(self):
         year = timezone.now().year
         prefix = f"SPJ-{year}-"

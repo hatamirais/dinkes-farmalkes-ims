@@ -7,6 +7,16 @@ app_name = "procurement"
 urlpatterns = [
     path("", views.contract_list, name="contract_list"),
     path("create/", views.contract_create, name="contract_create"),
+    path(
+        "api/quick-create-supplier/",
+        views.quick_create_supplier,
+        name="quick_create_supplier",
+    ),
+    path(
+        "api/quick-create-funding-source/",
+        views.quick_create_funding_source,
+        name="quick_create_funding_source",
+    ),
     path("<int:pk>/", views.contract_detail, name="contract_detail"),
     path("<int:pk>/edit/", views.contract_edit, name="contract_edit"),
     path("<int:pk>/submit/", views.contract_submit, name="contract_submit"),
