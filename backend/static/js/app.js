@@ -367,6 +367,7 @@ function initFormsetControls() {
 
         const tableBody = container.querySelector('tbody');
         if (!tableBody) return;
+        const allowEmpty = container.dataset.formsetAllowEmpty === 'true';
 
         const addButtons = document.querySelectorAll(`.formset-add[data-formset-target="${container.dataset.formset}"]`);
         addButtons.forEach((btn) => {
@@ -392,10 +393,10 @@ function initFormsetControls() {
             const visibleRows = Array.from(tableBody.querySelectorAll('tr.formset-row')).filter(
                 (r) => !r.classList.contains('d-none')
             );
-            if (visibleRows.length <= 1) {
+            const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (visibleRows.length <= 1 && !allowEmpty) {
                 return;
             }
-            const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
             if (deleteInput) {
                 deleteInput.checked = true;
                 row.classList.add('d-none');

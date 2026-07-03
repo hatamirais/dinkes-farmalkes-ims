@@ -418,6 +418,7 @@ class ProcurementWorkflowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-formset="procurement-amendment-lines"')
+        self.assertContains(response, 'data-formset-allow-empty="true"')
         self.assertContains(response, 'class="btn btn-outline-primary btn-sm formset-add"', html=False)
         self.assertContains(response, 'class="btn btn-outline-danger btn-sm formset-remove"', html=False)
         self.assertContains(response, 'id="procurement-amendment-lines-empty"')
