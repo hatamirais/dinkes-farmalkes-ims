@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags static %}
 
 {% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
@@ -12,10 +12,41 @@
             <div class="card-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
-                    {% crispy form %}
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    <div class="row g-3">
+                        {% for field in form %}
+                        <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {% if field.name == 'supplier' or field.name == 'sumber_dana' %}
+                            <div class="input-group">
+                                {{ field }}
+                                <button type="button" class="btn btn-outline-success btn-sm" title="Tambah Baru" data-bs-toggle="modal" data-bs-target="#modal-{{ field.name }}">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                            {% else %}
+                            {{ field }}
+                            {% endif %}
+                            {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-2 small text-muted">Tip: Gunakan tombol <i class="bi bi-plus-lg"></i> untuk menambah supplier atau sumber dana tanpa meninggalkan form.</div>
 
                     <div class="mt-4">
                         <h6 class="fw-semibold mb-3">Baris Kontrak</h6>
+                        {% if formset.non_form_errors %}
+                        <div class="alert alert-danger py-2">{{ formset.non_form_errors }}</div>
+                        {% endif %}
                         {{ formset.management_form }}
                         <div class="table-responsive">
                             <table class="table align-middle">
@@ -60,4 +91,102 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modal-supplier" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Supplier Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-code" class="form-control form-control-sm" placeholder="SUP-001" maxlength="20">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-name" class="form-control form-control-sm" placeholder="PT Kimia Farma">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Alamat</label>
+                        <textarea id="supplier-address" class="form-control form-control-sm" rows="2" placeholder="Jl. Contoh No. 123"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Telepon</label>
+                        <input type="text" id="supplier-phone" class="form-control form-control-sm" placeholder="021-12345678" maxlength="50">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" id="supplier-email" class="form-control form-control-sm" placeholder="info@supplier.com">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Catatan</label>
+                        <textarea id="supplier-notes" class="form-control form-control-sm" rows="2" placeholder="Catatan tambahan"></textarea>
+                    </div>
+                </div>
+                <div id="supplier-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm"
+                    data-quick-create
+                    data-url="{% url 'procurement:quick_create_supplier' %}"
+                    data-fields="supplier-code,supplier-name,supplier-address,supplier-phone,supplier-email,supplier-notes"
+                    data-field-names="code,name,address,phone,email,notes"
+                    data-error-el="supplier-error"
+                    data-modal-id="modal-supplier"
+                    data-select-id="id_supplier">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-sumber_dana" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Sumber Dana Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-code" class="form-control form-control-sm" placeholder="DAK" maxlength="20">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-name" class="form-control form-control-sm" placeholder="Dana Alokasi Khusus">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Keterangan</label>
+                        <textarea id="sumber-dana-description" class="form-control form-control-sm" rows="2" placeholder="Deskripsi sumber dana"></textarea>
+                    </div>
+                </div>
+                <div id="sumber-dana-error" class="text-danger small d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm"
+                    data-quick-create
+                    data-url="{% url 'procurement:quick_create_funding_source' %}"
+                    data-fields="sumber-dana-code,sumber-dana-name,sumber-dana-description"
+                    data-field-names="code,name,description"
+                    data-error-el="sumber-dana-error"
+                    data-modal-id="modal-sumber_dana"
+                    data-select-id="id_sumber_dana">
+                    <i class="bi bi-check-lg me-1"></i>Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/quick-create.js' %}"></script>
 {% endblock %}
