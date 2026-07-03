@@ -48,7 +48,15 @@
                         <div class="alert alert-danger py-2">{{ formset.non_form_errors }}</div>
                         {% endif %}
                         {{ formset.management_form }}
-                        <div class="table-responsive">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="text-muted small">Tambah baris untuk menambah item kontrak.</span>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="procurement-lines">
+                                    <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive" data-formset="procurement-lines" data-formset-prefix="{{ formset.prefix }}">
                             <table class="table align-middle">
                                 <thead>
                                     <tr>
@@ -56,12 +64,12 @@
                                         <th class="text-end">Jumlah Awal</th>
                                         <th class="text-end">Harga Awal</th>
                                         <th>Catatan</th>
-                                        <th>Hapus</th>
+                                        <th class="text-center">Hapus</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for line_form in formset %}
-                                    <tr>
+                                    <tr class="formset-row">
                                         <td>
                                             {{ line_form.id }}
                                             {{ line_form.item }}
@@ -70,13 +78,35 @@
                                         <td class="text-end">{{ line_form.original_quantity }}{{ line_form.original_quantity.errors }}</td>
                                         <td class="text-end">{{ line_form.original_unit_price }}{{ line_form.original_unit_price.errors }}</td>
                                         <td>{{ line_form.notes }}{{ line_form.notes.errors }}</td>
-                                        <td class="text-center">{% if line_form.instance.pk %}{{ line_form.DELETE }}{% endif %}</td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            <div class="d-none">{{ line_form.DELETE }}</div>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                    <template id="procurement-lines-empty">
+                        <tr class="formset-row">
+                            <td>
+                                {{ formset.empty_form.id }}
+                                {{ formset.empty_form.item }}
+                            </td>
+                            <td class="text-end">{{ formset.empty_form.original_quantity }}</td>
+                            <td class="text-end">{{ formset.empty_form.original_unit_price }}</td>
+                            <td>{{ formset.empty_form.notes }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <div class="d-none">{{ formset.empty_form.DELETE }}</div>
+                            </td>
+                        </tr>
+                    </template>
 
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">Simpan</button>

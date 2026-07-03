@@ -369,6 +369,44 @@ class ProcurementWorkflowTests(TestCase):
             response,
             reverse("procurement:quick_create_funding_source"),
         )
+        self.assertContains(response, 'data-formset="procurement-lines"')
+        self.assertContains(response, 'class="btn btn-outline-primary btn-sm formset-add"', html=False)
+        self.assertContains(response, 'class="btn btn-outline-danger btn-sm formset-remove"', html=False)
+        self.assertContains(response, 'id="procurement-lines-empty"')
+
+    def test_contract_create_accepts_multiple_lines(self):
+        response = self.client.post(
+            reverse("procurement:contract_create"),
+            {
+                "document_number": "",
+                "contract_date": "2026-07-01",
+                "supplier": str(self.supplier.pk),
+                "sumber_dana": str(self.funding.pk),
+                "notes": "Kontrak dua baris",
+                "lines-TOTAL_FORMS": "2",
+                "lines-INITIAL_FORMS": "0",
+                "lines-MIN_NUM_FORMS": "0",
+                "lines-MAX_NUM_FORMS": "1000",
+                "lines-0-item": str(self.item.pk),
+                "lines-0-original_quantity": "10",
+                "lines-0-original_unit_price": "5000",
+                "lines-0-notes": "Baris pertama",
+                "lines-1-item": str(self.second_item.pk),
+                "lines-1-original_quantity": "20",
+                "lines-1-original_unit_price": "7000",
+                "lines-1-notes": "Baris kedua",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        contract = ProcurementContract.objects.latest("pk")
+        lines = list(contract.lines.select_related("item").order_by("pk"))
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0].item, self.item)
+        self.assertEqual(lines[0].original_quantity, Decimal("10"))
+        self.assertEqual(lines[1].item, self.second_item)
+        self.assertEqual(lines[1].original_quantity, Decimal("20"))
 
     def test_procurement_quick_create_supplier_creates_lookup(self):
         response = self.client.post(
