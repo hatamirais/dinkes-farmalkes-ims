@@ -408,6 +408,62 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(lines[1].item, self.second_item)
         self.assertEqual(lines[1].original_quantity, Decimal("20"))
 
+    def test_amendment_create_page_renders_formset_controls(self):
+        contract, line = self._approve_contract(quantity="10", unit_price="5000")
+
+        response = self.client.get(
+            reverse("procurement:amendment_create", args=[contract.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-formset="procurement-amendment-lines"')
+        self.assertContains(response, 'class="btn btn-outline-primary btn-sm formset-add"', html=False)
+        self.assertContains(response, 'class="btn btn-outline-danger btn-sm formset-remove"', html=False)
+        self.assertContains(response, 'id="procurement-amendment-lines-empty"')
+        self.assertContains(response, str(line.pk))
+
+    def test_amendment_edit_allows_deleting_line(self):
+        contract, line = self._approve_contract(quantity="10", unit_price="5000")
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 8),
+            notes="Edit line",
+            status=ProcurementAmendment.Status.DRAFT,
+            created_by=self.admin,
+        )
+        amendment_line = ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=line,
+            revised_quantity=Decimal("12"),
+            revised_unit_price=Decimal("6000"),
+            notes="Hapus baris ini",
+        )
+
+        response = self.client.post(
+            reverse("procurement:amendment_edit", args=[amendment.pk]),
+            {
+                "document_number": amendment.document_number,
+                "amendment_date": "2026-07-08",
+                "notes": "Tanpa baris lama",
+                "lines-TOTAL_FORMS": "1",
+                "lines-INITIAL_FORMS": "1",
+                "lines-MIN_NUM_FORMS": "0",
+                "lines-MAX_NUM_FORMS": "1000",
+                "lines-0-id": str(amendment_line.pk),
+                "lines-0-contract_line": str(line.pk),
+                "lines-0-revised_quantity": "12",
+                "lines-0-revised_unit_price": "6000",
+                "lines-0-notes": "Hapus baris ini",
+                "lines-0-DELETE": "on",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        amendment.refresh_from_db()
+        self.assertEqual(amendment.lines.count(), 0)
+
     def test_procurement_quick_create_supplier_creates_lookup(self):
         response = self.client.post(
             reverse("procurement:quick_create_supplier"),
