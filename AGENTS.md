@@ -123,6 +123,7 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - Allocation approval atomically creates `Distribution` + `DistributionItem` records for each facility. Stepping an allocation back from `APPROVED` to `SUBMITTED` deletes those child distributions so they can be regenerated on the next approval. Stock deduction is deferred to per-distribution delivery confirmation.
 - Allocation auto-transitions to `PARTIALLY_FULFILLED` when any child distribution is delivered, and `FULFILLED` when all are delivered.
 - Availability checks across distribution, recall, expired, transfer, and several selectors use `Stock.available_quantity` (`quantity - reserved`), but current workflows do not automatically increment or decrement `reserved` during distribution processing. Batch selectors should order dated stock by FEFO and place `expiry_date=NULL` rows last as non-expiring stock.
+- Stock admin import now enforces `Item.requires_expiry_date`: blank `expiry_date` is allowed only for catalog items marked as non-expiring.
 
 ## Documentation Maintenance Contract
 

@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from import_export import resources, fields
 from import_export.admin import ImportExportModelAdmin
 from import_export.widgets import ForeignKeyWidget, DateWidget
@@ -17,6 +18,27 @@ class StockResource(resources.ModelResource):
         attribute="item",
         widget=ForeignKeyWidget(Item, field="kode_barang"),
     )
+
+    @staticmethod
+    def _row_value(row, key):
+        value = row.get(key, "")
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    def before_import_row(self, row, **kwargs):
+        item_code = self._row_value(row, "item_code")
+        expiry_value = self._row_value(row, "expiry_date")
+        if not item_code or expiry_value:
+            return super().before_import_row(row, **kwargs)
+
+        item = Item.objects.filter(kode_barang=item_code).only("requires_expiry_date").first()
+        if item and item.requires_expiry_date:
+            raise ValidationError(
+                {"expiry_date": "Tanggal kedaluwarsa wajib diisi untuk item ini."}
+            )
+
+        return super().before_import_row(row, **kwargs)
     location = fields.Field(
         column_name="location_code",
         attribute="location",
@@ -90,7 +112,7 @@ class StockAdmin(ImportGuideMixin, ImportExportModelAdmin):
             {
                 "name": "expiry_date",
                 "required": False,
-                "description": "Format: DD/MM/YYYY. Kosongkan untuk batch tanpa kedaluwarsa.",
+                "description": "Format: DD/MM/YYYY. Kosongkan hanya untuk item tanpa kedaluwarsa.",
             },
             {
                 "name": "quantity",

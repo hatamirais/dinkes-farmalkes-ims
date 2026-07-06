@@ -2,6 +2,9 @@ from decimal import Decimal
 from datetime import timedelta
 from datetime import date
 from unittest.mock import patch
+import importlib
+
+from tablib import Dataset
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
@@ -56,6 +59,159 @@ class StockAdminCsvExportSecurityTest(TestCase):
 
         self.assertIn("'@BATCH-01", csv_output)
         self.assertIn(self.item.kode_barang, csv_output)
+
+    def test_stock_resource_import_rejects_blank_expiry_for_expiring_item(self):
+        dataset = Dataset(
+            headers=[
+                'item_code',
+                'location_code',
+                'batch_lot',
+                'expiry_date',
+                'quantity',
+                'reserved',
+                'unit_price',
+                'sumber_dana_code',
+            ]
+        )
+        dataset.append([
+            self.item.kode_barang,
+            self.location.code,
+            'BATCH-EXP-01',
+            '',
+            '10',
+            '0',
+            '1000',
+            self.funding.code,
+        ])
+
+        result = StockResource().import_data(dataset, dry_run=True, raise_errors=False)
+
+        self.assertEqual(len(result.invalid_rows), 1)
+        self.assertIn('Tanggal kedaluwarsa wajib diisi untuk item ini.', str(result.invalid_rows[0].error))
+
+    def test_stock_resource_import_allows_blank_expiry_for_non_expiring_item(self):
+        self.item.requires_expiry_date = False
+        self.item.save(update_fields=['requires_expiry_date', 'updated_at'])
+        dataset = Dataset(
+            headers=[
+                'item_code',
+                'location_code',
+                'batch_lot',
+                'expiry_date',
+                'quantity',
+                'reserved',
+                'unit_price',
+                'sumber_dana_code',
+            ]
+        )
+        dataset.append([
+            self.item.kode_barang,
+            self.location.code,
+            'BATCH-NOEXP-01',
+            '',
+            '12',
+            '0',
+            '500',
+            self.funding.code,
+        ])
+
+        result = StockResource().import_data(dataset, dry_run=True, raise_errors=False)
+
+        self.assertFalse(result.has_errors())
+        self.assertFalse(result.has_validation_errors())
+        self.assertEqual(len(result.invalid_rows), 0)
+
+
+class LegacyNoExpiryItemBackfillMigrationTests(TestCase):
+    def setUp(self):
+        self.unit = Unit.objects.create(code='PCS', name='Pieces')
+        self.category = Category.objects.create(code='ALKES', name='Alkes', sort_order=1)
+        self.location = Location.objects.create(code='LEGACY', name='Gudang Legacy')
+        self.funding = FundingSource.objects.create(code='BTT', name='Belanja Tidak Terduga')
+
+    def test_backfill_marks_items_with_null_expiry_history_as_non_expiring(self):
+        migration_module = importlib.import_module(
+            'apps.items.migrations.0009_backfill_non_expiring_items'
+        )
+
+        stock_item = Item.objects.create(
+            kode_barang='ITM-LEGACY-STK',
+            nama_barang='Legacy Stock Null Expiry',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        receiving_item = Item.objects.create(
+            kode_barang='ITM-LEGACY-RCV',
+            nama_barang='Legacy Receiving Null Expiry',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        unaffected_item = Item.objects.create(
+            kode_barang='ITM-LEGACY-KEEP',
+            nama_barang='Legacy Expiring Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+
+        Stock.objects.create(
+            item=stock_item,
+            location=self.location,
+            batch_lot='LEG-STK-01',
+            expiry_date=None,
+            quantity=Decimal('5'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        from apps.receiving.models import Receiving, ReceivingItem
+
+        receiving = Receiving.objects.create(
+            receiving_date=date(2026, 1, 10),
+            receiving_type=Receiving.ReceivingType.GRANT,
+            sumber_dana=self.funding,
+            created_by=User.objects.create_superuser(username='migration-backfill-admin', password='secret12345'),
+        )
+        ReceivingItem.objects.create(
+            receiving=receiving,
+            item=receiving_item,
+            batch_lot='LEG-RCV-01',
+            expiry_date=None,
+            quantity=Decimal('7'),
+            unit_price=Decimal('1500'),
+        )
+        Stock.objects.create(
+            item=unaffected_item,
+            location=self.location,
+            batch_lot='LEG-KEEP-01',
+            expiry_date=date(2027, 1, 1),
+            quantity=Decimal('9'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('2000'),
+            sumber_dana=self.funding,
+        )
+
+        class MigrationApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                mapping = {
+                    ('items', 'Item'): Item,
+                    ('stock', 'Stock'): Stock,
+                    ('receiving', 'ReceivingItem'): ReceivingItem,
+                }
+                return mapping[(app_label, model_name)]
+
+        migration_module.backfill_non_expiring_items(MigrationApps(), None)
+
+        stock_item.refresh_from_db()
+        receiving_item.refresh_from_db()
+        unaffected_item.refresh_from_db()
+
+        self.assertFalse(stock_item.requires_expiry_date)
+        self.assertFalse(receiving_item.requires_expiry_date)
+        self.assertTrue(unaffected_item.requires_expiry_date)
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockCardTest(TestCase):
