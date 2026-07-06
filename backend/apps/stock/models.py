@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -70,6 +71,19 @@ class Stock(TimeStampedModel):
 
     def __str__(self):
         return f"{self.item} | {self.batch_lot} | Qty: {self.quantity}"
+
+    def clean(self):
+        errors = {}
+
+        if (
+            self.item_id
+            and getattr(self.item, "requires_expiry_date", True)
+            and self.expiry_date is None
+        ):
+            errors["expiry_date"] = "Tanggal kedaluwarsa wajib diisi untuk item ini."
+
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def available_quantity(self):

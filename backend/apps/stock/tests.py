@@ -122,6 +122,64 @@ class StockAdminCsvExportSecurityTest(TestCase):
         self.assertEqual(len(result.invalid_rows), 0)
 
 
+class StockModelExpiryValidationTests(TestCase):
+    def setUp(self):
+        self.unit = Unit.objects.create(code='BTL', name='Bottle')
+        self.category = Category.objects.create(code='MAT', name='Material', sort_order=1)
+        self.location = Location.objects.create(code='MODEL', name='Gudang Model')
+        self.funding = FundingSource.objects.create(code='DAK', name='Dana Alokasi Khusus')
+
+    def test_full_clean_rejects_blank_expiry_for_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang='ITM-MODEL-EXP',
+            nama_barang='Model Expiring Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=True,
+        )
+        stock = Stock(
+            item=item,
+            location=self.location,
+            batch_lot='MODEL-EXP-01',
+            expiry_date=None,
+            quantity=Decimal('3'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1500'),
+            sumber_dana=self.funding,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            stock.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict['expiry_date'],
+            ['Tanggal kedaluwarsa wajib diisi untuk item ini.'],
+        )
+
+    def test_full_clean_allows_blank_expiry_for_non_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang='ITM-MODEL-NOEXP',
+            nama_barang='Model Non Expiring Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=False,
+        )
+        stock = Stock(
+            item=item,
+            location=self.location,
+            batch_lot='MODEL-NOEXP-01',
+            expiry_date=None,
+            quantity=Decimal('4'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('900'),
+            sumber_dana=self.funding,
+        )
+
+        stock.full_clean()
+
+
 class LegacyNoExpiryItemBackfillMigrationTests(TestCase):
     def setUp(self):
         self.unit = Unit.objects.create(code='PCS', name='Pieces')
