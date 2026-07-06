@@ -71,6 +71,9 @@ def _resolve_selected_id(value, allowed_ids):
 
 
 def _stock_expiry_badge(expiry_date, today, *, near_expiry_days=90):
+    if expiry_date is None:
+        return "text-bg-secondary", "Tanpa kedaluwarsa", None
+
     days_until_expiry = (expiry_date - today).days
     if days_until_expiry <= 0:
         return "text-bg-danger", "Kedaluwarsa", days_until_expiry
@@ -727,7 +730,7 @@ def stock_list(request):
     queryset = (
         Stock.objects.select_related("item", "item__satuan", "location", "sumber_dana")
         .filter(quantity__gt=0)
-        .order_by("item__nama_barang", "expiry_date")
+        .order_by("item__nama_barang", F("expiry_date").asc(nulls_last=True))
     )
 
     search = _normalize_text_param(request.GET.get("q", ""), max_length=100)
@@ -989,7 +992,6 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
     # ── Pre-fetch batch expiry dates for this item (avoids N+1) ───────
     batch_expiry_map = dict(
         Stock.objects.filter(item=item)
-        .exclude(expiry_date__isnull=True)
         .values_list("batch_lot", "expiry_date")
         .distinct()
     )
@@ -1196,6 +1198,8 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
                 expiry_date = batch_expiry_map.get(tx.batch_lot)
                 if expiry_date:
                     tx.expiry_display = expiry_date.strftime("%d/%m/%Y")
+                elif tx.batch_lot in batch_expiry_map:
+                    tx.expiry_display = "Tanpa kedaluwarsa"
 
             # Mark transfers for informational display
             tx.is_transfer_transaction = tx.reference_type == Transaction.ReferenceType.TRANSFER
@@ -1601,7 +1605,7 @@ def api_location_stock_search(request):
         )
         .filter(location_id=location_id)
         .filter(quantity__gt=F("reserved"))
-        .order_by("expiry_date", "item__nama_barang", "batch_lot")
+        .order_by(F("expiry_date").asc(nulls_last=True), "item__nama_barang", "batch_lot")
     )
     if q:
         queryset = queryset.filter(
@@ -1621,9 +1625,7 @@ def api_location_stock_search(request):
                 "nama": stock.item.nama_barang,
                 "kategori": stock.item.kategori.name if stock.item.kategori else "-",
                 "batch": stock.batch_lot,
-                "expiry": stock.expiry_date.strftime("%d/%m/%Y")
-                if stock.expiry_date
-                else "-",
+                "expiry": stock.expiry_date_display,
                 "qty": str(stock.quantity),
                 "reserved": str(stock.reserved),
                 "available": str(stock.available_quantity),

@@ -238,6 +238,10 @@ class Item(TimeStampedModel):
         related_name="items",
         help_text="Drug therapeutic groups used for reporting.",
     )
+    requires_expiry_date = models.BooleanField(
+        default=True,
+        help_text="Whether stock batches for this item are expected to carry an expiry date.",
+    )
     minimum_stock = models.DecimalField(
         max_digits=12,
         decimal_places=2,

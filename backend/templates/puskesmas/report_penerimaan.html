@@ -172,7 +172,7 @@
                                     <td class="text-end">{{ row.quantity|id_decimal:0 }}</td>
                                     <td class="text-end">{{ row.unit_price|idr }}</td>
                                     <td>{{ row.batch_lot }}</td>
-                                    <td class="text-center">{{ row.expiry_date|date:"d/m/Y"|default:"-" }}</td>
+                                    <td class="text-center">{% if row.expiry_date %}{{ row.expiry_date|date:"d/m/Y" }}{% else %}Tanpa kedaluwarsa{% endif %}</td>
                                     <td>{{ row.notes|default:"-" }}</td>
                                 </tr>
                                 {% endfor %}

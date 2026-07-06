@@ -132,6 +132,7 @@ Columns:
 - `program` (optional, maps to `Program.code`)
 - `therapeutic_classes` (optional, maps to one or more `TherapeuticClass.code`, separated by `|`)
 - `minimum_stock` (optional, default `0`)
+- `requires_expiry_date` (optional, default `1`; set `0` for non-expiring items)
 - `description` (optional)
 - `is_active` (optional, default `1`)
 
@@ -156,7 +157,7 @@ Expected columns for custom receiving import:
 - `item_code` (required, maps to `Item.kode_barang`)
 - `quantity` (required; must be a finite decimal greater than `0`)
 - `batch_lot` (optional; auto-generated if blank)
-- `expiry_date` (optional; defaults to `2099-12-31` when blank)
+- `expiry_date` (optional only for items with `requires_expiry_date=0`; stored as `NULL` when blank for those items)
 - `unit_price` (optional; default `0`)
 
 Import notes:

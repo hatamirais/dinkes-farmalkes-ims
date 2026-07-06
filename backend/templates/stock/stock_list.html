@@ -147,7 +147,7 @@
                             <td><span class="font-monospace">{{ stock.batch_lot }}</span></td>
                             <td>
                                 <div class="d-flex flex-wrap align-items-center gap-2">
-                                    <span>{{ stock.expiry_date|date:"d/m/Y" }}</span>
+                                    <span>{{ stock.expiry_date_display }}</span>
                                     <span class="badge {{ stock.expiry_badge_class }}">{{ stock.expiry_badge_label }}</span>
                                 </div>
                             </td>

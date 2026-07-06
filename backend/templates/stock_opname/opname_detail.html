@@ -141,9 +141,9 @@
                             <td>{{ item.stock.item.nama_barang }}</td>
                             <td>
                                 {% if item.stock.is_expired or item.stock.is_near_expiry %}
-                                <span class="badge bg-danger">{{ item.stock.expiry_date|date:"d/m/Y" }}</span>
+                                <span class="badge bg-danger">{{ item.stock.expiry_date_display }}</span>
                                 {% else %}
-                                {{ item.stock.expiry_date|date:"d/m/Y" }}
+                                {{ item.stock.expiry_date_display }}
                                 {% endif %}
                             </td>
                             <td>{{ item.stock.batch_lot }}</td>

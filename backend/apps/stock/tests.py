@@ -432,6 +432,14 @@ class StockListViewTests(TestCase):
             kategori=self.category,
             minimum_stock=Decimal('0'),
         )
+        self.item_non_expiring = Item.objects.create(
+            kode_barang='ITM-NOEXP',
+            nama_barang='Zzz Tanpa ED',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=False,
+        )
 
         self.expired_stock = Stock.objects.create(
             item=self.item_expired,
@@ -490,16 +498,26 @@ class StockListViewTests(TestCase):
             unit_price=Decimal('1000'),
             sumber_dana=self.funding_dau,
         )
+        self.non_expiring_stock = Stock.objects.create(
+            item=self.item_non_expiring,
+            location=self.location_a,
+            batch_lot='NOEXP-01',
+            expiry_date=None,
+            quantity=Decimal('4'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_other,
+        )
 
     def test_stock_list_exposes_read_only_table_and_whole_number_quantities(self):
         response = self.client.get(reverse('stock:stock_list'))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_list.html')
-        self.assertEqual(response.context['stock_stats']['total_entries'], 5)
-        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('51'))
+        self.assertEqual(response.context['stock_stats']['total_entries'], 6)
+        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('55'))
         self.assertEqual(response.context['stock_stats']['total_reserved'], Decimal('3'))
-        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('48'))
+        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('52'))
         self.assertEqual(response.context['stock_stats']['attention_count'], 5)
         self.assertEqual(response.context['quick_counts']['expired'], 2)
         self.assertEqual(response.context['quick_counts']['expiring'], 3)
@@ -514,9 +532,11 @@ class StockListViewTests(TestCase):
         self.assertEqual(stocks_by_batch['WARN-01'].source_fund_badge_class, 'text-bg-info')
         self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
         self.assertContains(response, 'sticky-top')
-        self.assertContains(response, '>51<', html=False)
-        self.assertContains(response, '>48<', html=False)
+        self.assertContains(response, '>55<', html=False)
+        self.assertContains(response, '>52<', html=False)
         self.assertContains(response, '>20<', html=False)
+        self.assertEqual(stocks_by_batch['NOEXP-01'].expiry_badge_class, 'text-bg-secondary')
+        self.assertContains(response, 'Tanpa kedaluwarsa')
         self.assertNotContains(response, 'Ada Reserved')
         self.assertNotContains(response, 'stock-bulk-bar')
         self.assertNotContains(response, 'data-row-actions')
@@ -601,7 +621,7 @@ class StockListViewTests(TestCase):
         self.assertEqual(response.context['selected_quick'], '')
         self.assertIsNone(response.context['expiry_from'])
         self.assertIsNone(response.context['expiry_to'])
-        self.assertEqual(response.context['stocks'].paginator.count, 5)
+        self.assertEqual(response.context['stocks'].paginator.count, 6)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])

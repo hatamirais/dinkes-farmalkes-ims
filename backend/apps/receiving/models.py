@@ -114,6 +114,15 @@ def increment_receiving_stock(
         "sumber_dana": sumber_dana,
     }
     updated_at = timezone.now()
+    existing_stock = (
+        Stock.objects.filter(**stock_filters)
+        .values("pk", "expiry_date")
+        .first()
+    )
+    if existing_stock and existing_stock["expiry_date"] != expiry_date:
+        raise ValueError(
+            "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda."
+        )
 
     updated = Stock.objects.filter(**stock_filters).update(
         quantity=F("quantity") + quantity,
@@ -135,6 +144,15 @@ def increment_receiving_stock(
                 receiving_ref=receiving_ref,
             )
     except IntegrityError:
+        existing_stock = (
+            Stock.objects.filter(**stock_filters)
+            .values("pk", "expiry_date")
+            .first()
+        )
+        if existing_stock and existing_stock["expiry_date"] != expiry_date:
+            raise ValueError(
+                "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda."
+            )
         updated = Stock.objects.filter(**stock_filters).update(
             quantity=F("quantity") + quantity,
             updated_at=updated_at,
@@ -339,7 +357,7 @@ class ReceivingItem(models.Model):
     )
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     batch_lot = models.CharField(max_length=100)
-    expiry_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
     unit_price = models.DecimalField(max_digits=15, decimal_places=2)
     location = models.ForeignKey(
         "items.Location",

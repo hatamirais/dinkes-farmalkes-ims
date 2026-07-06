@@ -77,7 +77,7 @@
                                 <td>{{ ri.item.nama_barang }}</td>
                                 <td>{{ ri.item.satuan.code }}</td>
                                 <td>{{ ri.batch_lot|default:"-" }}</td>
-                                <td>{{ ri.expiry_date|date:"d/m/Y"|default:"-" }}</td>
+                                <td>{% if ri.expiry_date %}{{ ri.expiry_date|date:"d/m/Y" }}{% else %}Tanpa kedaluwarsa{% endif %}</td>
                                 <td class="text-end">{{ ri.quantity }}</td>
                                 <td class="text-end">{{ ri.unit_price|floatformat:0 }}</td>
                                 <td class="text-end fw-semibold">{{ ri.total_price|floatformat:0 }}</td>

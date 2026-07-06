@@ -404,17 +404,19 @@ class ReceivingAdmin(admin.ModelAdmin):
                 if not batch_lot:
                     batch_lot = f"SALDO-{row_num:04d}"
 
-                # Default expiry_date if empty
+                # Blank expiry is allowed only for items that do not require it.
                 if expiry_date_str:
                     expiry_date = self._parse_date(
                         expiry_date_str,
                         row_num=row_num,
                         field_name="expiry_date",
                     )
+                elif item.requires_expiry_date:
+                    raise ValueError(
+                        f"Baris {row_num}: expiry_date wajib diisi untuk item '{item.kode_barang}'."
+                    )
                 else:
-                    from datetime import date
-
-                    expiry_date = date(2099, 12, 31)
+                    expiry_date = None
 
                 # Row-level overrides (location/sumber_dana can vary per row)
                 row_sumber_dana_code = row.get("sumber_dana_code", "").strip()

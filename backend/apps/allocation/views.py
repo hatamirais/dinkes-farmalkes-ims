@@ -35,7 +35,7 @@ def _build_allocation_stock_catalog():
     available_stocks = (
         Stock.objects.select_related("item")
         .filter(quantity__gt=F("reserved"))
-        .order_by("item_id", "expiry_date", "batch_lot")
+        .order_by(F("expiry_date").asc(nulls_last=True), "item_id", "batch_lot")
     )
     return [
         {
@@ -43,7 +43,7 @@ def _build_allocation_stock_catalog():
             "itemId": stock.item_id,
             "label": (
                 f"{stock.batch_lot} | Tersedia: {stock.available_quantity}"
-                f" | Exp: {stock.expiry_date}"
+                f" | Exp: {stock.expiry_date_display}"
             ),
             "availableQty": float(stock.available_quantity),
         }

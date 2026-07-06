@@ -21,7 +21,7 @@ class Stock(TimeStampedModel):
         related_name="stock_entries",
     )
     batch_lot = models.CharField(max_length=100)
-    expiry_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
     quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     reserved = models.DecimalField(
         max_digits=12,
@@ -82,13 +82,23 @@ class Stock(TimeStampedModel):
         return self.quantity * self.unit_price
 
     @property
+    def expiry_date_display(self):
+        if self.expiry_date:
+            return self.expiry_date.strftime("%d/%m/%Y")
+        return "Tanpa kedaluwarsa"
+
+    @property
     def is_expired(self):
         """Whether this stock batch has expired."""
+        if self.expiry_date is None:
+            return False
         return self.expiry_date <= timezone.now().date()
 
     @property
     def is_near_expiry(self):
         """Whether this stock batch expires within 90 days."""
+        if self.expiry_date is None:
+            return False
         return (
             not self.is_expired
             and self.expiry_date <= timezone.now().date() + timedelta(days=90)

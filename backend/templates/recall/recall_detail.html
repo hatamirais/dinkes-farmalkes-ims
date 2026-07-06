@@ -131,7 +131,7 @@
                                 <td><code>{{ ri.item.kode_barang }}</code></td>
                                 <td>{{ ri.item.nama_barang }}</td>
                                 <td>{{ ri.stock.batch_lot }}</td>
-                                <td>{{ ri.stock.expiry_date|date:"d/m/Y" }}</td>
+                                <td>{{ ri.stock.expiry_date_display }}</td>
                                 <td>{{ ri.stock.location.name }}</td>
                                 <td>{{ ri.stock.sumber_dana.name|default:"-" }}</td>
                                 <td class="text-end fw-semibold">{{ ri.quantity }}</td>

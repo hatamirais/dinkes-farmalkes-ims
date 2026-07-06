@@ -170,7 +170,7 @@ def expired_alerts(request):
             "item", "item__kategori", "location", "sumber_dana"
         )
         .filter(quantity__gt=F("reserved"))
-        .filter(expiry_date__lte=threshold)
+        .filter(expiry_date__isnull=False, expiry_date__lte=threshold)
         .annotate(
             pending_quantity=Coalesce(
                 Sum(

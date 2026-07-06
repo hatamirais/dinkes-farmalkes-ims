@@ -89,8 +89,8 @@ class StockAdmin(ImportGuideMixin, ImportExportModelAdmin):
             {"name": "batch_lot", "required": True, "description": "Nomor batch/lot"},
             {
                 "name": "expiry_date",
-                "required": True,
-                "description": "Format: DD/MM/YYYY",
+                "required": False,
+                "description": "Format: DD/MM/YYYY. Kosongkan untuk batch tanpa kedaluwarsa.",
             },
             {
                 "name": "quantity",
