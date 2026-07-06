@@ -34,6 +34,74 @@ from apps.users.access import ensure_default_module_access
 from apps.users.models import User
 
 
+class ReceivingItemModelExpiryValidationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="receiving-model-admin",
+            password="secret12345",
+        )
+        self.unit = Unit.objects.create(code="BOT", name="Bottle")
+        self.category = Category.objects.create(code="ALK", name="Alkes", sort_order=1)
+        self.location = Location.objects.create(code="RCV-MODEL", name="Gudang Receiving Model")
+        self.funding = FundingSource.objects.create(code="BOK", name="BOK")
+        self.receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 1, 15),
+            supplier=None,
+            sumber_dana=self.funding,
+            status=Receiving.Status.DRAFT,
+            created_by=self.user,
+        )
+
+    def test_full_clean_rejects_blank_expiry_for_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang="ITM-RCV-MODEL-EXP",
+            nama_barang="Receiving Model Expiring Item",
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal("0"),
+            requires_expiry_date=True,
+        )
+        receiving_item = ReceivingItem(
+            receiving=self.receiving,
+            item=item,
+            quantity=Decimal("5"),
+            batch_lot="RCV-MODEL-EXP-01",
+            expiry_date=None,
+            unit_price=Decimal("1200"),
+            location=self.location,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            receiving_item.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["expiry_date"],
+            ["Tanggal kedaluwarsa wajib diisi untuk item ini."],
+        )
+
+    def test_full_clean_allows_blank_expiry_for_non_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang="ITM-RCV-MODEL-NOEXP",
+            nama_barang="Receiving Model Non Expiring Item",
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal("0"),
+            requires_expiry_date=False,
+        )
+        receiving_item = ReceivingItem(
+            receiving=self.receiving,
+            item=item,
+            quantity=Decimal("6"),
+            batch_lot="RCV-MODEL-NOEXP-01",
+            expiry_date=None,
+            unit_price=Decimal("800"),
+            location=self.location,
+        )
+
+        receiving_item.full_clean()
+
+
 class ReceivingCSVImportTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(

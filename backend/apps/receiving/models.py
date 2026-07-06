@@ -382,6 +382,19 @@ class ReceivingItem(models.Model):
     def __str__(self):
         return f"{self.item} × {self.quantity}"
 
+    def clean(self):
+        errors = {}
+
+        if (
+            self.item_id
+            and getattr(self.item, "requires_expiry_date", True)
+            and self.expiry_date is None
+        ):
+            errors["expiry_date"] = "Tanggal kedaluwarsa wajib diisi untuk item ini."
+
+        if errors:
+            raise ValidationError(errors)
+
     @property
     def total_price(self):
         return self.quantity * self.unit_price
