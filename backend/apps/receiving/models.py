@@ -114,8 +114,21 @@ def increment_receiving_stock(
         "sumber_dana": sumber_dana,
     }
     updated_at = timezone.now()
+    existing_stock = (
+        Stock.objects.filter(**stock_filters)
+        .values("pk", "expiry_date")
+        .first()
+    )
+    if existing_stock and existing_stock["expiry_date"] != expiry_date:
+        raise ValueError(
+            "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda."
+        )
 
-    updated = Stock.objects.filter(**stock_filters).update(
+    update_filters = {
+        **stock_filters,
+        "expiry_date": expiry_date,
+    }
+    updated = Stock.objects.filter(**update_filters).update(
         quantity=F("quantity") + quantity,
         updated_at=updated_at,
     )
@@ -135,7 +148,16 @@ def increment_receiving_stock(
                 receiving_ref=receiving_ref,
             )
     except IntegrityError:
-        updated = Stock.objects.filter(**stock_filters).update(
+        existing_stock = (
+            Stock.objects.filter(**stock_filters)
+            .values("pk", "expiry_date")
+            .first()
+        )
+        if existing_stock and existing_stock["expiry_date"] != expiry_date:
+            raise ValueError(
+                "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda."
+            )
+        updated = Stock.objects.filter(**update_filters).update(
             quantity=F("quantity") + quantity,
             updated_at=updated_at,
         )
@@ -339,7 +361,7 @@ class ReceivingItem(models.Model):
     )
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     batch_lot = models.CharField(max_length=100)
-    expiry_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
     unit_price = models.DecimalField(max_digits=15, decimal_places=2)
     location = models.ForeignKey(
         "items.Location",
@@ -363,6 +385,19 @@ class ReceivingItem(models.Model):
 
     def __str__(self):
         return f"{self.item} × {self.quantity}"
+
+    def clean(self):
+        errors = {}
+
+        if (
+            self.item_id
+            and getattr(self.item, "requires_expiry_date", True)
+            and self.expiry_date is None
+        ):
+            errors["expiry_date"] = "Tanggal kedaluwarsa wajib diisi untuk item ini."
+
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def total_price(self):

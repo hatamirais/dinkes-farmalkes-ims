@@ -37,6 +37,7 @@ class ItemForm(forms.ModelForm):
             "is_essential",
             "program",
             "therapeutic_classes",
+            "requires_expiry_date",
             "minimum_stock",
             "description",
         ]
@@ -48,6 +49,7 @@ class ItemForm(forms.ModelForm):
             "is_essential": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "program": forms.Select(attrs={"class": "form-select"}),
             "therapeutic_classes": forms.SelectMultiple(attrs={"class": "form-select"}),
+            "requires_expiry_date": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "minimum_stock": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
@@ -62,6 +64,10 @@ class ItemForm(forms.ModelForm):
         self.fields["therapeutic_classes"].label = "Terapi Obat"
         self.fields["therapeutic_classes"].help_text = (
             "Pilih satu atau lebih kelompok terapi obat untuk kebutuhan pelaporan."
+        )
+        self.fields["requires_expiry_date"].label = "Memerlukan tanggal kedaluwarsa"
+        self.fields["requires_expiry_date"].help_text = (
+            "Matikan hanya untuk barang yang secara operasional tidak memiliki tanggal kedaluwarsa."
         )
         self.fields["satuan"].empty_label = None
         self.fields["kategori"].empty_label = None

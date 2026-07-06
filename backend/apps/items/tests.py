@@ -79,6 +79,8 @@ class ItemTherapeuticClassTests(TestCase):
     def test_item_form_exposes_therapeutic_classes_field(self):
         form = ItemForm()
         self.assertIn("therapeutic_classes", form.fields)
+        self.assertIn("requires_expiry_date", form.fields)
+        self.assertTrue(form.fields["requires_expiry_date"].initial)
 
     def test_item_can_store_multiple_therapeutic_classes(self):
         item = Item.objects.create(

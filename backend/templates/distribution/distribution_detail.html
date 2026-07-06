@@ -465,7 +465,7 @@
                 <td>{{ row.line.item.nama_barang }}</td>
                 <td class="text-end">{{ row.quantity|id_decimal:2 }}</td>
                 <td class="text-center">{{ row.line.stock.batch_lot|default:"-" }}</td>
-                <td class="text-center">{% if row.line.stock and row.line.stock.expiry_date %}{{ row.line.stock.expiry_date|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                <td class="text-center">{% if row.line.stock %}{{ row.line.stock.expiry_date_display }}{% else %}-{% endif %}</td>
                 <td class="text-end">{% if row.unit_price is not None %}{{ row.unit_price|id_decimal:2 }}{% else %}-{% endif %}</td>
                 <td class="text-end">{% if row.line_total is not None %}{{ row.line_total|id_decimal:2 }}{% else %}-{% endif %}</td>
             </tr>

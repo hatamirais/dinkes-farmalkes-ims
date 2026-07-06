@@ -2,6 +2,9 @@ from decimal import Decimal
 from datetime import timedelta
 from datetime import date
 from unittest.mock import patch
+import importlib
+
+from tablib import Dataset
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
@@ -19,6 +22,8 @@ from apps.stock.admin import StockAdmin, StockResource
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, StockTransfer, StockTransferItem, Transaction
 from apps.core.models import SystemSettings
+from apps.distribution.models import Distribution, DistributionItem
+from apps.puskesmas.models import PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
 
 
 class StockAdminCsvExportSecurityTest(TestCase):
@@ -56,6 +61,305 @@ class StockAdminCsvExportSecurityTest(TestCase):
 
         self.assertIn("'@BATCH-01", csv_output)
         self.assertIn(self.item.kode_barang, csv_output)
+
+    def test_stock_resource_import_rejects_blank_expiry_for_expiring_item(self):
+        dataset = Dataset(
+            headers=[
+                'item_code',
+                'location_code',
+                'batch_lot',
+                'expiry_date',
+                'quantity',
+                'reserved',
+                'unit_price',
+                'sumber_dana_code',
+            ]
+        )
+        dataset.append([
+            self.item.kode_barang,
+            self.location.code,
+            'BATCH-EXP-01',
+            '',
+            '10',
+            '0',
+            '1000',
+            self.funding.code,
+        ])
+
+        result = StockResource().import_data(dataset, dry_run=True, raise_errors=False)
+
+        self.assertEqual(len(result.invalid_rows), 1)
+        self.assertIn('Tanggal kedaluwarsa wajib diisi untuk item ini.', str(result.invalid_rows[0].error))
+
+    def test_stock_resource_import_allows_blank_expiry_for_non_expiring_item(self):
+        self.item.requires_expiry_date = False
+        self.item.save(update_fields=['requires_expiry_date', 'updated_at'])
+        dataset = Dataset(
+            headers=[
+                'item_code',
+                'location_code',
+                'batch_lot',
+                'expiry_date',
+                'quantity',
+                'reserved',
+                'unit_price',
+                'sumber_dana_code',
+            ]
+        )
+        dataset.append([
+            self.item.kode_barang,
+            self.location.code,
+            'BATCH-NOEXP-01',
+            '',
+            '12',
+            '0',
+            '500',
+            self.funding.code,
+        ])
+
+        result = StockResource().import_data(dataset, dry_run=True, raise_errors=False)
+
+        self.assertFalse(result.has_errors())
+        self.assertFalse(result.has_validation_errors())
+        self.assertEqual(len(result.invalid_rows), 0)
+
+
+class StockModelExpiryValidationTests(TestCase):
+    def setUp(self):
+        self.unit = Unit.objects.create(code='BTL', name='Bottle')
+        self.category = Category.objects.create(code='MAT', name='Material', sort_order=1)
+        self.location = Location.objects.create(code='MODEL', name='Gudang Model')
+        self.funding = FundingSource.objects.create(code='DAK', name='Dana Alokasi Khusus')
+
+    def test_full_clean_rejects_blank_expiry_for_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang='ITM-MODEL-EXP',
+            nama_barang='Model Expiring Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=True,
+        )
+        stock = Stock(
+            item=item,
+            location=self.location,
+            batch_lot='MODEL-EXP-01',
+            expiry_date=None,
+            quantity=Decimal('3'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1500'),
+            sumber_dana=self.funding,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            stock.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict['expiry_date'],
+            ['Tanggal kedaluwarsa wajib diisi untuk item ini.'],
+        )
+
+    def test_full_clean_allows_blank_expiry_for_non_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang='ITM-MODEL-NOEXP',
+            nama_barang='Model Non Expiring Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=False,
+        )
+        stock = Stock(
+            item=item,
+            location=self.location,
+            batch_lot='MODEL-NOEXP-01',
+            expiry_date=None,
+            quantity=Decimal('4'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('900'),
+            sumber_dana=self.funding,
+        )
+
+        stock.full_clean()
+
+
+class LegacyNoExpiryItemBackfillMigrationTests(TestCase):
+    def setUp(self):
+        self.unit = Unit.objects.create(code='PCS', name='Pieces')
+        self.category = Category.objects.create(code='ALKES', name='Alkes', sort_order=1)
+        self.location = Location.objects.create(code='LEGACY', name='Gudang Legacy')
+        self.funding = FundingSource.objects.create(code='BTT', name='Belanja Tidak Terduga')
+
+    def test_backfill_marks_items_with_null_expiry_history_as_non_expiring(self):
+        migration_module = importlib.import_module(
+            'apps.items.migrations.0009_backfill_non_expiring_items'
+        )
+
+        stock_item = Item.objects.create(
+            kode_barang='ITM-LEGACY-STK',
+            nama_barang='Legacy Stock Null Expiry',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        receiving_item = Item.objects.create(
+            kode_barang='ITM-LEGACY-RCV',
+            nama_barang='Legacy Receiving Null Expiry',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        unaffected_item = Item.objects.create(
+            kode_barang='ITM-LEGACY-KEEP',
+            nama_barang='Legacy Expiring Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+
+        Stock.objects.create(
+            item=stock_item,
+            location=self.location,
+            batch_lot='LEG-STK-01',
+            expiry_date=None,
+            quantity=Decimal('5'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        from apps.receiving.models import Receiving, ReceivingItem
+
+        receiving = Receiving.objects.create(
+            receiving_date=date(2026, 1, 10),
+            receiving_type=Receiving.ReceivingType.GRANT,
+            sumber_dana=self.funding,
+            created_by=User.objects.create_superuser(username='migration-backfill-admin', password='secret12345'),
+        )
+        ReceivingItem.objects.create(
+            receiving=receiving,
+            item=receiving_item,
+            batch_lot='LEG-RCV-01',
+            expiry_date=None,
+            quantity=Decimal('7'),
+            unit_price=Decimal('1500'),
+        )
+        Stock.objects.create(
+            item=unaffected_item,
+            location=self.location,
+            batch_lot='LEG-KEEP-01',
+            expiry_date=date(2027, 1, 1),
+            quantity=Decimal('9'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('2000'),
+            sumber_dana=self.funding,
+        )
+
+        class MigrationApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                mapping = {
+                    ('items', 'Item'): Item,
+                    ('stock', 'Stock'): Stock,
+                    ('receiving', 'ReceivingItem'): ReceivingItem,
+                }
+                return mapping[(app_label, model_name)]
+
+        migration_module.backfill_non_expiring_items(MigrationApps(), None)
+
+        stock_item.refresh_from_db()
+        receiving_item.refresh_from_db()
+        unaffected_item.refresh_from_db()
+
+        self.assertFalse(stock_item.requires_expiry_date)
+        self.assertFalse(receiving_item.requires_expiry_date)
+        self.assertTrue(unaffected_item.requires_expiry_date)
+
+class DownstreamNoExpirySentinelBackfillMigrationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username='downstream-backfill-admin',
+            password='secret12345',
+        )
+        self.unit = Unit.objects.create(code='SET', name='Set')
+        self.category = Category.objects.create(code='SUP', name='Supply', sort_order=1)
+        self.facility = Facility.objects.create(
+            code='PKM-DOWN',
+            name='Puskesmas Downstream',
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        self.location = Location.objects.create(code='DOWN', name='Gudang Downstream')
+        self.funding = FundingSource.objects.create(code='DAU2', name='Dana Alokasi Umum 2')
+        self.item = Item.objects.create(
+            kode_barang='ITM-DOWN-001',
+            nama_barang='Downstream Sentinel Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=False,
+        )
+
+    def test_backfill_clears_distribution_and_receipt_confirmation_sentinels(self):
+        import importlib
+        distribution_migration = importlib.import_module(
+            'apps.distribution.migrations.0008_backfill_no_expiry_sentinel'
+        )
+        puskesmas_migration = importlib.import_module(
+            'apps.puskesmas.migrations.0009_backfill_no_expiry_sentinel'
+        )
+
+        distribution = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date=date(2026, 2, 10),
+            facility=self.facility,
+            status=Distribution.Status.DISTRIBUTED,
+            created_by=self.user,
+            distributed_date=date(2026, 2, 11),
+        )
+        distribution_item = DistributionItem.objects.create(
+            distribution=distribution,
+            item=self.item,
+            quantity_requested=Decimal('5'),
+            quantity_approved=Decimal('5'),
+            issued_batch_lot='DOWN-01',
+            issued_expiry_date=date(2099, 12, 31),
+            issued_unit_price=Decimal('1000'),
+            issued_sumber_dana=self.funding,
+        )
+        receipt = PuskesmasReceiptConfirmation.objects.create(
+            facility=self.facility,
+            distribution=distribution,
+            received_date=date(2026, 2, 12),
+            status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+            created_by=self.user,
+        )
+        receipt_item = PuskesmasReceiptConfirmationItem.objects.create(
+            sbbk=receipt,
+            distribution_item=distribution_item,
+            item=self.item,
+            quantity=Decimal('5'),
+            unit_price=Decimal('1000'),
+            batch_lot='DOWN-01',
+            expiry_date=date(2099, 12, 31),
+            notes='legacy sentinel',
+        )
+
+        class MigrationApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                mapping = {
+                    ('distribution', 'DistributionItem'): DistributionItem,
+                    ('puskesmas', 'PuskesmasReceiptConfirmationItem'): PuskesmasReceiptConfirmationItem,
+                }
+                return mapping[(app_label, model_name)]
+
+        distribution_migration.backfill_no_expiry_sentinel(MigrationApps(), None)
+        puskesmas_migration.backfill_no_expiry_sentinel(MigrationApps(), None)
+
+        distribution_item.refresh_from_db()
+        receipt_item.refresh_from_db()
+
+        self.assertIsNone(distribution_item.issued_expiry_date)
+        self.assertIsNone(receipt_item.expiry_date)
+
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockCardTest(TestCase):
@@ -212,6 +516,77 @@ class StockCardTest(TestCase):
         self.assertEqual(card['total_out'], Decimal('20'))
         self.assertEqual(transactions[-1].reference_type, Transaction.ReferenceType.TRANSFER)
         self.assertEqual(transactions[-1].running_balance, Decimal('75'))
+
+    def test_stock_card_keeps_expiry_lookup_scoped_by_location_and_funding(self):
+        other_location = Location.objects.create(code='SATELIT', name='Gudang Satelit')
+        other_funding = FundingSource.objects.create(code='BOS', name='BOS')
+        Stock.objects.create(
+            item=self.item,
+            location=self.location,
+            batch_lot='SHARED-01',
+            expiry_date=date(2031, 5, 1),
+            quantity=Decimal('10'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        Stock.objects.create(
+            item=self.item,
+            location=other_location,
+            batch_lot='SHARED-01',
+            expiry_date=None,
+            quantity=Decimal('8'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=other_funding,
+        )
+
+        dated_tx = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=self.location,
+            batch_lot='SHARED-01',
+            quantity=Decimal('10'),
+            sumber_dana=self.funding,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=2,
+            user=self.user,
+        )
+        null_tx = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=other_location,
+            batch_lot='SHARED-01',
+            quantity=Decimal('8'),
+            sumber_dana=other_funding,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=3,
+            user=self.user,
+        )
+        dated_tx.created_at = timezone.now() - timedelta(hours=2)
+        dated_tx.save(update_fields=['created_at'])
+        null_tx.created_at = timezone.now() - timedelta(hours=1)
+        null_tx.save(update_fields=['created_at'])
+
+        response = self.client.get(reverse('stock:stock_card_detail', args=[self.item.id]))
+
+        self.assertEqual(response.status_code, 200)
+        cards = response.context['funding_source_cards']
+        txs = [tx for card in cards for tx in card['transactions'] if tx.batch_lot == 'SHARED-01']
+        self.assertEqual(len(txs), 2)
+
+        tx_by_scope = {
+            (tx.location_id, tx.sumber_dana_id): tx
+            for tx in txs
+        }
+        self.assertEqual(
+            tx_by_scope[(self.location.id, self.funding.id)].expiry_display,
+            '01/05/2031',
+        )
+        self.assertEqual(
+            tx_by_scope[(other_location.id, other_funding.id)].expiry_display,
+            'Tanpa kedaluwarsa',
+        )
 
     def test_stock_card_transfer_transactions_display_computed_fields(self):
         """Verify transfer transactions have computed display fields for UI rendering."""
@@ -432,6 +807,14 @@ class StockListViewTests(TestCase):
             kategori=self.category,
             minimum_stock=Decimal('0'),
         )
+        self.item_non_expiring = Item.objects.create(
+            kode_barang='ITM-NOEXP',
+            nama_barang='Zzz Tanpa ED',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=False,
+        )
 
         self.expired_stock = Stock.objects.create(
             item=self.item_expired,
@@ -490,16 +873,26 @@ class StockListViewTests(TestCase):
             unit_price=Decimal('1000'),
             sumber_dana=self.funding_dau,
         )
+        self.non_expiring_stock = Stock.objects.create(
+            item=self.item_non_expiring,
+            location=self.location_a,
+            batch_lot='NOEXP-01',
+            expiry_date=None,
+            quantity=Decimal('4'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding_other,
+        )
 
     def test_stock_list_exposes_read_only_table_and_whole_number_quantities(self):
         response = self.client.get(reverse('stock:stock_list'))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_list.html')
-        self.assertEqual(response.context['stock_stats']['total_entries'], 5)
-        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('51'))
+        self.assertEqual(response.context['stock_stats']['total_entries'], 6)
+        self.assertEqual(response.context['stock_stats']['total_quantity'], Decimal('55'))
         self.assertEqual(response.context['stock_stats']['total_reserved'], Decimal('3'))
-        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('48'))
+        self.assertEqual(response.context['stock_stats']['total_available'], Decimal('52'))
         self.assertEqual(response.context['stock_stats']['attention_count'], 5)
         self.assertEqual(response.context['quick_counts']['expired'], 2)
         self.assertEqual(response.context['quick_counts']['expiring'], 3)
@@ -514,9 +907,11 @@ class StockListViewTests(TestCase):
         self.assertEqual(stocks_by_batch['WARN-01'].source_fund_badge_class, 'text-bg-info')
         self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
         self.assertContains(response, 'sticky-top')
-        self.assertContains(response, '>51<', html=False)
-        self.assertContains(response, '>48<', html=False)
+        self.assertContains(response, '>55<', html=False)
+        self.assertContains(response, '>52<', html=False)
         self.assertContains(response, '>20<', html=False)
+        self.assertEqual(stocks_by_batch['NOEXP-01'].expiry_badge_class, 'text-bg-secondary')
+        self.assertContains(response, 'Tanpa kedaluwarsa')
         self.assertNotContains(response, 'Ada Reserved')
         self.assertNotContains(response, 'stock-bulk-bar')
         self.assertNotContains(response, 'data-row-actions')
@@ -601,7 +996,7 @@ class StockListViewTests(TestCase):
         self.assertEqual(response.context['selected_quick'], '')
         self.assertIsNone(response.context['expiry_from'])
         self.assertIsNone(response.context['expiry_to'])
-        self.assertEqual(response.context['stocks'].paginator.count, 5)
+        self.assertEqual(response.context['stocks'].paginator.count, 6)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])

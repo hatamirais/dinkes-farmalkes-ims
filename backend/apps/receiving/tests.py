@@ -9,7 +9,7 @@ from unittest.mock import patch
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import IntegrityError, connections
+from django.db import IntegrityError, connections, transaction
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
@@ -32,6 +32,74 @@ from apps.receiving.models import (
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import User
+
+
+class ReceivingItemModelExpiryValidationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="receiving-model-admin",
+            password="secret12345",
+        )
+        self.unit = Unit.objects.create(code="BOT", name="Bottle")
+        self.category = Category.objects.create(code="ALK", name="Alkes", sort_order=1)
+        self.location = Location.objects.create(code="RCV-MODEL", name="Gudang Receiving Model")
+        self.funding = FundingSource.objects.create(code="BOK", name="BOK")
+        self.receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 1, 15),
+            supplier=None,
+            sumber_dana=self.funding,
+            status=Receiving.Status.DRAFT,
+            created_by=self.user,
+        )
+
+    def test_full_clean_rejects_blank_expiry_for_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang="ITM-RCV-MODEL-EXP",
+            nama_barang="Receiving Model Expiring Item",
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal("0"),
+            requires_expiry_date=True,
+        )
+        receiving_item = ReceivingItem(
+            receiving=self.receiving,
+            item=item,
+            quantity=Decimal("5"),
+            batch_lot="RCV-MODEL-EXP-01",
+            expiry_date=None,
+            unit_price=Decimal("1200"),
+            location=self.location,
+        )
+
+        with self.assertRaises(ValidationError) as exc:
+            receiving_item.full_clean()
+
+        self.assertEqual(
+            exc.exception.message_dict["expiry_date"],
+            ["Tanggal kedaluwarsa wajib diisi untuk item ini."],
+        )
+
+    def test_full_clean_allows_blank_expiry_for_non_expiring_item(self):
+        item = Item.objects.create(
+            kode_barang="ITM-RCV-MODEL-NOEXP",
+            nama_barang="Receiving Model Non Expiring Item",
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal("0"),
+            requires_expiry_date=False,
+        )
+        receiving_item = ReceivingItem(
+            receiving=self.receiving,
+            item=item,
+            quantity=Decimal("6"),
+            batch_lot="RCV-MODEL-NOEXP-01",
+            expiry_date=None,
+            unit_price=Decimal("800"),
+            location=self.location,
+        )
+
+        receiving_item.full_clean()
 
 
 class ReceivingCSVImportTest(TestCase):
@@ -113,6 +181,8 @@ class ReceivingCSVImportTest(TestCase):
         self.assertIn("csv_file", form.errors)
 
     def test_process_csv_applies_defaults_for_empty_optional_fields(self):
+        self.item.requires_expiry_date = False
+        self.item.save(update_fields=["requires_expiry_date", "updated_at"])
         csv_content = (
             "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
@@ -130,11 +200,25 @@ class ReceivingCSVImportTest(TestCase):
         self.assertEqual(receiving_item.quantity, Decimal("10"))
         self.assertEqual(receiving_item.unit_price, Decimal("0"))
         self.assertEqual(receiving_item.batch_lot, "SALDO-0002")
-        self.assertEqual(receiving_item.expiry_date, date(2099, 12, 31))
+        self.assertIsNone(receiving_item.expiry_date)
 
         stock = Stock.objects.get()
         self.assertEqual(stock.quantity, Decimal("10"))
         self.assertEqual(stock.batch_lot, "SALDO-0002")
+        self.assertIsNone(stock.expiry_date)
+
+    def test_process_csv_rejects_blank_expiry_for_items_that_require_it(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,,,\n"
+        )
+
+        with self.assertRaisesMessage(
+            ValueError,
+            "expiry_date wajib diisi untuk item 'ITM-TEST-0001'",
+        ):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
 
     def test_process_csv_rejects_blank_quantity(self):
         csv_content = (
@@ -387,6 +471,111 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(trx.reference_type, Transaction.ReferenceType.RECEIVING)
         self.assertEqual(trx.transaction_type, Transaction.TransactionType.IN)
         self.assertEqual(trx.quantity, Decimal("10"))
+
+    def test_regular_receiving_create_allows_blank_expiry_for_non_expiring_item(self):
+        self.item.requires_expiry_date = False
+        self.item.save(update_fields=["requires_expiry_date", "updated_at"])
+
+        response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": Receiving.ReceivingType.GRANT,
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "10",
+                "items-0-batch_lot": "BATCH-NO-EXP",
+                "items-0-expiry_date": "",
+                "items-0-unit_price": "1500",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        receiving_item = ReceivingItem.objects.get(batch_lot="BATCH-NO-EXP")
+        self.assertIsNone(receiving_item.expiry_date)
+        stock = Stock.objects.get(item=self.item, batch_lot="BATCH-NO-EXP")
+        self.assertIsNone(stock.expiry_date)
+
+    def test_regular_receiving_create_requires_expiry_for_expiring_item(self):
+        response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": Receiving.ReceivingType.GRANT,
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "10",
+                "items-0-batch_lot": "BATCH-001",
+                "items-0-expiry_date": "",
+                "items-0-unit_price": "1500",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tanggal kedaluwarsa wajib diisi untuk barang ini.")
+        self.assertEqual(Receiving.objects.count(), 0)
+
+    def test_regular_receiving_create_rejects_same_batch_with_different_expiry(self):
+        Stock.objects.create(
+            item=self.item,
+            location=self.location,
+            batch_lot="BATCH-DUP",
+            expiry_date=date(2030, 1, 1),
+            quantity=Decimal("5"),
+            reserved=Decimal("0"),
+            unit_price=Decimal("1500"),
+            sumber_dana=self.funding,
+        )
+
+        response = self.client.post(
+            reverse("receiving:receiving_create"),
+            {
+                "document_number": "",
+                "receiving_type": Receiving.ReceivingType.GRANT,
+                "receiving_date": "2026-03-16",
+                "supplier": "",
+                "sumber_dana": self.funding.pk,
+                "notes": "",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-quantity": "10",
+                "items-0-batch_lot": "BATCH-DUP",
+                "items-0-expiry_date": "2030-02-01",
+                "items-0-unit_price": "1500",
+                "items-0-location": self.location.pk,
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda.",
+        )
+        stock = Stock.objects.get(item=self.item, batch_lot="BATCH-DUP")
+        self.assertEqual(stock.quantity, Decimal("5"))
+        self.assertEqual(Receiving.objects.count(), 0)
 
     def test_regular_receiving_create_rejects_non_finite_quantity(self):
         response = self.client.post(
@@ -1757,6 +1946,59 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
             ).count(),
             2,
         )
+
+    def test_increment_receiving_stock_detects_expiry_mismatch_after_create_race(self):
+        from apps.receiving import models as receiving_models
+
+        class _PreReadQuerySet:
+            def values(self, *args, **kwargs):
+                return self
+
+            def first(self):
+                return None
+
+        class _UpdateQuerySet:
+            def update(self, **kwargs):
+                return 0
+
+        class _PostReadQuerySet:
+            def values(self, *args, **kwargs):
+                return self
+
+            def first(self):
+                return {"pk": 99, "expiry_date": date(2031, 1, 1)}
+
+        with (
+            patch(
+                'apps.stock.models.Stock.objects.filter',
+                side_effect=[
+                    _PreReadQuerySet(),
+                    _UpdateQuerySet(),
+                    _PostReadQuerySet(),
+                ],
+            ) as mock_filter,
+            patch(
+                'apps.receiving.models._create_receiving_stock_row',
+                side_effect=IntegrityError('duplicate key value violates unique constraint'),
+            ),
+            transaction.atomic(),
+        ):
+            with self.assertRaises(ValueError) as exc:
+                receiving_models.increment_receiving_stock(
+                    item=self.item,
+                    location=self.location,
+                    batch_lot=self.batch_lot,
+                    sumber_dana=self.funding,
+                    expiry_date=date(2030, 1, 1),
+                    quantity=Decimal('3'),
+                    unit_price=Decimal('1500'),
+                    receiving_ref=None,
+                )
+
+        self.assertIn('tanggal kedaluwarsa berbeda', str(exc.exception))
+        self.assertEqual(mock_filter.call_count, 3)
+        _, second_call_kwargs = mock_filter.call_args_list[1]
+        self.assertEqual(second_call_kwargs['expiry_date'], date(2030, 1, 1))
 
     def test_planned_receiving_concurrent_posts_accumulate_existing_stock(self):
         from apps.receiving import models as receiving_models

@@ -110,7 +110,7 @@
                                     </td>
                                     <td class="text-end fw-semibold">{{ item_obj.quantity|id_decimal:2 }}</td>
                                     <td>{{ item_obj.batch_lot|default:"-" }}</td>
-                                    <td>{{ item_obj.expiry_date|date:"d/m/Y"|default:"-" }}</td>
+                                    <td>{% if item_obj.expiry_date %}{{ item_obj.expiry_date|date:"d/m/Y" }}{% else %}Tanpa kedaluwarsa{% endif %}</td>
                                     <td class="text-end">{{ item_obj.unit_price|idr }}</td>
                                     <td class="text-end">{{ item_obj.total_price|idr }}</td>
                                     <td class="text-muted small">{{ item_obj.notes|default:"–" }}</td>

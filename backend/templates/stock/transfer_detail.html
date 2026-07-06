@@ -78,7 +78,7 @@
                                 <td><code>{{ line.item.kode_barang }}</code></td>
                                 <td>{{ line.item.nama_barang }}</td>
                                 <td>{{ line.stock.batch_lot }}</td>
-                                <td>{{ line.stock.expiry_date|date:"d/m/Y" }}</td>
+                                <td>{{ line.stock.expiry_date_display }}</td>
                                 <td class="text-end fw-semibold">{{ line.quantity }}</td>
                                 <td class="text-muted small">{{ line.notes|default:"-" }}</td>
                             </tr>

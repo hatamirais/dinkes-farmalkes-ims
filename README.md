@@ -21,14 +21,14 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 ## Kapabilitas Utama
 
-- Pengelolaan master barang dan data referensi seperti satuan, kategori, program, terapi obat, sumber dana, lokasi, supplier, dan fasilitas. Barang dapat ditandai sebagai program item `[P]` atau esensial `[E]`, serta dapat dipetakan ke satu atau lebih kelompok terapi obat untuk kebutuhan pelaporan.
-- Pencatatan stok per batch dengan pendekatan FEFO agar distribusi lebih terkendali dan masa kedaluwarsa lebih mudah dipantau.
+- Pengelolaan master barang dan data referensi seperti satuan, kategori, program, terapi obat, sumber dana, lokasi, supplier, dan fasilitas. Barang dapat ditandai sebagai program item `[P]` atau esensial `[E]`, dapat dipetakan ke satu atau lebih kelompok terapi obat untuk kebutuhan pelaporan, dan kini juga menyimpan penanda apakah batch stoknya wajib memiliki tanggal kedaluwarsa.
+- Pencatatan stok per batch dengan pendekatan FEFO untuk batch bertanggal kedaluwarsa, sambil tetap mendukung batch tanpa kedaluwarsa yang disimpan sebagai `NULL` dan ditaruh setelah batch bertanggal pada pemilihan stok.
 - Alur kerja end-to-end untuk penerimaan, distribusi, recall, barang kedaluwarsa, transfer stok, dan stock opname.
 - Dukungan tipe penerimaan bawaan dan tipe kustom melalui `ReceivingTypeOption`, termasuk quick-create dari form penerimaan.
 - Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, dengan pembuatan dokumen yang terkunci berurutan dari Januari pada tahun server aktif. Januari diperlakukan sebagai bootstrap tahunan: `stock_awal` tetap diisi manual, sedangkan `penerimaan` dan `harga_satuan` dapat diusulkan dari konfirmasi penerimaan Puskesmas Januari yang sudah `CONFIRMED` memakai total kuantitas dan rata-rata tertimbang harga per item, namun tetap editable oleh operator. Bulan berikutnya membawa carry-over `sisa stok` bulan sebelumnya ke `stock_awal` termasuk bila bernilai negatif, mengisi `penerimaan` dari konfirmasi penerimaan Puskesmas bulan berjalan, dan mengisi `harga_satuan` dari rata-rata tertimbang harga konfirmasi penerimaan bulan berjalan lalu fallback ke harga bulan sebelumnya bila tidak ada penerimaan baru.
 - Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
 - Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
-- Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`.
+- Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`. Kolom `expiry_date` pada import penerimaan kini opsional hanya untuk barang yang ditandai tidak memerlukan kedaluwarsa; untuk barang lain kolom tersebut tetap wajib.
 
 ## Modul Saat Ini
 

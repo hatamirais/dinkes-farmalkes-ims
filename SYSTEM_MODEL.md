@@ -160,6 +160,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - `is_essential` — designated essential item `[E]`
   - `program` FK -> `Program` (nullable)
   - M2M: `therapeutic_classes` -> `TherapeuticClass` (optional, multi-value reporting groups)
+  - `requires_expiry_date` — item-level control for whether receiving/stock batches must capture an expiry date
   - `minimum_stock`, `description`, `is_active`
   - Index: `idx_item_category_program` on `(kategori, is_program_item)`
 
@@ -167,7 +168,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `stock.Stock` (`stock`):
   - FKs: `item`, `location`, `sumber_dana`, `receiving_ref` (nullable)
-  - Fields: `batch_lot`, `expiry_date`, `quantity`, `reserved`, `unit_price`
+  - Fields: `batch_lot`, `expiry_date` (nullable for non-expiring stock), `quantity`, `reserved`, `unit_price`
   - Unique: `uq_stock_batch` on `(item, location, batch_lot, sumber_dana)`
   - Checks: `quantity >= 0`, `reserved >= 0`
   - Indexes: `idx_stock_fefo`, `idx_stock_expiry`, `idx_stock_item_loc`
@@ -240,7 +241,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `receiving.ReceivingItem` (`receiving_items`):
   - FKs: `receiving`, `order_item` (nullable), `item`, `location` (nullable), `settlement_distribution_item` (nullable), `received_by` (nullable)
-  - Fields: `quantity`, `batch_lot`, `expiry_date`, `unit_price`, `received_at`, `created_at`
+  - Fields: `quantity`, `batch_lot`, `expiry_date` (nullable only when `item.requires_expiry_date=False`), `unit_price`, `received_at`, `created_at`
   - Property: `total_price`
 
 - `receiving.ReceivingDocument` (`receiving_documents`):
@@ -513,6 +514,9 @@ Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 - Optional columns: `receiving_type` (defaults to `GRANT`), `supplier_code`, `batch_lot`, `expiry_date`, `unit_price`
 - Rows are grouped by `document_number`; first-row supplier and header values seed the parent `Receiving`
 - Row-level `sumber_dana_code` and `location_code` may override the first-row values for each line item
+- Blank `expiry_date` values in the dedicated receiving import are accepted only for items with `requires_expiry_date=False`; older sentinel `2099-12-31` values are normalized by follow-up data migrations rather than being generated for new imports
+- The follow-up item backfill migration marks legacy catalog items with null-expiry stock/receiving history as `requires_expiry_date=False`, and stock admin import follows the same conditional blank-expiry rule
+- Historical copied sentinel dates in `DistributionItem.issued_expiry_date` and `PuskesmasReceiptConfirmationItem.expiry_date` are normalized to `NULL` by follow-up data migrations so downstream history and reports do not keep rendering `31/12/2099`
 - Supported date formats in parser:
   - `DD/MM/YYYY`
   - `YYYY-MM-DD`

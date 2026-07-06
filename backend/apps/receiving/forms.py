@@ -64,6 +64,12 @@ def _normalize_text_value(value, *, field_label, max_length=None, allow_blank=Tr
     return normalized
 
 
+def _item_requires_expiry_date(item):
+    if item is None:
+        return True
+    return bool(getattr(item, "requires_expiry_date", True))
+
+
 class ReceivingQuickCreateValidationMixin:
     code_field_name = "code"
     name_field_name = "name"
@@ -309,6 +315,7 @@ class ReceivingItemForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["item"].label_from_instance = lambda obj: obj.picker_label
         self.fields["location"].required = True
+        self.fields["expiry_date"].required = False
 
     def clean_quantity(self):
         quantity = self.cleaned_data.get("quantity")
@@ -316,6 +323,13 @@ class ReceivingItemForm(forms.ModelForm):
         if quantity is not None and quantity <= 0:
             raise forms.ValidationError("Jumlah harus lebih dari 0.")
         return quantity
+
+    def clean(self):
+        cleaned = super().clean()
+        item = cleaned.get("item")
+        if item and _item_requires_expiry_date(item) and not cleaned.get("expiry_date"):
+            self.add_error("expiry_date", "Tanggal kedaluwarsa wajib diisi untuk barang ini.")
+        return cleaned
 
 
 ReceivingItemFormSet = inlineformset_factory(
@@ -519,8 +533,8 @@ class ReceivingReceiptItemForm(forms.ModelForm):
                 self.add_error("location", "Lokasi wajib dipilih.")
             if not cleaned.get("batch_lot"):
                 self.add_error("batch_lot", "Batch/Lot wajib diisi.")
-            if not cleaned.get("expiry_date"):
-                self.add_error("expiry_date", "Tanggal kedaluwarsa wajib diisi.")
+            if _item_requires_expiry_date(order_item.item) and not cleaned.get("expiry_date"):
+                self.add_error("expiry_date", "Tanggal kedaluwarsa wajib diisi untuk barang ini.")
             if cleaned.get("unit_price") is None:
                 self.add_error("unit_price", "Harga satuan wajib diisi.")
         else:

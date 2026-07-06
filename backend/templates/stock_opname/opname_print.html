@@ -82,7 +82,7 @@
                 <td class="text-center"><span class="checkbox"></span></td>
                 <td>{{ item.stock.item.kode_barang }}</td>
                 <td>{{ item.stock.item.nama_barang }}</td>
-                <td>{{ item.stock.expiry_date|date:'d/m/Y' }}</td>
+                <td>{{ item.stock.expiry_date_display }}</td>
                 <td>{{ item.stock.batch_lot }}</td>
                 <td>{{ item.stock.item.satuan.name|default:'-' }}</td>
                 <td class="text-end">{{ item.system_quantity }}</td>
