@@ -22,6 +22,8 @@ from apps.stock.admin import StockAdmin, StockResource
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, StockTransfer, StockTransferItem, Transaction
 from apps.core.models import SystemSettings
+from apps.distribution.models import Distribution, DistributionItem
+from apps.puskesmas.models import PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
 
 
 class StockAdminCsvExportSecurityTest(TestCase):
@@ -270,6 +272,94 @@ class LegacyNoExpiryItemBackfillMigrationTests(TestCase):
         self.assertFalse(stock_item.requires_expiry_date)
         self.assertFalse(receiving_item.requires_expiry_date)
         self.assertTrue(unaffected_item.requires_expiry_date)
+
+class DownstreamNoExpirySentinelBackfillMigrationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username='downstream-backfill-admin',
+            password='secret12345',
+        )
+        self.unit = Unit.objects.create(code='SET', name='Set')
+        self.category = Category.objects.create(code='SUP', name='Supply', sort_order=1)
+        self.facility = Facility.objects.create(
+            code='PKM-DOWN',
+            name='Puskesmas Downstream',
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        self.location = Location.objects.create(code='DOWN', name='Gudang Downstream')
+        self.funding = FundingSource.objects.create(code='DAU2', name='Dana Alokasi Umum 2')
+        self.item = Item.objects.create(
+            kode_barang='ITM-DOWN-001',
+            nama_barang='Downstream Sentinel Item',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+            requires_expiry_date=False,
+        )
+
+    def test_backfill_clears_distribution_and_receipt_confirmation_sentinels(self):
+        import importlib
+        distribution_migration = importlib.import_module(
+            'apps.distribution.migrations.0008_backfill_no_expiry_sentinel'
+        )
+        puskesmas_migration = importlib.import_module(
+            'apps.puskesmas.migrations.0009_backfill_no_expiry_sentinel'
+        )
+
+        distribution = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date=date(2026, 2, 10),
+            facility=self.facility,
+            status=Distribution.Status.DISTRIBUTED,
+            created_by=self.user,
+            distributed_date=date(2026, 2, 11),
+        )
+        distribution_item = DistributionItem.objects.create(
+            distribution=distribution,
+            item=self.item,
+            quantity_requested=Decimal('5'),
+            quantity_approved=Decimal('5'),
+            issued_batch_lot='DOWN-01',
+            issued_expiry_date=date(2099, 12, 31),
+            issued_unit_price=Decimal('1000'),
+            issued_sumber_dana=self.funding,
+        )
+        receipt = PuskesmasReceiptConfirmation.objects.create(
+            facility=self.facility,
+            distribution=distribution,
+            received_date=date(2026, 2, 12),
+            status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
+            created_by=self.user,
+        )
+        receipt_item = PuskesmasReceiptConfirmationItem.objects.create(
+            sbbk=receipt,
+            distribution_item=distribution_item,
+            item=self.item,
+            quantity=Decimal('5'),
+            unit_price=Decimal('1000'),
+            batch_lot='DOWN-01',
+            expiry_date=date(2099, 12, 31),
+            notes='legacy sentinel',
+        )
+
+        class MigrationApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                mapping = {
+                    ('distribution', 'DistributionItem'): DistributionItem,
+                    ('puskesmas', 'PuskesmasReceiptConfirmationItem'): PuskesmasReceiptConfirmationItem,
+                }
+                return mapping[(app_label, model_name)]
+
+        distribution_migration.backfill_no_expiry_sentinel(MigrationApps(), None)
+        puskesmas_migration.backfill_no_expiry_sentinel(MigrationApps(), None)
+
+        distribution_item.refresh_from_db()
+        receipt_item.refresh_from_db()
+
+        self.assertIsNone(distribution_item.issued_expiry_date)
+        self.assertIsNone(receipt_item.expiry_date)
+
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockCardTest(TestCase):

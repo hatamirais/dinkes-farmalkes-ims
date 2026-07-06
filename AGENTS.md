@@ -124,6 +124,7 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - Allocation auto-transitions to `PARTIALLY_FULFILLED` when any child distribution is delivered, and `FULFILLED` when all are delivered.
 - Availability checks across distribution, recall, expired, transfer, and several selectors use `Stock.available_quantity` (`quantity - reserved`), but current workflows do not automatically increment or decrement `reserved` during distribution processing. Batch selectors should order dated stock by FEFO and place `expiry_date=NULL` rows last as non-expiring stock.
 - Stock admin import now enforces `Item.requires_expiry_date`: blank `expiry_date` is allowed only for catalog items marked as non-expiring.
+- Legacy no-expiry sentinel backfills also normalize copied outbound history fields (`DistributionItem.issued_expiry_date` and downstream Puskesmas receipt-confirmation `expiry_date`) to `NULL` so historical UI/reporting renders `Tanpa kedaluwarsa` consistently.
 
 ## Documentation Maintenance Contract
 
