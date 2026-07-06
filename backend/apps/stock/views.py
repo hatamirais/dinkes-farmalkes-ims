@@ -989,12 +989,15 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
     transactions = list(queryset)
     facility_name = SystemSettings.get_settings().facility_name
 
-    # ── Pre-fetch batch expiry dates for this item (avoids N+1) ───────
-    batch_expiry_map = dict(
-        Stock.objects.filter(item=item)
-        .values_list("batch_lot", "expiry_date")
-        .distinct()
-    )
+    # Pre-fetch batch expiry dates keyed by the same stock scope used by transactions.
+    batch_expiry_map = {
+        (batch_lot, location_id, sumber_dana_id): expiry_date
+        for batch_lot, location_id, sumber_dana_id, expiry_date in (
+            Stock.objects.filter(item=item)
+            .values_list("batch_lot", "location_id", "sumber_dana_id", "expiry_date")
+            .distinct()
+        )
+    }
 
     # ── Resolve document number labels ───────────────────────────────
     ref_id_sets = {}
@@ -1195,10 +1198,11 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
             # Expiry date from batch if available (pre-fetched)
             tx.expiry_display = ""
             if tx.batch_lot:
-                expiry_date = batch_expiry_map.get(tx.batch_lot)
+                batch_scope = (tx.batch_lot, tx.location_id, tx.sumber_dana_id)
+                expiry_date = batch_expiry_map.get(batch_scope)
                 if expiry_date:
                     tx.expiry_display = expiry_date.strftime("%d/%m/%Y")
-                elif tx.batch_lot in batch_expiry_map:
+                elif batch_scope in batch_expiry_map:
                     tx.expiry_display = "Tanpa kedaluwarsa"
 
             # Mark transfers for informational display

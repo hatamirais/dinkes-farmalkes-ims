@@ -517,6 +517,77 @@ class StockCardTest(TestCase):
         self.assertEqual(transactions[-1].reference_type, Transaction.ReferenceType.TRANSFER)
         self.assertEqual(transactions[-1].running_balance, Decimal('75'))
 
+    def test_stock_card_keeps_expiry_lookup_scoped_by_location_and_funding(self):
+        other_location = Location.objects.create(code='SATELIT', name='Gudang Satelit')
+        other_funding = FundingSource.objects.create(code='BOS', name='BOS')
+        Stock.objects.create(
+            item=self.item,
+            location=self.location,
+            batch_lot='SHARED-01',
+            expiry_date=date(2031, 5, 1),
+            quantity=Decimal('10'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        Stock.objects.create(
+            item=self.item,
+            location=other_location,
+            batch_lot='SHARED-01',
+            expiry_date=None,
+            quantity=Decimal('8'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=other_funding,
+        )
+
+        dated_tx = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=self.location,
+            batch_lot='SHARED-01',
+            quantity=Decimal('10'),
+            sumber_dana=self.funding,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=2,
+            user=self.user,
+        )
+        null_tx = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=other_location,
+            batch_lot='SHARED-01',
+            quantity=Decimal('8'),
+            sumber_dana=other_funding,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=3,
+            user=self.user,
+        )
+        dated_tx.created_at = timezone.now() - timedelta(hours=2)
+        dated_tx.save(update_fields=['created_at'])
+        null_tx.created_at = timezone.now() - timedelta(hours=1)
+        null_tx.save(update_fields=['created_at'])
+
+        response = self.client.get(reverse('stock:stock_card_detail', args=[self.item.id]))
+
+        self.assertEqual(response.status_code, 200)
+        cards = response.context['funding_source_cards']
+        txs = [tx for card in cards for tx in card['transactions'] if tx.batch_lot == 'SHARED-01']
+        self.assertEqual(len(txs), 2)
+
+        tx_by_scope = {
+            (tx.location_id, tx.sumber_dana_id): tx
+            for tx in txs
+        }
+        self.assertEqual(
+            tx_by_scope[(self.location.id, self.funding.id)].expiry_display,
+            '01/05/2031',
+        )
+        self.assertEqual(
+            tx_by_scope[(other_location.id, other_funding.id)].expiry_display,
+            'Tanpa kedaluwarsa',
+        )
+
     def test_stock_card_transfer_transactions_display_computed_fields(self):
         """Verify transfer transactions have computed display fields for UI rendering."""
         destination = Location.objects.create(code='PKM2', name='Puskesmas Pembantu')
