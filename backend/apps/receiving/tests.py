@@ -9,7 +9,7 @@ from unittest.mock import patch
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import IntegrityError, connections
+from django.db import IntegrityError, connections, transaction
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
@@ -1946,6 +1946,59 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
             ).count(),
             2,
         )
+
+    def test_increment_receiving_stock_detects_expiry_mismatch_after_create_race(self):
+        from apps.receiving import models as receiving_models
+
+        class _PreReadQuerySet:
+            def values(self, *args, **kwargs):
+                return self
+
+            def first(self):
+                return None
+
+        class _UpdateQuerySet:
+            def update(self, **kwargs):
+                return 0
+
+        class _PostReadQuerySet:
+            def values(self, *args, **kwargs):
+                return self
+
+            def first(self):
+                return {"pk": 99, "expiry_date": date(2031, 1, 1)}
+
+        with (
+            patch(
+                'apps.stock.models.Stock.objects.filter',
+                side_effect=[
+                    _PreReadQuerySet(),
+                    _UpdateQuerySet(),
+                    _PostReadQuerySet(),
+                ],
+            ) as mock_filter,
+            patch(
+                'apps.receiving.models._create_receiving_stock_row',
+                side_effect=IntegrityError('duplicate key value violates unique constraint'),
+            ),
+            transaction.atomic(),
+        ):
+            with self.assertRaises(ValueError) as exc:
+                receiving_models.increment_receiving_stock(
+                    item=self.item,
+                    location=self.location,
+                    batch_lot=self.batch_lot,
+                    sumber_dana=self.funding,
+                    expiry_date=date(2030, 1, 1),
+                    quantity=Decimal('3'),
+                    unit_price=Decimal('1500'),
+                    receiving_ref=None,
+                )
+
+        self.assertIn('tanggal kedaluwarsa berbeda', str(exc.exception))
+        self.assertEqual(mock_filter.call_count, 3)
+        _, second_call_kwargs = mock_filter.call_args_list[1]
+        self.assertEqual(second_call_kwargs['expiry_date'], date(2030, 1, 1))
 
     def test_planned_receiving_concurrent_posts_accumulate_existing_stock(self):
         from apps.receiving import models as receiving_models

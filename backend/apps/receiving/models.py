@@ -124,7 +124,11 @@ def increment_receiving_stock(
             "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda."
         )
 
-    updated = Stock.objects.filter(**stock_filters).update(
+    update_filters = {
+        **stock_filters,
+        "expiry_date": expiry_date,
+    }
+    updated = Stock.objects.filter(**update_filters).update(
         quantity=F("quantity") + quantity,
         updated_at=updated_at,
     )
@@ -153,7 +157,7 @@ def increment_receiving_stock(
             raise ValueError(
                 "Batch stok yang sama tidak boleh memiliki tanggal kedaluwarsa berbeda."
             )
-        updated = Stock.objects.filter(**stock_filters).update(
+        updated = Stock.objects.filter(**update_filters).update(
             quantity=F("quantity") + quantity,
             updated_at=updated_at,
         )
