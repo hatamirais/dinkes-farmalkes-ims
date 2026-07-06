@@ -53,3 +53,9 @@ docs/work-report/laporan_kerja_2026-02-23_sampai_2026-03-31.md
 # Excel temp files
 ~$*.xlsx
 ~$*.xls
+
+# Playwright local helper
+.env.playwright.local
+node_modules/
+.playwright-profiles/
+

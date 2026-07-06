@@ -1,0 +1,15 @@
+{
+  "name": "dinkes-farmalkes-ims-playwright-local",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "playwright:install": "npx playwright install chromium",
+    "playwright:auth": "node scripts/playwright/auth.mjs",
+    "playwright:refresh-auth": "node scripts/playwright/auth.mjs --refresh",
+    "playwright:open": "node scripts/playwright/open-windows.mjs",
+    "playwright:bootstrap": "npm run playwright:install && npm run playwright:auth"
+  },
+  "devDependencies": {
+    "playwright": "^1.54.2"
+  }
+}
