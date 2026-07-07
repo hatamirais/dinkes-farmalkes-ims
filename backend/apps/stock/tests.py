@@ -908,15 +908,18 @@ class StockListViewTests(TestCase):
         self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
         self.assertContains(response, 'sticky-top')
         self.assertContains(response, '>55<', html=False)
+        self.assertContains(response, '>3<', html=False)
         self.assertContains(response, '>52<', html=False)
         self.assertContains(response, '>20<', html=False)
         self.assertEqual(stocks_by_batch['NOEXP-01'].expiry_badge_class, 'text-bg-secondary')
         self.assertContains(response, 'Tanpa kedaluwarsa')
+        self.assertContains(response, 'Stok Reserved')
+        self.assertContains(response, 'Stok Tersedia')
+        self.assertContains(response, 'Stok Fisik')
         self.assertNotContains(response, 'Ada Reserved')
         self.assertNotContains(response, 'stock-bulk-bar')
         self.assertNotContains(response, 'data-row-actions')
         self.assertNotContains(response, 'data-row-checkbox')
-        self.assertNotContains(response, 'Reserved')
 
 
     def test_stock_list_treats_today_expiry_as_expired(self):

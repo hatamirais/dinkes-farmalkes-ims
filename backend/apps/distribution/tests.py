@@ -101,13 +101,21 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             created_by=self.user,
         )
         if with_items:
-            DistributionItem.objects.create(
+            distribution_item = DistributionItem.objects.create(
                 distribution=dist,
                 item=self.item,
                 quantity_requested=Decimal("50"),
                 quantity_approved=Decimal("40"),
                 stock=self.stock,
             )
+            if status == Distribution.Status.VERIFIED or (
+                distribution_type == Distribution.DistributionType.ALLOCATION
+                and status == Distribution.Status.PREPARED
+            ):
+                distribution_item.reserved_quantity = distribution_item.quantity_approved
+                distribution_item.save(update_fields=["reserved_quantity"])
+                self.stock.reserved = self.stock.reserved + distribution_item.quantity_approved
+                self.stock.save(update_fields=["reserved", "updated_at"])
         for user in assigned_users or []:
             dist.staff_assignments.create(user=user)
         return dist
@@ -570,9 +578,13 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        reserved_item = dist.items.get()
         self.assertEqual(dist.status, Distribution.Status.VERIFIED)
         self.assertEqual(dist.verified_by, self.user)
         self.assertIsNotNone(dist.verified_at)
+        self.assertEqual(self.stock.reserved, Decimal("40"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("40"))
 
     def test_verify_requires_approved_qty(self):
         dist = self._create_distribution(
@@ -622,6 +634,34 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+
+    def test_verified_distribution_reduces_lplpo_review_stock_column(self):
+        verified_dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        response = self.client.post(
+            reverse("distribution:distribution_verify", args=[verified_dist.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        lplpo = LPLPO.objects.create(
+            facility=self.facility,
+            bulan=3,
+            tahun=2026,
+            status=LPLPO.Status.PIC_VERIFIED,
+            created_by=self.user,
+        )
+        lplpo.items.create(
+            item=self.item,
+            pemberian_jumlah=Decimal("10"),
+            stock_awal=Decimal("0"),
+            penerimaan=Decimal("0"),
+            pemakaian=Decimal("0"),
+        )
+
+        response = self.client.get(reverse("lplpo:lplpo_review", args=[lplpo.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        first_group = next(iter(response.context["grouped"].values()))
+        self.assertEqual(first_group[0]["stock_gudang"], Decimal("160"))
 
     # --- Prepare workflow ---
 
@@ -713,6 +753,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertIsNotNone(dist.approved_at)
         self.assertIsNotNone(dist.distributed_date)
         self.assertEqual(self.stock.quantity, Decimal("160"))  # 200 - 40
+        self.assertEqual(self.stock.reserved, Decimal("0"))
 
         txn = Transaction.objects.get(
             reference_type=Transaction.ReferenceType.DISTRIBUTION,
@@ -723,6 +764,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(txn.item, self.item)
 
         distribution_item = dist.items.get()
+        self.assertEqual(distribution_item.reserved_quantity, Decimal("0"))
         self.assertEqual(distribution_item.issued_batch_lot, "BATCH-D01")
         self.assertEqual(distribution_item.issued_expiry_date.isoformat(), "2027-12-31")
         self.assertEqual(distribution_item.issued_unit_price, Decimal("5000"))
@@ -756,6 +798,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.stock.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)
         self.assertEqual(self.stock.quantity, Decimal("160"))
+        self.assertEqual(self.stock.reserved, Decimal("0"))
 
     # --- Reject workflow ---
 
@@ -812,12 +855,16 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 302)
 
         dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        reserved_item = dist.items.get()
         self.assertEqual(dist.status, Distribution.Status.DRAFT)
         self.assertIsNone(dist.verified_by)
         self.assertIsNone(dist.verified_at)
         self.assertIsNone(dist.approved_by)
         self.assertIsNone(dist.approved_at)
         self.assertIsNone(dist.distributed_date)
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("0"))
 
     def test_reset_to_draft_blocked_for_distributed(self):
         dist = self._create_distribution(status=Distribution.Status.DISTRIBUTED)
@@ -911,9 +958,13 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 302)
 
         dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        reserved_item = dist.items.get()
         self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
         self.assertIsNone(dist.verified_by)
         self.assertIsNone(dist.verified_at)
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("0"))
 
     def test_step_back_blocked_for_distributed(self):
         dist = self._create_distribution(status=Distribution.Status.DISTRIBUTED)
@@ -1388,6 +1439,14 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "js/item-picker-table.js?v=")
         self.assertContains(response, "js/distribution-form.js?v=")
+
+    def test_special_request_create_exposes_available_stock_column_and_catalog(self):
+        response = self.client.get(reverse("distribution:special_request_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Stok Tersedia")
+        self.assertContains(response, "distribution-stock-catalog")
+        self.assertContains(response, '"availableQty": 200.0', html=False)
 
     def test_distribution_item_form_uses_name_only_item_labels(self):
         form = DistributionItemForm()

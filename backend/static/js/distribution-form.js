@@ -1,10 +1,46 @@
 /**
- * Distribution form: staff picker, quick-create facility modal
+ * Distribution form: staff picker, available-stock indicator, quick-create facility modal.
  *
  * Expected data attributes on #distribution-form-container:
  *   data-url-facility – quick create facility URL
  */
 document.addEventListener('DOMContentLoaded', function () {
+    const stockCatalog = JSON.parse(
+        document.getElementById('distribution-stock-catalog')?.textContent || '[]'
+    );
+
+    const getMatchingStocks = function (itemId) {
+        return stockCatalog.filter(function (stock) {
+            return String(stock.itemId) === String(itemId);
+        });
+    };
+
+    const updateAvailableStockCell = function (row) {
+        const itemSelect = row?.querySelector('.js-item-select');
+        const availableCell = row?.querySelector('.js-item-available-stock');
+        if (!itemSelect || !availableCell) {
+            return;
+        }
+
+        if (!itemSelect.value) {
+            availableCell.textContent = '—';
+            return;
+        }
+
+        const totalAvailable = getMatchingStocks(itemSelect.value)
+            .reduce(function (sum, stock) {
+                return sum + (Number(stock.availableQty) || 0);
+            }, 0);
+
+        availableCell.textContent = totalAvailable > 0 ? String(totalAvailable) : '0';
+    };
+
+    const syncAvailableStockCells = function () {
+        document.querySelectorAll('#distribution-form-container tr.formset-row').forEach(function (row) {
+            updateAvailableStockCell(row);
+        });
+    };
+
     // ── Staff Picker ──────────────────────────────────────────
     var updateStaffSummary = function () {
         document.querySelectorAll('.staff-picker').forEach(function (picker) {
@@ -81,6 +117,22 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     updateStaffSummary();
+    syncAvailableStockCells();
+
+    document.addEventListener('change', function (event) {
+        if (!event.target.matches('.js-item-select')) {
+            return;
+        }
+        updateAvailableStockCell(event.target.closest('tr.formset-row'));
+    });
+
+    const tableBody = document.querySelector('[data-formset="distribution-items"] tbody');
+    if (tableBody) {
+        const observer = new MutationObserver(function () {
+            syncAvailableStockCells();
+        });
+        observer.observe(tableBody, { childList: true });
+    }
 
     // ── Quick-create Facility ─────────────────────────────────
     var container = document.getElementById('distribution-form-container');
@@ -153,5 +205,4 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-
 });

@@ -262,6 +262,9 @@ class AllocationApprovalTest(TestCase):
             self.assertEqual(dist.verified_by, self.fixtures["kepala"])
             self.assertIsNotNone(dist.verified_at)
 
+        self.fixtures["stock"].refresh_from_db()
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("50"))
+
     def test_approve_copies_distribution_items(self):
         allocation = _create_allocation(self.fixtures)
         execute_allocation_submission(allocation, self.fixtures["admin"])
@@ -297,10 +300,12 @@ class AllocationApprovalTest(TestCase):
         execute_allocation_step_back_to_submitted(allocation)
 
         allocation.refresh_from_db()
+        self.fixtures["stock"].refresh_from_db()
         self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
         self.assertIsNone(allocation.approved_by)
         self.assertIsNone(allocation.approved_at)
         self.assertEqual(allocation.distributions.count(), 0)
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("0"))
 
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
@@ -333,6 +338,14 @@ class DistributionDeliveryTest(TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.PREPARED)
 
+    def test_generated_distributions_store_reserved_quantity(self):
+        reserved_quantities = list(
+            self.allocation.distributions.order_by("facility__code").values_list(
+                "items__reserved_quantity", flat=True
+            )
+        )
+        self.assertEqual(reserved_quantities, [Decimal("30"), Decimal("20")])
+
     def test_deliver_deducts_stock(self):
         dist = self.allocation.distributions.get(facility=self.fixtures["facility1"])
         execute_distribution_preparation(dist, self.fixtures["operator"])
@@ -344,6 +357,7 @@ class DistributionDeliveryTest(TestCase):
         self.fixtures["stock"].refresh_from_db()
         # Original 100, allocated 30 to facility1
         self.assertEqual(self.fixtures["stock"].quantity, Decimal("70"))
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("20"))
 
         # Transaction should be written
         self.assertTrue(

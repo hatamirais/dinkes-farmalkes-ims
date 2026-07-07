@@ -2,6 +2,11 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.distribution.models import Distribution, DistributionItem
+from apps.distribution.services import (
+    DistributionWorkflowError,
+    apply_distribution_reservations,
+    release_distribution_reservations,
+)
 from apps.stock.models import Stock, Transaction
 
 from .models import Allocation
@@ -71,6 +76,7 @@ def _validate_submission(allocation, allocation_items):
                 )
 
 
+
 def _validate_stock_at_approval(allocation_items):
     """Re-validate stock availability at approval time (may have changed)."""
     for alloc_item in allocation_items:
@@ -90,6 +96,7 @@ def _validate_stock_at_approval(allocation_items):
                 f"Tersedia {current_available}, dialokasikan {total_allocated}. "
                 f"Alokasi dikembalikan ke Draft."
             )
+
 
 
 def _generate_distributions(allocation, allocation_items, user):
@@ -141,6 +148,7 @@ def _generate_distributions(allocation, allocation_items, user):
                 )
             )
         DistributionItem.objects.bulk_create(dist_items)
+        apply_distribution_reservations(distribution)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -166,6 +174,7 @@ def execute_allocation_submission(allocation, user):
     )
 
 
+
 def execute_allocation_approval(allocation, user):
     allocation_items = _get_allocation_items(allocation, "disetujui")
 
@@ -180,6 +189,7 @@ def execute_allocation_approval(allocation, user):
         _generate_distributions(allocation, allocation_items, user)
 
 
+
 def execute_allocation_step_back_to_submitted(allocation):
     if allocation.status != Allocation.Status.APPROVED:
         raise AllocationWorkflowError(
@@ -187,11 +197,17 @@ def execute_allocation_step_back_to_submitted(allocation):
         )
 
     with transaction.atomic():
+        for distribution in allocation.distributions.prefetch_related("items").all():
+            try:
+                release_distribution_reservations(distribution)
+            except DistributionWorkflowError as exc:
+                raise AllocationWorkflowError(str(exc)) from exc
         allocation.distributions.all().delete()
         allocation.status = Allocation.Status.SUBMITTED
         allocation.approved_by = None
         allocation.approved_at = None
         _save_allocation(allocation, ["status", "approved_by", "approved_at"])
+
 
 
 def execute_allocation_rejection(allocation, reason):
@@ -205,6 +221,7 @@ def execute_allocation_rejection(allocation, reason):
     )
 
 
+
 def execute_allocation_reset_to_draft(allocation):
     allocation.status = Allocation.Status.DRAFT
     allocation.submitted_by = None
@@ -214,6 +231,7 @@ def execute_allocation_reset_to_draft(allocation):
         allocation,
         ["status", "submitted_by", "submitted_at", "rejection_reason"],
     )
+
 
 
 def execute_distribution_preparation(distribution, user):
@@ -227,6 +245,7 @@ def execute_distribution_preparation(distribution, user):
     distribution.save(update_fields=["status", "updated_at"])
 
 
+
 def execute_distribution_delivery(distribution, user, allocation):
     """Confirm delivery for an allocation-generated distribution.
     Deducts stock and writes Transaction(OUT) for each item.
@@ -238,7 +257,7 @@ def execute_distribution_delivery(distribution, user, allocation):
         )
 
     distribution_items = list(
-        distribution.items.select_related("item", "stock")
+        distribution.items.select_related("item", "stock").order_by("pk")
     )
     if not distribution_items:
         raise AllocationWorkflowError(
@@ -248,6 +267,13 @@ def execute_distribution_delivery(distribution, user, allocation):
     processed_at = timezone.now()
 
     with transaction.atomic():
+        locked_stocks = {
+            stock.pk: stock
+            for stock in Stock.objects.select_for_update().filter(
+                pk__in=sorted({item.stock_id for item in distribution_items if item.stock_id})
+            )
+        }
+
         for dist_item in distribution_items:
             quantity = dist_item.quantity_approved or dist_item.quantity_requested
             if not quantity or quantity <= 0:
@@ -258,16 +284,36 @@ def execute_distribution_delivery(distribution, user, allocation):
                     f"Item {dist_item.item.nama_barang}: batch stok belum dipilih."
                 )
 
-            stock = Stock.objects.select_for_update().get(pk=dist_item.stock_id)
+            stock = locked_stocks.get(dist_item.stock_id)
+            if stock is None:
+                raise AllocationWorkflowError(
+                    f"Batch stok untuk item {dist_item.item.nama_barang} tidak ditemukan."
+                )
 
-            if quantity > stock.available_quantity:
+            available_with_own_reservation = stock.available_quantity + dist_item.reserved_quantity
+            if quantity > available_with_own_reservation:
                 raise AllocationWorkflowError(
                     f"Stok tidak cukup untuk {dist_item.item.nama_barang}. "
-                    f"Tersedia {stock.available_quantity}, dibutuhkan {quantity}."
+                    f"Tersedia {available_with_own_reservation}, dibutuhkan {quantity}."
+                )
+
+            if stock.quantity < quantity:
+                raise AllocationWorkflowError(
+                    f"Stok fisik tidak cukup untuk {dist_item.item.nama_barang}. "
+                    f"Tersedia {stock.quantity}, dibutuhkan {quantity}."
+                )
+
+            if dist_item.reserved_quantity > stock.reserved:
+                raise AllocationWorkflowError(
+                    f"Reservasi stok untuk {dist_item.item.nama_barang} melebihi stok yang dibooking."
                 )
 
             stock.quantity = stock.quantity - quantity
-            stock.save(update_fields=["quantity", "updated_at"])
+            stock.reserved = stock.reserved - dist_item.reserved_quantity
+            stock.save(update_fields=["quantity", "reserved", "updated_at"])
+
+            dist_item.reserved_quantity = 0
+            dist_item.save(update_fields=["reserved_quantity"])
 
             Transaction.objects.create(
                 transaction_type=Transaction.TransactionType.OUT,
@@ -304,6 +350,7 @@ def execute_distribution_delivery(distribution, user, allocation):
 
         # Check auto-close: if all sibling distributions are delivered
         _check_allocation_fulfillment(allocation)
+
 
 
 def _check_allocation_fulfillment(allocation):

@@ -468,7 +468,7 @@
 
             {# ═══════ STEP 2: Pilih Item ═══════ #}
             <div class="wizard-panel" id="step-2">
-                <div class="mb-2 small text-muted">Pilih barang dan batch stok yang akan dialokasikan. Satu barang dapat dipecah ke beberapa batch bila stok tersedia tersebar.</div>
+                <div class="mb-2 small text-muted">Pilih barang dan batch stok yang akan dialokasikan. Angka stok memakai stok tersedia untuk dialokasikan (stok fisik dikurangi reservasi outbound aktif). Satu barang dapat dipecah ke beberapa batch bila stok tersedia tersebar.</div>
 
                 {{ formset.management_form }}
 
@@ -490,7 +490,7 @@
                             <tr>
                                 <th class="allocation-item-col-item">Barang</th>
                                 <th class="allocation-item-col-stock">Stok (Batch)</th>
-                                <th class="allocation-item-col-available">Tersedia</th>
+                                <th class="allocation-item-col-available">Stok Tersedia</th>
                                 <th class="allocation-item-col-remove">Hapus</th>
                             </tr>
                         </thead>
@@ -586,14 +586,14 @@
 
             {# ═══════ STEP 3: Alokasi per Fasilitas (Matrix) ═══════ #}
             <div class="wizard-panel" id="step-3">
-                <div class="mb-2 small text-muted">Tentukan jumlah per fasilitas untuk masing-masing item. Total alokasi tidak boleh melebihi stok tersedia.</div>
+                <div class="mb-2 small text-muted">Tentukan jumlah per fasilitas untuk masing-masing item. Total alokasi tidak boleh melebihi stok tersedia untuk dialokasikan.</div>
 
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered alloc-matrix" id="alloc-matrix-table">
                         <thead class="table-light">
                             <tr id="matrix-header-row">
                                 <th>Barang (Batch)</th>
-                                <th>Tersedia</th>
+                                <th>Stok Tersedia</th>
                                 {# Facility columns injected by JS #}
                                 <th>Total</th>
                             </tr>

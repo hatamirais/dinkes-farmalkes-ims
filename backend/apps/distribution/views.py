@@ -6,7 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.decorators import module_scope_required, perm_required
@@ -16,6 +17,7 @@ from apps.reports.views import (
     _PENGELUARAN_REPORT_TAB_URL_NAMES,
     render_pengeluaran_report,
 )
+from apps.stock.models import Stock
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess, User
 
@@ -35,6 +37,7 @@ from .services import (
     execute_distribution_verification,
     execute_stock_distribution,
     get_distribution_step_back_target,
+    release_distribution_reservations,
 )
 
 logger = logging.getLogger(__name__)
@@ -167,11 +170,72 @@ def _build_distribution_form_context(
         "show_distribution_type": False,
         "show_approved_quantity": True,
         "quantity_label": "Kuantitas Diminta",
-        "item_error_colspan": 6,
+        "item_error_colspan": 7,
         "back_url_name": back_url_name,
         "active_pengeluaran_submenu": active_pengeluaran_submenu,
         "document_number_warning_enabled": document_number_warning_enabled,
     }
+
+
+def _build_distribution_stock_catalog():
+    available_quantity_expression = ExpressionWrapper(
+        F("quantity") - F("reserved"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+    available_stocks = (
+        Stock.objects.select_related("item")
+        .filter(quantity__gt=F("reserved"))
+        .annotate(available_qty=available_quantity_expression)
+        .order_by(F("expiry_date").asc(nulls_last=True), "item_id", "batch_lot")
+    )
+    return [
+        {
+            "id": stock.pk,
+            "itemId": stock.item_id,
+            "label": (
+                f"{stock.batch_lot} | Tersedia: {stock.available_qty}"
+                f" | Exp: {stock.expiry_date_display}"
+            ),
+            "availableQty": float(stock.available_qty),
+        }
+        for stock in available_stocks
+    ]
+
+
+def _build_distribution_item_rows(formset):
+    zero_decimal = Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+    available_quantity_expression = ExpressionWrapper(
+        F("quantity") - F("reserved"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+    rows = []
+    item_ids = set()
+
+    for item_form in formset.forms:
+        raw_item_id = item_form["item"].value() or getattr(item_form.instance, "item_id", None)
+        try:
+            item_id = int(raw_item_id) if raw_item_id else None
+        except (TypeError, ValueError):
+            item_id = None
+        if item_id:
+            item_ids.add(item_id)
+        rows.append({"form": item_form, "item_id": item_id})
+
+    available_by_item = {}
+    if item_ids:
+        stock_rows = (
+            Stock.objects.filter(item_id__in=item_ids)
+            .values("item_id")
+            .annotate(
+                total_available=Coalesce(Sum(available_quantity_expression), zero_decimal),
+            )
+        )
+        available_by_item = {row["item_id"]: row["total_available"] for row in stock_rows}
+
+    for row in rows:
+        row["available_stock_total"] = available_by_item.get(row["item_id"])
+
+    return rows
 
 
 def sync_distribution_staff_assignments(distribution, staff_users):
@@ -344,6 +408,8 @@ def _save_special_request(request):
         {
             "form": form,
             "formset": formset,
+            "item_rows": _build_distribution_item_rows(formset),
+            "stock_catalog": _build_distribution_stock_catalog(),
             "is_edit": False,
             "allow_item_row_mutation": True,
             **_build_distribution_form_context(
@@ -397,6 +463,8 @@ def _save_manual_lplpo_distribution(request):
         {
             "form": form,
             "formset": formset,
+            "item_rows": _build_distribution_item_rows(formset),
+            "stock_catalog": _build_distribution_stock_catalog(),
             "is_edit": False,
             "allow_item_row_mutation": True,
             **_build_distribution_form_context(
@@ -481,6 +549,8 @@ def distribution_edit(request, pk):
         {
             "form": form,
             "formset": formset,
+            "item_rows": _build_distribution_item_rows(formset),
+            "stock_catalog": _build_distribution_stock_catalog(),
             "is_edit": True,
             "distribution": dist,
             "is_generated_lplpo_distribution": is_generated_lplpo_distribution,
@@ -886,12 +956,15 @@ def distribution_delete(request, pk):
         return _redirect_distribution_detail(pk)
 
     document_number = dist.document_number
-    redirect_url_name = (
+    with transaction.atomic():
+        dist = get_object_or_404(Distribution.objects.select_for_update(), pk=pk)
+        release_distribution_reservations(dist)
+        redirect_url_name = (
         "distribution:special_request_list"
         if _is_special_request(dist)
         else "distribution:distribution_list"
-    )
-    dist.delete()
+        )
+        dist.delete()
     messages.success(request, f"Distribusi {document_number} berhasil dihapus.")
     return redirect(redirect_url_name)
 
@@ -932,6 +1005,7 @@ def distribution_return_lplpo_to_puskesmas(request, pk):
             return _redirect_distribution_detail(pk)
 
         distribution_document_number = dist.document_number
+        release_distribution_reservations(dist)
 
         lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
         lplpo_obj.verified_by = None

@@ -169,6 +169,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `stock.Stock` (`stock`):
   - FKs: `item`, `location`, `sumber_dana`, `receiving_ref` (nullable)
   - Fields: `batch_lot`, `expiry_date` (nullable for non-expiring stock), `quantity`, `reserved`, `unit_price`
+  - Semantics: `quantity` is physical stock, `reserved` is outbound stock already booked by active distribution documents, and `available_quantity = quantity - reserved` is the allocatable balance shown on LPLPO review, allocation, special-request, and stock summary surfaces
   - Unique: `uq_stock_batch` on `(item, location, batch_lot, sumber_dana)`
   - Checks: `quantity >= 0`, `reserved >= 0`
   - Indexes: `idx_stock_fefo`, `idx_stock_expiry`, `idx_stock_item_loc`
@@ -272,7 +273,8 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `distribution.DistributionItem` (`distribution_items`):
   - FKs: `distribution`, `item`, `stock` (nullable)
-  - Fields: `quantity_requested`, `quantity_approved` (nullable), `issued_batch_lot`, `issued_expiry_date`, `issued_unit_price`, `notes`, `created_at`
+  - Fields: `quantity_requested`, `quantity_approved` (nullable), `reserved_quantity`, `issued_batch_lot`, `issued_expiry_date`, `issued_unit_price`, `notes`, `created_at`
+  - `reserved_quantity` stores how much stock is currently booked for that row so reservation release/reapply remains deterministic across edits, reset/step-back, allocation step-back, delete, and final fulfillment
   - FKs also include `issued_sumber_dana` (nullable) to preserve the book-value source used when stock is distributed
 
 - `distribution.DistributionStaffAssignment` (`distribution_staff_assignments`):
@@ -453,14 +455,17 @@ Operational mutation points (from app behavior and admin import logic):
   - prepare phase updates document status only (no stock mutation and no reservation write)
   - draft/rejected preparation and submission are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
-  - distribute phase decreases `Stock.quantity` and posts `Transaction(OUT)`; the current workflow does not automatically increment or clear `stock.reserved`
+  - verify phase now locks the selected stock rows and increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`
+  - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, allocation step-back, and delete release `reserved` using `DistributionItem.reserved_quantity`
+  - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
 - Stock opname completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, and `completed_at`, and does not mutate `Stock` or write `Transaction` rows
 - Allocation:
-  - Approval phase auto-generates `Distribution(type=ALLOCATION, status=VERIFIED)` per facility — no stock mutation at this point
-  - Per-distribution delivery confirmation decreases `Stock.quantity` and posts `Transaction(OUT, reference_type=ALLOCATION, reference_id=allocation.pk)`
+  - Approval phase auto-generates `Distribution(type=ALLOCATION, status=VERIFIED)` per facility and reserves the selected stock for each child distribution row
+  - Stepping an approved allocation back releases those child reservations before deleting the generated distributions
+  - Per-distribution delivery confirmation decreases `Stock.quantity`, clears the child's reserved balance, and posts `Transaction(OUT, reference_type=ALLOCATION, reference_id=allocation.pk)`
   - Parent Allocation auto-transitions to `PARTIALLY_FULFILLED` / `FULFILLED` based on child distribution delivery progress
 
 ## 6) Settings and Security Model

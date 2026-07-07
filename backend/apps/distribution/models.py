@@ -181,6 +181,12 @@ class DistributionItem(models.Model):
         blank=True,
         related_name="issued_distribution_items",
     )
+    reserved_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Jumlah stok yang sedang dibooking untuk dokumen ini.",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
