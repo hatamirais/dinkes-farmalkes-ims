@@ -186,7 +186,10 @@ def execute_allocation_approval(allocation, user):
         allocation.approved_at = timezone.now()
         _save_allocation(allocation, ["status", "approved_by", "approved_at"])
 
-        _generate_distributions(allocation, allocation_items, user)
+        try:
+            _generate_distributions(allocation, allocation_items, user)
+        except DistributionWorkflowError as exc:
+            raise AllocationWorkflowError(str(exc)) from exc
 
 
 

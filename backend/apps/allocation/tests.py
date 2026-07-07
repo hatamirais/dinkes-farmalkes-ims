@@ -290,6 +290,54 @@ class AllocationApprovalTest(TestCase):
         with self.assertRaises(AllocationWorkflowError):
             execute_allocation_approval(allocation, self.fixtures["kepala"])
 
+    def test_approve_wraps_reservation_failures(self):
+        allocation = Allocation.objects.create(
+            title="Alokasi Double Batch",
+            allocation_date="2025-06-01",
+            status=Allocation.Status.DRAFT,
+            created_by=self.fixtures["admin"],
+        )
+        AllocationFacility.objects.create(
+            allocation=allocation, facility=self.fixtures["facility1"]
+        )
+        AllocationStaffAssignment.objects.create(
+            allocation=allocation, user=self.fixtures["operator"]
+        )
+
+        first_item = AllocationItem.objects.create(
+            allocation=allocation,
+            item=self.fixtures["item"],
+            stock=self.fixtures["stock"],
+            total_qty_available=Decimal("100"),
+        )
+        second_item = AllocationItem.objects.create(
+            allocation=allocation,
+            item=self.fixtures["item"],
+            stock=self.fixtures["stock"],
+            total_qty_available=Decimal("100"),
+        )
+        AllocationItemFacility.objects.create(
+            allocation_item=first_item,
+            facility=self.fixtures["facility1"],
+            qty_allocated=Decimal("60"),
+        )
+        AllocationItemFacility.objects.create(
+            allocation_item=second_item,
+            facility=self.fixtures["facility1"],
+            qty_allocated=Decimal("60"),
+        )
+
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+
+        with self.assertRaises(AllocationWorkflowError):
+            execute_allocation_approval(allocation, self.fixtures["kepala"])
+
+        allocation.refresh_from_db()
+        self.fixtures["stock"].refresh_from_db()
+        self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("0"))
+        self.assertEqual(allocation.distributions.count(), 0)
+
     def test_step_back_to_submitted_removes_generated_distributions(self):
         allocation = _create_allocation(self.fixtures)
         execute_allocation_submission(allocation, self.fixtures["admin"])
