@@ -230,7 +230,7 @@
                         {% endif %}
                         {% endfor %}
                     </div>
-                    <div class="mb-2 small text-muted">Tip: Periksa stok per batch pada tabel item sebelum menyetujui distribusi.</div>
+                    <div class="mb-2 small text-muted">Tip: kolom <strong>Stok Tersedia</strong> menampilkan stok yang masih bisa dialokasikan setelah dikurangi reservasi dokumen outbound lain.</div>
                     {% if is_generated_lplpo_distribution %}
                     <div class="alert alert-info py-2 small">
                         Distribusi ini dibuat dari review LPLPO. <strong>Kuantitas Diminta</strong> menyalin permintaan Puskesmas dan <strong>Kuantitas Disetujui</strong> menyalin hasil review PIC. Keduanya dikunci di halaman ini agar tahap edit hanya dipakai untuk memilih batch stok, memperbarui catatan, dan menyesuaikan petugas bila diperlukan.
@@ -281,13 +281,15 @@
                                     {% if show_approved_quantity %}
                                     <th style="width:100px;">Kuantitas Disetujui</th>
                                     {% endif %}
+                                    <th style="width:120px;">Stok Tersedia</th>
                                     <th>Stok (Batch)</th>
                                     <th style="width:120px;">Catatan</th>
                                     <th style="width:50px;">Hapus</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item_form in formset %}
+                                {% for item_row in item_rows %}
+                                {% with item_form=item_row.form %}
                                 <tr class="formset-row">
                                     <td>{{ item_form.item }}</td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_requested">
@@ -297,6 +299,7 @@
                                     {% if show_approved_quantity %}
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_approved">{{ item_form.quantity_approved }}</td>
                                     {% endif %}
+                                    <td class="text-end fw-semibold js-item-available-stock">{% if item_row.available_stock_total is not None %}{{ item_row.available_stock_total|floatformat:"-2" }}{% else %}&mdash;{% endif %}</td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="stock">{{ item_form.stock }}</td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ item_form.notes }}</td>
                                     <td class="text-center">
@@ -331,6 +334,7 @@
                                     </tr>
                                     {% endfor %}
                                 {% endfor %}
+                                {% endwith %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -347,6 +351,7 @@
                             {% if show_approved_quantity %}
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity_approved">{{ formset.empty_form.quantity_approved }}</td>
                             {% endif %}
+                            <td class="text-end fw-semibold js-item-available-stock">&mdash;</td>
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="stock">{{ formset.empty_form.stock }}</td>
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ formset.empty_form.notes }}</td>
                             <td class="text-center">
@@ -440,6 +445,7 @@
 
 {% block extra_js %}
 {% load static %}
+{{ stock_catalog|json_script:"distribution-stock-catalog" }}
 <script src="{% static 'js/item-picker-table.js' %}?v={{ app_version }}-20260701a"></script>
 <script src="{% static 'js/distribution-form.js' %}?v={{ app_version }}-20260504a"></script>
 {% if document_number_warning_enabled %}
@@ -479,3 +485,4 @@
 </script>
 {% endif %}
 {% endblock %}
+

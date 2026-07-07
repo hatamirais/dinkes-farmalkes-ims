@@ -262,6 +262,9 @@ class AllocationApprovalTest(TestCase):
             self.assertEqual(dist.verified_by, self.fixtures["kepala"])
             self.assertIsNotNone(dist.verified_at)
 
+        self.fixtures["stock"].refresh_from_db()
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("50"))
+
     def test_approve_copies_distribution_items(self):
         allocation = _create_allocation(self.fixtures)
         execute_allocation_submission(allocation, self.fixtures["admin"])
@@ -287,6 +290,54 @@ class AllocationApprovalTest(TestCase):
         with self.assertRaises(AllocationWorkflowError):
             execute_allocation_approval(allocation, self.fixtures["kepala"])
 
+    def test_approve_wraps_reservation_failures(self):
+        allocation = Allocation.objects.create(
+            title="Alokasi Double Batch",
+            allocation_date="2025-06-01",
+            status=Allocation.Status.DRAFT,
+            created_by=self.fixtures["admin"],
+        )
+        AllocationFacility.objects.create(
+            allocation=allocation, facility=self.fixtures["facility1"]
+        )
+        AllocationStaffAssignment.objects.create(
+            allocation=allocation, user=self.fixtures["operator"]
+        )
+
+        first_item = AllocationItem.objects.create(
+            allocation=allocation,
+            item=self.fixtures["item"],
+            stock=self.fixtures["stock"],
+            total_qty_available=Decimal("100"),
+        )
+        second_item = AllocationItem.objects.create(
+            allocation=allocation,
+            item=self.fixtures["item"],
+            stock=self.fixtures["stock"],
+            total_qty_available=Decimal("100"),
+        )
+        AllocationItemFacility.objects.create(
+            allocation_item=first_item,
+            facility=self.fixtures["facility1"],
+            qty_allocated=Decimal("60"),
+        )
+        AllocationItemFacility.objects.create(
+            allocation_item=second_item,
+            facility=self.fixtures["facility1"],
+            qty_allocated=Decimal("60"),
+        )
+
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+
+        with self.assertRaises(AllocationWorkflowError):
+            execute_allocation_approval(allocation, self.fixtures["kepala"])
+
+        allocation.refresh_from_db()
+        self.fixtures["stock"].refresh_from_db()
+        self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("0"))
+        self.assertEqual(allocation.distributions.count(), 0)
+
     def test_step_back_to_submitted_removes_generated_distributions(self):
         allocation = _create_allocation(self.fixtures)
         execute_allocation_submission(allocation, self.fixtures["admin"])
@@ -297,10 +348,12 @@ class AllocationApprovalTest(TestCase):
         execute_allocation_step_back_to_submitted(allocation)
 
         allocation.refresh_from_db()
+        self.fixtures["stock"].refresh_from_db()
         self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
         self.assertIsNone(allocation.approved_by)
         self.assertIsNone(allocation.approved_at)
         self.assertEqual(allocation.distributions.count(), 0)
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("0"))
 
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
@@ -333,6 +386,14 @@ class DistributionDeliveryTest(TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.PREPARED)
 
+    def test_generated_distributions_store_reserved_quantity(self):
+        reserved_quantities = list(
+            self.allocation.distributions.order_by("facility__code").values_list(
+                "items__reserved_quantity", flat=True
+            )
+        )
+        self.assertEqual(reserved_quantities, [Decimal("30"), Decimal("20")])
+
     def test_deliver_deducts_stock(self):
         dist = self.allocation.distributions.get(facility=self.fixtures["facility1"])
         execute_distribution_preparation(dist, self.fixtures["operator"])
@@ -344,6 +405,7 @@ class DistributionDeliveryTest(TestCase):
         self.fixtures["stock"].refresh_from_db()
         # Original 100, allocated 30 to facility1
         self.assertEqual(self.fixtures["stock"].quantity, Decimal("70"))
+        self.assertEqual(self.fixtures["stock"].reserved, Decimal("20"))
 
         # Transaction should be written
         self.assertTrue(

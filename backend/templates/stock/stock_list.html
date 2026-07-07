@@ -7,7 +7,7 @@
 {% block content %}
 <div class="d-flex flex-column gap-4">
     <section class="row g-3">
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small fw-semibold mb-2">Batch Aktif</div>
@@ -16,7 +16,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small fw-semibold mb-2">Total Kuantitas</div>
@@ -25,16 +25,25 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
-                    <div class="text-uppercase text-muted small fw-semibold mb-2">Tersedia</div>
-                    <div class="fs-3 fw-bold">{{ stock_stats.total_available|id_decimal:0 }}</div>
-                    <div class="text-muted small">Total stok yang dapat dipakai</div>
+                    <div class="text-uppercase text-muted small fw-semibold mb-2">Stok Reserved</div>
+                    <div class="fs-3 fw-bold">{{ stock_stats.total_reserved|id_decimal:0 }}</div>
+                    <div class="text-muted small">Dibooking dokumen outbound aktif</div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-uppercase text-muted small fw-semibold mb-2">Stok Tersedia</div>
+                    <div class="fs-3 fw-bold">{{ stock_stats.total_available|id_decimal:0 }}</div>
+                    <div class="text-muted small">Siap dipakai setelah dikurangi reserved</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small fw-semibold mb-2">Perlu Perhatian</div>
@@ -129,7 +138,9 @@
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 180px;">Lokasi</th>
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 140px;">Batch / Lot</th>
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 160px;">Tanggal Kedaluwarsa</th>
-                            <th class="sticky-top bg-light text-end" style="top: 0; z-index: 1; min-width: 120px;">Kuantitas</th>
+                            <th class="sticky-top bg-light text-end" style="top: 0; z-index: 1; min-width: 120px;">Stok Fisik</th>
+                            <th class="sticky-top bg-light text-end" style="top: 0; z-index: 1; min-width: 120px;">Reserved</th>
+                            <th class="sticky-top bg-light text-end" style="top: 0; z-index: 1; min-width: 120px;">Stok Tersedia</th>
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 140px;">Sumber Dana</th>
                         </tr>
                     </thead>
@@ -152,11 +163,13 @@
                                 </div>
                             </td>
                             <td class="text-end fw-semibold">{{ stock.quantity|id_decimal:0 }}</td>
+                            <td class="text-end">{{ stock.reserved|id_decimal:0 }}</td>
+                            <td class="text-end fw-semibold text-success-emphasis">{{ stock.available_quantity|id_decimal:0 }}</td>
                             <td><span class="badge {{ stock.source_fund_badge_class }}">{{ stock.sumber_dana.name }}</span></td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <div class="d-flex flex-column align-items-center gap-2 text-muted">
                                     <i class="bi bi-inbox fs-1"></i>
                                     <div class="fw-semibold">Belum ada data stok yang cocok dengan filter.</div>
@@ -197,3 +210,4 @@
     </section>
 </div>
 {% endblock %}
+
