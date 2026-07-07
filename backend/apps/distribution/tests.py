@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.distribution.forms import DistributionForm, DistributionItemForm
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
+from apps.distribution.services import DistributionWorkflowError, execute_distribution_verification
 from apps.core.models import SystemSettings
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.lplpo.models import LPLPO
@@ -586,6 +587,22 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(self.stock.reserved, Decimal("40"))
         self.assertEqual(reserved_item.reserved_quantity, Decimal("40"))
 
+    def test_verify_rechecks_locked_distribution_state_before_reserving(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        stale_distribution = Distribution.objects.get(pk=dist.pk)
+
+        execute_distribution_verification(dist, self.user)
+
+        with self.assertRaises(DistributionWorkflowError):
+            execute_distribution_verification(stale_distribution, self.user)
+
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        reserved_item = dist.items.get()
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertEqual(self.stock.reserved, Decimal("40"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("40"))
+
     def test_verify_requires_approved_qty(self):
         dist = self._create_distribution(
             status=Distribution.Status.SUBMITTED, with_items=False
@@ -1021,6 +1038,18 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
     def test_delete_allowed_for_draft(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)
+        response = self.client.post(
+            reverse("distribution:distribution_delete", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Distribution.objects.filter(pk=dist.pk).exists())
+
+
+    def test_delete_allowed_for_empty_draft(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            with_items=False,
+        )
         response = self.client.post(
             reverse("distribution:distribution_delete", args=[dist.pk])
         )

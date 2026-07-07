@@ -21,11 +21,11 @@ def _save_distribution(distribution, update_fields):
     distribution.save(update_fields=[*update_fields, "updated_at"])
 
 
-def _get_distribution_items(distribution, action_label):
+def _get_distribution_items(distribution, action_label, *, allow_empty=False):
     distribution_items = list(
         distribution.items.select_related("item", "stock").order_by("pk")
     )
-    if not distribution_items:
+    if not distribution_items and not allow_empty:
         raise DistributionWorkflowError(
             f"Distribusi tidak memiliki item untuk {action_label}."
         )
@@ -153,6 +153,7 @@ def release_distribution_reservations(distribution, *, distribution_items=None):
     distribution_items = distribution_items or _get_distribution_items(
         distribution,
         "pelepasan reservasi",
+        allow_empty=True,
     )
     reservable_items = [
         item
@@ -235,17 +236,30 @@ def execute_distribution_submission(distribution):
 
 
 def execute_distribution_verification(distribution, user):
-    distribution_items = _get_distribution_items(distribution, "diverifikasi")
-
     with transaction.atomic():
+        locked_distribution = Distribution.objects.select_for_update().get(
+            pk=distribution.pk
+        )
+        if locked_distribution.status != Distribution.Status.SUBMITTED:
+            raise DistributionWorkflowError(
+                "Hanya distribusi berstatus Diajukan yang dapat diverifikasi."
+            )
+
+        distribution_items = _get_distribution_items(
+            locked_distribution,
+            "diverifikasi",
+        )
         apply_distribution_reservations(
-            distribution,
+            locked_distribution,
             distribution_items=distribution_items,
         )
-        distribution.status = Distribution.Status.VERIFIED
-        distribution.verified_by = user
-        distribution.verified_at = timezone.now()
-        _save_distribution(distribution, ["status", "verified_by", "verified_at"])
+        locked_distribution.status = Distribution.Status.VERIFIED
+        locked_distribution.verified_by = user
+        locked_distribution.verified_at = timezone.now()
+        _save_distribution(
+            locked_distribution,
+            ["status", "verified_by", "verified_at"],
+        )
 
 
 
