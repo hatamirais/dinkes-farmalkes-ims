@@ -413,7 +413,14 @@ def execute_distribution_step_back(distribution):
         )
 
     with transaction.atomic():
-        if distribution.status == Distribution.Status.VERIFIED:
+        should_release_reservations = (
+            distribution.status == Distribution.Status.VERIFIED
+            or (
+                distribution.distribution_type == Distribution.DistributionType.ALLOCATION
+                and distribution.status == Distribution.Status.PREPARED
+            )
+        )
+        if should_release_reservations:
             release_distribution_reservations(distribution)
 
         distribution.status = previous_status

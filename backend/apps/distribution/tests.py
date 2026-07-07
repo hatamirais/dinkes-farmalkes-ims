@@ -954,6 +954,25 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.DRAFT)
 
+
+    def test_step_back_allocation_prepared_releases_reservations(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            distribution_type=Distribution.DistributionType.ALLOCATION,
+        )
+
+        response = self.client.post(
+            reverse("distribution:distribution_step_back", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        reserved_item = dist.items.get()
+        self.assertEqual(dist.status, Distribution.Status.DRAFT)
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("0"))
+
     def test_step_back_rejected_to_submitted(self):
         dist = self._create_distribution(status=Distribution.Status.REJECTED)
         response = self.client.post(
