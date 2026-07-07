@@ -882,7 +882,12 @@ def distribution_reset_to_draft(request, pk):
             )
         return _redirect_distribution_detail(pk)
 
-    execute_distribution_reset_to_draft(dist)
+    try:
+        execute_distribution_reset_to_draft(dist)
+    except DistributionWorkflowError as exc:
+        messages.error(request, str(exc))
+        return _redirect_distribution_detail(pk)
+
     messages.success(
         request, f"Distribusi {dist.document_number} dikembalikan ke Draft."
     )
@@ -914,7 +919,12 @@ def distribution_step_back(request, pk):
             )
         return _redirect_distribution_detail(pk)
 
-    execute_distribution_step_back(dist)
+    try:
+        execute_distribution_step_back(dist)
+    except DistributionWorkflowError as exc:
+        messages.error(request, str(exc))
+        return _redirect_distribution_detail(pk)
+
     messages.success(
         request,
         f"Distribusi {dist.document_number} dikembalikan ke status {dist.get_status_display()}.",

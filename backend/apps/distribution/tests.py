@@ -955,7 +955,30 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(dist.status, Distribution.Status.DRAFT)
 
 
-    def test_step_back_allocation_prepared_releases_reservations(self):
+    def test_reset_to_draft_blocked_for_allocation_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            distribution_type=Distribution.DistributionType.ALLOCATION,
+        )
+
+        response = self.client.post(
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        reserved_item = dist.items.get()
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertEqual(self.stock.reserved, Decimal("40"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("40"))
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn(
+            "Distribusi alokasi tidak dapat dikembalikan ke Draft dari modul distribusi. Gunakan step-back pada alokasi induk.",
+            messages,
+        )
+
+    def test_step_back_blocked_for_allocation_distribution(self):
         dist = self._create_distribution(
             status=Distribution.Status.PREPARED,
             distribution_type=Distribution.DistributionType.ALLOCATION,
@@ -969,9 +992,14 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist.refresh_from_db()
         self.stock.refresh_from_db()
         reserved_item = dist.items.get()
-        self.assertEqual(dist.status, Distribution.Status.DRAFT)
-        self.assertEqual(self.stock.reserved, Decimal("0"))
-        self.assertEqual(reserved_item.reserved_quantity, Decimal("0"))
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+        self.assertEqual(self.stock.reserved, Decimal("40"))
+        self.assertEqual(reserved_item.reserved_quantity, Decimal("40"))
+        messages = [message.message for message in get_messages(response.wsgi_request)]
+        self.assertIn(
+            "Distribusi alokasi tidak dapat dikembalikan ke status sebelumnya dari modul distribusi. Gunakan step-back pada alokasi induk.",
+            messages,
+        )
 
     def test_step_back_rejected_to_submitted(self):
         dist = self._create_distribution(status=Distribution.Status.REJECTED)

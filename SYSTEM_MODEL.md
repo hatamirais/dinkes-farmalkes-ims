@@ -274,7 +274,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `distribution.DistributionItem` (`distribution_items`):
   - FKs: `distribution`, `item`, `stock` (nullable)
   - Fields: `quantity_requested`, `quantity_approved` (nullable), `reserved_quantity`, `issued_batch_lot`, `issued_expiry_date`, `issued_unit_price`, `notes`, `created_at`
-  - `reserved_quantity` stores how much stock is currently booked for that row so reservation release/reapply remains deterministic across edits, reset/step-back, allocation step-back, delete, and final fulfillment
+  - `reserved_quantity` stores how much stock is currently booked for that row so reservation release/reapply remains deterministic across edits, standalone reset/step-back, allocation step-back, delete, and final fulfillment
   - FKs also include `issued_sumber_dana` (nullable) to preserve the book-value source used when stock is distributed
 
 - `distribution.DistributionStaffAssignment` (`distribution_staff_assignments`):
@@ -456,7 +456,7 @@ Operational mutation points (from app behavior and admin import logic):
   - draft/rejected preparation and submission are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
   - verify phase now locks the selected stock rows and increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`
-  - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, allocation step-back, and delete release `reserved` using `DistributionItem.reserved_quantity`
+  - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, and delete release `reserved` using `DistributionItem.reserved_quantity` for standalone distributions, while allocation-generated child distributions release reservations only through parent allocation step-back
   - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
