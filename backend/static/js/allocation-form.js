@@ -7,7 +7,7 @@
  * Step 4: Read-only review generated from form data
  */
 
-document.addEventListener('DOMContentLoaded', () => {
+function initAllocationForm() {
     const stockCatalog = JSON.parse(
         document.getElementById('allocation-stock-catalog')?.textContent || '[]'
     );
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getStepThreeReadiness() {
         const facilities = getSelectedFacilities();
-        const items = getFormsetItems();
+        const items = getBatchMatrixItems();
         return {
             facilities,
             items,
@@ -684,47 +684,63 @@ document.addEventListener('DOMContentLoaded', () => {
         return facilities;
     }
 
-    function getFormsetItems() {
-        const items = [];
-        const formsetContainer = document.querySelector('[data-formset="allocation-items"]');
-        if (!formsetContainer) return items;
+    function getDisplayGroupsForStep2() {
+        return getPrimaryAllocationRows()
+            .map((row) => {
+                const itemSelect = row.querySelector('.js-item-select');
+                const stockSelect = row.querySelector('.js-stock-select');
 
-        const rows = formsetContainer.querySelectorAll('.formset-row');
-        rows.forEach((row) => {
-            const deleteCheckbox = row.querySelector('[name$="-DELETE"]');
-            if (deleteCheckbox && deleteCheckbox.checked) return;
-            if (row.classList.contains('d-none') && !isGeneratedBatchRow(row)) return;
+                if (!itemSelect || !itemSelect.value || !stockSelect || !stockSelect.value) {
+                    return null;
+                }
 
-            const itemSelect = row.querySelector('.js-item-select');
-            const stockSelect = row.querySelector('.js-stock-select');
-            const qtyCell = row.querySelector('.js-available-qty');
-            const idField = row.querySelector('[name$="-id"]');
+                return {
+                    row,
+                    itemId: itemSelect.value,
+                    selectedStockIds: getSelectedStockIdsForGroup(row),
+                };
+            })
+            .filter(Boolean);
+    }
 
-            if (!itemSelect || !itemSelect.value) return;
-            if (!stockSelect || !stockSelect.value) return;
+    function buildBatchMatrixItem(row) {
+        const itemSelect = row.querySelector('.js-item-select');
+        const stockSelect = row.querySelector('.js-stock-select');
+        const idField = row.querySelector('[name$="-id"]');
 
-            const itemText = itemSelect.options[itemSelect.selectedIndex]?.text || '';
-            const stockText = stockSelect?.options[stockSelect.selectedIndex]?.text || '';
-            const available = parseFloat(qtyCell?.textContent) || 0;
+        if (!itemSelect || !itemSelect.value) return null;
+        if (!stockSelect || !stockSelect.value) return null;
 
-            // Try to determine a stable ID for the matrix row
-            const formIndex = idField?.value || itemSelect.name?.match(/items-(\d+)-/)?.[1] || '';
+        const itemText = itemSelect.options[itemSelect.selectedIndex]?.text || '';
+        const stockText = stockSelect.options[stockSelect.selectedIndex]?.text || '';
+        const stockMeta = getStockMeta(stockSelect.value);
+        const available = stockMeta?.availableQty || 0;
 
-            items.push({
-                formIndex: formIndex,
-                itemId: itemSelect.value,
-                itemName: itemText,
-                stockId: stockSelect?.value || '',
-                stockLabel: stockText,
-                available: available,
-            });
+        return {
+            formIndex: idField?.value || itemSelect.name?.match(/items-(\d+)-/)?.[1] || '',
+            itemId: itemSelect.value,
+            itemName: itemText,
+            stockId: stockSelect.value || '',
+            stockLabel: stockText,
+            available: available,
+            stockOrder: stockCatalog.findIndex((stock) => String(stock.id) === String(stockSelect.value)),
+        };
+    }
+
+    function getBatchMatrixItems() {
+        return getPrimaryAllocationRows().flatMap((row) => {
+            const groupRows = [row, ...getGeneratedRowsForGroup(row)]
+                .map((candidateRow) => buildBatchMatrixItem(candidateRow))
+                .filter(Boolean)
+                .sort((left, right) => left.stockOrder - right.stockOrder);
+
+            return groupRows;
         });
-        return items;
     }
 
     function buildMatrix() {
         const facilities = getSelectedFacilities();
-        const items = getFormsetItems();
+        const items = getBatchMatrixItems();
         const headerRow = document.getElementById('matrix-header-row');
         const matrixBody = document.getElementById('matrix-body');
         const emptyMsg = document.getElementById('matrix-empty-msg');
@@ -878,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
 
         const facilities = getSelectedFacilities();
-        const items = getFormsetItems();
+        const items = getBatchMatrixItems();
 
         if (items.length === 0 || facilities.length === 0) {
             container.innerHTML = '<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>';
@@ -916,10 +932,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // Utility
     // ────────────────────────────────────
 
+
+    window.__allocationWizardTestApi = {
+        getDisplayGroupsForStep2,
+        getBatchMatrixItems,
+        buildMatrix,
+        buildReviewMatrix,
+        buildReview,
+        goToStep,
+    };
     function escapeHtml(str) {
         if (!str) return '';
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAllocationForm, { once: true });
+} else {
+    initAllocationForm();
+}
+
+
+
+
+
+
