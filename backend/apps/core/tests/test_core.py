@@ -402,6 +402,13 @@ class DashboardViewTests(TestCase):
         self.assertContains(response, "Input Pemakaian")
         self.assertContains(response, "Permintaan Barang")
         self.assertContains(response, '<span>LPLPO</span>', html=False)
+
+    def test_puskesmas_sidebar_lplpo_link_targets_my_list(self):
+        self.client.force_login(self.puskesmas_user)
+        response = self.client.get(reverse("password_change"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/lplpo/my/"', html=False)
     def test_global_dashboard_requires_stock_view_scope(self):
         user = User.objects.create_user(
             username="dashboard-blocked",
