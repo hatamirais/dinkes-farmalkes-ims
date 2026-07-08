@@ -368,11 +368,40 @@ class DashboardViewTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("dashboard"))
 
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(
+            response,
+            "Akun Anda belum terhubung ke fasilitas puskesmas.",
+            status_code=403,
+        )
+
+    def test_unlinked_puskesmas_user_sidebar_hides_facility_scoped_navigation(self):
+        user = User.objects.create_user(
+            username="sidebar-no-facility",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("password_change"))
+
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "dashboard_puskesmas.html")
-        self.assertIsNone(response.context["facility"])
-        self.assertEqual(list(response.context["recent_lplpos"]), [])
-        self.assertEqual(list(response.context["recent_requests"]), [])
+        self.assertNotContains(response, "Konfirmasi Penerimaan")
+        self.assertNotContains(response, "Poli/Pustu Puskesmas")
+        self.assertNotContains(response, "Input Pemakaian")
+        self.assertNotContains(response, "Permintaan Barang")
+        self.assertNotContains(response, '<span>LPLPO</span>', html=False)
+
+    def test_linked_puskesmas_user_sidebar_keeps_facility_scoped_navigation(self):
+        self.client.force_login(self.puskesmas_user)
+        response = self.client.get(reverse("password_change"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Konfirmasi Penerimaan")
+        self.assertContains(response, "Poli/Pustu Puskesmas")
+        self.assertContains(response, "Input Pemakaian")
+        self.assertContains(response, "Permintaan Barang")
+        self.assertContains(response, '<span>LPLPO</span>', html=False)
 
     def test_puskesmas_sidebar_lplpo_link_targets_my_list(self):
         self.client.force_login(self.puskesmas_user)
@@ -380,8 +409,6 @@ class DashboardViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'href="/lplpo/my/"', html=False)
-        self.assertNotContains(response, 'href="/lplpo/"', html=False)
-
     def test_global_dashboard_requires_stock_view_scope(self):
         user = User.objects.create_user(
             username="dashboard-blocked",

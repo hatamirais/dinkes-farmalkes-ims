@@ -23,6 +23,12 @@ def access_flags(request):
             "is_super_admin_user": False,
         }
 
+    is_super_admin_user = is_super_admin(user)
+    has_linked_puskesmas_facility = is_super_admin_user or (
+        getattr(user, "role", None) != "PUSKESMAS"
+        or bool(getattr(user, "facility_id", None))
+    )
+
     return {
         "can_view_user_management": has_module_scope(
             user, ModuleAccess.Module.USERS, ModuleAccess.Scope.VIEW
@@ -62,9 +68,11 @@ def access_flags(request):
         ),
         "can_view_puskesmas": has_module_scope(
             user, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.VIEW
-        ),
+        )
+        and has_linked_puskesmas_facility,
         "can_view_lplpo": has_module_scope(
             user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.VIEW
-        ),
-        "is_super_admin_user": is_super_admin(user),
+        )
+        and has_linked_puskesmas_facility,
+        "is_super_admin_user": is_super_admin_user,
     }
