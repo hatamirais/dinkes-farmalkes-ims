@@ -186,20 +186,7 @@ def dashboard(request):
     if request.user.role == User.Role.PUSKESMAS:
         facility = request.user.facility
         if not facility:
-            return render(
-                request,
-                "dashboard_puskesmas.html",
-                {
-                    "facility": None,
-                    "draft_lplpo_count": 0,
-                    "submitted_lplpo_count": 0,
-                    "reviewed_lplpo_count": 0,
-                    "recent_lplpos": [],
-                    "recent_requests": [],
-                    "latest_lplpo": None,
-                },
-            )
-
+            raise PermissionDenied("Akun Anda belum terhubung ke fasilitas puskesmas.")
         lplpo_queryset = LPLPO.objects.filter(facility=facility).select_related(
             "facility"
         )
@@ -526,3 +513,4 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
                 )
             )
         return super().form_invalid(form)
+
