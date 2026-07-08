@@ -187,9 +187,10 @@ Perintah yang tersedia:
 - `npm run playwright:auth` untuk membuat atau memperbarui profil login tiap role tanpa membuka window manual.
 - `npm run playwright:refresh-auth` untuk menghapus profil lokal lalu login ulang dari nol.
 - `npm run playwright:open` untuk membuka empat window role sekaligus memakai profil persisten yang sudah tersimpan.
+- `npm run playwright:test` untuk menjalankan committed browser regression specs di folder `playwright/`.
 - `npm run playwright:bootstrap` untuk instal Chromium lalu menyiapkan sesi role awal.
 
-Profil browser disimpan secara lokal di `.playwright-profiles/` dan diabaikan oleh git. Bila password akun berubah atau sesi rusak, jalankan `npm run playwright:refresh-auth` lalu buka kembali window dengan `npm run playwright:open`.
+Profil browser disimpan secara lokal di `.playwright-profiles/` dan diabaikan oleh git. Bila password akun berubah atau sesi rusak, jalankan `npm run playwright:refresh-auth` lalu buka kembali window dengan `npm run playwright:open`. Committed specs dipakai hemat untuk regresi frontend yang sulit ditutup oleh test Django saja; helper multi-role tetap tersedia untuk verifikasi manual lintas role.
 
 ## Versioning
 
@@ -269,4 +270,5 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
 - `SYSTEM_MODEL.md`: referensi skema dan workflow utama
 - `CHANGELOG.md`: riwayat rilis
 - `security-audit/OWASP_TOP10_NON_PERSONAL_INFO_AUDIT_2026-02-27.md`: audit keamanan
+
 

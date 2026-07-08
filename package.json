@@ -7,6 +7,7 @@
     "playwright:auth": "node scripts/playwright/auth.mjs",
     "playwright:refresh-auth": "node scripts/playwright/auth.mjs --refresh",
     "playwright:open": "node scripts/playwright/open-windows.mjs",
+    "playwright:test": "npx playwright test",
     "playwright:bootstrap": "npm run playwright:install && npm run playwright:auth"
   },
   "devDependencies": {
