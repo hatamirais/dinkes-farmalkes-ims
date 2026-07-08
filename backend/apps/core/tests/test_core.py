@@ -374,6 +374,14 @@ class DashboardViewTests(TestCase):
         self.assertEqual(list(response.context["recent_lplpos"]), [])
         self.assertEqual(list(response.context["recent_requests"]), [])
 
+    def test_puskesmas_sidebar_lplpo_link_targets_my_list(self):
+        self.client.force_login(self.puskesmas_user)
+        response = self.client.get(reverse("password_change"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/lplpo/my/"', html=False)
+        self.assertNotContains(response, 'href="/lplpo/"', html=False)
+
     def test_global_dashboard_requires_stock_view_scope(self):
         user = User.objects.create_user(
             username="dashboard-blocked",
@@ -1729,3 +1737,4 @@ class SafeMediaUrlIntegrationTests(TestCase):
 
         self.assertIn('<i class="bi bi-hospital"></i>', rendered)
         self.assertNotIn("<img", rendered)
+

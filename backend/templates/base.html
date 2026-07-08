@@ -241,7 +241,7 @@
                 </a>
                 {% endif %}
                 {% if can_view_lplpo and request.user.role == 'PUSKESMAS' %}
-                <a href="{% url 'lplpo:lplpo_list' %}"
+                <a href="{% url 'lplpo:lplpo_my_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'lplpo' %}active{% endif %}"
                     data-label="LPLPO"
                     title="LPLPO">
@@ -576,3 +576,4 @@
 </body>
 
 </html>
+
