@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 from django.contrib.auth.models import Permission
@@ -1272,3 +1273,16 @@ class ProtectedUserManagementGuardsTest(TestCase):
             "Terlalu banyak percobaan pada aksi ini",
             status_code=429,
         )
+
+
+
+class UserListFrontendSecurityTest(TestCase):
+    def test_delete_modal_script_avoids_dynamic_html_sink(self):
+        script_path = (
+            Path(__file__).resolve().parents[2] / 'static' / 'js' / 'user-list.js'
+        )
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("deleteConfirmForm.setAttribute('action', safeUrl);", script)
+        self.assertIn("deleteConfirmMessage.textContent =", script)
+        self.assertNotIn('deleteConfirmMessage.innerHTML', script)
