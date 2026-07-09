@@ -54,7 +54,7 @@ If documentation conflicts with code, code is authoritative until docs are corre
 
 ## Active Django Apps
 
-- `core`: shared abstractions, dashboard, dynamic system settings (login platform label, logo/headers, and configurable distribution numbering templates), placeholder administration history pages for receiving and distribution archives, plus centralized `400/403/404/500` handlers and a `/maintenance/` `503` view
+- `core`: shared abstractions, dashboard, dynamic system settings (login platform label, logo/headers, and configurable distribution numbering templates) restricted to `ADMIN` and `KEPALA`, placeholder administration history pages for receiving and distribution archives, plus centralized `400/403/404/500` handlers and a `/maintenance/` `503` view
 - `users`: custom user and `ModuleAccess` scope model
 - `items`: master data and item catalog; items may be flagged as program item `[P]` (`is_program_item`) or essential `[E]` (`is_essential`), may belong to multiple `Terapi Obat` groups through the `TherapeuticClass` lookup for reporting, and now carry `requires_expiry_date` to declare whether receiving/stock batches for that item must capture an expiry date. The item list also exposes an `Esensial` filter and XLSX export of the currently filtered active catalog for downstream ministry-app preparation
 - `stock`: stock entries, immutable transactions, stock card, location-based stock search, stock transfer, and a read-only `Stok Puskesmas` snapshot page for Instalasi Farmasi-side planning/audit visibility. The stock list and summaries now distinguish `stok fisik`, `reserved`, and `stok tersedia` (`quantity - reserved`) so warehouse staff can see physical balance separately from committed outbound stock. The page derives current per-Puskesmas stock from the latest usable LPLPO closing stock plus later confirmed receipt confirmations minus later detailed consumption in the same year
@@ -94,6 +94,7 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - Every non-superuser account using `puskesmas` or `lplpo` operational surfaces must have a linked `facility`; otherwise the request is denied with `403`.
 - Super Admin (`is_superuser` / role `ADMIN`) remains exempt from `puskesmas` and `lplpo` facility scoping. `lplpo` also grants limited stage-gated cross-facility access to Instalasi Farmasi roles: `GUDANG` for active warehouse processing states and `KEPALA` for the legacy `REVIEWED/finalize` compatibility path plus historical read-only states.
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback). Superusers may query all facilities; any non-superuser user is forced to their linked `facility` on those report querysets and receives `403` when no facility is linked.
+- `/settings/` is not governed by module-scope fallback. It is an explicit role-gated `core` view that allows only superusers plus users whose role is `ADMIN` or `KEPALA`.
 
 ## Workflow and Data Mutation Rules
 

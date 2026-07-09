@@ -438,9 +438,10 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
 
     def test_func(self):
         user = self.request.user
-        return user.is_superuser or has_module_scope(
-            user, ModuleAccess.Module.ADMIN_PANEL, ModuleAccess.Scope.MANAGE
-        )
+        return user.is_superuser or user.role in {
+            User.Role.ADMIN,
+            User.Role.KEPALA,
+        }
 
     def get_object(self, queryset=None):
         return SystemSettings.get_settings()

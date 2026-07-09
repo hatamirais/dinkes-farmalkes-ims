@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-07-02
+Last verified: 2026-07-09
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`
 
 ## 1) Domain Overview
@@ -32,7 +32,7 @@ Root route include map from `backend/config/urls.py`:
 - `/admin/` -> Django admin
 - `/login/`, `/logout/`, `/password/change/`, `/password/change/done/`
   - `/password/change/` uses a rate-limited subclass of Django's `PasswordChangeView`
-- `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`)
+- `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
 - `/administration/history/receiving/` -> placeholder riwayat penerimaan administrasi (`apps.core.views.administration_receiving_history`)
 - `/administration/history/distribution/` -> placeholder riwayat pengeluaran administrasi (`apps.core.views.administration_distribution_history`)
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
@@ -111,6 +111,7 @@ Special rule:
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 - Puskesmas receipt-confirmation create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage receipt-confirmation mutations.
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
+- `/settings/` is an explicit role-gated exception outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update system settings.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
 

@@ -916,6 +916,42 @@ class SystemSettingsAccessTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_kepala_user_sees_settings_menu_and_can_open_settings(self):
+        user = User.objects.create_user(
+            username="settings-kepala",
+            password="TestPassword123!",
+            role=User.Role.KEPALA,
+        )
+        self.client.force_login(user)
+
+        sidebar_response = self.client.get(reverse("password_change"))
+        self.assertEqual(sidebar_response.status_code, 200)
+        self.assertContains(sidebar_response, "Pengaturan")
+        self.assertContains(sidebar_response, 'href="/settings/"', html=False)
+
+        settings_response = self.client.get(reverse("settings"))
+        self.assertEqual(settings_response.status_code, 200)
+
+    def test_admin_panel_manager_without_admin_or_kepala_role_is_denied_settings(self):
+        user = User.objects.create_user(
+            username="settings-manager-denied",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ModuleAccess.objects.update_or_create(
+            user=user,
+            module=ModuleAccess.Module.ADMIN_PANEL,
+            defaults={"scope": ModuleAccess.Scope.MANAGE},
+        )
+        self.client.force_login(user)
+
+        sidebar_response = self.client.get(reverse("password_change"))
+        self.assertEqual(sidebar_response.status_code, 200)
+        self.assertNotContains(sidebar_response, "Pengaturan")
+
+        settings_response = self.client.get(reverse("settings"))
+        self.assertEqual(settings_response.status_code, 403)
+
     def test_admin_user_sees_numbering_preview_card(self):
         user = User.objects.create_superuser(
             username="settings-admin",
