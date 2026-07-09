@@ -197,14 +197,6 @@
                                 {% if request.user == account or account.is_active %}disabled{% endif %}>
                                 <i class="bi bi-trash"></i>
                             </button>
-                            <form
-                                method="post"
-                                action="{% url 'users:user_delete' account.pk %}"
-                                id="deleteUserForm-{{ account.pk }}"
-                                class="d-none"
-                            >
-                                {% csrf_token %}
-                            </form>
                             {% endif %}
                         </td>
                     </tr>
@@ -323,6 +315,18 @@
 </div>
 
 {% if can_delete_user %}
+<div class="d-none" aria-hidden="true">
+    {% for account in users %}
+    <form
+        method="post"
+        action="{% url 'users:user_delete' account.pk %}"
+        id="deleteUserForm-{{ account.pk }}"
+    >
+        {% csrf_token %}
+    </form>
+    {% endfor %}
+</div>
+
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

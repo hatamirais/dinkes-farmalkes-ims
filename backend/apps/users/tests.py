@@ -116,6 +116,7 @@ class UserManagementViewsTest(TestCase):
 
     def test_user_list_delete_modal_keeps_single_delete_forms(self):
         response = self.client.get(reverse("users:user_list"))
+        content = response.content.decode("utf-8")
 
         self.assertContains(
             response,
@@ -124,6 +125,10 @@ class UserManagementViewsTest(TestCase):
         )
         self.assertContains(
             response, f'id="deleteUserForm-{self.target.pk}"', html=False
+        )
+        self.assertLess(
+            content.index('</form>'),
+            content.index(f'id="deleteUserForm-{self.target.pk}"'),
         )
 
     def test_user_list_filter_by_role(self):
