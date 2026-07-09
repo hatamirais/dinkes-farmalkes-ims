@@ -409,6 +409,28 @@ class DashboardViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'href="/lplpo/my/"', html=False)
+
+    def test_admin_panel_sidebar_link_uses_noopener_noreferrer(self):
+        user = User.objects.create_user(
+            username="admin-panel-sidebar-user",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self._set_scope(
+            user,
+            ModuleAccess.Module.ADMIN_PANEL,
+            ModuleAccess.Scope.MANAGE,
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("password_change"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'href="/admin/" class="sidebar-link" target="_blank" rel="noopener noreferrer" data-label="Admin Panel" title="Admin Panel"',
+            html=False,
+        )
     def test_global_dashboard_requires_stock_view_scope(self):
         user = User.objects.create_user(
             username="dashboard-blocked",
