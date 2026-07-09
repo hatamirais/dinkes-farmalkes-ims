@@ -13,23 +13,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return meta ? meta.getAttribute('content') : '';
     }
 
-    function getSafeDeleteUrl(rawUrl) {
-        if (!rawUrl) return null;
-        try {
-            var parsed = new URL(rawUrl, window.location.origin);
-            var isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
-            var isSameOrigin = parsed.origin === window.location.origin;
-            if (!isHttp || !isSameOrigin) return null;
-
-            var normalized = parsed.pathname + parsed.search;
-            if (/[<>"'`\\]/.test(normalized)) return null;
-            if (normalized.charAt(0) !== '/') return null;
-
-            return normalized;
-        } catch (e) {
-            return null;
-        }
-    }
 
     function createStatusBadge(isActive) {
         var badge = document.createElement('span');
@@ -127,20 +110,18 @@ document.addEventListener('DOMContentLoaded', function () {
     var deleteModal = document.getElementById('deleteConfirmModal');
     var deleteConfirmForm = document.getElementById('deleteConfirmForm');
     var deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
+    var deleteConfirmSelectedUser = document.getElementById('deleteConfirmSelectedUser');
 
-    if (deleteModal && deleteConfirmForm) {
+    if (deleteModal && deleteConfirmForm && deleteConfirmSelectedUser) {
         document.querySelectorAll('.single-delete-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var rawUrl = this.getAttribute('data-delete-url');
-                var safeUrl = getSafeDeleteUrl(rawUrl);
+                var userId = this.getAttribute('data-user-id');
                 var username = this.getAttribute('data-username');
-                if (!safeUrl) {
+                if (!userId || !/^\d+$/.test(userId)) {
                     return;
                 }
-                if (safeUrl.charAt(0) !== '/' || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(safeUrl)) {
-                    return;
-                }
-                deleteConfirmForm.setAttribute('action', safeUrl);
+
+                deleteConfirmSelectedUser.value = userId;
                 if (deleteConfirmMessage) {
                     deleteConfirmMessage.textContent = 'Apakah Anda yakin ingin menghapus pengguna "' + username + '" secara permanen? Tindakan ini tidak dapat dibatalkan.';
                 }
