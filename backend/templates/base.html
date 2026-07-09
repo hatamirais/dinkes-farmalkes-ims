@@ -370,7 +370,7 @@
                     <i class="bi bi-send-check"></i><span>Riwayat Pengeluaran</span>
                 </a>
                 {% if can_open_admin_panel %}
-                <a href="{% url 'admin:index' %}" class="sidebar-link" target="_blank" data-label="Admin Panel" title="Admin Panel">
+                <a href="{% url 'admin:index' %}" class="sidebar-link" target="_blank" rel="noopener noreferrer" data-label="Admin Panel" title="Admin Panel">
                     <i class="bi bi-gear"></i><span>Admin Panel</span>
                 </a>
                 {% endif %}
