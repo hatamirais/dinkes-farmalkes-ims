@@ -154,26 +154,6 @@ Apply these principles:
 - Keep axes backend ordering and middleware placement documented exactly as configured.
 - Keep sensitive POST throttling settings and the centralized `429` behavior documented exactly as configured.
 
-## Graphify Guidance
-
-Graphify is optional local tooling for repository orientation and cross-file relationship tracing.
-
-- If `graphify-out/` exists, prefer reviewing or querying those artifacts before broad repository scans for architecture or relationship questions.
-- If `graphify-out/` does not exist, proceed with normal code and documentation inspection. Do not assume Graphify artifacts are present.
-- Treat `graphify-out/` as local-only output unless a curated artifact is explicitly requested for commit.
-- When generating Graphify artifacts for local use, prefer first-party code and core docs:
-  - `backend/apps/`
-  - `backend/config/`
-  - optionally `README.md`, `AGENTS.md`, and `SYSTEM_MODEL.md`
-- Avoid noisy Graphify inputs unless explicitly needed:
-  - `backend/static/vendor/`
-  - minified JS assets
-  - `node_modules/`
-  - `backend/apps/**/migrations/`
-  - `backend/apps/**/tests.py`
-  - `backend/apps/**/tests/`
-  - optionally `CHANGELOG.md`
-
 ## Development Commands
 
 ```bash
@@ -260,4 +240,3 @@ Run with: `.\scripts\run-django-test.ps1 -Target apps.core.tests.test_url_consis
 
 - Do not claim REST API/React production paths as implemented; those are planned.
 - Keep terminology consistent: use "module scope" for `ModuleAccess` and "Django permissions" for `has_perm` checks.
-
