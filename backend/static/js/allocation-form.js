@@ -877,16 +877,42 @@ function initAllocationForm() {
             staffNames.push(getSelectionTitle(label, cb.value));
         });
 
-        container.innerHTML = `
-            <div class="row g-2 small">
-                <div class="col-12"><strong>Judul:</strong> ${escapeHtml(title?.value || '—')}</div>
-                <div class="col-md-4"><strong>Tanggal:</strong> ${escapeHtml(tanggal?.value || '—')}</div>
-                <div class="col-md-4"><strong>Referensi:</strong> ${escapeHtml(referensi?.value || '—')}</div>
-                <div class="col-md-6"><strong>Fasilitas:</strong> ${facilities.map(f => escapeHtml(f.name)).join(', ') || '—'}</div>
-                <div class="col-md-6"><strong>Petugas:</strong> ${staffNames.map(n => escapeHtml(n)).join(', ') || '—'}</div>
-                ${notes?.value ? `<div class="col-12"><strong>Catatan:</strong> ${escapeHtml(notes.value)}</div>` : ''}
-            </div>
-        `;
+        container.replaceChildren();
+
+        const row = document.createElement('div');
+        row.className = 'row g-2 small';
+
+        const appendSummary = (columnClass, label, value) => {
+            const column = document.createElement('div');
+            column.className = columnClass;
+
+            const strong = document.createElement('strong');
+            strong.textContent = `${label}:`;
+
+            column.appendChild(strong);
+            column.appendChild(document.createTextNode(` ${value}`));
+            row.appendChild(column);
+        };
+
+        appendSummary('col-12', 'Judul', title?.value || '—');
+        appendSummary('col-md-4', 'Tanggal', tanggal?.value || '—');
+        appendSummary('col-md-4', 'Referensi', referensi?.value || '—');
+        appendSummary(
+            'col-md-6',
+            'Fasilitas',
+            facilities.map(f => f.name).join(', ') || '—'
+        );
+        appendSummary(
+            'col-md-6',
+            'Petugas',
+            staffNames.join(', ') || '—'
+        );
+
+        if (notes?.value) {
+            appendSummary('col-12', 'Catatan', notes.value);
+        }
+
+        container.appendChild(row);
     }
 
     function buildReviewMatrix() {
@@ -896,36 +922,81 @@ function initAllocationForm() {
         const facilities = getSelectedFacilities();
         const items = getBatchMatrixItems();
 
+        container.replaceChildren();
+
         if (items.length === 0 || facilities.length === 0) {
-            container.innerHTML = '<div class="text-muted small">Tidak ada data untuk ditampilkan.</div>';
+            const emptyState = document.createElement('div');
+            emptyState.className = 'text-muted small';
+            emptyState.textContent = 'Tidak ada data untuk ditampilkan.';
+            container.appendChild(emptyState);
             return;
         }
 
-        let html = '<div class="table-responsive"><table class="table table-sm table-bordered alloc-matrix">';
-        html += '<thead class="table-light"><tr><th>Barang</th><th>Tersedia</th>';
-        facilities.forEach(f => { html += `<th>${escapeHtml(f.name)}</th>`; });
-        html += '<th>Total</th></tr></thead><tbody>';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+
+        const table = document.createElement('table');
+        table.className = 'table table-sm table-bordered alloc-matrix';
+
+        const thead = document.createElement('thead');
+        thead.className = 'table-light';
+        const headerRow = document.createElement('tr');
+
+        ['Barang', 'Tersedia', ...facilities.map(f => f.name), 'Total'].forEach((label) => {
+            const th = document.createElement('th');
+            th.textContent = label;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
 
         items.forEach(item => {
-            html += '<tr>';
-            html += `<td class="text-start">${escapeHtml(item.itemName)}<br><small class="text-muted">${escapeHtml(item.stockLabel)}</small></td>`;
-            html += `<td>${item.available}</td>`;
+            const row = document.createElement('tr');
+
+            const itemCell = document.createElement('td');
+            itemCell.className = 'text-start';
+
+            const itemName = document.createElement('div');
+            itemName.textContent = item.itemName;
+            itemCell.appendChild(itemName);
+
+            const stockLabel = document.createElement('small');
+            stockLabel.className = 'text-muted';
+            stockLabel.textContent = item.stockLabel;
+            itemCell.appendChild(stockLabel);
+            row.appendChild(itemCell);
+
+            const availableCell = document.createElement('td');
+            availableCell.textContent = String(item.available);
+            row.appendChild(availableCell);
 
             let rowTotal = 0;
             facilities.forEach(f => {
                 const input = document.querySelector(`input[name="alloc_${item.formIndex}_${f.id}"]`);
                 const val = parseInt(input?.value) || 0;
                 rowTotal += val;
-                html += `<td>${val || '—'}</td>`;
+
+                const cell = document.createElement('td');
+                cell.textContent = val || '—';
+                row.appendChild(cell);
             });
 
-            const isOver = rowTotal > item.available;
-            html += `<td class="fw-semibold ${isOver ? 'text-danger' : ''}">${rowTotal}</td>`;
-            html += '</tr>';
+            const totalCell = document.createElement('td');
+            totalCell.className = 'fw-semibold';
+            if (rowTotal > item.available) {
+                totalCell.classList.add('text-danger');
+            }
+            totalCell.textContent = String(rowTotal);
+            row.appendChild(totalCell);
+
+            tbody.appendChild(row);
         });
 
-        html += '</tbody></table></div>';
-        container.innerHTML = html;
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        container.appendChild(wrapper);
     }
 
     // ────────────────────────────────────
