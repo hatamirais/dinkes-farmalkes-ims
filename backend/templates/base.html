@@ -376,7 +376,7 @@
                 {% endif %}
                 {% endif %}
 
-                {% if user.role == 'ADMIN' %}
+                {% if user.role == 'ADMIN' or user.role == 'KEPALA' %}
                 <div class="sidebar-section-title">Konfigurasi</div>
                 <a href="{% url 'settings' %}" class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" data-label="Pengaturan" title="Pengaturan">
                     <i class="bi bi-sliders"></i><span>Pengaturan</span>
