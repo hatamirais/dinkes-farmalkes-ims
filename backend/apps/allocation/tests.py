@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
@@ -510,3 +511,15 @@ class AllocationRouteTest(TestCase):
         allocation.refresh_from_db()
         self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
         self.assertEqual(allocation.distributions.count(), 0)
+
+
+
+class AllocationFrontendSecurityTest(TestCase):
+    def test_review_renderer_does_not_use_dynamic_innerhtml_sink(self):
+        script_path = (
+            Path(__file__).resolve().parents[2] / 'static' / 'js' / 'allocation-form.js'
+        )
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertNotIn('container.innerHTML = html;', script)
+        self.assertIn('container.replaceChildren();', script)
