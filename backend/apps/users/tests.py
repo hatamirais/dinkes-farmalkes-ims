@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 from django.contrib.auth.models import Permission
@@ -112,6 +113,23 @@ class UserManagementViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Manajemen Pengguna")
         self.assertContains(response, self.target.username)
+
+    def test_user_list_delete_modal_keeps_single_delete_forms(self):
+        response = self.client.get(reverse("users:user_list"))
+        content = response.content.decode("utf-8")
+
+        self.assertContains(
+            response,
+            f'action="{reverse("users:user_delete", args=[self.target.pk])}"',
+            html=False,
+        )
+        self.assertContains(
+            response, f'id="deleteUserForm-{self.target.pk}"', html=False
+        )
+        self.assertLess(
+            content.index('</form>'),
+            content.index(f'id="deleteUserForm-{self.target.pk}"'),
+        )
 
     def test_user_list_filter_by_role(self):
         response = self.client.get(
@@ -1272,3 +1290,18 @@ class ProtectedUserManagementGuardsTest(TestCase):
             "Terlalu banyak percobaan pada aksi ini",
             status_code=429,
         )
+
+
+
+class UserListFrontendSecurityTest(TestCase):
+    def test_delete_modal_script_avoids_dynamic_html_sink(self):
+        script_path = (
+            Path(__file__).resolve().parents[2] / 'static' / 'js' / 'user-list.js'
+        )
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("pendingDeleteForm.requestSubmit();", script)
+        self.assertIn("deleteConfirmMessage.textContent =", script)
+        self.assertNotIn("deleteConfirmForm.setAttribute('action'", script)
+        self.assertNotIn("deleteConfirmSelectedUser.value =", script)
+        self.assertNotIn('deleteConfirmMessage.innerHTML', script)

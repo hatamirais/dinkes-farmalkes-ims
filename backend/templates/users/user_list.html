@@ -192,7 +192,7 @@
                                 title="{% if account.is_active %}Nonaktifkan dulu{% else %}Hapus permanen{% endif %}"
                                 data-bs-toggle="tooltip" data-bs-placement="top"
                                 data-bs-title="{% if account.is_active %}Nonaktifkan dulu baru hapus{% else %}Hapus permanen pengguna{% endif %}"
-                                data-delete-url="{% url 'users:user_delete' account.pk %}"
+                                data-delete-form-id="deleteUserForm-{{ account.pk }}"
                                 data-username="{{ account.username }}"
                                 {% if request.user == account or account.is_active %}disabled{% endif %}>
                                 <i class="bi bi-trash"></i>
@@ -253,7 +253,7 @@
                             {% if can_delete_user %}
                             <li><hr class="dropdown-divider"></li>
                             <li><button type="button" class="dropdown-item text-danger single-delete-btn"
-                                data-delete-url="{% url 'users:user_delete' account.pk %}"
+                                data-delete-form-id="deleteUserForm-{{ account.pk }}"
                                 data-username="{{ account.username }}"
                                 {% if request.user == account or account.is_active %}disabled{% endif %}>
                                 <i class="bi bi-trash me-2"></i>Hapus
@@ -315,6 +315,18 @@
 </div>
 
 {% if can_delete_user %}
+<div class="d-none" aria-hidden="true">
+    {% for account in users %}
+    <form
+        method="post"
+        action="{% url 'users:user_delete' account.pk %}"
+        id="deleteUserForm-{{ account.pk }}"
+    >
+        {% csrf_token %}
+    </form>
+    {% endfor %}
+</div>
+
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -322,15 +334,12 @@
                 <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
                 <h5 class="mt-3">Konfirmasi Penghapusan</h5>
                 <p class="text-muted" id="deleteConfirmMessage">Apakah Anda yakin ingin menghapus pengguna ini?</p>
-                <form method="post" id="deleteConfirmForm">
-                    {% csrf_token %}
-                    <div class="d-flex gap-2 justify-content-center mt-4">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash me-1"></i>Hapus
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    </div>
-                </form>
+                <div class="d-flex gap-2 justify-content-center mt-4">
+                    <button type="button" class="btn btn-danger" id="deleteConfirmSubmit">
+                        <i class="bi bi-trash me-1"></i>Hapus
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                </div>
             </div>
         </div>
     </div>

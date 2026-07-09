@@ -13,23 +13,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return meta ? meta.getAttribute('content') : '';
     }
 
-    function getSafeDeleteUrl(rawUrl) {
-        if (!rawUrl) return null;
-        try {
-            var parsed = new URL(rawUrl, window.location.origin);
-            var isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
-            var isSameOrigin = parsed.origin === window.location.origin;
-            if (!isHttp || !isSameOrigin) return null;
-
-            var normalized = parsed.pathname + parsed.search + parsed.hash;
-            if (/[<>"'`\\]/.test(normalized)) return null;
-            if (normalized.charAt(0) !== '/') return null;
-
-            return normalized;
-        } catch (e) {
-            return null;
-        }
-    }
 
     function createStatusBadge(isActive) {
         var badge = document.createElement('span');
@@ -125,28 +108,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Single delete with Bootstrap modal ─────────────────────────
     var deleteModal = document.getElementById('deleteConfirmModal');
-    var deleteConfirmForm = document.getElementById('deleteConfirmForm');
     var deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
+    var deleteConfirmSubmit = document.getElementById('deleteConfirmSubmit');
+    var pendingDeleteForm = null;
 
-    if (deleteModal && deleteConfirmForm) {
+    if (deleteModal && deleteConfirmSubmit) {
         document.querySelectorAll('.single-delete-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var rawUrl = this.getAttribute('data-delete-url');
-                var safeUrl = getSafeDeleteUrl(rawUrl);
+                var formId = this.getAttribute('data-delete-form-id');
                 var username = this.getAttribute('data-username');
-                if (!safeUrl) {
+                if (!formId || !/^deleteUserForm-\d+$/.test(formId)) {
                     return;
                 }
-                if (safeUrl.charAt(0) !== '/' || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(safeUrl)) {
+                var targetForm = document.getElementById(formId);
+                if (!targetForm || targetForm.tagName !== 'FORM') {
                     return;
                 }
-                deleteConfirmForm.action = safeUrl;
+
+                pendingDeleteForm = targetForm;
                 if (deleteConfirmMessage) {
                     deleteConfirmMessage.textContent = 'Apakah Anda yakin ingin menghapus pengguna "' + username + '" secara permanen? Tindakan ini tidak dapat dibatalkan.';
                 }
                 var modal = new bootstrap.Modal(deleteModal);
                 modal.show();
             });
+        });
+
+        deleteConfirmSubmit.addEventListener('click', function () {
+            if (!pendingDeleteForm) {
+                return;
+            }
+            pendingDeleteForm.requestSubmit();
         });
     }
 

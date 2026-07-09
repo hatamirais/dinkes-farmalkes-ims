@@ -240,4 +240,3 @@ Run with: `.\scripts\run-django-test.ps1 -Target apps.core.tests.test_url_consis
 
 - Do not claim REST API/React production paths as implemented; those are planned.
 - Keep terminology consistent: use "module scope" for `ModuleAccess` and "Django permissions" for `has_perm` checks.
-
