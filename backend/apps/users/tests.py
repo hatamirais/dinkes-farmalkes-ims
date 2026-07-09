@@ -114,17 +114,16 @@ class UserManagementViewsTest(TestCase):
         self.assertContains(response, "Manajemen Pengguna")
         self.assertContains(response, self.target.username)
 
-    def test_user_list_delete_modal_posts_to_bulk_action_endpoint(self):
+    def test_user_list_delete_modal_keeps_single_delete_forms(self):
         response = self.client.get(reverse("users:user_list"))
 
         self.assertContains(
             response,
-            f'action="{reverse("users:user_bulk_action")}"',
+            f'action="{reverse("users:user_delete", args=[self.target.pk])}"',
             html=False,
         )
-        self.assertContains(response, 'name="action" value="delete"', html=False)
         self.assertContains(
-            response, 'id="deleteConfirmSelectedUser"', html=False
+            response, f'id="deleteUserForm-{self.target.pk}"', html=False
         )
 
     def test_user_list_filter_by_role(self):
@@ -1296,7 +1295,8 @@ class UserListFrontendSecurityTest(TestCase):
         )
         script = script_path.read_text(encoding='utf-8')
 
-        self.assertIn("deleteConfirmSelectedUser.value = userId;", script)
+        self.assertIn("pendingDeleteForm.requestSubmit();", script)
         self.assertIn("deleteConfirmMessage.textContent =", script)
         self.assertNotIn("deleteConfirmForm.setAttribute('action'", script)
+        self.assertNotIn("deleteConfirmSelectedUser.value =", script)
         self.assertNotIn('deleteConfirmMessage.innerHTML', script)

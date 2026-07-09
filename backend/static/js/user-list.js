@@ -108,26 +108,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Single delete with Bootstrap modal ─────────────────────────
     var deleteModal = document.getElementById('deleteConfirmModal');
-    var deleteConfirmForm = document.getElementById('deleteConfirmForm');
     var deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
-    var deleteConfirmSelectedUser = document.getElementById('deleteConfirmSelectedUser');
+    var deleteConfirmSubmit = document.getElementById('deleteConfirmSubmit');
+    var pendingDeleteForm = null;
 
-    if (deleteModal && deleteConfirmForm && deleteConfirmSelectedUser) {
+    if (deleteModal && deleteConfirmSubmit) {
         document.querySelectorAll('.single-delete-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var userId = this.getAttribute('data-user-id');
+                var formId = this.getAttribute('data-delete-form-id');
                 var username = this.getAttribute('data-username');
-                if (!userId || !/^\d+$/.test(userId)) {
+                if (!formId || !/^deleteUserForm-\d+$/.test(formId)) {
+                    return;
+                }
+                var targetForm = document.getElementById(formId);
+                if (!targetForm || targetForm.tagName !== 'FORM') {
                     return;
                 }
 
-                deleteConfirmSelectedUser.value = userId;
+                pendingDeleteForm = targetForm;
                 if (deleteConfirmMessage) {
                     deleteConfirmMessage.textContent = 'Apakah Anda yakin ingin menghapus pengguna "' + username + '" secara permanen? Tindakan ini tidak dapat dibatalkan.';
                 }
                 var modal = new bootstrap.Modal(deleteModal);
                 modal.show();
             });
+        });
+
+        deleteConfirmSubmit.addEventListener('click', function () {
+            if (!pendingDeleteForm) {
+                return;
+            }
+            pendingDeleteForm.requestSubmit();
         });
     }
 
