@@ -436,3 +436,59 @@ class TherapeuticClassQuickCreateTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("Nama sudah digunakan", response.json()["error"])
+
+
+class ItemLookupRedirectSecurityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="items_lookup_admin",
+            email="items_lookup_admin@example.com",
+            password="password12345",
+        )
+        self.client.force_login(self.user)
+
+    def test_unit_create_ignores_external_next_on_get(self):
+        response = self.client.get(
+            reverse("items:unit_create"),
+            {"next": "https://evil.example/phish"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="next"', html=False)
+        self.assertContains(
+            response,
+            f'href="{reverse("items:item_create")}"',
+            html=False,
+        )
+        self.assertNotContains(response, "https://evil.example/phish")
+
+    def test_unit_create_redirects_to_local_same_host_next_path(self):
+        response = self.client.post(
+            reverse("items:unit_create"),
+            {
+                "code": "TAB",
+                "name": "Tablet",
+                "description": "Satuan tablet",
+                "next": "https://testserver/items/create/?from=lookup",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/items/create/?from=lookup")
+
+    def test_unit_create_falls_back_when_next_uses_external_host(self):
+        response = self.client.post(
+            reverse("items:unit_create"),
+            {
+                "code": "CAP",
+                "name": "Capsule",
+                "description": "Satuan kapsul",
+                "next": "https://evil.example/items/create/",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("items:item_create"))
