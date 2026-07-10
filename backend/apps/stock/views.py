@@ -1494,6 +1494,10 @@ def transfer_detail(request, transfer_id):
     )
 
 
+def _get_locked_transfer_for_completion(transfer_id):
+    return StockTransfer.objects.select_for_update().get(pk=transfer_id)
+
+
 @login_required
 @perm_required("stock.change_stocktransfer")
 def transfer_complete(request, transfer_id):
@@ -1501,19 +1505,18 @@ def transfer_complete(request, transfer_id):
     if request.method != "POST":
         return redirect("stock:transfer_detail", transfer_id=transfer.pk)
 
-    if transfer.status != StockTransfer.Status.DRAFT:
-        messages.error(request, "Hanya mutasi Draft yang dapat diselesaikan.")
-        return redirect("stock:transfer_detail", transfer_id=transfer.pk)
-
-    transfer_items = list(
-        transfer.items.select_related("item", "stock", "stock__sumber_dana")
-    )
-    if not transfer_items:
-        messages.error(request, "Mutasi tidak memiliki item.")
-        return redirect("stock:transfer_detail", transfer_id=transfer.pk)
-
     try:
         with db_transaction.atomic():
+            transfer = _get_locked_transfer_for_completion(transfer_id)
+            if transfer.status != StockTransfer.Status.DRAFT:
+                raise ValueError("Hanya mutasi Draft yang dapat diselesaikan.")
+
+            transfer_items = list(
+                transfer.items.select_related("item", "stock", "stock__sumber_dana")
+            )
+            if not transfer_items:
+                raise ValueError("Mutasi tidak memiliki item.")
+
             for line in transfer_items:
                 source_stock = Stock.objects.select_for_update().get(pk=line.stock_id)
 
