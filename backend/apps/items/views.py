@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlsplit, urlunsplit
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -32,14 +33,33 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
-def _redirect_next_or_default(request, fallback_url_name):
+def _get_safe_next_path(request):
     next_url = request.POST.get("next") or request.GET.get("next")
-    if next_url and url_has_allowed_host_and_scheme(
+    if not next_url:
+        return ""
+
+    if not url_has_allowed_host_and_scheme(
         url=next_url,
         allowed_hosts={request.get_host()},
         require_https=request.is_secure(),
     ):
-        return redirect(next_url)
+        return ""
+
+    parsed_next = urlsplit(next_url)
+    if not parsed_next.path.startswith("/"):
+        return ""
+    if "\\" in parsed_next.path:
+        return ""
+    if parsed_next.path.startswith("//"):
+        return ""
+
+    return urlunsplit(("", "", parsed_next.path, parsed_next.query, ""))
+
+
+def _redirect_next_or_default(request, fallback_url_name):
+    next_path = _get_safe_next_path(request)
+    if next_path:
+        return redirect(next_path)
     return redirect(fallback_url_name)
 
 
@@ -234,6 +254,7 @@ def item_delete(request, pk):
 @perm_required("items.add_unit")
 @item_mutation_ratelimit
 def unit_create(request):
+    next_url = _get_safe_next_path(request)
     if request.method == "POST":
         form = UnitForm(request.POST)
         if form.is_valid():
@@ -249,7 +270,7 @@ def unit_create(request):
         {
             "form": form,
             "title": "Tambah Satuan",
-            "next_url": request.GET.get("next", ""),
+            "next_url": next_url,
         },
     )
 
@@ -258,6 +279,7 @@ def unit_create(request):
 @perm_required("items.add_category")
 @item_mutation_ratelimit
 def category_create(request):
+    next_url = _get_safe_next_path(request)
     if request.method == "POST":
         form = CategoryForm(request.POST)
         if form.is_valid():
@@ -273,7 +295,7 @@ def category_create(request):
         {
             "form": form,
             "title": "Tambah Kategori",
-            "next_url": request.GET.get("next", ""),
+            "next_url": next_url,
         },
     )
 
@@ -282,6 +304,7 @@ def category_create(request):
 @perm_required("items.add_program")
 @item_mutation_ratelimit
 def program_create(request):
+    next_url = _get_safe_next_path(request)
     if request.method == "POST":
         form = ProgramForm(request.POST)
         if form.is_valid():
@@ -297,7 +320,7 @@ def program_create(request):
         {
             "form": form,
             "title": "Tambah Program",
-            "next_url": request.GET.get("next", ""),
+            "next_url": next_url,
         },
     )
 
@@ -306,6 +329,7 @@ def program_create(request):
 @perm_required("items.add_therapeuticclass")
 @item_mutation_ratelimit
 def therapeutic_class_create(request):
+    next_url = _get_safe_next_path(request)
     if request.method == "POST":
         form = TherapeuticClassForm(request.POST)
         if form.is_valid():
@@ -321,7 +345,7 @@ def therapeutic_class_create(request):
         {
             "form": form,
             "title": "Tambah Terapi Obat",
-            "next_url": request.GET.get("next", ""),
+            "next_url": next_url,
         },
     )
 
