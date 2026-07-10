@@ -41,6 +41,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
         )
         self.location = Location.objects.create(code='GUDANG', name='Gudang Utama')
         self.funding = FundingSource.objects.create(code='APBD', name='APBD')
+        self.other_funding = FundingSource.objects.create(code='DAK', name='DAK')
 
     def test_stock_admin_uses_sanitized_csv_format(self):
         admin = StockAdmin(Stock, AdminSite())
@@ -125,6 +126,72 @@ class StockAdminCsvExportSecurityTest(TestCase):
         self.assertFalse(result.has_errors())
         self.assertFalse(result.has_validation_errors())
         self.assertEqual(len(result.invalid_rows), 0)
+
+    def test_stock_resource_import_keeps_distinct_rows_per_funding_source(self):
+        dataset = Dataset(
+            headers=[
+                'item_code',
+                'location_code',
+                'batch_lot',
+                'expiry_date',
+                'quantity',
+                'reserved',
+                'unit_price',
+                'sumber_dana_code',
+            ]
+        )
+        dataset.append([
+            self.item.kode_barang,
+            self.location.code,
+            'BATCH-FUND-01',
+            '01/01/2030',
+            '10',
+            '0',
+            '1000',
+            self.funding.code,
+        ])
+        dataset.append([
+            self.item.kode_barang,
+            self.location.code,
+            'BATCH-FUND-01',
+            '01/01/2030',
+            '7',
+            '0',
+            '1250',
+            self.other_funding.code,
+        ])
+
+        result = StockResource().import_data(dataset, dry_run=False, raise_errors=False)
+
+        self.assertFalse(result.has_errors())
+        self.assertFalse(result.has_validation_errors())
+        self.assertEqual(len(result.invalid_rows), 0)
+        self.assertEqual(
+            Stock.objects.filter(
+                item=self.item,
+                location=self.location,
+                batch_lot='BATCH-FUND-01',
+            ).count(),
+            2,
+        )
+        self.assertEqual(
+            Stock.objects.get(
+                item=self.item,
+                location=self.location,
+                batch_lot='BATCH-FUND-01',
+                sumber_dana=self.funding,
+            ).quantity,
+            Decimal('10'),
+        )
+        self.assertEqual(
+            Stock.objects.get(
+                item=self.item,
+                location=self.location,
+                batch_lot='BATCH-FUND-01',
+                sumber_dana=self.other_funding,
+            ).quantity,
+            Decimal('7'),
+        )
 
 
 class StockModelExpiryValidationTests(TestCase):

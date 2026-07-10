@@ -68,7 +68,7 @@ class StockResource(resources.ModelResource):
             "unit_price",
             "sumber_dana",
         )
-        import_id_fields = ("item", "location", "batch_lot")
+        import_id_fields = ("item", "location", "batch_lot", "sumber_dana")
         skip_unchanged = True
         report_skipped = False
 
@@ -96,7 +96,9 @@ class StockAdmin(ImportGuideMixin, ImportExportModelAdmin):
     date_hierarchy = "expiry_date"
     import_guide = {
         "title": "Stok Barang",
-        "description": "Identifier unik: item_code + location_code + batch_lot",
+        "description": (
+            "Identifier unik: item_code + location_code + batch_lot + sumber_dana_code"
+        ),
         "columns": [
             {
                 "name": "item_code",
