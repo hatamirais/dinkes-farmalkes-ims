@@ -493,3 +493,18 @@ class ItemLookupRedirectSecurityTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("items:item_create"))
+
+    def test_unit_create_rejects_same_host_double_slash_path(self):
+        response = self.client.post(
+            reverse("items:unit_create"),
+            {
+                "code": "SYR",
+                "name": "Syrup",
+                "description": "Satuan sirup",
+                "next": "https://testserver//evil.example/phish",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("items:item_create"))
