@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import timedelta
 from datetime import date
+import threading
 from unittest.mock import patch
 import importlib
 
@@ -8,9 +9,11 @@ from tablib import Dataset
 
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, connection
+from django.db import IntegrityError, connection, connections
+from django.test import Client
 from django.test import SimpleTestCase
 from django.test import TestCase
+from django.test import TransactionTestCase
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -758,6 +761,145 @@ class StockTransferModelTests(SimpleTestCase):
         self.assertEqual(
             exc.exception.message_dict["quantity"],
             ["Jumlah mutasi tidak boleh NaN atau Infinity."],
+        )
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'],
+)
+class StockTransferConcurrencyTests(TransactionTestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username='admin_transfer_concurrency',
+            password='secret12345',
+        )
+        unit = Unit.objects.create(code='TABTRF', name='Tablet Transfer')
+        category = Category.objects.create(
+            code='OBATTRF',
+            name='Obat Transfer',
+            sort_order=2,
+        )
+        self.item = Item.objects.create(
+            kode_barang='ITM-TRF-CONC-0001',
+            nama_barang='Amoxicillin 500mg',
+            satuan=unit,
+            kategori=category,
+            minimum_stock=Decimal('0'),
+        )
+        self.source_location = Location.objects.create(
+            code='SRC-TRF',
+            name='Gudang Sumber',
+        )
+        self.destination_location = Location.objects.create(
+            code='DST-TRF',
+            name='Gudang Tujuan',
+        )
+        self.funding = FundingSource.objects.create(code='APBDTRF', name='APBD Transfer')
+        self.source_stock = Stock.objects.create(
+            item=self.item,
+            location=self.source_location,
+            batch_lot='TRF-BATCH-01',
+            expiry_date=date(2030, 1, 1),
+            quantity=Decimal('10'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        self.transfer = StockTransfer.objects.create(
+            source_location=self.source_location,
+            destination_location=self.destination_location,
+            created_by=self.user,
+            status=StockTransfer.Status.DRAFT,
+        )
+        StockTransferItem.objects.create(
+            transfer=self.transfer,
+            stock=self.source_stock,
+            item=self.item,
+            quantity=Decimal('4'),
+        )
+
+    def _post_transfer_complete(self, client, results, key):
+        try:
+            response = client.post(
+                reverse('stock:transfer_complete', args=[self.transfer.pk]),
+                secure=True,
+            )
+            results[key] = {'status_code': response.status_code}
+        except Exception as exc:
+            results[key] = {'error': repr(exc)}
+        finally:
+            connections.close_all()
+
+    def test_transfer_complete_concurrent_posts_apply_once(self):
+        from apps.stock import views as stock_views
+
+        barrier = threading.Barrier(2)
+        original_helper = stock_views._get_locked_transfer_for_completion
+
+        def synchronized_lock(transfer_id):
+            barrier.wait(timeout=5)
+            return original_helper(transfer_id)
+
+        client_one = Client()
+        client_two = Client()
+        client_one.force_login(self.user)
+        client_two.force_login(self.user)
+        results = {}
+
+        with patch(
+            'apps.stock.views._get_locked_transfer_for_completion',
+            side_effect=synchronized_lock,
+        ):
+            thread_one = threading.Thread(
+                target=self._post_transfer_complete,
+                args=(client_one, results, 'one'),
+            )
+            thread_two = threading.Thread(
+                target=self._post_transfer_complete,
+                args=(client_two, results, 'two'),
+            )
+            thread_one.start()
+            thread_two.start()
+            thread_one.join(timeout=10)
+            thread_two.join(timeout=10)
+
+        self.assertFalse(thread_one.is_alive())
+        self.assertFalse(thread_two.is_alive())
+        self.assertNotIn('error', results.get('one', {}))
+        self.assertNotIn('error', results.get('two', {}))
+        self.assertEqual(
+            sorted(result['status_code'] for result in results.values()),
+            [302, 302],
+        )
+
+        self.transfer.refresh_from_db()
+        self.source_stock.refresh_from_db()
+        self.assertEqual(self.transfer.status, StockTransfer.Status.COMPLETED)
+        self.assertEqual(self.source_stock.quantity, Decimal('6'))
+
+        destination_stock = Stock.objects.get(
+            item=self.item,
+            location=self.destination_location,
+            batch_lot='TRF-BATCH-01',
+            sumber_dana=self.funding,
+        )
+        self.assertEqual(destination_stock.quantity, Decimal('4'))
+        self.assertEqual(
+            Stock.objects.filter(
+                item=self.item,
+                location=self.destination_location,
+                batch_lot='TRF-BATCH-01',
+                sumber_dana=self.funding,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.TRANSFER,
+                reference_id=self.transfer.pk,
+            ).count(),
+            2,
         )
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
