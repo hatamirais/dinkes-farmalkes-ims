@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pathlib import Path
 
 from django.test import TestCase
 from django.urls import reverse
@@ -711,3 +712,34 @@ class ExpiredWorkflowTest(TestCase):
         response = self.client.get(reverse("expired:expired_alerts"))
 
         self.assertEqual(response.status_code, 403)
+
+
+class ExpiredAlertsFrontendSecurityTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="expired_alerts_frontend",
+            password="secret12345",
+        )
+        self.client.force_login(self.user)
+
+    def test_alerts_script_submits_fixed_create_form(self):
+        script_path = (
+            Path(__file__).resolve().parents[2] / 'static' / 'js' / 'expired-alerts.js'
+        )
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("createForm.addEventListener('submit'", script)
+        self.assertIn('selectedStocksField.value = selected;', script)
+        self.assertNotIn('window.location.assign(', script)
+        self.assertNotIn('new URL(createUrl, window.location.origin)', script)
+
+    def test_alerts_template_uses_fixed_create_form_action(self):
+        response = self.client.get(reverse("expired:expired_alerts"), secure=True)
+
+        self.assertContains(
+            response,
+            f'action="{reverse("expired:expired_create")}"',
+            html=False,
+        )
+        self.assertContains(response, 'id="createExpiredFromSelectedForm"', html=False)
+        self.assertContains(response, 'name="stocks"', html=False)

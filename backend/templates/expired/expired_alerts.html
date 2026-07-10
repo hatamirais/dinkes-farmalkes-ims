@@ -69,9 +69,12 @@
     <div class="table-header">
         <h5><i class="bi bi-exclamation-triangle me-2"></i>Pemantauan Stok Kedaluwarsa</h5>
         <div class="d-flex gap-2">
-            <button type="button" id="createExpiredFromSelected" class="btn btn-primary btn-sm" disabled data-create-url="{% url 'expired:expired_create' %}">
-                <i class="bi bi-plus-lg me-1"></i>Buat Dokumen dari Pilihan
-            </button>
+            <form method="get" action="{% url 'expired:expired_create' %}" id="createExpiredFromSelectedForm">
+                <input type="hidden" name="stocks" id="selectedExpiredStocks">
+                <button type="submit" id="createExpiredFromSelected" class="btn btn-primary btn-sm" disabled>
+                    <i class="bi bi-plus-lg me-1"></i>Buat Dokumen dari Pilihan
+                </button>
+            </form>
             <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left me-1"></i>Daftar Dokumen
             </a>
