@@ -28,15 +28,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     rowChecks().forEach(function (cb) { cb.addEventListener('change', syncButtonState); });
 
+    function buildSafeCreatePath(rawPath, selectedStocks) {
+        if (!rawPath || rawPath.charAt(0) !== '/') return null;
+        if (/^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?\/\//.test(rawPath)) return null;
+
+        var parts = rawPath.split('?');
+        var pathname = parts[0];
+        if (!pathname || pathname.charAt(0) !== '/') return null;
+
+        var params = new URLSearchParams(parts[1] || '');
+        params.set('stocks', selectedStocks);
+        var query = params.toString();
+        return query ? pathname + '?' + query : pathname;
+    }
+
     if (createBtn) {
         createBtn.addEventListener('click', function () {
             var selected = createBtn.dataset.selected || '';
             if (!selected) return;
             var createUrl = createBtn.getAttribute('data-create-url') || '';
-            if (!createUrl || createUrl.charAt(0) !== '/') return;
-            var url = new URL(createUrl, window.location.origin);
-            url.searchParams.set('stocks', selected);
-            window.location.assign(url.pathname + url.search);
+            var nextPath = buildSafeCreatePath(createUrl, selected);
+            if (!nextPath) return;
+
+            window.location.assign(nextPath);
         });
     }
 
