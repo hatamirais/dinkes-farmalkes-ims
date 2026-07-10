@@ -1,8 +1,5 @@
 /**
- * Expired alerts page: checkbox selection and create-from-selected logic
- *
- * Expected data attributes on #createExpiredFromSelected button:
- *   data-create-url – the URL for expired_create
+ * Expired alerts page: checkbox selection and fixed-form submission logic.
  */
 document.addEventListener('DOMContentLoaded', function () {
     var filterForm = document.querySelector('.filter-form');
@@ -10,7 +7,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var selectAll = document.getElementById('selectAllExpiredRows');
     var rowChecks = function () { return Array.from(document.querySelectorAll('.expired-stock-check')); };
+    var createForm = document.getElementById('createExpiredFromSelectedForm');
     var createBtn = document.getElementById('createExpiredFromSelected');
+    var selectedStocksField = document.getElementById('selectedExpiredStocks');
 
     function syncButtonState() {
         var selected = rowChecks().filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
@@ -28,29 +27,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     rowChecks().forEach(function (cb) { cb.addEventListener('change', syncButtonState); });
 
-    function buildSafeCreatePath(rawPath, selectedStocks) {
-        if (!rawPath || rawPath.charAt(0) !== '/') return null;
-        if (/^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?\/\//.test(rawPath)) return null;
-
-        var parts = rawPath.split('?');
-        var pathname = parts[0];
-        if (!pathname || pathname.charAt(0) !== '/') return null;
-
-        var params = new URLSearchParams(parts[1] || '');
-        params.set('stocks', selectedStocks);
-        var query = params.toString();
-        return query ? pathname + '?' + query : pathname;
-    }
-
-    if (createBtn) {
-        createBtn.addEventListener('click', function () {
+    if (createBtn && createForm && selectedStocksField) {
+        createForm.addEventListener('submit', function (event) {
             var selected = createBtn.dataset.selected || '';
-            if (!selected) return;
-            var createUrl = createBtn.getAttribute('data-create-url') || '';
-            var nextPath = buildSafeCreatePath(createUrl, selected);
-            if (!nextPath) return;
-
-            window.location.assign(nextPath);
+            if (!selected) {
+                event.preventDefault();
+                return;
+            }
+            selectedStocksField.value = selected;
         });
     }
 

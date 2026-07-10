@@ -715,12 +715,31 @@ class ExpiredWorkflowTest(TestCase):
 
 
 class ExpiredAlertsFrontendSecurityTest(TestCase):
-    def test_alerts_script_uses_local_path_redirect_builder(self):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="expired_alerts_frontend",
+            password="secret12345",
+        )
+        self.client.force_login(self.user)
+
+    def test_alerts_script_submits_fixed_create_form(self):
         script_path = (
             Path(__file__).resolve().parents[2] / 'static' / 'js' / 'expired-alerts.js'
         )
         script = script_path.read_text(encoding='utf-8')
 
-        self.assertIn('function buildSafeCreatePath', script)
-        self.assertIn('window.location.assign(nextPath);', script)
+        self.assertIn("createForm.addEventListener('submit'", script)
+        self.assertIn('selectedStocksField.value = selected;', script)
+        self.assertNotIn('window.location.assign(', script)
         self.assertNotIn('new URL(createUrl, window.location.origin)', script)
+
+    def test_alerts_template_uses_fixed_create_form_action(self):
+        response = self.client.get(reverse("expired:expired_alerts"), secure=True)
+
+        self.assertContains(
+            response,
+            f'action="{reverse("expired:expired_create")}"',
+            html=False,
+        )
+        self.assertContains(response, 'id="createExpiredFromSelectedForm"', html=False)
+        self.assertContains(response, 'name="stocks"', html=False)
