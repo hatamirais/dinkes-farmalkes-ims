@@ -438,6 +438,7 @@ class TherapeuticClassQuickCreateTests(TestCase):
         self.assertIn("Nama sudah digunakan", response.json()["error"])
 
 
+@override_settings(ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"])
 class ItemLookupRedirectSecurityTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
