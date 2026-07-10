@@ -508,3 +508,19 @@ class ItemLookupRedirectSecurityTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("items:item_create"))
+
+    def test_unit_create_ignores_same_host_backslash_path_on_get(self):
+        response = self.client.get(
+            reverse("items:unit_create"),
+            {"next": r"https://testserver/\evil.example/phish"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="next"', html=False)
+        self.assertContains(
+            response,
+            f'href="{reverse("items:item_create")}"',
+            html=False,
+        )
+        self.assertNotContains(response, r"/\evil.example/phish")

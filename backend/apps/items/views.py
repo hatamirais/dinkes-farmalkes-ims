@@ -48,6 +48,8 @@ def _get_safe_next_path(request):
     parsed_next = urlsplit(next_url)
     if not parsed_next.path.startswith("/"):
         return ""
+    if "\\" in parsed_next.path:
+        return ""
     if parsed_next.path.startswith("//"):
         return ""
 
