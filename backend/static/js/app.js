@@ -846,10 +846,34 @@ function initStockTransferTable() {
     const searchInput = document.getElementById('locationStockSearch');
     const tableBody = document.getElementById('locationStockTableBody');
     const searchUrl = form.getAttribute('data-stock-search-url');
+    const lineStateElement = document.getElementById('transfer-line-state');
 
     if (!sourceLocation || !searchInput || !tableBody || !searchUrl) return;
 
     let debounceTimer = null;
+    let lineStateByStockId = new Map();
+
+    if (lineStateElement?.textContent) {
+        try {
+            const parsedState = JSON.parse(lineStateElement.textContent);
+            if (Array.isArray(parsedState)) {
+                lineStateByStockId = new Map(
+                    parsedState
+                        .filter((entry) => entry && entry.stock_id)
+                        .map((entry) => [String(entry.stock_id), entry]),
+                );
+            }
+        } catch (error) {
+            lineStateByStockId = new Map();
+        }
+    }
+
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     const renderRows = (rows) => {
         tableBody.innerHTML = '';
@@ -861,6 +885,13 @@ function initStockTransferTable() {
         }
 
         rows.forEach((row) => {
+            const lineState = lineStateByStockId.get(String(row.stock_id));
+            const rowErrors = Array.isArray(lineState?.errors) ? lineState.errors : [];
+            const quantityValue = lineState?.quantity ? lineState.quantity : '0';
+            const invalidClass = rowErrors.length > 0 ? ' is-invalid' : '';
+            const errorMarkup = rowErrors.length > 0
+                ? `<div class="invalid-feedback d-block">${escapeHtml(rowErrors.join(' '))}</div>`
+                : '';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><code>${row.kode}</code><input type="hidden" name="stock_id" value="${row.stock_id}"></td>
@@ -872,11 +903,12 @@ function initStockTransferTable() {
                 <td><span class="badge bg-light text-dark border">${row.funding}</span></td>
                 <td>
                     <div class="input-group input-group-sm">
-                        <input type="number" step="0.01" min="0" max="${row.available}" name="quantity" class="form-control form-control-sm" value="0" placeholder="0">
+                        <input type="number" step="0.01" min="0" max="${row.available}" name="quantity" class="form-control form-control-sm${invalidClass}" value="${escapeHtml(quantityValue)}" placeholder="0">
                         <button type="button" class="btn btn-outline-secondary js-fill-max" data-available="${row.available}" title="Isi Semua" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Isi Semua">
                             <i class="bi bi-arrow-bar-down"></i>
                         </button>
                     </div>
+                    ${errorMarkup}
                 </td>
             `;
             tableBody.appendChild(tr);

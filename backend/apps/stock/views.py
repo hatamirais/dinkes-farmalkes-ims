@@ -1,6 +1,7 @@
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timedelta
+from itertools import zip_longest
 import logging
 import unicodedata
 
@@ -8,7 +9,7 @@ from django.contrib import messages
 from django.db import transaction as db_transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import (
     Case,
@@ -27,6 +28,7 @@ from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.utils import timezone
 
+from apps.core.decimal_validation import parse_decimal_input
 from apps.core.decorators import perm_required
 from apps.items.models import Facility, FundingSource, Item, Location
 from apps.lplpo.models import LPLPO, LPLPOItem, normalize_whole_number
@@ -1404,62 +1406,148 @@ def transfer_list(request):
     )
 
 
+def _validate_transfer_create_lines(stock_ids, qty_values, source_location_id):
+    submitted_lines = []
+    row_errors = []
+    valid_lines = []
+    referenced_stock_ids = set()
+
+    for index, (stock_id_raw, qty_raw) in enumerate(
+        zip_longest(stock_ids, qty_values, fillvalue=""),
+        start=1,
+    ):
+        stock_id_text = str(stock_id_raw or "").strip()
+        quantity_text = str(qty_raw or "").strip()
+        submitted_lines.append(
+            {
+                "row_number": index,
+                "stock_id": stock_id_text,
+                "quantity": quantity_text,
+                "errors": [],
+            }
+        )
+        if stock_id_text:
+            try:
+                referenced_stock_ids.add(int(stock_id_text))
+            except (TypeError, ValueError):
+                continue
+
+    stocks_by_id = (
+        Stock.objects.filter(pk__in=referenced_stock_ids)
+        .select_related("item", "location")
+        .in_bulk()
+    )
+
+    for submitted_line in submitted_lines:
+        quantity_text = submitted_line["quantity"]
+        if not quantity_text:
+            continue
+
+        try:
+            quantity = parse_decimal_input(
+                quantity_text,
+                field_label="Jumlah mutasi",
+                allow_empty=True,
+            )
+        except ValidationError as exc:
+            submitted_line["errors"].extend(exc.messages)
+            row_errors.extend(
+                f"Baris {submitted_line['row_number']}: {message}"
+                for message in exc.messages
+            )
+            continue
+
+        if quantity is None or quantity == 0:
+            continue
+
+        if quantity < 0:
+            error_message = "Jumlah mutasi harus lebih dari 0."
+            submitted_line["errors"].append(error_message)
+            row_errors.append(f"Baris {submitted_line['row_number']}: {error_message}")
+            continue
+
+        stock_id_text = submitted_line["stock_id"]
+        try:
+            stock_id = int(stock_id_text)
+        except (TypeError, ValueError):
+            error_message = "Batch stok sumber tidak valid."
+            submitted_line["errors"].append(error_message)
+            row_errors.append(f"Baris {submitted_line['row_number']}: {error_message}")
+            continue
+
+        stock = stocks_by_id.get(stock_id)
+        if not stock:
+            error_message = "Batch stok sumber tidak ditemukan."
+            submitted_line["errors"].append(error_message)
+            row_errors.append(f"Baris {submitted_line['row_number']}: {error_message}")
+            continue
+        if stock.location_id != source_location_id:
+            error_message = "Batch stok tidak berada di lokasi asal yang dipilih."
+            submitted_line["errors"].append(error_message)
+            row_errors.append(f"Baris {submitted_line['row_number']}: {error_message}")
+            continue
+        if quantity > stock.available_quantity:
+            error_message = (
+                f"Jumlah mutasi melebihi stok tersedia untuk "
+                f"{stock.item.nama_barang} batch {stock.batch_lot}."
+            )
+            submitted_line["errors"].append(error_message)
+            row_errors.append(f"Baris {submitted_line['row_number']}: {error_message}")
+            continue
+
+        valid_lines.append({"stock": stock, "quantity": quantity})
+
+    return valid_lines, row_errors, submitted_lines
+
+
 @login_required
 @perm_required("stock.add_stocktransfer")
 def transfer_create(request):
+    transfer_line_state = []
     if request.method == "POST":
         form = StockTransferForm(request.POST)
         stock_ids = request.POST.getlist("stock_id")
         qty_values = request.POST.getlist("quantity")
 
         if form.is_valid():
-            transfer = form.save(commit=False)
-            transfer.created_by = request.user
-            transfer.status = StockTransfer.Status.DRAFT
-            transfer.save()
+            valid_lines, row_errors, transfer_line_state = _validate_transfer_create_lines(
+                stock_ids,
+                qty_values,
+                form.cleaned_data["source_location"].pk,
+            )
 
-            created_count = 0
-            for idx, stock_id in enumerate(stock_ids):
-                qty_raw = (qty_values[idx] if idx < len(qty_values) else "").strip()
-                if not qty_raw:
-                    continue
-
-                try:
-                    qty = Decimal(qty_raw)
-                except Exception:
-                    continue
-
-                if qty <= 0:
-                    continue
-
-                stock = (
-                    Stock.objects.filter(pk=stock_id)
-                    .select_related("item", "location")
-                    .first()
+            if row_errors:
+                form.add_error(
+                    None,
+                    "Periksa kembali baris mutasi yang tidak valid.",
                 )
-                if not stock:
-                    continue
-                if stock.location_id != transfer.source_location_id:
-                    continue
-                if qty > stock.available_quantity:
-                    continue
-
-                StockTransferItem.objects.create(
-                    transfer=transfer,
-                    stock=stock,
-                    item=stock.item,
-                    quantity=qty,
-                    notes="",
-                )
-                created_count += 1
-
-            if created_count == 0:
-                transfer.delete()
+                for error_message in row_errors:
+                    messages.error(request, error_message)
+            elif not valid_lines:
                 messages.error(
                     request,
                     "Pilih minimal satu item dengan jumlah mutasi valid (> 0).",
                 )
             else:
+                with db_transaction.atomic():
+                    transfer = form.save(commit=False)
+                    transfer.created_by = request.user
+                    transfer.status = StockTransfer.Status.DRAFT
+                    transfer.save()
+
+                    StockTransferItem.objects.bulk_create(
+                        [
+                            StockTransferItem(
+                                transfer=transfer,
+                                stock=line["stock"],
+                                item=line["stock"].item,
+                                quantity=line["quantity"],
+                                notes="",
+                            )
+                            for line in valid_lines
+                        ]
+                    )
+
                 messages.success(
                     request,
                     f"Mutasi lokasi {transfer.document_number} berhasil dibuat.",
@@ -1471,7 +1559,11 @@ def transfer_create(request):
     return render(
         request,
         "stock/transfer_form.html",
-        {"form": form, "title": "Buat Mutasi Lokasi"},
+        {
+            "form": form,
+            "title": "Buat Mutasi Lokasi",
+            "transfer_line_state": transfer_line_state,
+        },
     )
 
 

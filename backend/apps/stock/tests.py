@@ -969,6 +969,129 @@ class StockTransferConcurrencyTests(TransactionTestCase):
             2,
         )
 
+
+@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
+class StockTransferCreateValidationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username='admin_transfer_create',
+            password='secret12345',
+        )
+        self.client.force_login(self.user)
+        self.unit = Unit.objects.create(code='TABTRFC', name='Tablet Transfer Create')
+        self.category = Category.objects.create(
+            code='OBATTRFC',
+            name='Obat Transfer Create',
+            sort_order=3,
+        )
+        self.item = Item.objects.create(
+            kode_barang='ITM-TRF-CREATE-0001',
+            nama_barang='Ciprofloxacin 500mg',
+            satuan=self.unit,
+            kategori=self.category,
+            minimum_stock=Decimal('0'),
+        )
+        self.source_location = Location.objects.create(code='SRC-CREATE', name='Gudang Asal')
+        self.destination_location = Location.objects.create(code='DST-CREATE', name='Gudang Tujuan')
+        self.other_location = Location.objects.create(code='OTH-CREATE', name='Gudang Lain')
+        self.funding = FundingSource.objects.create(code='BOKTRF', name='BOK Transfer')
+        self.stock = Stock.objects.create(
+            item=self.item,
+            location=self.source_location,
+            batch_lot='TRF-CREATE-01',
+            expiry_date=date(2030, 1, 1),
+            quantity=Decimal('10'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        self.other_stock = Stock.objects.create(
+            item=self.item,
+            location=self.other_location,
+            batch_lot='TRF-CREATE-02',
+            expiry_date=date(2030, 2, 1),
+            quantity=Decimal('8'),
+            reserved=Decimal('0'),
+            unit_price=Decimal('1000'),
+            sumber_dana=self.funding,
+        )
+        self.url = reverse('stock:transfer_create')
+
+    def _payload(self, *, stock_id=None, quantity='0'):
+        return {
+            'transfer_date': '2026-07-13',
+            'source_location': str(self.source_location.pk),
+            'destination_location': str(self.destination_location.pk),
+            'notes': 'Transfer validation test',
+            'stock_id': [str(stock_id if stock_id is not None else self.stock.pk)],
+            'quantity': [quantity],
+        }
+
+    def test_transfer_create_rejects_nan_quantity_without_creating_transfer(self):
+        response = self.client.post(self.url, self._payload(quantity='NaN'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Jumlah mutasi tidak boleh NaN atau Infinity.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_rejects_infinity_quantity_without_creating_transfer(self):
+        response = self.client.post(self.url, self._payload(quantity='Infinity'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Jumlah mutasi tidak boleh NaN atau Infinity.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_rejects_negative_quantity_without_creating_transfer(self):
+        response = self.client.post(self.url, self._payload(quantity='-1'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Jumlah mutasi harus lebih dari 0.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_rejects_invalid_stock_id_without_creating_transfer(self):
+        response = self.client.post(self.url, self._payload(stock_id='not-a-stock', quantity='2'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Batch stok sumber tidak valid.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_rejects_source_location_mismatch_without_creating_transfer(self):
+        response = self.client.post(
+            self.url,
+            self._payload(stock_id=self.other_stock.pk, quantity='2'),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Batch stok tidak berada di lokasi asal yang dipilih.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_rejects_mixed_valid_and_invalid_rows_atomically(self):
+        response = self.client.post(
+            self.url,
+            {
+                'transfer_date': '2026-07-13',
+                'source_location': str(self.source_location.pk),
+                'destination_location': str(self.destination_location.pk),
+                'notes': 'Transfer validation test',
+                'stock_id': [str(self.stock.pk), str(self.stock.pk)],
+                'quantity': ['2', 'NaN'],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Periksa kembali baris mutasi yang tidak valid.')
+        self.assertContains(response, 'Baris 2: Jumlah mutasi tidak boleh NaN atau Infinity.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_creates_transfer_when_all_rows_valid(self):
+        response = self.client.post(self.url, self._payload(quantity='2'))
+
+        self.assertEqual(response.status_code, 302)
+        transfer = StockTransfer.objects.get()
+        self.assertEqual(transfer.status, StockTransfer.Status.DRAFT)
+        self.assertEqual(transfer.items.count(), 1)
+        self.assertEqual(transfer.items.get().quantity, Decimal('2'))
+
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockListViewTests(TestCase):
     def setUp(self):
