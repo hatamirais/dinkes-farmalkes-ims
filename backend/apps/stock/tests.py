@@ -23,7 +23,7 @@ from django.utils import timezone
 from apps.core.csv_exports import SanitizedCSV
 from apps.users.models import ModuleAccess, User
 from apps.stock.admin import StockAdmin, StockResource
-from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.receiving.models import Receiving, ReceivingItem
 from apps.stock import views as stock_views
 from apps.stock.models import Stock, StockTransfer, StockTransferItem, Transaction
@@ -878,6 +878,70 @@ class StockCardTest(TestCase):
         self.assertContains(print_response, 'Harga Satuan: Rp 0')
         self.assertContains(print_response, 'Instalasi Farmasi')
         self.assertContains(print_response, 'Kolom Dari / Kepada menunjukkan fasilitas atau mitra dokumen.')
+
+    def test_stock_card_receiving_counterparty_uses_supplier_name(self):
+        supplier = Supplier.objects.create(code='SUP-001', name='PT Sumber Sehat')
+        supplier_receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            document_number='TER-SUP-001',
+            receiving_date=date(2026, 1, 15),
+            supplier=supplier,
+            sumber_dana=self.funding,
+            created_by=self.user,
+        )
+
+        supplier_tx = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=self.location,
+            batch_lot='SUP-01',
+            quantity=Decimal('25'),
+            sumber_dana=self.funding,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=supplier_receiving.id,
+            user=self.user,
+        )
+
+        response = self.client.get(
+            reverse('stock:stock_card_detail', args=[self.item.id]),
+            {'sumber_dana': self.funding.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        card = response.context['funding_source_cards'][0]
+        tx = next(tx for tx in card['transactions'] if tx.id == supplier_tx.id)
+        self.assertEqual(tx.dari_kepada, 'PT Sumber Sehat')
+
+    def test_stock_card_receiving_counterparty_uses_grant_origin(self):
+        grant_receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.GRANT,
+            document_number='TER-HIB-001',
+            receiving_date=date(2026, 2, 20),
+            grant_origin='Dinas Kesehatan Provinsi',
+            sumber_dana=self.funding,
+            created_by=self.user,
+        )
+        grant_tx = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=self.location,
+            batch_lot='HIB-01',
+            quantity=Decimal('30'),
+            sumber_dana=self.funding,
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=grant_receiving.id,
+            user=self.user,
+        )
+
+        response = self.client.get(
+            reverse('stock:stock_card_detail', args=[self.item.id]),
+            {'sumber_dana': self.funding.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        card = response.context['funding_source_cards'][0]
+        tx = next(tx for tx in card['transactions'] if tx.id == grant_tx.id)
+        self.assertEqual(tx.dari_kepada, 'Dinas Kesehatan Provinsi')
 
     def test_stock_card_build_data_batches_multi_funding_metadata_queries(self):
         Transaction.objects.all().delete()
