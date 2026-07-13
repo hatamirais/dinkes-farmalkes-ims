@@ -540,6 +540,54 @@ class StockCardTest(TestCase):
         # tx2 running balance should still be 80
         self.assertEqual(transactions[0].running_balance, Decimal('80'))
 
+    def test_stock_card_date_filter_shows_zero_opening_balance_row(self):
+        tx3 = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.OUT,
+            item=self.item,
+            location=self.location,
+            batch_lot='B01',
+            quantity=Decimal('80'),
+            reference_type=Transaction.ReferenceType.ADJUSTMENT,
+            reference_id=2,
+            user=self.user,
+        )
+        tx4 = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=self.location,
+            batch_lot='B01',
+            quantity=Decimal('15'),
+            reference_type=Transaction.ReferenceType.ADJUSTMENT,
+            reference_id=3,
+            user=self.user,
+        )
+        tx3.created_at = timezone.now() - timedelta(days=4)
+        tx3.save(update_fields=['created_at'])
+        tx4.created_at = timezone.now() - timedelta(days=1)
+        tx4.save(update_fields=['created_at'])
+
+        filter_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+        detail_response = self.client.get(
+            reverse('stock:stock_card_detail', args=[self.item.id]),
+            {'date_from': filter_date},
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        detail_card = detail_response.context['funding_source_cards'][0]
+        self.assertEqual(detail_card['opening_balance'], Decimal('0'))
+        self.assertTrue(detail_card['show_opening_balance'])
+        self.assertContains(detail_response, 'SALDO AWAL')
+
+        print_response = self.client.get(
+            reverse('stock:stock_card_print', args=[self.item.id]),
+            {'date_from': filter_date},
+        )
+        self.assertEqual(print_response.status_code, 200)
+        print_card = print_response.context['funding_source_cards'][0]
+        self.assertEqual(print_card['opening_balance'], Decimal('0'))
+        self.assertTrue(print_card['show_opening_balance'])
+        self.assertContains(print_response, 'SALDO AWAL')
+
     def test_stock_card_location_filter_excludes_transfer_from_totals(self):
         destination = Location.objects.create(code='PKM', name='Puskesmas Tujuan')
         transfer = StockTransfer.objects.create(
