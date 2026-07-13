@@ -1,6 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from itertools import zip_longest
 import logging
 import unicodedata
@@ -19,6 +19,7 @@ from django.db.models import (
     Q,
     F,
     OuterRef,
+    Min,
     Subquery,
     Sum,
     Value,
@@ -922,6 +923,29 @@ def _parse_filter_date(value):
     return None
 
 
+def _get_day_range_bounds(*, date_from=None, date_to=None):
+    current_timezone = timezone.get_current_timezone()
+    start_at = None
+    end_at = None
+
+    if date_from:
+        start_at = timezone.make_aware(
+            datetime.combine(date_from, time.min),
+            current_timezone,
+        )
+    if date_to:
+        end_at = timezone.make_aware(
+            datetime.combine(date_to, time.max),
+            current_timezone,
+        )
+
+    return start_at, end_at
+
+
+def _stock_card_funding_key(sumber_dana_id):
+    return sumber_dana_id or 0
+
+
 def _get_stock_card_activity_label(tx):
     if tx.reference_type == Transaction.ReferenceType.TRANSFER:
         if tx.transaction_type == Transaction.TransactionType.IN:
@@ -970,8 +994,13 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
       - budget_year: current year
     """
     from collections import OrderedDict
-    from apps.receiving.models import ReceivingItem
+    from apps.receiving.models import Receiving, ReceivingItem
     from apps.core.models import SystemSettings
+
+    date_from_at, date_to_at = _get_day_range_bounds(
+        date_from=date_from,
+        date_to=date_to,
+    )
 
     queryset = (
         Transaction.objects.filter(item=item)
@@ -983,19 +1012,24 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
         queryset = queryset.filter(location_id=location_id)
     if sumber_dana_id:
         queryset = queryset.filter(sumber_dana_id=sumber_dana_id)
-    if date_from:
-        queryset = queryset.filter(created_at__date__gte=date_from)
-    if date_to:
-        queryset = queryset.filter(created_at__date__lte=date_to)
+    if date_from_at:
+        queryset = queryset.filter(created_at__gte=date_from_at)
+    if date_to_at:
+        queryset = queryset.filter(created_at__lte=date_to_at)
 
     transactions = list(queryset)
     facility_name = SystemSettings.get_settings().facility_name
 
     # Pre-fetch batch expiry dates keyed by the same stock scope used by transactions.
+    stock_queryset = Stock.objects.filter(item=item)
+    if location_id:
+        stock_queryset = stock_queryset.filter(location_id=location_id)
+    if sumber_dana_id:
+        stock_queryset = stock_queryset.filter(sumber_dana_id=sumber_dana_id)
     batch_expiry_map = {
-        (batch_lot, location_id, sumber_dana_id): expiry_date
-        for batch_lot, location_id, sumber_dana_id, expiry_date in (
-            Stock.objects.filter(item=item)
+        (batch_lot, stock_location_id, stock_sumber_dana_id): expiry_date
+        for batch_lot, stock_location_id, stock_sumber_dana_id, expiry_date in (
+            stock_queryset
             .values_list("batch_lot", "location_id", "sumber_dana_id", "expiry_date")
             .distinct()
         )
@@ -1008,29 +1042,6 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
             ref_id_sets.setdefault(tx.reference_type, set()).add(tx.reference_id)
 
     reference_labels = {}
-    _ref_model_map = {
-        Transaction.ReferenceType.RECEIVING: ("apps.receiving.models", "Receiving"),
-        Transaction.ReferenceType.DISTRIBUTION: ("apps.distribution.models", "Distribution"),
-        Transaction.ReferenceType.RECALL: ("apps.recall.models", "Recall"),
-        Transaction.ReferenceType.EXPIRED: ("apps.expired.models", "Expired"),
-        Transaction.ReferenceType.TRANSFER: ("apps.stock.models", "StockTransfer"),
-    }
-    for ref_type, ids in ref_id_sets.items():
-        entry = _ref_model_map.get(ref_type)
-        if not entry:
-            continue
-        module_path, class_name = entry
-        import importlib
-        mod = importlib.import_module(module_path)
-        model_cls = getattr(mod, class_name)
-        reference_labels[ref_type] = {
-            doc.id: doc.document_number
-            for doc in model_cls.objects.filter(id__in=ids).only(
-                "id", "document_number"
-            )
-        }
-
-    # ── Resolve supplier/facility names for DARI/KEPADA ──────────────
     receiving_supplier_map = {}
     distribution_facility_map = {}
     recall_supplier_map = {}
@@ -1038,9 +1049,20 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
     recv_ids = ref_id_sets.get(Transaction.ReferenceType.RECEIVING, set())
     if recv_ids:
         from apps.receiving.models import Receiving
-        for r in Receiving.objects.filter(id__in=recv_ids).select_related(
-            "supplier", "facility"
-        ).only("id", "supplier__name", "facility__name", "grant_origin"):
+        receiving_docs = Receiving.objects.filter(id__in=recv_ids).select_related(
+            "supplier",
+            "facility",
+        ).only(
+            "id",
+            "document_number",
+            "supplier__name",
+            "facility__name",
+            "grant_origin",
+        )
+        reference_labels[Transaction.ReferenceType.RECEIVING] = {
+            doc.id: doc.document_number for doc in receiving_docs
+        }
+        for r in receiving_docs:
             if r.supplier:
                 receiving_supplier_map[r.id] = r.supplier.name
             elif r.grant_origin:
@@ -1051,24 +1073,54 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
     dist_ids = ref_id_sets.get(Transaction.ReferenceType.DISTRIBUTION, set())
     if dist_ids:
         from apps.distribution.models import Distribution
-        for d in Distribution.objects.filter(id__in=dist_ids).select_related(
+        distribution_docs = Distribution.objects.filter(id__in=dist_ids).select_related(
             "facility"
-        ).only("id", "facility__name"):
+        ).only("id", "document_number", "facility__name")
+        reference_labels[Transaction.ReferenceType.DISTRIBUTION] = {
+            doc.id: doc.document_number for doc in distribution_docs
+        }
+        for d in distribution_docs:
             if d.facility:
                 distribution_facility_map[d.id] = d.facility.name
 
     recall_ids = ref_id_sets.get(Transaction.ReferenceType.RECALL, set())
     if recall_ids:
         from apps.recall.models import Recall
-        for recall in Recall.objects.filter(id__in=recall_ids).select_related(
+        recall_docs = Recall.objects.filter(id__in=recall_ids).select_related(
             "supplier"
-        ).only("id", "supplier__name"):
+        ).only("id", "document_number", "supplier__name")
+        reference_labels[Transaction.ReferenceType.RECALL] = {
+            doc.id: doc.document_number for doc in recall_docs
+        }
+        for recall in recall_docs:
             recall_supplier_map[recall.id] = recall.supplier.name if recall.supplier else ""
+
+    expired_ids = ref_id_sets.get(Transaction.ReferenceType.EXPIRED, set())
+    if expired_ids:
+        from apps.expired.models import Expired
+
+        reference_labels[Transaction.ReferenceType.EXPIRED] = {
+            doc.id: doc.document_number
+            for doc in Expired.objects.filter(id__in=expired_ids).only(
+                "id",
+                "document_number",
+            )
+        }
+
+    transfer_ids = ref_id_sets.get(Transaction.ReferenceType.TRANSFER, set())
+    if transfer_ids:
+        reference_labels[Transaction.ReferenceType.TRANSFER] = {
+            doc.id: doc.document_number
+            for doc in StockTransfer.objects.filter(id__in=transfer_ids).only(
+                "id",
+                "document_number",
+            )
+        }
 
     # ── Group by sumber_dana ─────────────────────────────────────────
     sd_groups = OrderedDict()
     for tx in transactions:
-        sd_key = tx.sumber_dana_id or 0
+        sd_key = _stock_card_funding_key(tx.sumber_dana_id)
         if sd_key not in sd_groups:
             sd_groups[sd_key] = {
                 "sumber_dana": tx.sumber_dana,
@@ -1076,23 +1128,22 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
             }
         sd_groups[sd_key]["transactions"].append(tx)
 
-    # ── Compute opening balances, running balances, and unit prices ───
-    funding_source_cards = []
-    for sd_key, group in sd_groups.items():
-        sd_txs = group["transactions"]
-        sd_obj = group["sumber_dana"]
+    grouped_sumber_dana_ids = [
+        group["sumber_dana"].id
+        for group in sd_groups.values()
+        if group["sumber_dana"] is not None
+    ]
 
-        # Opening balance for this sumber_dana (aggregate in DB)
-        opening_balance = Decimal("0")
-        if date_from:
-            past_qs = Transaction.objects.filter(
-                item=item, created_at__date__lt=date_from
-            )
-            if location_id:
-                past_qs = past_qs.filter(location_id=location_id)
-            if sd_key:
-                past_qs = past_qs.filter(sumber_dana_id=sd_key)
-            agg = past_qs.aggregate(
+    opening_balances = {}
+    if date_from_at:
+        past_qs = Transaction.objects.filter(item=item, created_at__lt=date_from_at)
+        if location_id:
+            past_qs = past_qs.filter(location_id=location_id)
+        if sumber_dana_id:
+            past_qs = past_qs.filter(sumber_dana_id=sumber_dana_id)
+        opening_balances = {
+            _stock_card_funding_key(row["sumber_dana_id"]): row["balance"]
+            for row in past_qs.values("sumber_dana_id").annotate(
                 balance=Coalesce(
                     Sum(
                         Case(
@@ -1109,7 +1160,86 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
                     Value(Decimal("0")),
                 )
             )
-            opening_balance = agg["balance"]
+        }
+
+    latest_receiving_prices = {}
+    if grouped_sumber_dana_ids:
+        latest_receiving_prices = {
+            sumber_dana_id: unit_price
+            for sumber_dana_id, unit_price in (
+                ReceivingItem.objects.filter(
+                    item=item,
+                    receiving__sumber_dana_id__in=grouped_sumber_dana_ids,
+                    unit_price__gt=0,
+                )
+                .order_by("receiving__sumber_dana_id", "-receiving__receiving_date", "-pk")
+                .distinct("receiving__sumber_dana_id")
+                .values_list("receiving__sumber_dana_id", "unit_price")
+            )
+        }
+
+    latest_stock_prices = {}
+    if grouped_sumber_dana_ids:
+        latest_stock_prices = {
+            sumber_dana_id: unit_price
+            for sumber_dana_id, unit_price in (
+                Stock.objects.filter(
+                    item=item,
+                    sumber_dana_id__in=grouped_sumber_dana_ids,
+                )
+                .exclude(unit_price=0)
+                .order_by("sumber_dana_id", "-pk")
+                .distinct("sumber_dana_id")
+                .values_list("sumber_dana_id", "unit_price")
+            )
+        }
+
+    tx_price_keys = {_stock_card_funding_key(tx.sumber_dana_id) for tx in transactions}
+    tx_price_filter = Q()
+    has_tx_price_filter = False
+    if grouped_sumber_dana_ids:
+        tx_price_filter |= Q(sumber_dana_id__in=grouped_sumber_dana_ids)
+        has_tx_price_filter = True
+    if 0 in tx_price_keys:
+        tx_price_filter |= Q(sumber_dana__isnull=True)
+        has_tx_price_filter = True
+    latest_transaction_prices = {}
+    if has_tx_price_filter:
+        latest_transaction_prices = {
+            _stock_card_funding_key(sumber_dana_id): unit_price
+            for sumber_dana_id, unit_price in (
+                Transaction.objects.filter(item=item)
+                .filter(tx_price_filter)
+                .exclude(unit_price__isnull=True)
+                .exclude(unit_price=0)
+                .order_by("sumber_dana_id", "-created_at", "-id")
+                .distinct("sumber_dana_id")
+                .values_list("sumber_dana_id", "unit_price")
+            )
+        }
+
+    earliest_receiving_years = {}
+    if grouped_sumber_dana_ids:
+        earliest_receiving_years = {
+            row["sumber_dana_id"]: row["first_date"].year
+            for row in (
+                Receiving.objects.filter(
+                    sumber_dana_id__in=grouped_sumber_dana_ids,
+                    items__item=item,
+                )
+                .values("sumber_dana_id")
+                .annotate(first_date=Min("receiving_date"))
+            )
+            if row["first_date"] is not None
+        }
+
+    # ── Compute opening balances, running balances, and unit prices ───
+    funding_source_cards = []
+    for sd_key, group in sd_groups.items():
+        sd_txs = group["transactions"]
+        sd_obj = group["sumber_dana"]
+
+        opening_balance = opening_balances.get(sd_key, Decimal("0"))
 
         # Unit price from Receiving module for this item + sumber_dana.
         # Fallback chain:
@@ -1119,42 +1249,13 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
         #   3. Latest Transaction.unit_price for this item + sumber_dana
         unit_price = Decimal("0")
         if sd_key:
-            ri = (
-                ReceivingItem.objects.filter(
-                    item=item,
-                    receiving__sumber_dana_id=sd_key,
-                    unit_price__gt=0,
-                )
-                .order_by("-receiving__receiving_date", "-pk")
-                .values_list("unit_price", flat=True)
-                .first()
-            )
-            if ri:
-                unit_price = ri
+            unit_price = latest_receiving_prices.get(sd_key, Decimal("0"))
 
         if not unit_price and sd_key:
-            stock_price = (
-                Stock.objects.filter(item=item, sumber_dana_id=sd_key)
-                .exclude(unit_price=0)
-                .order_by("-pk")
-                .values_list("unit_price", flat=True)
-                .first()
-            )
-            if stock_price:
-                unit_price = stock_price
+            unit_price = latest_stock_prices.get(sd_key, Decimal("0"))
 
         if not unit_price:
-            tx_price = (
-                Transaction.objects.filter(item=item)
-                .filter(sumber_dana_id=sd_key if sd_key else None)
-                .exclude(unit_price__isnull=True)
-                .exclude(unit_price=0)
-                .order_by("-created_at")
-                .values_list("unit_price", flat=True)
-                .first()
-            )
-            if tx_price:
-                unit_price = tx_price
+            unit_price = latest_transaction_prices.get(sd_key, Decimal("0"))
 
         # Running balance and totals
         current_balance = opening_balance
@@ -1213,20 +1314,7 @@ def _build_stock_card_data(item, location_id=None, sumber_dana_id=None,
             tx.activity_label = _get_stock_card_activity_label(tx)
 
         # Determine Tahun Anggaran from earliest receiving year
-        tahun_anggaran = timezone.now().year
-        if sd_key:
-            from apps.receiving.models import Receiving
-            earliest_recv = (
-                Receiving.objects.filter(
-                    sumber_dana_id=sd_key,
-                    items__item=item,
-                )
-                .order_by("receiving_date")
-                .values_list("receiving_date", flat=True)
-                .first()
-            )
-            if earliest_recv:
-                tahun_anggaran = earliest_recv.year
+        tahun_anggaran = earliest_receiving_years.get(sd_key, timezone.now().year)
 
         funding_source_cards.append({
             "sumber_dana": sd_obj,
