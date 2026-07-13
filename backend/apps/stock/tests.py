@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime
 from datetime import timedelta
 from datetime import date
 import threading
@@ -23,6 +24,8 @@ from apps.core.csv_exports import SanitizedCSV
 from apps.users.models import ModuleAccess, User
 from apps.stock.admin import StockAdmin, StockResource
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.receiving.models import Receiving, ReceivingItem
+from apps.stock import views as stock_views
 from apps.stock.models import Stock, StockTransfer, StockTransferItem, Transaction
 from apps.core.models import SystemSettings
 from apps.distribution.models import Distribution, DistributionItem
@@ -635,6 +638,40 @@ class StockCardTest(TestCase):
         self.assertEqual(transactions[-1].reference_type, Transaction.ReferenceType.TRANSFER)
         self.assertEqual(transactions[-1].running_balance, Decimal('75'))
 
+    def test_stock_card_date_filter_uses_full_day_boundaries(self):
+        filter_day = date(2026, 1, 10)
+        self.tx1.created_at = timezone.make_aware(datetime(2026, 1, 10, 0, 0, 0))
+        self.tx1.save(update_fields=['created_at'])
+        self.tx2.created_at = timezone.make_aware(datetime(2026, 1, 10, 23, 59, 59))
+        self.tx2.save(update_fields=['created_at'])
+
+        tx3 = Transaction.objects.create(
+            transaction_type=Transaction.TransactionType.IN,
+            item=self.item,
+            location=self.location,
+            batch_lot='B01',
+            quantity=Decimal('5'),
+            reference_type=Transaction.ReferenceType.RECEIVING,
+            reference_id=99,
+            user=self.user,
+        )
+        tx3.created_at = timezone.make_aware(datetime(2026, 1, 11, 0, 0, 0))
+        tx3.save(update_fields=['created_at'])
+
+        response = self.client.get(
+            reverse('stock:stock_card_detail', args=[self.item.id]),
+            {
+                'date_from': filter_day.strftime('%Y-%m-%d'),
+                'date_to': filter_day.strftime('%Y-%m-%d'),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        card = response.context['funding_source_cards'][0]
+        self.assertEqual([tx.id for tx in card['transactions']], [self.tx1.id, self.tx2.id])
+        self.assertEqual(card['total_in'], Decimal('100'))
+        self.assertEqual(card['total_out'], Decimal('20'))
+
     def test_stock_card_keeps_expiry_lookup_scoped_by_location_and_funding(self):
         other_location = Location.objects.create(code='SATELIT', name='Gudang Satelit')
         other_funding = FundingSource.objects.create(code='BOS', name='BOS')
@@ -841,6 +878,50 @@ class StockCardTest(TestCase):
         self.assertContains(print_response, 'Harga Satuan: Rp 0')
         self.assertContains(print_response, 'Instalasi Farmasi')
         self.assertContains(print_response, 'Kolom Dari / Kepada menunjukkan fasilitas atau mitra dokumen.')
+
+    def test_stock_card_build_data_batches_multi_funding_metadata_queries(self):
+        Transaction.objects.all().delete()
+
+        funding_sources = [
+            FundingSource.objects.create(code='DAK1', name='DAK 1'),
+            FundingSource.objects.create(code='DAK2', name='DAK 2'),
+            FundingSource.objects.create(code='DAK3', name='DAK 3'),
+        ]
+
+        for index, funding in enumerate(funding_sources, start=1):
+            receiving = Receiving.objects.create(
+                receiving_type=Receiving.ReceivingType.PROCUREMENT,
+                document_number=f'TER-{index:03d}',
+                receiving_date=date(2026, index, 15),
+                sumber_dana=funding,
+                created_by=self.user,
+            )
+            ReceivingItem.objects.create(
+                receiving=receiving,
+                item=self.item,
+                quantity=Decimal('10'),
+                batch_lot=f'QRY-{index:03d}',
+                expiry_date=date(2027, index, 1),
+                unit_price=Decimal(str(1000 + index)),
+                location=self.location,
+            )
+            Transaction.objects.create(
+                transaction_type=Transaction.TransactionType.IN,
+                item=self.item,
+                location=self.location,
+                batch_lot=f'QRY-{index:03d}',
+                quantity=Decimal('10'),
+                sumber_dana=funding,
+                reference_type=Transaction.ReferenceType.RECEIVING,
+                reference_id=receiving.id,
+                user=self.user,
+            )
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            data = stock_views._build_stock_card_data(self.item)
+
+        self.assertEqual(len(data['funding_source_cards']), 3)
+        self.assertLessEqual(len(captured_queries), 11)
 
 
 class StockTransferModelTests(SimpleTestCase):
