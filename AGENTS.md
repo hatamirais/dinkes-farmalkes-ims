@@ -11,7 +11,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 | Item | Value |
 | --- | --- |
 | Python | 3.13+ |
-| Django | 6.0.6 |
+| Django | 6.0.7 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | None (In-Memory / LocMemCache) |
 | UI | Django templates + Bootstrap 5 |

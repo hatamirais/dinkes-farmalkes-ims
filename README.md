@@ -11,7 +11,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Lapisan | Teknologi |
 | --- | --- |
 | Bahasa | Python 3.13+ |
-| Framework | Django 6.0.6 |
+| Framework | Django 6.0.7 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | None (In-Memory / LocMemCache) |
 | Antarmuka | Django Templates + Bootstrap 5 |
