@@ -262,7 +262,7 @@ class StockTransfer(TimeStampedModel):
                 )
 
     def save(self, *args, **kwargs):
-        from django.db import IntegrityError
+        from django.db import IntegrityError, transaction
 
         auto_generated_document_number = not self.document_number
         if auto_generated_document_number:
@@ -271,7 +271,11 @@ class StockTransfer(TimeStampedModel):
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                super().save(*args, **kwargs)
+                if auto_generated_document_number and transaction.get_connection().in_atomic_block:
+                    with transaction.atomic():
+                        super().save(*args, **kwargs)
+                else:
+                    super().save(*args, **kwargs)
                 return
             except IntegrityError as exc:
                 error_message = " ".join(str(arg) for arg in exc.args)
