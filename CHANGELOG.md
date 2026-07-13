@@ -7,6 +7,35 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-07-13
+
+### Added
+
+- Procurement: new authoritative `SPJ / Pengadaan` module with `ProcurementContract` and `ProcurementAmendment` workflows, dedicated list/detail/create/edit screens, approval actions, rate limiting, and full permission-gated navigation.
+- Procurement: supplier and funding-source quick-create lookups are now available directly from procurement contract create/edit flows, matching the receiving-side lookup experience.
+- Receiving/procurement integration: approved procurement contracts and amendments now auto-create or re-sync exactly one linked planned procurement receiving document, so execution documents stay aligned with the current contract state.
+- Distribution/allocation: outbound stock workflows now track row-level `reserved_quantity` on `DistributionItem`, enabling explicit stock reservation during verification and deterministic release on reversals, step-backs, deletes, and allocation rollback.
+- Items/stock: catalog items now carry `requires_expiry_date` so receiving, stock, and import flows can distinguish expiring versus non-expiring items.
+- Tooling: added a local Playwright multi-role launcher, committed browser-regression config, and supporting scripts for manual multi-role verification from the repository root.
+
+### Changed
+
+- Receiving: procurement-linked planned receiving is now contract-driven instead of manually approved; new procurement plans cannot be created from generic planned-receiving forms, while legacy manual planned rows remain available through compatibility paths.
+- Receiving validation: custom receiving types now require explicit selection, reserve the internal `RETURN_RS` code, keep string-label compatibility for existing custom options, and centralize validation to avoid inconsistent save behavior.
+- Stock workflow: transfer creation and completion now apply stronger transactional locking and finite-quantity validation, while stock-card views keep zero opening balances visible and batch related metadata lookups more efficiently.
+- Allocation/distribution workflow: allocation-generated child distributions now reserve stock immediately on approval, release it on parent step-back, and surface reservation conflicts as workflow errors instead of drifting stock availability silently.
+- Navigation/authorization: Puskesmas dashboard/sidebar visibility now honors facility-linked policy more strictly, the LPLPO sidebar link routes operators to their scoped `my-list`, and `/settings/` is explicitly restricted to superusers plus `ADMIN` and `KEPALA`.
+- Documentation/config: project docs, environment examples, and settings guidance were updated for Django `6.0.7`, procurement, optional expiry dates, item/procurement mutation throttles, and Playwright helper usage.
+
+### Fixed
+
+- Receiving: fixed dynamic typeahead row validation and selection persistence on submit, refreshed the cached client-side validator asset, rejected non-positive CSV import quantities, and hardened quick-create lookup endpoints.
+- Receiving concurrency: planned receipt posting now locks quantities more narrowly, inbound stock increments are concurrency-safe, and procurement-linked receiving enforces the single-plan-per-contract invariant.
+- Procurement/reporting: corrected procurement receipt numbering/date behavior, restored contract-line and amendment-line formset controls, and included partial procurement receipts plus SPJ references in procurement reporting.
+- Optional expiry handling: backfilled legacy non-expiring items, normalized downstream sentinel expiry history, prevented mixed-expiry stock merges during concurrent receiving, and aligned stock import identifiers with the canonical unique constraint.
+- Security: hardened admin sidebar external links, user delete modal behavior, expired-alert redirect handling, and item lookup redirect targets, including rejection of scheme-relative and backslash-based redirect paths flagged by code scanning.
+- Users/expired/stock: restored the single-delete mutation endpoint, kept expired-alert submissions on fixed safe forms, and improved stock-card output by preserving zero opening balances and showing receiving counterparties on stock-card rows.
+
 ## [1.27.0] - 2026-06-28
 
 ### Added
