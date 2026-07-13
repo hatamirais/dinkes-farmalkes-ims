@@ -966,7 +966,6 @@ def _get_stock_card_activity_label(tx):
 
 def _get_stock_card_counterparty_label(tx, *, facility_name, receiving_map, distribution_map, recall_map):
     internal_reference_types = {
-        Transaction.ReferenceType.RECEIVING,
         Transaction.ReferenceType.TRANSFER,
         Transaction.ReferenceType.EXPIRED,
         Transaction.ReferenceType.ALLOCATION,
@@ -975,6 +974,8 @@ def _get_stock_card_counterparty_label(tx, *, facility_name, receiving_map, dist
     }
     if tx.reference_type in internal_reference_types:
         return facility_name
+    if tx.reference_type == Transaction.ReferenceType.RECEIVING:
+        return receiving_map.get(tx.reference_id, facility_name)
     if tx.reference_type == Transaction.ReferenceType.DISTRIBUTION:
         return distribution_map.get(tx.reference_id, "")
     if tx.reference_type == Transaction.ReferenceType.RECALL:
