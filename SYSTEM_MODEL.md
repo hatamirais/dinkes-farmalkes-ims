@@ -487,7 +487,7 @@ From `backend/config/settings.py`:
 - `auditlog.middleware.AuditlogMiddleware` is loaded after Django `AuthenticationMiddleware` so auditlog can attach the logged-in actor to `LogEntry` rows
 - `axes.middleware.AxesMiddleware` included after standard auth/session middleware
 - `AUDITLOG_INCLUDE_TRACKING_MODELS` registers critical user/access, master-data, operational-header, and `Stock` models. No custom IMS audit-log page is implemented yet.
-- Auditlog does not replace `stock.Transaction`, and signal-driven audit entries do not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` changes.
+- Auditlog does not replace `stock.Transaction`, and signal-driven audit entries do not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` changes. User bulk activate/deactivate avoids `QuerySet.update()` and saves locked rows individually so account-status changes are captured.
 - `AXES_FAILURE_LIMIT = 5`, `AXES_COOLOFF_TIME = 0.5`, `AXES_RESET_ON_SUCCESS = True`
 - Sensitive POST throttling uses `django-ratelimit` with settings-backed defaults:
   - `USER_BULK_ACTION_RATE_LIMIT = 10/m`

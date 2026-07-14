@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import ProtectedError
 from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
@@ -56,6 +57,18 @@ def _can_delete_users(user):
 
 def _can_manage_user_scopes(user):
     return user.is_superuser or has_module_permission(user, "users.change_user")
+
+
+def _set_bulk_user_active_state(queryset, *, is_active):
+    affected = 0
+    with transaction.atomic():
+        for user_obj in queryset.select_for_update().order_by("pk"):
+            affected += 1
+            if user_obj.is_active == is_active:
+                continue
+            user_obj.is_active = is_active
+            user_obj.save(update_fields=["is_active"])
+    return affected
 
 
 def _protected_user_account_q():
@@ -416,7 +429,7 @@ def user_bulk_action(request):
     count = queryset.count()
 
     if action == "activate":
-        queryset.update(is_active=True)
+        _set_bulk_user_active_state(queryset, is_active=True)
         message = f"{count} pengguna berhasil diaktifkan."
         if protected_count:
             message = (
@@ -427,7 +440,10 @@ def user_bulk_action(request):
         else:
             messages.success(request, message)
     elif action == "deactivate":
-        updated = queryset.exclude(pk=request.user.pk).update(is_active=False)
+        updated = _set_bulk_user_active_state(
+            queryset.exclude(pk=request.user.pk),
+            is_active=False,
+        )
         if updated < count:
             message = (
                 f"{updated} dari {count} pengguna dinonaktifkan. "

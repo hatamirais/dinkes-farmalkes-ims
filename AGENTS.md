@@ -199,7 +199,7 @@ Before opening a PR, verify:
 - `django-axes` remains the login brute-force control.
 - Additional authenticated POST throttling uses `django-ratelimit`.
 - `django-auditlog` records database-backed create/update/delete history for selected critical models. Its initial webview is Django Admin at `/admin/` through the auditlog `LogEntry` admin; no custom IMS audit-log sidebar page exists yet.
-- Auditlog is signal-driven and does not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` paths. Keep explicit workflow logs or tests for critical bulk operations where row-level audit history is required.
+- Auditlog is signal-driven and does not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` paths. Keep explicit workflow logs or tests for critical bulk operations where row-level audit history is required. User bulk activate/deactivate intentionally uses locked per-row `save(update_fields=["is_active"])` calls so account-status changes produce audit entries.
 - `stock.Transaction` remains the authoritative append-only stock movement ledger. Do not replace stock movement reporting with auditlog entries.
 - Counters use a local memory cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are tracked in-process.
 - `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully if there are issues with the cache.
