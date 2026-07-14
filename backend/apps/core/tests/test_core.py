@@ -1222,7 +1222,7 @@ class ErrorHandlerTests(SimpleTestCase):
         self.assertIn("status_code=404", captured.output[0])
         self.assertIn("exception=FileNotFoundError", captured.output[0])
 
-    @override_settings(DEBUG=True)
+    @override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False)
     def test_unmatched_route_uses_custom_404_page_in_debug(self):
         # Reload the URLconf module to pick up DEBUG=True setting
         import importlib

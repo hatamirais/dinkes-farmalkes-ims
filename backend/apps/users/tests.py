@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest import mock
 
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
@@ -9,6 +10,8 @@ from django.db.models import ProtectedError
 from django.test import TestCase
 from django.test import override_settings
 from django.urls import reverse
+
+from auditlog.models import LogEntry
 
 from apps.items.models import Facility
 from apps.users.access import (
@@ -47,6 +50,17 @@ class UserManagementViewsTest(TestCase):
         for module_code, _ in ModuleAccess.Module.choices:
             payload[f"module_scope__{module_code}"] = str(scope)
         return payload
+
+    def _latest_user_update_log(self, user_obj):
+        return (
+            LogEntry.objects.filter(
+                content_type=ContentType.objects.get_for_model(User),
+                object_pk=str(user_obj.pk),
+                action=LogEntry.Action.UPDATE,
+            )
+            .order_by("-timestamp")
+            .first()
+        )
 
     def test_admin_umum_cannot_access_user_management(self):
         admin_umum = User.objects.create_user(
@@ -644,6 +658,27 @@ class UserManagementViewsTest(TestCase):
         inactive_user.refresh_from_db()
         self.assertTrue(inactive_user.is_active)
 
+    def test_bulk_action_activate_writes_auditlog_entry(self):
+        inactive_user = User.objects.create_user(
+            username="inactive_audit_user",
+            password="secret12345",
+            email="inactive.audit@example.com",
+            role=User.Role.GUDANG,
+            is_active=False,
+        )
+
+        response = self.client.post(
+            reverse("users:user_bulk_action"),
+            {"action": "activate", "selected_users": [inactive_user.pk]},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        log_entry = self._latest_user_update_log(inactive_user)
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.actor, self.admin)
+        self.assertIn("is_active", log_entry.changes)
+
     def test_bulk_action_deactivate_selected_users(self):
         response = self.client.post(
             reverse("users:user_bulk_action"),
@@ -653,6 +688,19 @@ class UserManagementViewsTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.target.refresh_from_db()
         self.assertFalse(self.target.is_active)
+
+    def test_bulk_action_deactivate_writes_auditlog_entry(self):
+        response = self.client.post(
+            reverse("users:user_bulk_action"),
+            {"action": "deactivate", "selected_users": [self.target.pk]},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        log_entry = self._latest_user_update_log(self.target)
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.actor, self.admin)
+        self.assertIn("is_active", log_entry.changes)
 
     def test_bulk_action_delete_skips_active_and_protected_users(self):
         deletable_user = User.objects.create_user(

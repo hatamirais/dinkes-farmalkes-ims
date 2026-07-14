@@ -16,6 +16,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 | Cache/Broker | None (In-Memory / LocMemCache) |
 | UI | Django templates + Bootstrap 5 |
 | Auth model | `apps.users.User` |
+| Object audit | django-auditlog |
 | Settings | `backend/config/settings.py` |
 | Root URLs | `backend/config/urls.py` |
 
@@ -144,6 +145,7 @@ Use Context7 as primary guidance for third-party best practices. Current referen
 - Django: `/django/django`
 - django-import-export: `/websites/django-import-export_readthedocs_io_en`
 - django-axes: `/jazzband/django-axes`
+- django-auditlog: `/jazzband/django-auditlog`
 
 Apply these principles:
 
@@ -196,6 +198,9 @@ Before opening a PR, verify:
 
 - `django-axes` remains the login brute-force control.
 - Additional authenticated POST throttling uses `django-ratelimit`.
+- `django-auditlog` records database-backed create/update/delete history for selected critical models. Its initial webview is Django Admin at `/admin/` through the auditlog `LogEntry` admin; no custom IMS audit-log sidebar page exists yet.
+- Auditlog is signal-driven and does not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` paths. Keep explicit workflow logs or tests for critical bulk operations where row-level audit history is required. User bulk activate/deactivate intentionally uses locked per-row `save(update_fields=["is_active"])` calls so account-status changes produce audit entries.
+- `stock.Transaction` remains the authoritative append-only stock movement ledger. Do not replace stock movement reporting with auditlog entries.
 - Counters use a local memory cache (`CACHES["default"]` → `RATELIMIT_USE_CACHE`) so limits are tracked in-process.
 - `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully if there are issues with the cache.
 - Current settings-backed knobs are `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `ITEM_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`, `PROCUREMENT_MUTATION_RATE_LIMIT`, and `LPLPO_IMPORT_RATE_LIMIT`. The legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` env var remains accepted as a compatibility fallback.

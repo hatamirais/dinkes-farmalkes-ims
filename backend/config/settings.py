@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "django_filters",
     "import_export",
     "axes",
+    "auditlog",
     # Local apps
     "apps.core",
     "apps.users",
@@ -81,6 +82,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "auditlog.middleware.AuditlogMiddleware",
     "apps.core.middleware.AdminPanelAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -175,6 +177,109 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
+
+# ─── django-auditlog: Object Change History ─────────────────────────
+# django-auditlog stores create/update/delete history in database-backed
+# LogEntry rows. Stock.Transaction remains the authoritative movement
+# ledger; auditlog complements it for object-level administrative history.
+AUDITLOG_TRACKING_TIMESTAMP_FIELDS = ["created_at", "updated_at"]
+AUDITLOG_USER_EXCLUDE_FIELDS = [
+    "password",
+    "last_login",
+    "date_joined",
+    "groups",
+    "user_permissions",
+]
+AUDITLOG_INCLUDE_TRACKING_MODELS = (
+    {
+        "model": "users.User",
+        "exclude_fields": AUDITLOG_USER_EXCLUDE_FIELDS,
+        "mask_fields": ["email", "nip"],
+    },
+    {
+        "model": "users.ModuleAccess",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "items.Item",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+        "m2m_fields": ["therapeutic_classes"],
+    },
+    {
+        "model": "items.FundingSource",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "items.Location",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "items.Supplier",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+        "mask_fields": ["address", "phone", "email"],
+    },
+    {
+        "model": "items.Facility",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+        "mask_fields": ["address", "phone"],
+    },
+    {
+        "model": "stock.Stock",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "stock.StockTransfer",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "receiving.Receiving",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "procurement.ProcurementContract",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "procurement.ProcurementAmendment",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "distribution.Distribution",
+        "exclude_fields": [*AUDITLOG_TRACKING_TIMESTAMP_FIELDS, "ocr_text"],
+    },
+    {
+        "model": "allocation.Allocation",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "recall.Recall",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "expired.Expired",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "stock_opname.StockOpname",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "puskesmas.PuskesmasReceiptConfirmation",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "puskesmas.PuskesmasConsumption",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "puskesmas.PuskesmasRequest",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "lplpo.LPLPO",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+)
 
 # Login/Logout URLs
 LOGIN_URL = "login"

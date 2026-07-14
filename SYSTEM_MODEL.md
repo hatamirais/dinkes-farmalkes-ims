@@ -2,8 +2,8 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-07-09
-Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`
+Last verified: 2026-07-14
+Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
 
 ## 1) Domain Overview
 
@@ -29,7 +29,7 @@ Core domains:
 Root route include map from `backend/config/urls.py`:
 
 - `/` -> dashboard (`apps.core.views.dashboard`)
-- `/admin/` -> Django admin
+- `/admin/` -> Django admin, including the `django-auditlog` `LogEntry` webview for authorized staff/admin users
 - `/login/`, `/logout/`, `/password/change/`, `/password/change/done/`
   - `/password/change/` uses a rate-limited subclass of Django's `PasswordChangeView`
 - `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
@@ -476,6 +476,7 @@ From `backend/config/settings.py`:
 - `AUTH_USER_MODEL = "users.User"`
 - `APP_VERSION` is loaded from root `VERSION` (semantic version `MAJOR.MINOR.PATCH`)
 - `SECRET_KEY` loaded from environment and required (`os.environ[...]`)
+- `django-auditlog` is installed for database-backed create/update/delete history on selected critical models; the initial audit-log webview is available through Django Admin `/admin/`
 - `DEBUG` defaults to `False` unless overridden by environment
 - `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` are environment-driven comma-separated lists
 - `FEATURE_ALLOCATION_UI_ENABLED` is still loaded into settings for compatibility/tests, but current runtime routing and navigation rely on permissions/module scope instead of branching on this flag
@@ -483,7 +484,10 @@ From `backend/config/settings.py`:
   1. `axes.backends.AxesStandaloneBackend`
   2. `django.contrib.auth.backends.ModelBackend`
 - `PRIVATE_MEDIA_ROOT` is environment-configurable and defaults to `backend/private_media`; receiving attachments are stored here instead of the public `MEDIA_ROOT` tree
+- `auditlog.middleware.AuditlogMiddleware` is loaded after Django `AuthenticationMiddleware` so auditlog can attach the logged-in actor to `LogEntry` rows
 - `axes.middleware.AxesMiddleware` included after standard auth/session middleware
+- `AUDITLOG_INCLUDE_TRACKING_MODELS` registers critical user/access, master-data, operational-header, and `Stock` models. No custom IMS audit-log page is implemented yet.
+- Auditlog does not replace `stock.Transaction`, and signal-driven audit entries do not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` changes. User bulk activate/deactivate avoids `QuerySet.update()` and saves locked rows individually so account-status changes are captured.
 - `AXES_FAILURE_LIMIT = 5`, `AXES_COOLOFF_TIME = 0.5`, `AXES_RESET_ON_SUCCESS = True`
 - Sensitive POST throttling uses `django-ratelimit` with settings-backed defaults:
   - `USER_BULK_ACTION_RATE_LIMIT = 10/m`
@@ -543,4 +547,5 @@ If model fields, routes, settings, permission logic, or import behavior change:
    - `/django/django`
    - `/websites/django-import-export_readthedocs_io_en`
    - `/jazzband/django-axes`
+   - `/jazzband/django-auditlog`
 
