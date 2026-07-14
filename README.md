@@ -17,7 +17,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Antarmuka | Django Templates + Bootstrap 5 |
 | Form | django-crispy-forms + crispy-bootstrap5 |
 | Import Data | django-import-export |
-| Keamanan | django-axes + django-ratelimit |
+| Keamanan & Audit | django-axes + django-ratelimit + django-auditlog |
 
 ## Kapabilitas Utama
 
@@ -28,6 +28,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Pelaporan LPLPO bulanan dan pengajuan permintaan barang secara ad-hoc dari Puskesmas, dengan pembuatan dokumen yang terkunci berurutan dari Januari pada tahun server aktif. Januari diperlakukan sebagai bootstrap tahunan: `stock_awal` tetap diisi manual, sedangkan `penerimaan` dan `harga_satuan` dapat diusulkan dari konfirmasi penerimaan Puskesmas Januari yang sudah `CONFIRMED` memakai total kuantitas dan rata-rata tertimbang harga per item, namun tetap editable oleh operator. Bulan berikutnya membawa carry-over `sisa stok` bulan sebelumnya ke `stock_awal` termasuk bila bernilai negatif, mengisi `penerimaan` dari konfirmasi penerimaan Puskesmas bulan berjalan, dan mengisi `harga_satuan` dari rata-rata tertimbang harga konfirmasi penerimaan bulan berjalan lalu fallback ke harga bulan sebelumnya bila tidak ada penerimaan baru.
 - Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
 - Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
+- Jejak audit perubahan objek penting melalui `django-auditlog`, dengan webview awal tersedia di Django Admin `/admin/` untuk pengguna staff/admin yang berwenang.
 - Dukungan import CSV dari Django Admin, termasuk endpoint khusus untuk penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`. Kolom `expiry_date` pada import penerimaan kini opsional hanya untuk barang yang ditandai tidak memerlukan kedaluwarsa; untuk barang lain kolom tersebut tetap wajib.
 
 ## Modul Saat Ini
@@ -86,6 +87,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 
 - Perlindungan brute-force login menggunakan `django-axes`.
 - Rate limiting untuk endpoint POST sensitif seperti perubahan password, mutasi master barang, dan aksi manajemen pengguna menggunakan `django-ratelimit`.
+- Riwayat create/update/delete model penting dicatat melalui `django-auditlog` pada tabel `LogEntry` dan dapat dilihat dari `/admin/`. Auditlog melengkapi, bukan menggantikan, log keamanan terstruktur dan `Transaction` sebagai ledger mutasi stok.
 - Endpoint simpan/edit/hapus konfirmasi penerimaan Puskesmas dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`; pratinjau pemuatan checklist distribusi pada form buat memakai `GET` non-mutasi dan tidak dihitung ke kuota ini. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap diterima sebagai fallback kompatibilitas.
 - Endpoint mutasi pemakaian rinci Puskesmas juga dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
 - Endpoint mutasi master barang dan quick-create lookup `items`, serta quick-create supplier/sumber dana pada form receiving dan procurement, dibatasi melalui `django-ratelimit` dengan knob environment `ITEM_MUTATION_RATE_LIMIT`, terpisah dari kuota mutasi modul `users`.

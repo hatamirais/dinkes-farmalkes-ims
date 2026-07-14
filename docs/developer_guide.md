@@ -75,6 +75,9 @@ Catatan:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` default `10000` untuk mengakomodasi form LPLPO dan form bulk serupa yang mengirim banyak field dalam satu request.
 - `FEATURE_ALLOCATION_UI_ENABLED` masih dibaca ke Django settings untuk kompatibilitas dan test override, tetapi route/UI runtime Allocation saat ini tidak bercabang pada flag tersebut; akses tetap dikendalikan oleh permission Django + `ModuleAccess`.
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
+- Perubahan create/update/delete pada model penting dicatat melalui `django-auditlog`. Webview awalnya tersedia di Django Admin `/admin/` sebagai `LogEntry` untuk staff/admin yang berwenang.
+- Auditlog bersifat signal-driven; `bulk_create`, `bulk_update`, dan `QuerySet.update()` tidak otomatis menghasilkan audit entry per objek. Untuk jalur bulk yang kritis, tambahkan log eksplisit atau test yang mendokumentasikan gap tersebut.
+- `stock.Transaction` tetap menjadi ledger mutasi stok yang authoritative dan append-only; jangan menggantinya dengan auditlog.
 - Mutasi simpan/edit/hapus konfirmasi penerimaan Puskesmas (`/puskesmas/penerimaan/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas. Pratinjau pemuatan baris distribusi pada form buat berjalan lewat `GET` non-mutasi dan tidak memakai kuota ini. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap dibaca sebagai fallback kompatibilitas.
 - Mutasi pemakaian rinci Puskesmas (`/puskesmas/pemakaian/*`) juga memakai `django-ratelimit`; gunakan `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator fasilitas.
 - Mutasi create/update/delete barang dan quick-create lookup pada modul `items`, serta quick-create supplier/sumber dana pada form `receiving` dan `procurement`, juga memakai `django-ratelimit`; gunakan `ITEM_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput operator katalog tanpa memakan kuota mutasi modul `users`.
@@ -251,6 +254,7 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
    - `/django/django`
    - `/websites/django-import-export_readthedocs_io_en`
    - `/jazzband/django-axes`
+   - `/jazzband/django-auditlog`
 4. Cocokkan environment variables yang terdokumentasi dengan `backend/config/settings.py` dan `.env.example`; jangan mendokumentasikan key yang tidak benar-benar dibaca aplikasi tanpa memberi catatan konteksnya.
 5. Klasifikasikan drift dokumentasi berdasarkan tingkat dampak:
    - Critical: skema, workflow, otorisasi, atau perilaku keamanan tidak sesuai

@@ -69,3 +69,5 @@ Document apps reference those tables rather than duplicating inventory state. Ba
 - `APPEND_SLASH = True` is an explicit project rule
 - Production hardening is enabled when `DEBUG=False`
 - Permission failures should raise `PermissionDenied` so centralized 403 handling remains consistent
+- `django-auditlog` stores object-level create/update/delete history for selected critical models. Its initial webview is the package admin page under `/admin/`; custom IMS audit pages are not implemented yet.
+- Auditlog complements `stock.Transaction`; it does not replace append-only stock movement history and does not automatically cover bulk update paths.

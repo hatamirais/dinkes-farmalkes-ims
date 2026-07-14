@@ -28,12 +28,13 @@ Do not treat model save events as the main inventory mutation mechanism. Stock c
   - `backend/apps/distribution/views.py`
   - `backend/apps/distribution/services.py`
 - Workflow:
-  - `DRAFT -> SUBMITTED -> VERIFIED -> PREPARED -> DISTRIBUTED`
+  - `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`
 - Mutation rule:
   - `prepare` changes workflow state only
-  - `distribute` deducts `Stock.quantity` and writes `Transaction(OUT)`
+  - `verify` reserves the selected batch on `Stock.reserved`
+  - reset/step-back/delete/reversal releases reservations for standalone distributions
+  - `distribute` deducts `Stock.quantity`, clears the matching reservation, snapshots issued batch/value fields, and writes `Transaction(OUT)`
 - Availability checks use `Stock.available_quantity`
-- Current workflow does not automatically maintain `Stock.reserved`
 
 ## Allocation
 
