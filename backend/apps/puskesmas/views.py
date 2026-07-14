@@ -2163,12 +2163,13 @@ def puskesmas_report_persediaan(request):
                 .order_by()
             )
             for di in distribution_items:
+                sort_order = di["item__kategori__sort_order"]
                 key = (
                     di["item_id"],
                     di["item__nama_barang"],
                     di["item__satuan__name"] or "-",
                     di["item__kategori__name"] or "Lainnya",
-                    di["item__kategori__sort_order"] or 9999,
+                    9999 if sort_order is None else sort_order,
                 )
                 item_stock_map[key] = item_stock_map.get(key, 0) + int(
                     di["total_received"] or 0
@@ -2326,9 +2327,10 @@ def puskesmas_report_rekap_persediaan(request):
         )
 
         for row in category_totals:
+            sort_order = row["item__kategori__sort_order"]
             key = (
                 row["item__kategori__name"] or "Lainnya",
-                row["item__kategori__sort_order"] or 9999,
+                9999 if sort_order is None else sort_order,
             )
             aggregated = category_map.setdefault(
                 key,
@@ -2362,9 +2364,10 @@ def puskesmas_report_rekap_persediaan(request):
             .order_by()
         )
         for row in latest_item_values:
+            sort_order = row["item__kategori__sort_order"]
             key = (
                 row["item__kategori__name"] or "Lainnya",
-                row["item__kategori__sort_order"] or 9999,
+                9999 if sort_order is None else sort_order,
             )
             aggregated = category_map.setdefault(
                 key,
