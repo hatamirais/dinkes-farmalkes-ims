@@ -5,7 +5,18 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import (
+    Case,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Q,
+    Sum,
+    Value,
+    When,
+    Window,
+)
+from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -2017,7 +2028,6 @@ def puskesmas_report_persediaan(request):
     from apps.distribution.models import Distribution, DistributionItem
     from apps.items.models import Facility as FacilityModel
     from apps.lplpo.models import LPLPO, LPLPOItem
-    from django.db.models import Sum
 
     from .forms import PuskesmasPersediaanFilterForm
     from .exports import export_puskesmas_persediaan_excel
@@ -2059,123 +2069,116 @@ def puskesmas_report_persediaan(request):
         )
 
         # Resolve which facilities to query
-        facilities_to_query = [facility] if facility else list(
-            FacilityModel.objects.filter(
-                facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
-            )
+        facilities_to_query = FacilityModel.objects.filter(
+            facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         )
+        if facility:
+            facilities_to_query = facilities_to_query.filter(pk=facility.pk)
+        facility_ids = list(facilities_to_query.values_list("pk", flat=True))
 
         # --- Dynamic stock calculation ---
-        # For each facility, find the latest usable LPLPO in or before the
-        # requested period, then add distributions that arrived after it.
-        item_stock_map = {}  # {(item_id, item_name, satuan_name, kategori_name, sort_order): stock}
+        # For each facility, find the latest usable LPLPO in or before the requested
+        # period, then add distributions that arrived after it. Keep this batched so
+        # report cost scales with returned rows rather than N facilities.
+        item_stock_map = {}
 
-        for fac in facilities_to_query:
-            # Get the most recent usable LPLPO up to the selected period end.
-            lplpo_qs = LPLPO.objects.filter(
-                facility=fac,
+        latest_lplpos = (
+            LPLPO.objects.filter(
+                facility_id__in=facility_ids,
                 tahun=year,
                 status__in=USABLE_STATUSES,
+                bulan__lte=end_month,
             )
-            lplpo_qs = lplpo_qs.filter(bulan__lte=end_month)
-
-            latest_lplpo = lplpo_qs.order_by("-bulan").first()
-
-            if latest_lplpo:
-                # Collect stock_keseluruhan per item from this LPLPO
-                lplpo_items = LPLPOItem.objects.filter(
-                    lplpo=latest_lplpo
-                ).select_related(
-                    "item", "item__satuan", "item__kategori"
+            .annotate(
+                latest_month=Window(
+                    expression=RowNumber(),
+                    partition_by=[F("facility_id")],
+                    order_by=F("bulan").desc(),
                 )
+            )
+            .filter(latest_month=1)
+        )
+        latest_lplpo_by_facility = {
+            lplpo.facility_id: lplpo for lplpo in latest_lplpos
+        }
+        latest_lplpo_ids = [lplpo.pk for lplpo in latest_lplpo_by_facility.values()]
 
-                for li in lplpo_items:
-                    key = (
-                        li.item_id,
-                        li.item.nama_barang,
-                        li.item.satuan.name if li.item.satuan else "-",
-                        li.item.kategori.name if li.item.kategori else "Lainnya",
-                        li.item.kategori.sort_order if li.item.kategori else 9999,
-                    )
-                    item_stock_map[key] = item_stock_map.get(key, 0) + li.stock_keseluruhan
-
-                # Add distributions received AFTER the LPLPO's closing month
-                # (i.e., month > latest_lplpo.bulan, same year or next year)
-                # Only count DISTRIBUTED distributions
-                newer_dist_filter = {
-                    "distribution__facility": fac,
-                    "distribution__status": Distribution.Status.DISTRIBUTED,
-                }
-                # Distributions in the same year, strictly after LPLPO month,
-                # up to and including the selected period end month.
-                newer_dist_filter["distribution__distributed_date__year"] = year
-                newer_dist_filter["distribution__distributed_date__month__gt"] = latest_lplpo.bulan
-                newer_dist_filter["distribution__distributed_date__month__lte"] = end_month
-
-                newer_items = (
-                    DistributionItem.objects.filter(**newer_dist_filter)
-                    .select_related(
-                        "item", "item__satuan", "item__kategori"
-                    )
-                    .values(
-                        "item_id",
-                        "item__nama_barang",
-                        "item__satuan__name",
-                        "item__kategori__name",
-                        "item__kategori__sort_order",
-                    )
-                    .annotate(total_received=Sum("quantity_approved"))
+        if latest_lplpo_ids:
+            lplpo_items = (
+                LPLPOItem.objects.filter(lplpo_id__in=latest_lplpo_ids)
+                .select_related("item", "item__satuan", "item__kategori")
+                .order_by()
+            )
+            for li in lplpo_items:
+                key = (
+                    li.item_id,
+                    li.item.nama_barang,
+                    li.item.satuan.name if li.item.satuan else "-",
+                    li.item.kategori.name if li.item.kategori else "Lainnya",
+                    li.item.kategori.sort_order if li.item.kategori else 9999,
                 )
+                item_stock_map[key] = item_stock_map.get(key, 0) + li.stock_keseluruhan
 
-                for di in newer_items:
-                    key = (
-                        di["item_id"],
-                        di["item__nama_barang"],
-                        di["item__satuan__name"] or "-",
-                        di["item__kategori__name"] or "Lainnya",
-                        di["item__kategori__sort_order"] or 9999,
-                    )
-                    extra = int(di["total_received"] or 0)
-                    item_stock_map[key] = item_stock_map.get(key, 0) + extra
+        dist_after_latest_q = Q()
+        for facility_id, latest_lplpo in latest_lplpo_by_facility.items():
+            dist_after_latest_q |= Q(
+                distribution__facility_id=facility_id,
+                distribution__distributed_date__month__gt=latest_lplpo.bulan,
+            )
 
-            else:
-                # No LPLPO found: fall back to distribution-only data for the period
+        facilities_without_lplpo = [
+            facility_id
+            for facility_id in facility_ids
+            if facility_id not in latest_lplpo_by_facility
+        ]
+        if facilities_without_lplpo:
+            for missing_facility_id in facilities_without_lplpo:
                 logger.info(
                     "puskesmas_report_persediaan: no usable LPLPO found for facility=%s year=%s month=%s; "
                     "using distribution-only fallback.",
-                    fac.pk, year, end_month,
+                    missing_facility_id,
+                    year,
+                    end_month,
                 )
-                dist_filter = {
-                    "distribution__facility": fac,
-                    "distribution__status": Distribution.Status.DISTRIBUTED,
-                    "distribution__distributed_date__year": year,
-                }
-                dist_filter["distribution__distributed_date__month__lte"] = end_month
+            dist_after_latest_q |= Q(
+                distribution__facility_id__in=facilities_without_lplpo
+            )
 
-                fallback_items = (
-                    DistributionItem.objects.filter(**dist_filter)
-                    .select_related("item", "item__satuan", "item__kategori")
-                    .values(
-                        "item_id",
-                        "item__nama_barang",
-                        "item__satuan__name",
-                        "item__kategori__name",
-                        "item__kategori__sort_order",
-                    )
-                    .annotate(total_received=Sum("quantity_approved"))
+        if dist_after_latest_q:
+            distribution_items = (
+                DistributionItem.objects.filter(
+                    dist_after_latest_q,
+                    distribution__status=Distribution.Status.DISTRIBUTED,
+                    distribution__distributed_date__year=year,
+                    distribution__distributed_date__month__lte=end_month,
                 )
-                for di in fallback_items:
-                    key = (
-                        di["item_id"],
-                        di["item__nama_barang"],
-                        di["item__satuan__name"] or "-",
-                        di["item__kategori__name"] or "Lainnya",
-                        di["item__kategori__sort_order"] or 9999,
-                    )
-                    item_stock_map[key] = item_stock_map.get(key, 0) + int(di["total_received"] or 0)
+                .values(
+                    "item_id",
+                    "item__nama_barang",
+                    "item__satuan__name",
+                    "item__kategori__name",
+                    "item__kategori__sort_order",
+                )
+                .annotate(total_received=Sum("quantity_approved"))
+                .order_by()
+            )
+            for di in distribution_items:
+                key = (
+                    di["item_id"],
+                    di["item__nama_barang"],
+                    di["item__satuan__name"] or "-",
+                    di["item__kategori__name"] or "Lainnya",
+                    di["item__kategori__sort_order"] or 9999,
+                )
+                item_stock_map[key] = item_stock_map.get(key, 0) + int(
+                    di["total_received"] or 0
+                )
 
         # Build sorted report_data list
-        for key, stock_qty in sorted(item_stock_map.items(), key=lambda x: (x[0][4], x[0][3], x[0][1])):
+        for key, stock_qty in sorted(
+            item_stock_map.items(),
+            key=lambda x: (x[0][4], x[0][3], x[0][1]),
+        ):
             _, nama_barang, satuan, kategori, _ = key
             report_data.append({
                 "nama_barang": nama_barang,
@@ -2275,88 +2278,106 @@ def puskesmas_report_rekap_persediaan(request):
         )
         if facility:
             facilities_to_query = facilities_to_query.filter(pk=facility.pk)
-        facilities_to_query = list(facilities_to_query)
 
-        facility_item_map = {}
-        lplpo_items_qs = (
-            LPLPOItem.objects.filter(
-                lplpo__facility__in=facilities_to_query,
-                lplpo__tahun=year,
-                lplpo__status__in=USABLE_STATUSES,
-            )
-            .select_related("lplpo", "item", "item__satuan", "item__kategori")
-            .order_by(
-                "lplpo__facility_id",
-                "item__kategori__sort_order",
-                "item__nama_barang",
-                "lplpo__bulan",
-            )
+        category_map = {}
+        money_field = DecimalField(max_digits=20, decimal_places=2)
+        zero_money = Value(Decimal("0.00"), output_field=money_field)
+        stock_awal_value = ExpressionWrapper(
+            F("stock_awal") * F("harga_satuan"),
+            output_field=money_field,
         )
-        lplpo_items_qs = lplpo_items_qs.filter(
+        penerimaan_value = ExpressionWrapper(
+            F("penerimaan") * F("harga_satuan"),
+            output_field=money_field,
+        )
+        pemakaian_value = ExpressionWrapper(
+            F("pemakaian") * F("harga_satuan"),
+            output_field=money_field,
+        )
+        saldo_akhir_value = ExpressionWrapper(
+            F("stock_keseluruhan") * F("harga_satuan"),
+            output_field=money_field,
+        )
+        base_lplpo_items = LPLPOItem.objects.filter(
+            lplpo__facility__in=facilities_to_query,
+            lplpo__tahun=year,
+            lplpo__status__in=USABLE_STATUSES,
             lplpo__bulan__gte=start_month,
             lplpo__bulan__lte=end_month,
         )
 
-        for li in lplpo_items_qs:
-            key = (li.lplpo.facility_id, li.item_id)
-            row = facility_item_map.setdefault(
-                key,
-                {
-                    "nama_barang": li.item.nama_barang,
-                    "satuan": li.item.satuan.name if li.item.satuan else "-",
-                    "kategori": li.item.kategori.name if li.item.kategori else "Lainnya",
-                    "sort_order": li.item.kategori.sort_order
-                    if li.item.kategori
-                    else 9999,
-                    "stok_awal": 0,
-                    "penerimaan": 0,
-                    "pemakaian": 0,
-                    "nilai_stok_awal": Decimal("0"),
-                    "nilai_penerimaan": Decimal("0"),
-                    "nilai_pemakaian": Decimal("0"),
-                    "latest_month": 0,
-                    "latest_harga_satuan": Decimal("0"),
-                    "latest_stok_akhir": 0,
-                    "nilai_stok_akhir": Decimal("0"),
-                },
+        category_totals = (
+            base_lplpo_items.values(
+                "item__kategori__name",
+                "item__kategori__sort_order",
             )
+            .annotate(
+                saldo_awal=Sum(
+                    Case(
+                        When(lplpo__bulan=start_month, then=stock_awal_value),
+                        default=zero_money,
+                        output_field=money_field,
+                    )
+                ),
+                nilai_terima=Sum(penerimaan_value),
+                nilai_keluar=Sum(pemakaian_value),
+            )
+            .order_by()
+        )
 
-            harga_satuan = li.harga_satuan or Decimal("0")
-            if li.lplpo.bulan == start_month:
-                row["stok_awal"] += li.stock_awal
-                row["nilai_stok_awal"] += Decimal(li.stock_awal or 0) * harga_satuan
-
-            row["penerimaan"] += li.penerimaan
-            row["pemakaian"] += li.pemakaian
-            row["nilai_penerimaan"] += Decimal(li.penerimaan or 0) * harga_satuan
-            row["nilai_pemakaian"] += Decimal(li.pemakaian or 0) * harga_satuan
-
-            if li.lplpo.bulan >= row["latest_month"]:
-                row["latest_month"] = li.lplpo.bulan
-                row["latest_harga_satuan"] = harga_satuan
-                row["latest_stok_akhir"] = li.stock_keseluruhan
-                row["nilai_stok_akhir"] = (
-                    Decimal(li.stock_keseluruhan or 0) * harga_satuan
-                )
-
-        category_map = {}
-        for row in facility_item_map.values():
-            key = row["kategori"], row["sort_order"]
+        for row in category_totals:
+            key = (
+                row["item__kategori__name"] or "Lainnya",
+                row["item__kategori__sort_order"] or 9999,
+            )
             aggregated = category_map.setdefault(
                 key,
                 {
-                    "kategori": row["kategori"],
-                    "sort_order": row["sort_order"],
+                    "kategori": key[0],
+                    "sort_order": key[1],
                     "saldo_awal": Decimal("0"),
                     "nilai_terima": Decimal("0"),
                     "nilai_keluar": Decimal("0"),
                     "saldo_akhir": Decimal("0"),
                 },
             )
-            aggregated["saldo_awal"] += row["nilai_stok_awal"]
-            aggregated["nilai_terima"] += row["nilai_penerimaan"]
-            aggregated["nilai_keluar"] += row["nilai_pemakaian"]
-            aggregated["saldo_akhir"] += row["nilai_stok_akhir"]
+            aggregated["saldo_awal"] += row["saldo_awal"] or Decimal("0")
+            aggregated["nilai_terima"] += row["nilai_terima"] or Decimal("0")
+            aggregated["nilai_keluar"] += row["nilai_keluar"] or Decimal("0")
+
+        latest_item_values = (
+            base_lplpo_items.annotate(
+                latest_row=Window(
+                    expression=RowNumber(),
+                    partition_by=[F("lplpo__facility_id"), F("item_id")],
+                    order_by=F("lplpo__bulan").desc(),
+                )
+            )
+            .filter(latest_row=1)
+            .values(
+                "item__kategori__name",
+                "item__kategori__sort_order",
+            )
+            .annotate(saldo_akhir=Sum(saldo_akhir_value))
+            .order_by()
+        )
+        for row in latest_item_values:
+            key = (
+                row["item__kategori__name"] or "Lainnya",
+                row["item__kategori__sort_order"] or 9999,
+            )
+            aggregated = category_map.setdefault(
+                key,
+                {
+                    "kategori": key[0],
+                    "sort_order": key[1],
+                    "saldo_awal": Decimal("0"),
+                    "nilai_terima": Decimal("0"),
+                    "nilai_keluar": Decimal("0"),
+                    "saldo_akhir": Decimal("0"),
+                },
+            )
+            aggregated["saldo_akhir"] += row["saldo_akhir"] or Decimal("0")
 
         for _key, row in sorted(
             category_map.items(),
