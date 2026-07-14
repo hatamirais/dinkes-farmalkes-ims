@@ -2893,6 +2893,105 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertContains(response, "Rp 22.100,00")
 		self.assertContains(response, "Triwulan I")
 
+	def test_rekap_persediaan_admin_aggregates_across_facilities(self):
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		lplpo_own = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=1,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_own,
+			item=self.item,
+			stock_awal=10,
+			penerimaan=5,
+			harga_satuan=Decimal("100.00"),
+			pemakaian=2,
+		)
+		lplpo_other = LPLPO.objects.create(
+			facility=self.other_facility,
+			bulan=1,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_other,
+			item=self.item,
+			stock_awal=20,
+			penerimaan=1,
+			harga_satuan=Decimal("200.00"),
+			pemakaian=5,
+		)
+
+		self.client.force_login(self.admin)
+		response = self.client.get(
+			reverse("puskesmas:report_rekap_persediaan"),
+			{"year": "2026", "period": "q1"},
+			follow=True,
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(response.context["rekap_data"]), 1)
+		row = response.context["rekap_data"][0]
+		self.assertEqual(row["kategori"], self.category.name)
+		self.assertEqual(row["saldo_awal"], Decimal("5000.00"))
+		self.assertEqual(row["nilai_terima"], Decimal("700.00"))
+		self.assertEqual(row["nilai_keluar"], Decimal("1200.00"))
+		self.assertEqual(row["saldo_akhir"], Decimal("4500.00"))
+		self.assertEqual(response.context["totals"]["saldo_awal"], Decimal("5000.00"))
+		self.assertEqual(response.context["totals"]["nilai_terima"], Decimal("700.00"))
+		self.assertEqual(response.context["totals"]["nilai_keluar"], Decimal("1200.00"))
+		self.assertEqual(response.context["totals"]["saldo_akhir"], Decimal("4500.00"))
+
+	def test_rekap_persediaan_preserves_zero_category_sort_order(self):
+		zero_category = Category.objects.create(
+			code="ALK",
+			name="Alkes",
+			sort_order=0,
+		)
+		zero_item = Item.objects.create(
+			nama_barang="Masker Bedah",
+			satuan=self.unit,
+			kategori=zero_category,
+			is_active=True,
+		)
+		lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=1,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=zero_item,
+			stock_awal=1,
+			harga_satuan=Decimal("100.00"),
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo,
+			item=self.item,
+			stock_awal=1,
+			harga_satuan=Decimal("100.00"),
+		)
+
+		self.client.force_login(self.report_operator)
+		response = self.client.get(
+			reverse("puskesmas:report_rekap_persediaan"),
+			{"year": "2026", "period": "q1"},
+			follow=True,
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(
+			[row["kategori"] for row in response.context["rekap_data"]],
+			[zero_category.name, self.category.name],
+		)
+
 	def test_rekap_persediaan_excel_export_uses_category_summary_headers(self):
 		from apps.puskesmas.exports import export_puskesmas_rekap_persediaan_excel
 
