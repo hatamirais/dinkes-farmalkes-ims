@@ -168,6 +168,8 @@ Import notes:
 - Baris pertama per `document_number` menjadi sumber data header `Receiving`.
 - `sumber_dana_code` dan `location_code` pada baris item akan override nilai header bila diisi.
 - Baris dengan `quantity` kosong, `0`, negatif, `NaN`, atau `Infinity` akan ditolak pada validasi import.
+- Import menormalisasi spasi dan Unicode NFC pada header/sel teks, menolak null byte, serta menolak nilai teks yang melampaui panjang kolom model sebelum data disimpan.
+- `receiving_date` dan `expiry_date` harus memakai tahun antara `1000` dan `9999`.
 
 Date formats accepted by parser:
 

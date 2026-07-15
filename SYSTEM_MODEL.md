@@ -528,6 +528,7 @@ Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 - Blank `expiry_date` values in the dedicated receiving import are accepted only for items with `requires_expiry_date=False`; older sentinel `2099-12-31` values are normalized by follow-up data migrations rather than being generated for new imports
 - The follow-up item backfill migration marks legacy catalog items with null-expiry stock/receiving history as `requires_expiry_date=False`, and stock admin import follows the same conditional blank-expiry rule
 - Historical copied sentinel dates in `DistributionItem.issued_expiry_date` and `PuskesmasReceiptConfirmationItem.expiry_date` are normalized to `NULL` by follow-up data migrations so downstream history and reports do not keep rendering `31/12/2099`
+- Parser-level validation normalizes CSV headers and text cells with stripped NFC text, rejects null bytes anywhere in the parsed CSV, enforces model-backed maximum lengths before saving, and rejects receiving/expiry dates whose years are outside `1000` through `9999`
 - Supported date formats in parser:
   - `DD/MM/YYYY`
   - `YYYY-MM-DD`
