@@ -222,6 +222,7 @@ Saat file `VERSION` berubah di branch `main`, GitHub Actions menjalankan `.githu
 - Urutan import kanonis: `units -> categories -> funding_sources -> programs -> therapeutic_classes -> locations -> suppliers -> facilities -> items -> receiving`.
 - Lookup `Terapi Obat` di-seed melalui `therapeutic_classes.csv`, lalu relasi itemnya diisi melalui import `items.csv` memakai kolom `therapeutic_classes` berisi satu atau lebih `TherapeuticClass.code` yang dipisahkan `|`.
 - Relasi `Terapi Obat` tidak disimpan sebagai kolom fisik pada tabel `items`; admin import `items` akan menulis ke relasi many-to-many `items_therapeutic_classes`.
+- `items.kode_barang` tetap menjadi kode internal barang, sedangkan `items.barcode` adalah kolom unik opsional untuk kesiapan workflow pemindaian di masa depan; nilai kosong disimpan sebagai `NULL`.
 - Bulk update `Terapi Obat` saat ini masih mengikuti workflow re-import penuh `items.csv` dan dicocokkan berdasarkan `nama_barang`; belum ada importer khusus mapping-only berbasis `kode_barang`.
 - Untuk stok awal, gunakan `receiving.csv` melalui endpoint import Receiving Admin di `/admin/receiving/receiving/import-csv/` agar stok dan `Transaction(IN)` terbentuk dalam satu alur yang konsisten.
 - Import penerimaan mengelompokkan baris berdasarkan `document_number`; baris pertama menjadi header dokumen, sementara `sumber_dana_code` dan `location_code` per baris dapat override nilai header.

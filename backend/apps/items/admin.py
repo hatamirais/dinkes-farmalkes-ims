@@ -173,6 +173,7 @@ class ItemResource(resources.ModelResource):
         fields = (
             "id",
             "kode_barang",
+            "barcode",
             "nama_barang",
             "satuan",
             "kategori",
@@ -191,6 +192,9 @@ class ItemResource(resources.ModelResource):
 
     def before_import_row(self, row, **kwargs):
         """Ensure program column is populated for program items."""
+        barcode = str(row.get("barcode") or "").strip()
+        row["barcode"] = barcode or None
+
         is_prog = str(row.get("is_program_item") or "").strip()
         prog_val = _normalize_code_token(row.get("program") or "")
 
@@ -354,6 +358,7 @@ class ItemAdmin(ImportGuideMixin, ImportExportModelAdmin):
     resource_classes = [ItemResource]
     list_display = (
         "kode_barang",
+        "barcode",
         "nama_barang",
         "satuan",
         "kategori",
@@ -377,6 +382,7 @@ class ItemAdmin(ImportGuideMixin, ImportExportModelAdmin):
     )
     search_fields = (
         "kode_barang",
+        "barcode",
         "nama_barang",
         "program__code",
         "program__name",
@@ -388,6 +394,8 @@ class ItemAdmin(ImportGuideMixin, ImportExportModelAdmin):
         "title": "Master Barang",
         "description": "Identifier unik: nama_barang. Re-import akan update data yg sudah ada.",
         "columns": [
+            {"name": "kode_barang", "required": False, "description": "Kode barang internal; otomatis dibuat jika kosong"},
+            {"name": "barcode", "required": False, "description": "Barcode unik opsional untuk kebutuhan pemindaian masa depan"},
             {"name": "nama_barang", "required": True, "description": "Nama barang (unik, dipakai sebagai ID import)"},
             {"name": "satuan", "required": True, "description": "Kode satuan dari tabel Units"},
             {"name": "kategori", "required": True, "description": "Kode kategori dari tabel Categories"},

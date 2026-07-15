@@ -89,6 +89,7 @@ def _get_filtered_items(request):
     if search:
         queryset = queryset.filter(
             Q(kode_barang__icontains=search)
+            | Q(barcode__icontains=search)
             | Q(nama_barang__icontains=search)
             | Q(program__name__icontains=search)
             | Q(program__code__icontains=search)

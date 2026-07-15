@@ -124,6 +124,8 @@ Columns:
 
 Columns:
 
+- `kode_barang` (optional, internal item code; auto-generated when missing)
+- `barcode` (optional, unique when present; reserved for future scanner workflows)
 - `nama_barang` (required)
 - `satuan` (required, maps to `Unit.code`)
 - `kategori` (required, maps to `Category.code`)
@@ -138,7 +140,8 @@ Columns:
 
 Notes:
 
-- `kode_barang` is auto-generated when missing.
+- `kode_barang` remains the internal item code and is auto-generated when missing.
+- Blank `barcode` values are stored as `NULL`; non-blank barcode values must be unique.
 - If `is_program_item` is true and `program` is blank, importer auto-uses/creates `DEFAULT`.
 - `therapeutic_classes` values must already exist in `therapeutic_classes.csv` or the Therapeutic Class admin lookup.
 - `therapeutic_classes` is an import-only relation field on the `items` admin resource; it maps to the many-to-many join table between `Item` and `TherapeuticClass`, not to a physical column on the `items` table.

@@ -30,6 +30,7 @@ class ItemForm(forms.ModelForm):
     class Meta:
         model = Item
         fields = [
+            "barcode",
             "nama_barang",
             "satuan",
             "kategori",
@@ -42,6 +43,7 @@ class ItemForm(forms.ModelForm):
             "description",
         ]
         widgets = {
+            "barcode": forms.TextInput(attrs={"class": "form-control", "maxlength": 100}),
             "nama_barang": forms.TextInput(attrs={"class": "form-control", "maxlength": 255}),
             "satuan": forms.Select(attrs={"class": "form-select"}),
             "kategori": forms.Select(attrs={"class": "form-select"}),
@@ -56,6 +58,11 @@ class ItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["barcode"].required = False
+        self.fields["barcode"].label = "Barcode"
+        self.fields["barcode"].help_text = (
+            "Opsional. Disiapkan untuk alur pemindaian barcode di masa depan."
+        )
         self.fields["description"].required = False
         self.fields["is_program_item"].label = "Barang program [P]"
         self.fields["is_essential"].label = "Barang esensial [E]"
@@ -98,6 +105,14 @@ class ItemForm(forms.ModelForm):
             max_length=255,
             allow_blank=False,
         )
+
+    def clean_barcode(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("barcode"),
+            "Barcode",
+            max_length=100,
+            allow_blank=True,
+        ) or None
 
     def clean_description(self):
         return _normalize_text_value(
