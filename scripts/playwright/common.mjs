@@ -40,6 +40,26 @@ export const ROLE_DEFINITIONS = [
     },
   },
   {
+    code: "ADMIN_UMUM",
+    slug: "admin-umum",
+    label: "Admin Umum",
+    landingPath: "/",
+    env: {
+      username: "PW_ADMIN_UMUM_USERNAME",
+      password: "PW_ADMIN_UMUM_PASSWORD",
+    },
+  },
+  {
+    code: "AUDITOR",
+    slug: "auditor",
+    label: "Auditor",
+    landingPath: "/reports/",
+    env: {
+      username: "PW_AUDITOR_USERNAME",
+      password: "PW_AUDITOR_PASSWORD",
+    },
+  },
+  {
     code: "ADMIN",
     slug: "admin",
     label: "Admin",
@@ -220,4 +240,3 @@ export async function closeContext(context) {
 export function listRoleCodes() {
   return ROLE_DEFINITIONS.map((role) => role.code);
 }
-

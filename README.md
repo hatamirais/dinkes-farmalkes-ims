@@ -115,7 +115,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 
 Instruksi setup environment, migrasi database, pengujian, versioning, dan proses import tersedia di `docs/developer_guide.md`.
 
-Repositori juga menyediakan helper Playwright lokal untuk verifikasi manual multi-role. Salin `.env.playwright.local.example` menjadi `.env.playwright.local`, isi akun `PUSKESMAS`, `GUDANG`, `KEPALA`, dan `ADMIN`, lalu jalankan `npm run playwright:bootstrap` diikuti `npm run playwright:open` dari root repositori. Untuk regresi browser yang sudah dikomitkan di folder `playwright/`, jalankan `npm run playwright:test`.
+Repositori juga menyediakan helper Playwright lokal untuk verifikasi manual multi-role. Salin `.env.playwright.local.example` menjadi `.env.playwright.local`, isi akun `PUSKESMAS`, `GUDANG`, `KEPALA`, `ADMIN_UMUM`, `AUDITOR`, dan `ADMIN`, lalu jalankan `npm run playwright:bootstrap` diikuti `npm run playwright:open` dari root repositori. Untuk regresi browser yang sudah dikomitkan di folder `playwright/`, jalankan `npm run playwright:test`.
 
 ## Bantuan dan Kustomisasi
 
@@ -124,5 +124,6 @@ Untuk kebutuhan implementasi, konsultasi, atau penyesuaian sistem sesuai kebutuh
 ## Lisensi
 
 MIT. Lihat `LICENSE`.
+
 
 

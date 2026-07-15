@@ -182,7 +182,7 @@ npm run playwright:bootstrap
 npm run playwright:open
 ```
 
-Use existing local role accounts in `.env.playwright.local`. The helper stores per-role Chromium profiles under `.playwright-profiles/`; rebuild them with `npm run playwright:refresh-auth` when credentials or sessions change.
+Use existing local role accounts for all six app roles in `.env.playwright.local`. The helper stores per-role Chromium profiles under `.playwright-profiles/`; rebuild them with `npm run playwright:refresh-auth` when credentials or sessions change.
 
 ## Quality Checklist for Agent PRs
 
@@ -245,3 +245,4 @@ Run with: `.\scripts\run-django-test.ps1 -Target apps.core.tests.test_url_consis
 
 - Do not claim REST API/React production paths as implemented; those are planned.
 - Keep terminology consistent: use "module scope" for `ModuleAccess` and "Django permissions" for `has_perm` checks.
+

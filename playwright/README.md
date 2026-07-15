@@ -9,3 +9,6 @@ Useful commands from repo root:
 - `npm run playwright:bootstrap`
 - `npm run playwright:open`
 - `npm run playwright:test`
+
+Current default launcher set: PUSKESMAS, GUDANG, KEPALA, ADMIN_UMUM, AUDITOR, ADMIN.
+

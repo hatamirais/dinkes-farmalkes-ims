@@ -165,7 +165,7 @@ Untuk prioritas coverage, fase implementasi, dan standar penulisan test, lihat `
 
 ### Playwright lokal untuk verifikasi multi-role
 
-Helper ini ditujukan untuk pengujian manual lokal dengan empat window Chromium terpisah yang tetap menyimpan sesi masing-masing role: `PUSKESMAS`, `GUDANG`, `KEPALA`, dan `ADMIN`.
+Helper ini ditujukan untuk pengujian manual lokal dengan enam window Chromium terpisah yang tetap menyimpan sesi masing-masing role: `PUSKESMAS`, `GUDANG`, `KEPALA`, `ADMIN_UMUM`, `AUDITOR`, dan `ADMIN`.
 
 Langkah setup dari root repositori:
 
@@ -182,6 +182,8 @@ Isi `.env.playwright.local` dengan kredensial akun lokal yang sudah ada di datab
 - `PW_PUSKESMAS_USERNAME`, `PW_PUSKESMAS_PASSWORD`
 - `PW_GUDANG_USERNAME`, `PW_GUDANG_PASSWORD`
 - `PW_KEPALA_USERNAME`, `PW_KEPALA_PASSWORD`
+- `PW_ADMIN_UMUM_USERNAME`, `PW_ADMIN_UMUM_PASSWORD`
+- `PW_AUDITOR_USERNAME`, `PW_AUDITOR_PASSWORD`
 - `PW_ADMIN_USERNAME`, `PW_ADMIN_PASSWORD`
 
 Perintah yang tersedia:
@@ -189,7 +191,7 @@ Perintah yang tersedia:
 - `npm run playwright:install` untuk mengunduh Chromium Playwright.
 - `npm run playwright:auth` untuk membuat atau memperbarui profil login tiap role tanpa membuka window manual.
 - `npm run playwright:refresh-auth` untuk menghapus profil lokal lalu login ulang dari nol.
-- `npm run playwright:open` untuk membuka empat window role sekaligus memakai profil persisten yang sudah tersimpan.
+- `npm run playwright:open` untuk membuka enam window role sekaligus memakai profil persisten yang sudah tersimpan.
 - `npm run playwright:test` untuk menjalankan committed browser regression specs di folder `playwright/`.
 - `npm run playwright:bootstrap` untuk instal Chromium lalu menyiapkan sesi role awal.
 
@@ -275,5 +277,6 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
 - `SYSTEM_MODEL.md`: referensi skema dan workflow utama
 - `CHANGELOG.md`: riwayat rilis
 - `security-audit/OWASP_TOP10_NON_PERSONAL_INFO_AUDIT_2026-02-27.md`: audit keamanan
+
 
 
