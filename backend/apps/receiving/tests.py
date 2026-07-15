@@ -16,7 +16,11 @@ from django.urls import reverse
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.models import ProcurementContract
-from apps.receiving.admin import ReceivingAdmin, ReceivingCSVImportForm
+from apps.receiving.admin import (
+    RECEIVING_CSV_HEADERS,
+    ReceivingAdmin,
+    ReceivingCSVImportForm,
+)
 from apps.receiving.forms import (
     PlannedReceivingForm,
     ReceivingForm,
@@ -573,6 +577,59 @@ class ReceivingCSVImportTest(TestCase):
             response,
             "Wajib hanya untuk item yang memerlukan tanggal kedaluwarsa",
         )
+
+    def test_export_csv_template_downloads_expected_headers(self):
+        self.client.force_login(self.user)
+
+        with self.assertLogs("security", level="INFO") as logs:
+            response = self.client.get(
+                reverse("admin:receiving_export_csv_template"),
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertEqual(
+            response["Content-Disposition"],
+            'attachment; filename="receiving_template.csv"',
+        )
+        self.assertEqual(
+            response.content.decode("utf-8").strip(),
+            ",".join(RECEIVING_CSV_HEADERS),
+        )
+        self.assertTrue(
+            any(
+                "receiving_csv_template_exported" in message
+                for message in logs.output
+            )
+        )
+
+    def test_export_csv_template_requires_add_permission(self):
+        user = User.objects.create_user(
+            username="receiving_template_staff",
+            password="secret12345",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("admin:receiving_export_csv_template"),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_receiving_admin_changelist_links_csv_template_download(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("admin:receiving_receiving_changelist"),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="export-csv-template/"', html=False)
+        self.assertContains(response, "Download Template CSV")
 
 
 class ReceivingWorkflowCleanupTest(TestCase):

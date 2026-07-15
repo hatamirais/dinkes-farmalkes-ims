@@ -35,6 +35,7 @@ For initial stock, prefer `receiving.csv` (custom receiving import endpoint) so 
 ### Dedicated receiving import
 
 Use `/admin/receiving/receiving/import-csv/` for `receiving.csv`.
+Use `/admin/receiving/receiving/export-csv-template/` to download a blank `receiving_template.csv` with the exact columns accepted by the importer.
 
 Import behavior summary:
 

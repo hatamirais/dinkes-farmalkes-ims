@@ -450,6 +450,7 @@ Operational mutation points (from app behavior and admin import logic):
   - `Stock` update/create
   - `Transaction(IN)`
   - Rows are grouped by `document_number`; the first row supplies header-level values, while row-level `sumber_dana_code` and `location_code` can override header defaults
+- Receiving CSV admin template download (`export-csv-template/`) returns a blank `receiving_template.csv` with the exact columns accepted by the dedicated importer and does not mutate data.
 - LPLPO approval/finalize creates a Distribution document mapped 1:1, marks the LPLPO `APPROVED`, and closes the LPLPO once the linked Distribution reaches `DISTRIBUTED`.
 - For generated LPLPO draft distributions, the preparation edit UI displays both requested and approved quantities for reference but locks those values and rejects added/deleted rows; users only assign batches and preparation metadata there.
 - Distribution:
@@ -521,6 +522,7 @@ From `backend/config/settings.py`:
 Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 
 - Endpoint: `/admin/receiving/receiving/import-csv/`
+- Template endpoint: `/admin/receiving/receiving/export-csv-template/`, returning `receiving_template.csv` with the importer headers only
 - Required columns: `document_number`, `receiving_date`, `item_code`, `sumber_dana_code`, `location_code`, `quantity` (`quantity` must be a finite decimal greater than `0`)
 - Optional columns: `receiving_type` (defaults to `GRANT`), `supplier_code`, `batch_lot`, `expiry_date`, `unit_price`
 - Rows are grouped by `document_number`; first-row supplier and header values seed the parent `Receiving`

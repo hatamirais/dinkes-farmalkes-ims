@@ -4,6 +4,7 @@ from csv import Error as CSVError
 import unicodedata
 
 from django.contrib import admin
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -44,6 +45,20 @@ CSV_TEXT_LIMITS = {
     "item_code": 50,
     "batch_lot": 100,
 }
+
+RECEIVING_CSV_HEADERS = (
+    "document_number",
+    "receiving_type",
+    "receiving_date",
+    "supplier_code",
+    "sumber_dana_code",
+    "location_code",
+    "item_code",
+    "quantity",
+    "batch_lot",
+    "expiry_date",
+    "unit_price",
+)
 
 
 # ── Inlines ────────────────────────────────────────────────
@@ -184,12 +199,50 @@ class ReceivingAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path(
+                "export-csv-template/",
+                self.admin_site.admin_view(self.export_csv_template_view),
+                name="receiving_export_csv_template",
+            ),
+            path(
                 "import-csv/",
                 self.admin_site.admin_view(self.import_csv_view),
                 name="receiving_import_csv",
             ),
         ]
         return custom_urls + urls
+
+    def export_csv_template_view(self, request):
+        """Download the CSV template accepted by the custom receiving importer."""
+        if not self.has_add_permission(request):
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "receiving_csv_template_export_denied",
+                        "username": getattr(request.user, "username", "anonymous"),
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise PermissionDenied
+
+        response = HttpResponse(
+            content_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": 'attachment; filename="receiving_template.csv"'
+            },
+        )
+        writer = csv.writer(response)
+        writer.writerow(RECEIVING_CSV_HEADERS)
+        logger.info(
+            json.dumps(
+                {
+                    "event": "receiving_csv_template_exported",
+                    "username": request.user.username,
+                },
+                sort_keys=True,
+            )
+        )
+        return response
 
     def import_csv_view(self, request):
         """Custom CSV import view for bulk receiving + stock creation."""
