@@ -1,6 +1,7 @@
 import json
 import logging
 from csv import Error as CSVError
+import unicodedata
 
 from django.contrib import admin
 from django.shortcuts import render, redirect
@@ -15,7 +16,6 @@ import csv
 import io
 from collections import defaultdict
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
 
 from apps.core.decimal_validation import parse_decimal_input
 from .models import (
@@ -34,6 +34,16 @@ from apps.stock.models import Stock, Transaction
 logger = logging.getLogger("security")
 CSV_IMPORT_MAX_SIZE_BYTES = 2 * 1024 * 1024
 RECEIVING_DOCUMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024
+
+CSV_TEXT_LIMITS = {
+    "document_number": 100,
+    "receiving_type": 20,
+    "supplier_code": 20,
+    "sumber_dana_code": 20,
+    "location_code": 20,
+    "item_code": 50,
+    "batch_lot": 100,
+}
 
 
 # ── Inlines ────────────────────────────────────────────────
@@ -271,7 +281,10 @@ class ReceivingAdmin(admin.ModelAdmin):
         # Normalize headers (strip whitespace, lowercase)
         if not reader.fieldnames:
             raise ValueError("Header CSV tidak ditemukan.")
-        reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
+        reader.fieldnames = [
+            self._normalize_csv_text(h, row_num=1, field_name="header").lower()
+            for h in reader.fieldnames
+        ]
 
         required_columns = {
             "document_number",
@@ -291,12 +304,21 @@ class ReceivingAdmin(admin.ModelAdmin):
         grouped = defaultdict(list)
         for row_num, row in enumerate(reader, start=2):
             row = {
-                (k or "").strip(): (v or "").strip()
+                (k or "").strip(): self._normalize_csv_text(
+                    v,
+                    row_num=row_num,
+                    field_name=(k or "kolom"),
+                )
                 for k, v in row.items()
                 if k is not None
             }
             if not row.get("document_number"):
                 raise ValueError(f"Baris {row_num}: document_number kosong")
+            self._validate_text_length(
+                row["document_number"],
+                "document_number",
+                row_num,
+            )
             grouped[row["document_number"]].append((row_num, row))
 
         counts = {"receivings": 0, "items": 0, "stock": 0, "transactions": 0}
@@ -312,10 +334,20 @@ class ReceivingAdmin(admin.ModelAdmin):
             header_sumber_dana_code = first_row.get("sumber_dana_code", "")
             if not header_sumber_dana_code:
                 raise ValueError(f"Baris {first_row_num}: sumber_dana_code kosong")
+            self._validate_text_length(
+                header_sumber_dana_code,
+                "sumber_dana_code",
+                first_row_num,
+            )
 
             header_location_code = first_row.get("location_code", "")
             if not header_location_code:
                 raise ValueError(f"Baris {first_row_num}: location_code kosong")
+            self._validate_text_length(
+                header_location_code,
+                "location_code",
+                first_row_num,
+            )
 
             # Resolve FKs
             try:
@@ -333,8 +365,13 @@ class ReceivingAdmin(admin.ModelAdmin):
                 ) from exc
 
             supplier = None
-            supplier_code = first_row.get("supplier_code", "").strip()
+            supplier_code = first_row.get("supplier_code", "")
             if supplier_code:
+                self._validate_text_length(
+                    supplier_code,
+                    "supplier_code",
+                    first_row_num,
+                )
                 try:
                     supplier = Supplier.objects.get(code=supplier_code)
                 except Supplier.DoesNotExist as exc:
@@ -349,10 +386,17 @@ class ReceivingAdmin(admin.ModelAdmin):
                 field_name="receiving_date",
             )
 
+            receiving_type = first_row.get("receiving_type") or "GRANT"
+            self._validate_text_length(
+                receiving_type,
+                "receiving_type",
+                first_row_num,
+            )
+
             # Create Receiving (parent)
             receiving = Receiving(
                 document_number=doc_number,
-                receiving_type=first_row.get("receiving_type", "GRANT"),
+                receiving_type=receiving_type,
                 receiving_date=receiving_date,
                 supplier=supplier,
                 sumber_dana=sumber_dana,
@@ -378,6 +422,7 @@ class ReceivingAdmin(admin.ModelAdmin):
                 item_code = row.get("item_code", "")
                 if not item_code:
                     raise ValueError(f"Baris {row_num}: item_code kosong")
+                self._validate_text_length(item_code, "item_code", row_num)
                 try:
                     item = Item.objects.get(kode_barang=item_code)
                 except Item.DoesNotExist as exc:
@@ -403,6 +448,7 @@ class ReceivingAdmin(admin.ModelAdmin):
                 # Auto-generate batch_lot if empty
                 if not batch_lot:
                     batch_lot = f"SALDO-{row_num:04d}"
+                self._validate_text_length(batch_lot, "batch_lot", row_num)
 
                 # Blank expiry is allowed only for items that do not require it.
                 if expiry_date_str:
@@ -419,8 +465,8 @@ class ReceivingAdmin(admin.ModelAdmin):
                     expiry_date = None
 
                 # Row-level overrides (location/sumber_dana can vary per row)
-                row_sumber_dana_code = row.get("sumber_dana_code", "").strip()
-                row_location_code = row.get("location_code", "").strip()
+                row_sumber_dana_code = row.get("sumber_dana_code", "")
+                row_location_code = row.get("location_code", "")
                 effective_sumber_dana_code = (
                     row_sumber_dana_code or header_sumber_dana_code
                 )
@@ -430,6 +476,16 @@ class ReceivingAdmin(admin.ModelAdmin):
                     raise ValueError(f"Baris {row_num}: sumber_dana_code kosong")
                 if not effective_location_code:
                     raise ValueError(f"Baris {row_num}: location_code kosong")
+                self._validate_text_length(
+                    effective_sumber_dana_code,
+                    "sumber_dana_code",
+                    row_num,
+                )
+                self._validate_text_length(
+                    effective_location_code,
+                    "location_code",
+                    row_num,
+                )
 
                 try:
                     row_sumber_dana = FundingSource.objects.get(
@@ -493,6 +549,25 @@ class ReceivingAdmin(admin.ModelAdmin):
         return counts
 
     @staticmethod
+    def _normalize_csv_text(value, *, row_num, field_name):
+        normalized = unicodedata.normalize("NFC", str(value or "")).strip()
+        if "\x00" in normalized:
+            raise ValueError(
+                f"Baris {row_num}: {field_name} mengandung null byte yang tidak diizinkan"
+            )
+        return normalized
+
+    @staticmethod
+    def _validate_text_length(value, field_name, row_num):
+        max_length = CSV_TEXT_LIMITS.get(field_name)
+        if max_length is None:
+            return
+        if len(value) > max_length:
+            raise ValueError(
+                f"Baris {row_num}: {field_name} maksimal {max_length} karakter"
+            )
+
+    @staticmethod
     def _parse_date(value, row_num=None, field_name="tanggal"):
         """Parse date from DD/MM/YYYY or YYYY-MM-DD format."""
         value = (value or "").strip()
@@ -503,9 +578,15 @@ class ReceivingAdmin(admin.ModelAdmin):
 
         for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y"):
             try:
-                return datetime.strptime(value, fmt).date()
+                parsed_date = datetime.strptime(value, fmt).date()
+                if parsed_date.year < 1000 or parsed_date.year > 9999:
+                    raise ValueError
+                return parsed_date
             except ValueError:
                 continue
+        year_message = ReceivingAdmin._date_year_error(value, row_num, field_name)
+        if year_message:
+            raise ValueError(year_message)
         if row_num is not None:
             raise ValueError(
                 f"Baris {row_num}: format {field_name} tidak dikenali: '{value}'. Gunakan DD/MM/YYYY."
@@ -513,6 +594,28 @@ class ReceivingAdmin(admin.ModelAdmin):
         raise ValueError(
             f"Format {field_name} tidak dikenali: '{value}'. Gunakan DD/MM/YYYY."
         )
+
+    @staticmethod
+    def _date_year_error(value, row_num, field_name):
+        parts = value.replace("-", "/").split("/")
+        year_text = ""
+        if len(parts) == 3:
+            if len(parts[0]) >= 4:
+                year_text = parts[0]
+            elif len(parts[2]) >= 4:
+                year_text = parts[2]
+
+        if not year_text or not year_text.isdigit():
+            return ""
+
+        year = int(year_text)
+        if 1000 <= year <= 9999:
+            return ""
+
+        message = f"{field_name} harus memiliki tahun antara 1000 dan 9999"
+        if row_num is not None:
+            return f"Baris {row_num}: {message}"
+        return message
 
     @staticmethod
     def _parse_decimal(

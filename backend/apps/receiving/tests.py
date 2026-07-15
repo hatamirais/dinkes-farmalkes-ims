@@ -304,6 +304,162 @@ class ReceivingCSVImportTest(TestCase):
         self.assertEqual(Stock.objects.count(), 0)
         self.assertEqual(Transaction.objects.count(), 0)
 
+    def test_process_csv_rejects_null_byte_in_later_row(self):
+        csv_content = (
+            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
+            "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,BAD\x00BATCH,01/01/2030,1000\n"
+        )
+
+        with self.assertRaisesMessage(
+            ValueError,
+            "Baris 3: batch_lot mengandung null byte yang tidak diizinkan",
+        ):
+            self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+        self.assertEqual(Receiving.objects.count(), 0)
+        self.assertEqual(ReceivingItem.objects.count(), 0)
+        self.assertEqual(Stock.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_process_csv_rejects_overlong_text_fields_before_save(self):
+        cases = [
+            (
+                "document_number",
+                "D" * 101,
+                "GRANT",
+                "APBD",
+                "GUDANG",
+                "ITM-TEST-0001",
+                "B-001",
+                "Baris 2: document_number maksimal 100 karakter",
+            ),
+            (
+                "receiving_type",
+                "RCV-2026-00001",
+                "R" * 21,
+                "APBD",
+                "GUDANG",
+                "ITM-TEST-0001",
+                "B-001",
+                "Baris 2: receiving_type maksimal 20 karakter",
+            ),
+            (
+                "sumber_dana_code",
+                "RCV-2026-00001",
+                "GRANT",
+                "S" * 21,
+                "GUDANG",
+                "ITM-TEST-0001",
+                "B-001",
+                "Baris 2: sumber_dana_code maksimal 20 karakter",
+            ),
+            (
+                "item_code",
+                "RCV-2026-00001",
+                "GRANT",
+                "APBD",
+                "GUDANG",
+                "I" * 51,
+                "B-001",
+                "Baris 2: item_code maksimal 50 karakter",
+            ),
+            (
+                "batch_lot",
+                "RCV-2026-00001",
+                "GRANT",
+                "APBD",
+                "GUDANG",
+                "ITM-TEST-0001",
+                "B" * 101,
+                "Baris 2: batch_lot maksimal 100 karakter",
+            ),
+        ]
+
+        for (
+            field_name,
+            doc,
+            receiving_type,
+            funding,
+            location,
+            item_code,
+            batch,
+            message,
+        ) in cases:
+            with self.subTest(field_name=field_name):
+                csv_content = (
+                    "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+                    "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+                    f"{doc},{receiving_type},12/03/2026,,{funding},{location},{item_code},10,{batch},01/01/2030,1000\n"
+                )
+
+                with self.assertRaisesMessage(ValueError, message):
+                    self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+                self.assertEqual(Receiving.objects.count(), 0)
+                self.assertEqual(ReceivingItem.objects.count(), 0)
+                self.assertEqual(Stock.objects.count(), 0)
+                self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_process_csv_rejects_date_year_outside_supported_range(self):
+        cases = [
+            (
+                "receiving_date",
+                "01/01/0999",
+                "01/01/2030",
+                "Baris 2: receiving_date harus memiliki tahun antara 1000 dan 9999",
+            ),
+            (
+                "receiving_date",
+                "01/01/10000",
+                "01/01/2030",
+                "Baris 2: receiving_date harus memiliki tahun antara 1000 dan 9999",
+            ),
+            (
+                "expiry_date",
+                "12/03/2026",
+                "01/01/0999",
+                "Baris 2: expiry_date harus memiliki tahun antara 1000 dan 9999",
+            ),
+        ]
+
+        for field_name, receiving_date, expiry_date, message in cases:
+            with self.subTest(
+                field_name=field_name,
+                receiving_date=receiving_date,
+                expiry_date=expiry_date,
+            ):
+                csv_content = (
+                    "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+                    "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
+                    f"RCV-2026-00001,GRANT,{receiving_date},,APBD,GUDANG,ITM-TEST-0001,10,B-001,{expiry_date},1000\n"
+                )
+
+                with self.assertRaisesMessage(ValueError, message):
+                    self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+                self.assertEqual(Receiving.objects.count(), 0)
+                self.assertEqual(ReceivingItem.objects.count(), 0)
+                self.assertEqual(Stock.objects.count(), 0)
+                self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_process_csv_normalizes_and_strips_headers_and_values(self):
+        decomposed_doc_number = "RCV-2026-A\u0301"
+        csv_content = (
+            " document_number , receiving_type , receiving_date , supplier_code , sumber_dana_code ,"
+            " location_code , item_code , quantity , batch_lot , expiry_date , unit_price \n"
+            f" {decomposed_doc_number} , GRANT , 12/03/2026 , , APBD , GUDANG , ITM-TEST-0001 , 10 , B-001 , 01/01/2030 , 1000 \n"
+        )
+
+        result = self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+        self.assertEqual(result["receivings"], 1)
+        receiving = Receiving.objects.get()
+        self.assertEqual(receiving.document_number, "RCV-2026-Á")
+        receiving_item = ReceivingItem.objects.get()
+        self.assertEqual(receiving_item.batch_lot, "B-001")
+
     def test_process_csv_rejects_nan_decimal(self):
         csv_content = (
             "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
@@ -329,7 +485,7 @@ class ReceivingCSVImportTest(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get(reverse("admin:receiving_import_csv"))
+        response = self.client.get(reverse("admin:receiving_import_csv"), secure=True)
 
         self.assertEqual(response.status_code, 403)
 
@@ -345,6 +501,7 @@ class ReceivingCSVImportTest(TestCase):
             response = self.client.post(
                 reverse("admin:receiving_import_csv"),
                 {"csv_file": self._csv_file(csv_content)},
+                secure=True,
             )
 
         self.assertEqual(response.status_code, 302)
@@ -402,6 +559,20 @@ class ReceivingCSVImportTest(TestCase):
 
         with self.assertRaisesMessage(ValueError, "Baris 2: Masukkan pilihan yang valid."):
             self.admin._process_csv(self._csv_file(csv_content), self.user)
+
+    def test_import_view_template_documents_current_optional_columns(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("admin:receiving_import_csv"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<code>batch_lot</code>", html=False)
+        self.assertContains(response, "Opsional; otomatis dibuat jika kosong")
+        self.assertContains(response, "<code>expiry_date</code>", html=False)
+        self.assertContains(
+            response,
+            "Wajib hanya untuk item yang memerlukan tanggal kedaluwarsa",
+        )
 
 
 class ReceivingWorkflowCleanupTest(TestCase):
