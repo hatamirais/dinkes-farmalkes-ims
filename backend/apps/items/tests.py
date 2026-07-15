@@ -186,6 +186,27 @@ class ItemTherapeuticClassTests(TestCase):
             transform=lambda value: value,
         )
 
+    def test_item_resource_import_without_barcode_column_preserves_existing_barcode(self):
+        item = Item.objects.create(
+            nama_barang="Paracetamol",
+            satuan=self.unit,
+            kategori=self.category,
+            barcode="8991234567890",
+            minimum_stock=1,
+        )
+        csv = (
+            "nama_barang,satuan,kategori,is_program_item,program,therapeutic_classes,minimum_stock,description,is_active\n"
+            "Paracetamol,TAB,OBAT,0,,ABX,5,updated,1\n"
+        )
+        dataset = Dataset().load(csv, format="csv")
+
+        result = ItemResource().import_data(dataset, dry_run=False, raise_errors=True)
+
+        self.assertFalse(result.has_errors())
+        item.refresh_from_db()
+        self.assertEqual(item.barcode, "8991234567890")
+        self.assertEqual(item.minimum_stock, 5)
+
     def test_item_resource_rejects_unknown_therapeutic_code(self):
         csv = (
             "nama_barang,satuan,kategori,is_program_item,program,therapeutic_classes,minimum_stock,description,is_active\n"

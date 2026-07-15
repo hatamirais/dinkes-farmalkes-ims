@@ -192,8 +192,9 @@ class ItemResource(resources.ModelResource):
 
     def before_import_row(self, row, **kwargs):
         """Ensure program column is populated for program items."""
-        barcode = str(row.get("barcode") or "").strip()
-        row["barcode"] = barcode or None
+        if "barcode" in row:
+            barcode = str(row.get("barcode") or "").strip()
+            row["barcode"] = barcode or None
 
         is_prog = str(row.get("is_program_item") or "").strip()
         prog_val = _normalize_code_token(row.get("program") or "")
