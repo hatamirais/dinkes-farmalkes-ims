@@ -24,13 +24,14 @@ def export_items_excel(items, *, default_program=None):
     ws = wb.active
     ws.title = "Daftar Barang"
 
-    ws.merge_cells("A1:I1")
+    ws.merge_cells("A1:J1")
     title = ws.cell(row=1, column=1, value=_cell_value("DAFTAR BARANG"))
     title.font = Font(bold=True, size=14)
     title.alignment = Alignment(horizontal="center")
 
     headers = [
         "Kode Barang",
+        "Barcode",
         "Nama Barang",
         "Satuan",
         "Kategori",
@@ -40,7 +41,7 @@ def export_items_excel(items, *, default_program=None):
         "Perlu ED",
         "Minimum Stok",
     ]
-    widths = [18, 36, 14, 18, 24, 14, 30, 14, 16]
+    widths = [18, 22, 36, 14, 18, 24, 14, 30, 14, 16]
     for col_idx, (header, width) in enumerate(zip(headers, widths), 1):
         cell = ws.cell(row=3, column=col_idx, value=_cell_value(header))
         cell.font = HEADER_FONT
@@ -66,6 +67,7 @@ def export_items_excel(items, *, default_program=None):
 
         row_values = [
             item.kode_barang,
+            item.barcode or "",
             item.nama_barang,
             item.satuan.name,
             item.kategori.name,
@@ -78,7 +80,7 @@ def export_items_excel(items, *, default_program=None):
         for col_idx, value in enumerate(row_values, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=_cell_value(value))
             cell.border = THIN_BORDER
-            if col_idx == 9:
+            if col_idx == 10:
                 cell.alignment = Alignment(horizontal="right")
 
     response = HttpResponse(

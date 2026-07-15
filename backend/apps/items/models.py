@@ -205,6 +205,7 @@ class Item(TimeStampedModel):
     """Central item registry (Master Barang)."""
 
     kode_barang = models.CharField(max_length=50, unique=True, blank=True)
+    barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
     nama_barang = models.CharField(max_length=255)
     satuan = models.ForeignKey(
         Unit,
@@ -290,4 +291,5 @@ class Item(TimeStampedModel):
     def save(self, *args, **kwargs):
         if not self.kode_barang:
             self.kode_barang = self.generate_kode_barang()
+        self.barcode = (self.barcode or "").strip() or None
         super().save(*args, **kwargs)

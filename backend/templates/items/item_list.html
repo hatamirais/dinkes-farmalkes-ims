@@ -19,7 +19,7 @@
 
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari kode/nama barang..."
+            <input type="text" name="q" class="form-control" placeholder="Cari kode, barcode, atau nama barang..."
                 value="{{ search }}">
             <select name="kategori" class="form-select">
                 <option value="">Semua Kategori</option>
@@ -55,6 +55,7 @@
             <thead>
                 <tr>
                     <th>Kode</th>
+                    <th>Barcode</th>
                     <th>Nama Barang</th>
                     <th>Satuan</th>
                     <th>Kategori</th>
@@ -68,6 +69,13 @@
                 {% for item in items %}
                 <tr>
                     <td><code>{{ item.kode_barang }}</code></td>
+                    <td>
+                        {% if item.barcode %}
+                        <code>{{ item.barcode }}</code>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <div class="fw-semibold">{{ item.nama_barang }}</div>
                         <div class="d-flex flex-wrap gap-1 mt-1">
@@ -116,7 +124,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <i class="bi bi-inbox d-block"></i>
                             <p>Belum ada data barang</p>

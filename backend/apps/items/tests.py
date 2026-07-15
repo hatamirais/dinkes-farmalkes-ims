@@ -78,9 +78,63 @@ class ItemTherapeuticClassTests(TestCase):
 
     def test_item_form_exposes_therapeutic_classes_field(self):
         form = ItemForm()
+        self.assertIn("barcode", form.fields)
         self.assertIn("therapeutic_classes", form.fields)
         self.assertIn("requires_expiry_date", form.fields)
         self.assertTrue(form.fields["requires_expiry_date"].initial)
+
+    def test_item_form_accepts_blank_barcode_as_null(self):
+        form = ItemForm(
+            data={
+                "barcode": "",
+                "nama_barang": "Paracetamol",
+                "satuan": self.unit.pk,
+                "kategori": self.category.pk,
+                "minimum_stock": "0",
+                "description": "",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        item = form.save()
+        self.assertIsNone(item.barcode)
+
+    def test_item_form_saves_barcode(self):
+        form = ItemForm(
+            data={
+                "barcode": "8991234567890",
+                "nama_barang": "Paracetamol",
+                "satuan": self.unit.pk,
+                "kategori": self.category.pk,
+                "minimum_stock": "0",
+                "description": "",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        item = form.save()
+        self.assertEqual(item.barcode, "8991234567890")
+
+    def test_item_form_rejects_duplicate_non_null_barcode(self):
+        Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            barcode="8991234567890",
+        )
+        form = ItemForm(
+            data={
+                "barcode": "8991234567890",
+                "nama_barang": "Paracetamol",
+                "satuan": self.unit.pk,
+                "kategori": self.category.pk,
+                "minimum_stock": "0",
+                "description": "",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("barcode", form.errors)
 
     def test_item_can_store_multiple_therapeutic_classes(self):
         item = Item.objects.create(
@@ -103,6 +157,7 @@ class ItemTherapeuticClassTests(TestCase):
             nama_barang="Amoxicillin",
             satuan=self.unit,
             kategori=self.category,
+            barcode="8991234567890",
         )
         item.therapeutic_classes.set(
             [self.therapy_antibiotic, self.therapy_respiratory]
@@ -110,12 +165,13 @@ class ItemTherapeuticClassTests(TestCase):
 
         dataset = ItemResource().export(Item.objects.filter(pk=item.pk))
 
+        self.assertEqual(dataset.dict[0]["barcode"], "8991234567890")
         self.assertEqual(dataset.dict[0]["therapeutic_classes"], "ABX|RESP")
 
     def test_item_resource_imports_multiple_therapeutic_codes(self):
         csv = (
-            "nama_barang,satuan,kategori,is_program_item,program,therapeutic_classes,minimum_stock,description,is_active\n"
-            "Paracetamol,TAB,OBAT,0,,ABX|RESP,0,desc,1\n"
+            "barcode,nama_barang,satuan,kategori,is_program_item,program,therapeutic_classes,minimum_stock,description,is_active\n"
+            "8991234567890,Paracetamol,TAB,OBAT,0,,ABX|RESP,0,desc,1\n"
         )
         dataset = Dataset().load(csv, format="csv")
 
@@ -123,11 +179,33 @@ class ItemTherapeuticClassTests(TestCase):
 
         self.assertFalse(result.has_errors())
         item = Item.objects.get(nama_barang="Paracetamol")
+        self.assertEqual(item.barcode, "8991234567890")
         self.assertQuerySetEqual(
             item.therapeutic_classes.order_by("code").values_list("code", flat=True),
             ["ABX", "RESP"],
             transform=lambda value: value,
         )
+
+    def test_item_resource_import_without_barcode_column_preserves_existing_barcode(self):
+        item = Item.objects.create(
+            nama_barang="Paracetamol",
+            satuan=self.unit,
+            kategori=self.category,
+            barcode="8991234567890",
+            minimum_stock=1,
+        )
+        csv = (
+            "nama_barang,satuan,kategori,is_program_item,program,therapeutic_classes,minimum_stock,description,is_active\n"
+            "Paracetamol,TAB,OBAT,0,,ABX,5,updated,1\n"
+        )
+        dataset = Dataset().load(csv, format="csv")
+
+        result = ItemResource().import_data(dataset, dry_run=False, raise_errors=True)
+
+        self.assertFalse(result.has_errors())
+        item.refresh_from_db()
+        self.assertEqual(item.barcode, "8991234567890")
+        self.assertEqual(item.minimum_stock, 5)
 
     def test_item_resource_rejects_unknown_therapeutic_code(self):
         csv = (
@@ -171,14 +249,39 @@ class ItemEssentialTagTests(TestCase):
             satuan=self.unit,
             kategori=self.category,
             is_essential=True,
+            barcode="8991234567890",
         )
         item.therapeutic_classes.add(self.therapeutic_class)
 
         response = self.client.get(reverse("items:item_list"), secure=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "8991234567890")
         self.assertContains(response, "[E] Esensial")
         self.assertContains(response, "Analgesik")
+
+    def test_item_list_search_matches_barcode(self):
+        matching = Item.objects.create(
+            nama_barang="Amoxicillin",
+            satuan=self.unit,
+            kategori=self.category,
+            barcode="8991234567890",
+        )
+        other = Item.objects.create(
+            nama_barang="Vitamin C",
+            satuan=self.unit,
+            kategori=self.category,
+            barcode="8999999999999",
+        )
+
+        response = self.client.get(
+            reverse("items:item_list"),
+            {"q": "8991234567890"},
+            secure=True,
+        )
+
+        self.assertContains(response, matching.nama_barang)
+        self.assertNotContains(response, other.nama_barang)
 
     def test_item_list_filters_by_therapeutic_class(self):
         item = Item.objects.create(
@@ -300,6 +403,7 @@ class ItemEssentialTagTests(TestCase):
             satuan=self.unit,
             kategori=self.category,
             is_essential=True,
+            barcode="8991234567890",
         )
         item.therapeutic_classes.add(self.therapeutic_class)
 
@@ -316,12 +420,14 @@ class ItemEssentialTagTests(TestCase):
         sheet = workbook.active
 
         self.assertEqual(sheet.title, "Daftar Barang")
-        self.assertEqual(sheet["F3"].value, "Esensial")
-        self.assertEqual(sheet["G3"].value, "Terapi Obat")
+        self.assertEqual(sheet["B3"].value, "Barcode")
+        self.assertEqual(sheet["G3"].value, "Esensial")
+        self.assertEqual(sheet["H3"].value, "Terapi Obat")
         self.assertEqual(sheet["A4"].value, item.kode_barang)
-        self.assertEqual(sheet["B4"].value, item.nama_barang)
-        self.assertEqual(sheet["F4"].value, "Ya")
-        self.assertEqual(sheet["G4"].value, "Analgesik")
+        self.assertEqual(sheet["B4"].value, item.barcode)
+        self.assertEqual(sheet["C4"].value, item.nama_barang)
+        self.assertEqual(sheet["G4"].value, "Ya")
+        self.assertEqual(sheet["H4"].value, "Analgesik")
 
     def test_item_export_respects_essential_filter(self):
         essential_item = Item.objects.create(
@@ -345,7 +451,7 @@ class ItemEssentialTagTests(TestCase):
 
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
-        exported_names = [cell for cell in (sheet["B4"].value, sheet["B5"].value) if cell]
+        exported_names = [cell for cell in (sheet["C4"].value, sheet["C5"].value) if cell]
 
         self.assertEqual(exported_names, [essential_item.nama_barang])
 
@@ -361,7 +467,7 @@ class ItemEssentialTagTests(TestCase):
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
 
-        self.assertEqual(sheet["B4"].value, "'=SUM(1,1)")
+        self.assertEqual(sheet["C4"].value, "'=SUM(1,1)")
         self.assertEqual(sheet["A4"].value, item.kode_barang)
 
     def test_picker_label_strips_program_and_essential_suffixes(self):

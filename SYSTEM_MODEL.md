@@ -154,6 +154,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - `facility_type` choices: `PUSKESMAS`, `RS`, `CLINIC`, `LABORATORIUM`
 - `items.Item` (`items`):
   - `kode_barang` (unique, auto-generated `ITM-YYYY-NNNNN` when blank)
+  - `barcode` (optional, unique when present, reserved for future scanner workflows)
   - `nama_barang`
   - `satuan` FK -> `Unit`
   - `kategori` FK -> `Category`
