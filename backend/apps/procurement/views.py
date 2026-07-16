@@ -2,7 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse
@@ -12,7 +12,8 @@ from django.views.decorators.http import require_POST
 
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.rate_limits import item_mutation_ratelimit, procurement_mutation_ratelimit
-from apps.users.models import ModuleAccess
+from apps.users.access import has_module_scope, is_super_admin
+from apps.users.models import ModuleAccess, User
 from apps.receiving.forms import (
     ReceivingQuickCreateFundingSourceForm,
     ReceivingQuickCreateSupplierForm,
@@ -42,6 +43,19 @@ from .services import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _can_approve_procurement_documents(user):
+    if is_super_admin(user):
+        return True
+    return (
+        getattr(user, "role", None) == User.Role.KEPALA
+        and has_module_scope(
+            user,
+            ModuleAccess.Module.PROCUREMENT,
+            ModuleAccess.Scope.APPROVE,
+        )
+    )
 
 
 def _add_form_model_errors(form, exc):
@@ -182,6 +196,9 @@ def contract_detail(request, pk):
             "contract": contract,
             "summary_rows": summary_rows,
             "linked_receiving": linked_receiving,
+            "can_approve_procurement_documents": _can_approve_procurement_documents(
+                request.user
+            ),
             "page_title": "Detail SPJ / Pengadaan",
         },
     )
@@ -280,6 +297,8 @@ def contract_submit(request, pk):
 @procurement_mutation_ratelimit
 def contract_approve(request, pk):
     contract = get_object_or_404(ProcurementContract, pk=pk)
+    if not _can_approve_procurement_documents(request.user):
+        raise PermissionDenied("Hanya Kepala Instalasi atau Admin yang dapat menyetujui SPJ.")
     if request.method != "POST":
         return _redirect_contract_detail(pk)
     if contract.status != ProcurementContract.Status.SUBMITTED:
@@ -408,6 +427,9 @@ def amendment_detail(request, pk):
         {
             "amendment": amendment,
             "contract": amendment.contract,
+            "can_approve_procurement_documents": _can_approve_procurement_documents(
+                request.user
+            ),
             "page_title": "Detail Amandemen SPJ",
         },
     )
@@ -495,6 +517,10 @@ def amendment_submit(request, pk):
 @procurement_mutation_ratelimit
 def amendment_approve(request, pk):
     amendment = get_object_or_404(ProcurementAmendment.objects.select_related("contract"), pk=pk)
+    if not _can_approve_procurement_documents(request.user):
+        raise PermissionDenied(
+            "Hanya Kepala Instalasi atau Admin yang dapat menyetujui amandemen SPJ."
+        )
     if request.method != "POST":
         return _redirect_amendment_detail(pk)
     if amendment.status != ProcurementAmendment.Status.SUBMITTED:
