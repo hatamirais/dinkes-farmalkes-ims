@@ -98,6 +98,12 @@ class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
 			password="TestPassword123!",
 			role=User.Role.GUDANG,
 		)
+		cls.admin_umum_user = User.objects.create_user(
+			username="admin_umum",
+			password="TestPassword123!",
+			role=User.Role.ADMIN_UMUM,
+			facility=cls.facility,
+		)
 		cls.kepala_without_facility = User.objects.create_user(
 			username="kepala_tanpa_fasilitas",
 			password="TestPassword123!",
@@ -120,6 +126,7 @@ class LPLPOTestCase(SecureClientDefaultsMixin, TestCase):
 			(cls.gudang_user, ModuleAccess.Scope.OPERATE),
 			(cls.other_gudang_user, ModuleAccess.Scope.OPERATE),
 			(cls.gudang_without_facility, ModuleAccess.Scope.OPERATE),
+			(cls.admin_umum_user, ModuleAccess.Scope.MANAGE),
 			(cls.kepala_without_facility, ModuleAccess.Scope.APPROVE),
 			(cls.staff_user, ModuleAccess.Scope.MANAGE),
 		):
@@ -1477,7 +1484,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 	def test_kepala_can_reject_reviewed_lplpo_back_to_pic(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.REVIEWED, reviewed_by=self.gudang_user)
 
-		self.client.force_login(self.staff_user)
+		self.client.force_login(self.kepala_without_facility)
 		response = self.client.post(
 			reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
 			{"rejection_reason": "Sesuaikan jumlah pemberian dengan stok tersedia."},
@@ -1490,6 +1497,109 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			lplpo.rejection_reason,
 			"Sesuaikan jumlah pemberian dengan stok tersedia.",
 		)
+
+	def test_admin_can_reject_pic_verified_lplpo_back_to_puskesmas(self):
+		verified_at = timezone.now()
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.PIC_VERIFIED,
+			verified_by=self.gudang_user,
+			verified_at=verified_at,
+		)
+
+		self.client.force_login(self.staff_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+			{"rejection_reason": "Perbaiki data stok dan ajukan ulang."},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PUSKESMAS)
+		self.assertEqual(lplpo.rejection_reason, "Perbaiki data stok dan ajukan ulang.")
+		self.assertIsNone(lplpo.verified_by)
+		self.assertIsNone(lplpo.verified_at)
+
+	def test_admin_can_reject_later_no_distribution_lplpo_statuses(self):
+		test_cases = (
+			(LPLPO.Status.REVIEWED, 3),
+			(LPLPO.Status.REJECTED_PIC, 4),
+			(LPLPO.Status.APPROVED, 5),
+		)
+
+		for status, month in test_cases:
+			with self.subTest(status=status):
+				lplpo = self.create_lplpo(
+					status=status,
+					bulan=month,
+					verified_by=self.gudang_user,
+					verified_at=timezone.now(),
+					reviewed_by=self.gudang_user,
+					reviewed_at=timezone.now(),
+					approved_by=self.staff_user,
+					approved_at=timezone.now(),
+				)
+
+				self.client.force_login(self.staff_user)
+				response = self.client.post(
+					reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+					{"rejection_reason": "Admin minta revisi ulang."},
+				)
+
+				self.assertEqual(response.status_code, 302)
+				lplpo.refresh_from_db()
+				self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PUSKESMAS)
+				self.assertEqual(lplpo.rejection_reason, "Admin minta revisi ulang.")
+				self.assertIsNone(lplpo.verified_by)
+				self.assertIsNone(lplpo.verified_at)
+				self.assertIsNone(lplpo.reviewed_by)
+				self.assertIsNone(lplpo.reviewed_at)
+				self.assertIsNone(lplpo.approved_by)
+				self.assertIsNone(lplpo.approved_at)
+
+	def test_admin_umum_cannot_reject_pic_verified_lplpo(self):
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.PIC_VERIFIED,
+			verified_by=self.gudang_user,
+			verified_at=timezone.now(),
+		)
+
+		self.client.force_login(self.admin_umum_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+			{"rejection_reason": "Tidak boleh."},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.PIC_VERIFIED)
+		self.assertNotEqual(lplpo.rejection_reason, "Tidak boleh.")
+
+	def test_admin_cannot_reject_lplpo_with_generated_distribution_directly(self):
+		distribution = Distribution.objects.create(
+			distribution_type=Distribution.DistributionType.LPLPO,
+			facility=self.facility,
+			request_date=date(2026, 2, 1),
+			status=Distribution.Status.DRAFT,
+			created_by=self.staff_user,
+		)
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.APPROVED,
+			distribution=distribution,
+			approved_by=self.staff_user,
+			approved_at=timezone.now(),
+		)
+
+		self.client.force_login(self.staff_user)
+		response = self.client.post(
+			reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+			{"rejection_reason": "Batalkan langsung."},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.APPROVED)
+		self.assertEqual(lplpo.distribution_id, distribution.pk)
+		self.assertEqual(lplpo.rejection_reason, "")
 
 	def test_reject_requires_reason(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.SUBMITTED)
@@ -1573,7 +1683,28 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
 		self.assertContains(response, 'id="review-btn"')
+		self.assertNotContains(response, 'id="admin-reject-btn"')
 		self.assertNotContains(response, 'id="finalize-btn"')
+
+	def test_admin_sees_reject_button_for_pic_verified_lplpo(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED)
+
+		self.client.force_login(self.staff_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertContains(response, 'id="review-btn"')
+		self.assertContains(response, 'id="admin-reject-btn"')
+		self.assertContains(response, "Tolak ke Puskesmas")
+		self.assertContains(response, "Tolak LPLPO")
+		self.assertNotContains(response, "Kembalikan ke PIC")
+
+	def test_admin_umum_does_not_see_reject_button_for_pic_verified_lplpo(self):
+		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED)
+
+		self.client.force_login(self.admin_umum_user)
+		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
+
+		self.assertNotContains(response, 'id="admin-reject-btn"')
 
 	def test_puskesmas_detail_hides_distribution_navigation(self):
 		distribution = Distribution.objects.create(

@@ -285,14 +285,28 @@
                     {% endif %}
 
                     {% elif lplpo.status == 'PIC_VERIFIED' and can_review %}
-                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}" class="btn btn-info w-100 text-white" id="review-btn">
+                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}"
+                        class="btn btn-info w-100 text-white" id="review-btn">
                         <i class="bi bi-clipboard-check me-1"></i>Tinjau & Isi Pemberian
                     </a>
+                    {% if can_admin_reject %}
+                    <button type="button" class="btn btn-outline-danger w-100" id="admin-reject-btn"
+                        data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-1"></i>Tolak ke Puskesmas
+                    </button>
+                    {% endif %}
 
                     {% elif lplpo.status == 'REJECTED_PIC' and can_review %}
-                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}" class="btn btn-warning w-100" id="review-rejected-btn">
+                    <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}"
+                        class="btn btn-warning w-100" id="review-rejected-btn">
                         <i class="bi bi-arrow-repeat me-1"></i>Perbaiki Tinjauan PIC
                     </a>
+                    {% if can_admin_reject %}
+                    <button type="button" class="btn btn-outline-danger w-100" id="admin-reject-btn"
+                        data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-1"></i>Tolak ke Puskesmas
+                    </button>
+                    {% endif %}
 
                     {% elif lplpo.status == 'REVIEWED' and can_approve and not lplpo.distribution %}
                     <form method="post" action="{% url 'lplpo:lplpo_finalize' lplpo.pk %}">
@@ -304,7 +318,14 @@
                     </form>
                     <button type="button" class="btn btn-outline-danger w-100" id="reject-reviewed-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
-                        <i class="bi bi-x-circle me-1"></i>Kembalikan Tinjauan
+                        <i class="bi bi-x-circle me-1"></i>
+                        {% if can_admin_reject %}Tolak ke Puskesmas{% else %}Kembalikan Tinjauan{% endif %}
+                    </button>
+
+                    {% elif can_admin_reject %}
+                    <button type="button" class="btn btn-outline-danger w-100" id="admin-reject-btn"
+                        data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-1"></i>Tolak ke Puskesmas
                     </button>
 
                     {% elif lplpo.distribution and request.user.role != 'PUSKESMAS' %}
@@ -314,16 +335,19 @@
                     </a>
                     {% endif %}
 
-                    <a href="{% url 'lplpo:lplpo_print' lplpo.pk %}" class="btn btn-outline-secondary w-100" target="_blank" id="print-btn">
+                    <a href="{% url 'lplpo:lplpo_print' lplpo.pk %}"
+                        class="btn btn-outline-secondary w-100" target="_blank" id="print-btn">
                         <i class="bi bi-printer me-1"></i>Cetak
                     </a>
 
                     {% if request.user.role == 'PUSKESMAS' %}
-                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="btn btn-link w-100 text-muted" id="back-btn">
+                    <a href="{% url 'lplpo:lplpo_my_list' %}"
+                        class="btn btn-link w-100 text-muted" id="back-btn">
                         <i class="bi bi-arrow-left me-1"></i>Kembali
                     </a>
                     {% else %}
-                    <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-link w-100 text-muted" id="back-btn">
+                    <a href="{% url 'lplpo:lplpo_list' %}"
+                        class="btn btn-link w-100 text-muted" id="back-btn">
                         <i class="bi bi-arrow-left me-1"></i>Kembali
                     </a>
                     {% endif %}
@@ -366,7 +390,7 @@
     </div>
 </div>
 
-{% if lplpo.status == 'SUBMITTED' and can_review or lplpo.status == 'REVIEWED' and can_approve %}
+{% if lplpo.status == 'SUBMITTED' and can_review or lplpo.status == 'REVIEWED' and can_approve or can_admin_reject %}
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -374,13 +398,17 @@
                 {% csrf_token %}
                 <div class="modal-header">
                     <h5 class="modal-title" id="rejectModalLabel">
-                        {% if lplpo.status == 'SUBMITTED' %}Tolak LPLPO ke Puskesmas{% else %}Kembalikan LPLPO ke PIC{% endif %}
+                        {% if can_admin_reject or lplpo.status == 'SUBMITTED' %}
+                        Tolak LPLPO ke Puskesmas
+                        {% else %}
+                        Kembalikan LPLPO ke PIC
+                        {% endif %}
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p class="mb-2">
-                        {% if lplpo.status == 'SUBMITTED' %}
+                        {% if can_admin_reject or lplpo.status == 'SUBMITTED' %}
                         Isi alasan penolakan agar operator Puskesmas tahu apa yang harus diperbaiki.
                         {% else %}
                         Isi alasan revisi agar PIC tahu apa yang harus diperbaiki sebelum dibuatkan distribusi.
@@ -393,7 +421,7 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger" id="reject-submit-btn">
                         <i class="bi bi-x-circle me-1"></i>
-                        {% if lplpo.status == 'SUBMITTED' %}Tolak LPLPO{% else %}Kembalikan ke PIC{% endif %}
+                        {% if can_admin_reject or lplpo.status == 'SUBMITTED' %}Tolak LPLPO{% else %}Kembalikan ke PIC{% endif %}
                     </button>
                 </div>
             </form>

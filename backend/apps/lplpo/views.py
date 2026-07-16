@@ -48,6 +48,14 @@ from .xlsx_io import apply_lplpo_workbook_import, export_lplpo_workbook
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger("security")
 
+ADMIN_REJECTABLE_STATUSES = {
+    LPLPO.Status.SUBMITTED,
+    LPLPO.Status.PIC_VERIFIED,
+    LPLPO.Status.REVIEWED,
+    LPLPO.Status.REJECTED_PIC,
+    LPLPO.Status.APPROVED,
+}
+
 
 def _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj):
     """Refresh draft/rejected LPLPO source-backed fields from same-period Puskesmas data."""
@@ -199,6 +207,18 @@ def _has_lplpo_operate_access(user):
 def _has_lplpo_approve_access(user):
     return user.role != User.Role.PUSKESMAS and has_module_scope(
         user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE
+    )
+
+
+def _is_admin_role(user):
+    return getattr(user, "role", None) == User.Role.ADMIN
+
+
+def _can_admin_reject_lplpo(user, lplpo_obj):
+    return (
+        _is_admin_role(user)
+        and lplpo_obj.status in ADMIN_REJECTABLE_STATUSES
+        and not lplpo_obj.distribution_id
     )
 
 
@@ -679,6 +699,7 @@ def lplpo_detail(request, pk):
 
     can_review = _has_lplpo_operate_access(request.user)
     can_approve = _has_lplpo_approve_access(request.user)
+    can_admin_reject = _can_admin_reject_lplpo(request.user, lplpo)
 
     # Group items by category for display
     grouped_items = {}
@@ -695,6 +716,7 @@ def lplpo_detail(request, pk):
             "items": items,
             "can_review": can_review,
             "can_approve": can_approve,
+            "can_admin_reject": can_admin_reject,
             "can_manage_draft": is_super_admin(request.user)
             or request.user.role == User.Role.PUSKESMAS,
         },
@@ -1182,39 +1204,75 @@ def lplpo_reject(request, pk):
         if denied:
             return denied
 
-        if lplpo_obj.status == LPLPO.Status.SUBMITTED:
+        if _can_admin_reject_lplpo(request.user, lplpo_obj):
+            lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
+            lplpo_obj.verified_by = None
+            lplpo_obj.verified_at = None
+            lplpo_obj.reviewed_by = None
+            lplpo_obj.reviewed_at = None
+            lplpo_obj.approved_by = None
+            lplpo_obj.approved_at = None
+            success_message = (
+                f"LPLPO {lplpo_obj.document_number} berhasil dikembalikan ke Puskesmas."
+            )
+            update_fields = [
+                "status",
+                "rejection_reason",
+                "verified_by",
+                "verified_at",
+                "reviewed_by",
+                "reviewed_at",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ]
+        elif lplpo_obj.status == LPLPO.Status.SUBMITTED:
             if not _has_lplpo_operate_access(request.user):
-                raise PermissionDenied("Anda tidak memiliki akses untuk menolak LPLPO ini.")
+                raise PermissionDenied(
+                    "Anda tidak memiliki akses untuk menolak LPLPO ini."
+                )
             lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
             success_message = (
                 f"LPLPO {lplpo_obj.document_number} berhasil dikembalikan ke Puskesmas."
             )
-        elif lplpo_obj.status == LPLPO.Status.REVIEWED:
-            if not _has_lplpo_approve_access(request.user):
-                raise PermissionDenied("Anda tidak memiliki akses untuk menolak LPLPO ini.")
-            lplpo_obj.status = LPLPO.Status.REJECTED_PIC
-            lplpo_obj.approved_by = None
-            lplpo_obj.approved_at = None
-            success_message = (
-                f"LPLPO {lplpo_obj.document_number} berhasil dikembalikan ke PIC."
-            )
-        else:
-            messages.error(
-                request,
-                "Hanya LPLPO berstatus Diajukan atau Ditinjau PIC yang dapat ditolak.",
-            )
-            return redirect("lplpo:lplpo_detail", pk=pk)
-
-        lplpo_obj.rejection_reason = form.cleaned_data["rejection_reason"]
-        lplpo_obj.save(
-            update_fields=[
+            update_fields = [
                 "status",
                 "rejection_reason",
                 "approved_by",
                 "approved_at",
                 "updated_at",
             ]
-        )
+        elif lplpo_obj.status == LPLPO.Status.REVIEWED:
+            if not _has_lplpo_approve_access(request.user):
+                raise PermissionDenied(
+                    "Anda tidak memiliki akses untuk menolak LPLPO ini."
+                )
+            lplpo_obj.status = LPLPO.Status.REJECTED_PIC
+            lplpo_obj.approved_by = None
+            lplpo_obj.approved_at = None
+            success_message = (
+                f"LPLPO {lplpo_obj.document_number} berhasil dikembalikan ke PIC."
+            )
+            update_fields = [
+                "status",
+                "rejection_reason",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ]
+        else:
+            messages.error(
+                request,
+                (
+                    "Hanya LPLPO berstatus Diajukan atau Ditinjau PIC yang dapat "
+                    "ditolak. Admin dapat menolak LPLPO aktif yang belum memiliki "
+                    "distribusi."
+                ),
+            )
+            return redirect("lplpo:lplpo_detail", pk=pk)
+
+        lplpo_obj.rejection_reason = form.cleaned_data["rejection_reason"]
+        lplpo_obj.save(update_fields=update_fields)
 
     messages.success(request, success_message)
     return redirect("lplpo:lplpo_detail", pk=pk)

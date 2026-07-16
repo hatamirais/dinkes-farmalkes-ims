@@ -65,7 +65,7 @@ Module highlights:
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
   - Puskesmas-owned routes and states stay facility-scoped for all non-superusers: `DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX export/import, and the prefill helper all require a linked `user.facility` and stay same-facility only.
-  - Instalasi Farmasi LPLPO access is stage-gated across facilities: `GUDANG` may access queue/detail/print plus verify/review/reject on `SUBMITTED`, `PIC_VERIFIED`, and `REJECTED_PIC` documents; `KEPALA` only gets cross-facility LPLPO access on legacy `REVIEWED/finalize` and read-only historical `APPROVED` / `CLOSED` states.
+  - Instalasi Farmasi LPLPO access is stage-gated across facilities: `GUDANG` may access queue/detail/print on `SUBMITTED`, `PIC_VERIFIED`, `REJECTED_PIC`, `APPROVED`, and `CLOSED` documents, verify/reject `SUBMITTED` documents, and review `PIC_VERIFIED` / `REJECTED_PIC` documents; `KEPALA` only gets cross-facility LPLPO access on legacy `REVIEWED/finalize` and read-only historical `APPROVED` / `CLOSED` states. Users whose role is exactly `ADMIN` (not `ADMIN_UMUM`) may directly reject active LPLPO documents without a linked distribution back to `REJECTED_PUSKESMAS`, including `PIC_VERIFIED`.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
   - `api/prefill-penerimaan/` sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, including January bootstrap as an editable suggestion baseline when confirmed receipt data exists.
   - `/export-xlsx/` and `/import-xlsx/` are draft-only offline-entry helpers for Puskesmas operators and super admins. They work only on existing `DRAFT` / `REJECTED_PUSKESMAS` documents after the standard monthly create flow has already generated the item rows.
@@ -420,7 +420,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Timestamps: `submitted_at`, `verified_at`, `reviewed_at`, `approved_at`
   - Constraints/Indexes: `uq_lplpo_facility_period` unique on `(facility, bulan, tahun)`, `idx_lplpo_facility_period` on `(facility, tahun, bulan)`, `idx_lplpo_status` on `(status)`
   - Workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> APPROVED -> CLOSED` for active documents; `REVIEWED` remains as a legacy compatibility status for older rows.
-  - The active rejection loop is `SUBMITTED -> REJECTED_PUSKESMAS`. The legacy `REVIEWED -> REJECTED_PIC` loop remains only for older documents.
+  - The active rejection loop is `SUBMITTED -> REJECTED_PUSKESMAS`. The legacy `REVIEWED -> REJECTED_PIC` loop remains only for older documents. The `ADMIN` role has an override to reject active no-distribution LPLPO documents from later pre-distribution statuses back to `REJECTED_PUSKESMAS`; `ADMIN_UMUM` does not receive this override.
   - While the generated distribution is still pending fulfillment, an approved LPLPO may also be returned to `REJECTED_PUSKESMAS` by cancelling its generated distribution with a required rejection reason
 
 - `lplpo.LPLPOItem` (`lplpo_items`):
