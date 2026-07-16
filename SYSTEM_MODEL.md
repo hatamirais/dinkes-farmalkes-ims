@@ -203,7 +203,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementContract` (`procurement_contracts`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `CLOSED`
-  - Fields: `document_number` (auto-generated `SPJ-YYYY-NNNNN` when blank), `contract_date`, `notes`
+  - Fields: `document_number` (auto-generated `SPJ-YYYY-NNNNN` when blank; manual input is limited to 95 characters to reserve `{SPJ}-A{seq}` amendment suffix space inside the 100-character storage field), `contract_date`, `notes`
   - FKs: `supplier`, `sumber_dana`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`, `closed_at`
   - Index: `idx_proc_contract_status_date`

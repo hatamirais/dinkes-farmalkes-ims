@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.items.models import Category, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.forms import ProcurementContractForm
 from apps.procurement.models import (
+    PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
     ProcurementAmendment,
     ProcurementAmendmentLine,
     ProcurementContract,
@@ -118,6 +119,53 @@ class ProcurementWorkflowTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("document_number", form.errors)
+
+    def test_contract_form_reserves_amendment_suffix_space_for_manual_number(self):
+        form = ProcurementContractForm(
+            data={
+                "document_number": "S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
+                "contract_date": "2026-07-01",
+                "supplier": self.supplier.pk,
+                "sumber_dana": self.funding.pk,
+                "notes": "catatan",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("document_number", form.errors)
+        self.assertIn(
+            f"{PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter",
+            form.errors["document_number"][0],
+        )
+
+    def test_contract_model_validation_reserves_amendment_suffix_space(self):
+        contract = ProcurementContract(
+            document_number="S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
+            contract_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            notes="Kontrak panjang",
+            created_by=self.admin,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            f"Nomor dokumen tidak boleh lebih dari {PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter.",
+        ):
+            contract.full_clean()
+
+    def test_contract_form_accepts_manual_number_with_reserved_suffix_space(self):
+        form = ProcurementContractForm(
+            data={
+                "document_number": "S" * PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
+                "contract_date": "2026-07-01",
+                "supplier": self.supplier.pk,
+                "sumber_dana": self.funding.pk,
+                "notes": "catatan",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
 
     def test_contract_approval_creates_linked_planned_receiving(self):
         contract, line = self._approve_contract(quantity="12", unit_price="7500")

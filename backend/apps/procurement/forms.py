@@ -7,6 +7,7 @@ from apps.core.decimal_validation import validate_finite_decimal
 from apps.items.models import FundingSource, Item, Supplier
 
 from .models import (
+    PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
     ProcurementAmendment,
     ProcurementAmendmentLine,
     ProcurementContract,
@@ -56,7 +57,10 @@ class ProcurementContractForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["document_number"].required = False
-        self.fields["document_number"].help_text = "Kosongkan untuk generate otomatis."
+        self.fields["document_number"].help_text = (
+            "Kosongkan untuk generate otomatis. Nomor manual maksimal "
+            f"{PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter agar nomor amandemen tetap muat."
+        )
         self.fields["supplier"].queryset = Supplier.objects.filter(is_active=True).order_by("name")
         self.fields["sumber_dana"].queryset = FundingSource.objects.filter(is_active=True).order_by("name")
         self.helper = FormHelper()
@@ -74,7 +78,7 @@ class ProcurementContractForm(forms.ModelForm):
         return _normalize_text_value(
             self.cleaned_data.get("document_number"),
             field_label="Nomor dokumen",
-            max_length=100,
+            max_length=PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
         )
 
     def clean_notes(self):
