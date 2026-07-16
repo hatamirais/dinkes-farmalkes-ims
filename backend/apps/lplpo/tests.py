@@ -1695,6 +1695,8 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertContains(response, 'id="review-btn"')
 		self.assertContains(response, 'id="admin-reject-btn"')
 		self.assertContains(response, "Tolak ke Puskesmas")
+		self.assertContains(response, "Tolak LPLPO")
+		self.assertNotContains(response, "Kembalikan ke PIC")
 
 	def test_admin_umum_does_not_see_reject_button_for_pic_verified_lplpo(self):
 		lplpo = self.create_lplpo(status=LPLPO.Status.PIC_VERIFIED)

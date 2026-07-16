@@ -421,7 +421,7 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger" id="reject-submit-btn">
                         <i class="bi bi-x-circle me-1"></i>
-                        {% if lplpo.status == 'SUBMITTED' %}Tolak LPLPO{% else %}Kembalikan ke PIC{% endif %}
+                        {% if can_admin_reject or lplpo.status == 'SUBMITTED' %}Tolak LPLPO{% else %}Kembalikan ke PIC{% endif %}
                     </button>
                 </div>
             </form>
