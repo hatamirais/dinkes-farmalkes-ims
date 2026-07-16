@@ -85,9 +85,15 @@
             <a href="{% url 'receiving:receiving_plan_receive' receiving.pk %}" class="btn btn-primary btn-sm">
                 <i class="bi bi-inbox-arrow-down me-1"></i>Terima Barang
             </a>
+            {% if receiving.contract_id %}
+            <a href="{% url 'procurement:amendment_create' receiving.contract_id %}" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-file-earmark-text me-1"></i>Buat Amandemen
+            </a>
+            {% else %}
             <a href="{% url 'receiving:receiving_plan_close_items' receiving.pk %}" class="btn btn-outline-danger btn-sm">
                 <i class="bi bi-x-circle me-1"></i>Tutup Sisa
             </a>
+            {% endif %}
             {% endif %}
 
             <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm">

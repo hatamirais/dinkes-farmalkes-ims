@@ -52,7 +52,7 @@ Module highlights:
 - Stock transfer: `/stock/transfers/*`
 - Receiving regular: `/receiving/`, `/receiving/create/`, `/receiving/<pk>/`, `/receiving/<pk>/documents/<document_pk>/download/`
 - Receiving plan: `/receiving/plans/*`
-  - Procurement-linked plans (`Receiving.contract != NULL`) are created and synchronized from approved SPJ contracts/amendments; legacy manual planned receivings without `contract` remain readable and executable
+  - Procurement-linked plans (`Receiving.contract != NULL`) are created and synchronized from approved SPJ contracts/amendments. Their leftover close action routes to procurement amendment creation, and the receiving-side close-items endpoint redirects direct access back to that amendment flow. Legacy manual planned receivings without `contract` remain readable and executable through the receiving close-items flow.
 - Procurement: `/procurement/`, `/procurement/create/`, `/procurement/api/quick-create-supplier/`, `/procurement/api/quick-create-funding-source/`, `/procurement/<pk>/`, `/procurement/<pk>/edit/`, `/procurement/<pk>/submit/`, `/procurement/<pk>/approve/`, `/procurement/<pk>/close/`, `/procurement/<pk>/amend/`, `/procurement/amendments/<pk>/`, `/procurement/amendments/<pk>/edit/`, `/procurement/amendments/<pk>/submit/`, `/procurement/amendments/<pk>/approve/`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
 - Items: `/items/`, `/items/export/`, `/items/create/`, `/items/<pk>/edit/`, `/items/<pk>/delete/`, plus quick-create lookup APIs under `/items/api/`
@@ -443,6 +443,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 Operational mutation points (from app behavior and admin import logic):
 
 - Procurement contract/amendment approval never mutates stock; it only creates or re-syncs the linked planned receiving execution document.
+- Procurement-linked receiving leftovers are closed audit-first through procurement amendments; direct receiving-side close-items cancellation is reserved for non-contract planned receivings.
 - Receiving verify/receive path posts `Transaction(IN)` and updates/creates `Stock`.
 - Receiving CSV admin import (`import-csv/`) posts:
   - `Receiving(status=VERIFIED)`
