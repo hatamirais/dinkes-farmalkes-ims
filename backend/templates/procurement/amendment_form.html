@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags number_format %}
 
 {% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
@@ -10,8 +10,61 @@
         <div class="card content-card">
             <div class="card-header"><span>{{ title }}</span></div>
             <div class="card-body">
-                <div class="alert alert-secondary">
-                    Kontrak acuan: <a href="{% url 'procurement:contract_detail' contract.pk %}">{{ contract.document_number }}</a>
+                <div class="alert alert-secondary mb-3">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <span class="text-muted d-block small">Kontrak acuan</span>
+                            <a href="{% url 'procurement:contract_detail' contract.pk %}">{{ contract.document_number }}</a>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted d-block small">Tanggal</span>
+                            {{ contract.contract_date|date:"d/m/Y" }}
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted d-block small">Supplier</span>
+                            {{ contract.supplier.name }}
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted d-block small">Sumber Dana</span>
+                            {{ contract.sumber_dana.name }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="fw-semibold mb-2">Ringkasan Kontrak vs Realisasi</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Barang</th>
+                                    <th class="text-end">Awal Qty</th>
+                                    <th class="text-end">Awal Harga</th>
+                                    <th class="text-end">Qty Kontrak Saat Ini</th>
+                                    <th class="text-end">Harga Saat Ini</th>
+                                    <th class="text-end">Diterima</th>
+                                    <th class="text-end">Sisa Saat Ini</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in summary_rows %}
+                                <tr>
+                                    <td>{{ row.contract_line.item.nama_barang }}</td>
+                                    <td class="text-end">{{ row.original_quantity|id_decimal }}</td>
+                                    <td class="text-end">Rp {{ row.original_unit_price|id_decimal:2 }}</td>
+                                    <td class="text-end">{{ row.current_quantity|id_decimal }}</td>
+                                    <td class="text-end">Rp {{ row.current_unit_price|id_decimal:2 }}</td>
+                                    <td class="text-end">{{ row.received_quantity|id_decimal }}</td>
+                                    <td class="text-end fw-semibold">{{ row.remaining_quantity|id_decimal }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-3">Belum ada baris kontrak.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 <form method="post" novalidate>
                     {% csrf_token %}
@@ -36,8 +89,8 @@
                                 <thead>
                                     <tr>
                                         <th>Baris Kontrak</th>
-                                        <th class="text-end">Qty Revisi</th>
-                                        <th class="text-end">Harga Revisi</th>
+                                        <th class="text-end">Qty Kontrak Baru</th>
+                                        <th class="text-end">Harga Baru</th>
                                         <th>Catatan</th>
                                         <th class="text-center">Hapus</th>
                                     </tr>
