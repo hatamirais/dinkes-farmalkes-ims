@@ -3,6 +3,7 @@ from unittest.mock import patch
 from decimal import Decimal
 
 from django.contrib.messages import get_messages
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -594,6 +595,76 @@ class ProcurementWorkflowTests(TestCase):
         )
 
         self.assertEqual(generated.document_number, f"{prefix}4")
+
+    def test_amendment_number_generation_rejects_overlong_parent_number(self):
+        contract, _line = self._create_contract(quantity="10", unit_price="5000")
+        contract.document_number = "SPJ-" + ("X" * 96)
+        contract.status = ProcurementContract.Status.APPROVED
+        contract.approved_by = self.kepala
+        contract.approved_at = timezone.now()
+        contract.save(
+            update_fields=[
+                "document_number",
+                "status",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ]
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Nomor amandemen otomatis melebihi batas 100 karakter",
+        ):
+            ProcurementAmendment.objects.create(
+                contract=contract,
+                document_number="",
+                amendment_date=date(2026, 7, 6),
+                notes="Auto number terlalu panjang",
+                created_by=self.admin,
+            )
+
+    def test_amendment_create_reports_overlong_generated_number(self):
+        contract, line = self._create_contract(quantity="10", unit_price="5000")
+        contract.document_number = "SPJ-" + ("X" * 96)
+        contract.status = ProcurementContract.Status.APPROVED
+        contract.approved_by = self.kepala
+        contract.approved_at = timezone.now()
+        contract.save(
+            update_fields=[
+                "document_number",
+                "status",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ]
+        )
+
+        response = self.client.post(
+            reverse("procurement:amendment_create", args=[contract.pk]),
+            {
+                "amendment_date": "2026-07-06",
+                "notes": "Auto number terlalu panjang",
+                "lines-TOTAL_FORMS": "1",
+                "lines-INITIAL_FORMS": "0",
+                "lines-MIN_NUM_FORMS": "0",
+                "lines-MAX_NUM_FORMS": "1000",
+                "lines-0-contract_line": str(line.pk),
+                "lines-0-revised_quantity": "10",
+                "lines-0-revised_unit_price": "5000",
+                "lines-0-notes": "Tetap",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Nomor amandemen otomatis melebihi batas 100 karakter",
+        )
+        self.assertFalse(
+            ProcurementAmendment.objects.filter(contract=contract).exists()
+        )
 
     @override_settings(
         PROCUREMENT_MUTATION_RATE_LIMIT="1/m",

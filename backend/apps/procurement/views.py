@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse
@@ -41,6 +42,17 @@ from .services import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _add_form_model_errors(form, exc):
+    if hasattr(exc, "message_dict"):
+        for field, errors in exc.message_dict.items():
+            target = field if field in form.fields else None
+            for error in errors:
+                form.add_error(target, error)
+        return
+    for error in exc.messages:
+        form.add_error(None, error)
 
 
 def _json_form_errors(form):
@@ -336,11 +348,15 @@ def amendment_create(request, pk):
             amendment.contract = contract
             amendment.created_by = request.user
             amendment.status = ProcurementAmendment.Status.DRAFT
-            amendment.save()
-            formset.instance = amendment
-            formset.save()
-            messages.success(request, f"Amandemen {amendment.document_number} berhasil dibuat.")
-            return redirect("procurement:amendment_detail", pk=amendment.pk)
+            try:
+                amendment.save()
+            except ValidationError as exc:
+                _add_form_model_errors(form, exc)
+            else:
+                formset.instance = amendment
+                formset.save()
+                messages.success(request, f"Amandemen {amendment.document_number} berhasil dibuat.")
+                return redirect("procurement:amendment_detail", pk=amendment.pk)
     else:
         form = ProcurementAmendmentForm(initial={"amendment_date": timezone.now().date()})
         formset = ProcurementAmendmentLineFormSet(
