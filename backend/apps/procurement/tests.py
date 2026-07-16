@@ -410,6 +410,10 @@ class ProcurementWorkflowTests(TestCase):
 
     def test_amendment_create_page_renders_formset_controls(self):
         contract, line = self._approve_contract(quantity="10", unit_price="5000")
+        receiving = Receiving.objects.get(contract=contract)
+        order_item = ReceivingOrderItem.objects.get(receiving=receiving, contract_line=line)
+        order_item.received_quantity = Decimal("4")
+        order_item.save(update_fields=["received_quantity", "updated_at"])
 
         response = self.client.get(
             reverse("procurement:amendment_create", args=[contract.pk]),
@@ -423,6 +427,24 @@ class ProcurementWorkflowTests(TestCase):
         self.assertContains(response, 'class="btn btn-outline-danger btn-sm formset-remove"', html=False)
         self.assertContains(response, 'id="procurement-amendment-lines-empty"')
         self.assertContains(response, str(line.pk))
+        self.assertNotContains(response, 'name="document_number"', html=False)
+        self.assertContains(response, "Ringkasan Kontrak vs Realisasi")
+        self.assertContains(response, "Qty Kontrak Saat Ini")
+        self.assertContains(response, "Harga Saat Ini")
+        self.assertContains(response, "Sisa Saat Ini")
+        self.assertContains(response, "Qty Kontrak Baru")
+        self.assertContains(response, "Harga Baru")
+        self.assertNotContains(response, "Revisi Qty")
+        self.assertNotContains(response, "Revisi Harga")
+        self.assertNotContains(response, "Qty Revisi")
+        self.assertNotContains(response, "Harga Revisi")
+        self.assertContains(response, self.item.nama_barang)
+        self.assertContains(response, "10,00")
+        self.assertContains(response, "4,00")
+        self.assertContains(response, "6,00")
+        self.assertContains(response, "Saat ini: 10,00")
+        self.assertContains(response, "Diterima: 4,00")
+        self.assertContains(response, "Sisa: 6,00")
 
     def test_amendment_edit_allows_deleting_line(self):
         contract, line = self._approve_contract(quantity="10", unit_price="5000")
@@ -444,7 +466,6 @@ class ProcurementWorkflowTests(TestCase):
         response = self.client.post(
             reverse("procurement:amendment_edit", args=[amendment.pk]),
             {
-                "document_number": amendment.document_number,
                 "amendment_date": "2026-07-08",
                 "notes": "Tanpa baris lama",
                 "lines-TOTAL_FORMS": "1",
@@ -538,34 +559,41 @@ class ProcurementWorkflowTests(TestCase):
 
         self.assertEqual(generated.document_number, f"{prefix}00010")
 
-    def test_amendment_number_generation_ignores_nonnumeric_suffixes(self):
+    def test_amendment_number_generation_uses_contract_scoped_suffix(self):
         contract, line = self._approve_contract(quantity="10", unit_price="5000")
-        year = timezone.now().year
-        prefix = f"AMD-{year}-"
+        other_contract, _other_line = self._approve_contract(quantity="5", unit_price="2500")
+        prefix = f"{contract.document_number}-A"
         ProcurementAmendment.objects.create(
             contract=contract,
-            document_number=f"{prefix}00003",
-            amendment_date=date(year, 7, 4),
+            document_number=f"{prefix}3",
+            amendment_date=date(2026, 7, 4),
             notes="Generated baseline",
             created_by=self.admin,
         )
         ProcurementAmendment.objects.create(
             contract=contract,
-            document_number=f"{prefix}REV-A",
-            amendment_date=date(year, 7, 5),
+            document_number=f"{prefix}MANUAL",
+            amendment_date=date(2026, 7, 5),
             notes="Manual suffix",
+            created_by=self.admin,
+        )
+        ProcurementAmendment.objects.create(
+            contract=other_contract,
+            document_number=f"{other_contract.document_number}-A9",
+            amendment_date=date(2026, 7, 5),
+            notes="Other contract sequence",
             created_by=self.admin,
         )
 
         generated = ProcurementAmendment.objects.create(
             contract=contract,
             document_number="",
-            amendment_date=date(year, 7, 6),
+            amendment_date=date(2026, 7, 6),
             notes="Auto number",
             created_by=self.admin,
         )
 
-        self.assertEqual(generated.document_number, f"{prefix}00004")
+        self.assertEqual(generated.document_number, f"{prefix}4")
 
     @override_settings(
         PROCUREMENT_MUTATION_RATE_LIMIT="1/m",

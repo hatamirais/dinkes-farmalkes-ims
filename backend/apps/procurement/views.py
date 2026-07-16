@@ -315,13 +315,21 @@ def amendment_create(request, pk):
     if contract.closed_at is not None:
         messages.error(request, "Kontrak yang sudah ditutup tidak dapat diamandemen.")
         return _redirect_contract_detail(pk)
+    summary_rows, _linked_receiving = build_contract_summary_rows(contract)
+    contract_line_summary = {
+        row["contract_line"].pk: row
+        for row in summary_rows
+    }
 
     if request.method == "POST":
         form = ProcurementAmendmentForm(request.POST)
         formset = ProcurementAmendmentLineFormSet(
             request.POST,
             prefix="lines",
-            form_kwargs={"contract": contract},
+            form_kwargs={
+                "contract": contract,
+                "contract_line_summary": contract_line_summary,
+            },
         )
         if form.is_valid() and formset.is_valid():
             amendment = form.save(commit=False)
@@ -337,7 +345,10 @@ def amendment_create(request, pk):
         form = ProcurementAmendmentForm(initial={"amendment_date": timezone.now().date()})
         formset = ProcurementAmendmentLineFormSet(
             prefix="lines",
-            form_kwargs={"contract": contract},
+            form_kwargs={
+                "contract": contract,
+                "contract_line_summary": contract_line_summary,
+            },
         )
 
     return render(
@@ -349,6 +360,7 @@ def amendment_create(request, pk):
             "form": form,
             "formset": formset,
             "contract": contract,
+            "summary_rows": summary_rows,
             "is_edit": False,
         },
     )
@@ -393,6 +405,11 @@ def amendment_edit(request, pk):
     if amendment.status != ProcurementAmendment.Status.DRAFT:
         messages.error(request, "Hanya amandemen Draft yang dapat diubah.")
         return _redirect_amendment_detail(pk)
+    summary_rows, _linked_receiving = build_contract_summary_rows(amendment.contract)
+    contract_line_summary = {
+        row["contract_line"].pk: row
+        for row in summary_rows
+    }
 
     if request.method == "POST":
         form = ProcurementAmendmentForm(request.POST, instance=amendment)
@@ -400,7 +417,10 @@ def amendment_edit(request, pk):
             request.POST,
             instance=amendment,
             prefix="lines",
-            form_kwargs={"contract": amendment.contract},
+            form_kwargs={
+                "contract": amendment.contract,
+                "contract_line_summary": contract_line_summary,
+            },
         )
         if form.is_valid() and formset.is_valid():
             form.save()
@@ -412,7 +432,10 @@ def amendment_edit(request, pk):
         formset = ProcurementAmendmentLineFormSet(
             instance=amendment,
             prefix="lines",
-            form_kwargs={"contract": amendment.contract},
+            form_kwargs={
+                "contract": amendment.contract,
+                "contract_line_summary": contract_line_summary,
+            },
         )
 
     return render(
@@ -425,6 +448,7 @@ def amendment_edit(request, pk):
             "formset": formset,
             "contract": amendment.contract,
             "amendment": amendment,
+            "summary_rows": summary_rows,
             "is_edit": True,
         },
     )

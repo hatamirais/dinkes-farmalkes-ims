@@ -216,7 +216,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementAmendment` (`procurement_amendments`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`
-  - Fields: `document_number` (auto-generated `AMD-YYYY-NNNNN` when blank), `amendment_date`, `notes`
+  - Fields: `document_number` (auto-generated from the parent SPJ as `{contract.document_number}-A{seq}` when blank, for example `SPJ-2026-00001-A1`), `amendment_date`, `notes`
   - FKs: `contract`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`
   - Index: `idx_proc_amend_status_date`

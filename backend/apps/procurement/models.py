@@ -269,12 +269,12 @@ class ProcurementAmendment(TimeStampedModel):
         if self.contract_id and self.contract.status == ProcurementContract.Status.CLOSED:
             raise ValidationError({"contract": "Kontrak yang sudah ditutup tidak dapat diamandemen."})
 
-    @staticmethod
-    def generate_document_number():
-        year = timezone.now().year
-        prefix = f"AMD-{year}-"
+    def generate_document_number(self):
+        if not self.contract_id:
+            raise ValidationError({"contract": "Kontrak wajib diisi sebelum nomor amandemen dibuat."})
+        prefix = f"{self.contract.document_number}-A"
         sequence = _next_prefixed_sequence(ProcurementAmendment, prefix)
-        return f"{prefix}{sequence:05d}"
+        return f"{prefix}{sequence}"
 
     def save(self, *args, **kwargs):
         if not self.document_number:

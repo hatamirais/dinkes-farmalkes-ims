@@ -14,6 +14,15 @@ from .models import (
 )
 
 
+def _format_id_decimal(value, places=2):
+    try:
+        places_int = int(places)
+    except (TypeError, ValueError):
+        places_int = 2
+    formatted = f"{value:,.{places_int}f}"
+    return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _normalize_text_value(value, *, field_label, max_length=None, allow_blank=True):
     if value is None:
         return "" if allow_blank else value
@@ -128,31 +137,20 @@ ProcurementContractLineFormSet = inlineformset_factory(
 class ProcurementAmendmentForm(forms.ModelForm):
     class Meta:
         model = ProcurementAmendment
-        fields = ["document_number", "amendment_date", "notes"]
+        fields = ["amendment_date", "notes"]
         widgets = {
-            "document_number": forms.TextInput(attrs={"class": "form-control"}),
             "amendment_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["document_number"].required = False
-        self.fields["document_number"].help_text = "Kosongkan untuk generate otomatis."
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.disable_csrf = True
         self.helper.layout = Layout(
-            Div("document_number", css_class="mb-3"),
             Div("amendment_date", css_class="mb-3"),
             Div("notes", css_class="mb-0"),
-        )
-
-    def clean_document_number(self):
-        return _normalize_text_value(
-            self.cleaned_data.get("document_number"),
-            field_label="Nomor amandemen",
-            max_length=100,
         )
 
     def clean_notes(self):
@@ -178,13 +176,30 @@ class ProcurementAmendmentLineForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         contract = kwargs.pop("contract", None)
+        contract_line_summary = kwargs.pop("contract_line_summary", None) or {}
         super().__init__(*args, **kwargs)
         queryset = ProcurementContractLine.objects.none()
         if contract is not None:
             queryset = contract.lines.select_related("item").order_by("item__nama_barang")
         self.fields["contract_line"].queryset = queryset
-        self.fields["contract_line"].label_from_instance = lambda line: (
-            f"{line.item.nama_barang} | Awal: {line.original_quantity} @ {line.original_unit_price}"
+        self.fields["contract_line"].label_from_instance = (
+            lambda line: self._contract_line_label(line, contract_line_summary)
+        )
+
+    @staticmethod
+    def _contract_line_label(line, contract_line_summary):
+        summary = contract_line_summary.get(line.pk)
+        if not summary:
+            return (
+                f"{line.item.nama_barang} | Awal: {_format_id_decimal(line.original_quantity)} "
+                f"@ {_format_id_decimal(line.original_unit_price)}"
+            )
+        return (
+            f"{line.item.nama_barang} | Saat ini: "
+            f"{_format_id_decimal(summary['current_quantity'])} @ "
+            f"{_format_id_decimal(summary['current_unit_price'])} | Diterima: "
+            f"{_format_id_decimal(summary['received_quantity'])} | Sisa: "
+            f"{_format_id_decimal(summary['remaining_quantity'])}"
         )
 
     def clean_revised_quantity(self):
