@@ -657,6 +657,41 @@ class ReceivingWorkflowCleanupTest(TestCase):
             facility_type=Facility.FacilityType.RS,
         )
 
+    def _create_contract_linked_plan(self):
+        supplier = Supplier.objects.create(
+            code="SUP-RCV-WF",
+            name="PT Receiving Workflow",
+        )
+        contract = ProcurementContract.objects.create(
+            document_number="SPJ-2026-RCVWF",
+            contract_date=date(2026, 3, 16),
+            supplier=supplier,
+            sumber_dana=self.funding,
+            status=ProcurementContract.Status.APPROVED,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-SPJWF",
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            supplier=supplier,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            contract=contract,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        ReceivingOrderItem.objects.create(
+            receiving=receiving,
+            item=self.item,
+            planned_quantity=Decimal("5"),
+            received_quantity=Decimal("0"),
+            unit_price=Decimal("1000"),
+        )
+        return receiving
+
     def test_regular_receiving_create_auto_verifies_and_posts_stock_transaction(self):
         response = self.client.post(
             reverse("receiving:receiving_create"),
@@ -908,6 +943,75 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(response.status_code, 302)
         receiving.refresh_from_db()
         self.assertNotEqual(receiving.status, Receiving.Status.CLOSED)
+
+    def test_contract_linked_plan_detail_routes_close_action_to_amendment(self):
+        receiving = self._create_contract_linked_plan()
+
+        response = self.client.get(
+            reverse("receiving:receiving_plan_detail", args=[receiving.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Buat Amandemen")
+        self.assertContains(
+            response,
+            reverse("procurement:amendment_create", args=[receiving.contract_id]),
+        )
+        self.assertNotContains(
+            response,
+            reverse("receiving:receiving_plan_close_items", args=[receiving.pk]),
+        )
+
+    def test_manual_plan_detail_keeps_receiving_close_action(self):
+        receiving = Receiving.objects.create(
+            document_number="RCV-2026-MANUALCLOSE",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 3, 16),
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            is_planned=True,
+            created_by=self.user,
+            approved_by=self.user,
+        )
+
+        response = self.client.get(
+            reverse("receiving:receiving_plan_detail", args=[receiving.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tutup Sisa")
+        self.assertContains(
+            response,
+            reverse("receiving:receiving_plan_close_items", args=[receiving.pk]),
+        )
+
+    def test_contract_linked_plan_close_items_redirects_to_amendment(self):
+        receiving = self._create_contract_linked_plan()
+
+        response = self.client.post(
+            reverse("receiving:receiving_plan_close_items", args=[receiving.pk]),
+            {
+                "order_items-TOTAL_FORMS": "1",
+                "order_items-INITIAL_FORMS": "1",
+                "order_items-MIN_NUM_FORMS": "0",
+                "order_items-MAX_NUM_FORMS": "1000",
+                "order_items-0-id": receiving.order_items.get().pk,
+                "order_items-0-is_cancelled": "on",
+                "order_items-0-cancel_reason": "Sisa tidak diterima",
+            },
+            secure=True,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("procurement:amendment_create", args=[receiving.contract_id]),
+            fetch_redirect_response=False,
+        )
+        receiving.refresh_from_db()
+        self.assertEqual(receiving.status, Receiving.Status.APPROVED)
+        self.assertFalse(receiving.order_items.get().is_cancelled)
 
     def test_quick_create_supplier_creates_normalized_lookup(self):
         response = self.client.post(

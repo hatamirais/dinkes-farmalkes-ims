@@ -481,6 +481,13 @@ def receiving_plan_close(request, pk):
 @perm_required("receiving.change_receiving")
 def receiving_plan_close_items(request, pk):
     receiving = get_object_or_404(Receiving, pk=pk, is_planned=True)
+    if receiving.contract_id:
+        messages.info(
+            request,
+            "Rencana penerimaan dari SPJ harus ditutup melalui amandemen pengadaan.",
+        )
+        return redirect("procurement:amendment_create", pk=receiving.contract_id)
+
     if receiving.status not in [Receiving.Status.APPROVED, Receiving.Status.PARTIAL]:
         messages.error(
             request, "Hanya rencana penerimaan disetujui/parsial yang dapat ditutup."
