@@ -9,6 +9,16 @@ from apps.core.decimal_validation import validate_finite_decimal
 from apps.core.models import TimeStampedModel
 
 
+PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH = 100
+AMENDMENT_DOCUMENT_NUMBER_SEPARATOR = "-A"
+AMENDMENT_SEQUENCE_RESERVED_DIGITS = 3
+PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH = (
+    PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH
+    - len(AMENDMENT_DOCUMENT_NUMBER_SEPARATOR)
+    - AMENDMENT_SEQUENCE_RESERVED_DIGITS
+)
+
+
 def _normalize_text(value, *, field_label, max_length=None, allow_blank=True):
     if value is None:
         return "" if allow_blank else value
@@ -55,7 +65,11 @@ class ProcurementContract(TimeStampedModel):
         APPROVED = "APPROVED", "Disetujui"
         CLOSED = "CLOSED", "Ditutup"
 
-    document_number = models.CharField(max_length=100, unique=True, blank=True)
+    document_number = models.CharField(
+        max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
+        unique=True,
+        blank=True,
+    )
     contract_date = models.DateField()
     supplier = models.ForeignKey(
         "items.Supplier",
@@ -115,7 +129,7 @@ class ProcurementContract(TimeStampedModel):
         self.document_number = _normalize_text(
             self.document_number,
             field_label="Nomor dokumen",
-            max_length=100,
+            max_length=PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
         )
         self.notes = _normalize_text(self.notes, field_label="Catatan")
         if self.supplier_id and not self.supplier.is_active:
@@ -221,7 +235,11 @@ class ProcurementAmendment(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="amendments",
     )
-    document_number = models.CharField(max_length=100, unique=True, blank=True)
+    document_number = models.CharField(
+        max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
+        unique=True,
+        blank=True,
+    )
     amendment_date = models.DateField()
     notes = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
@@ -263,7 +281,7 @@ class ProcurementAmendment(TimeStampedModel):
         self.document_number = _normalize_text(
             self.document_number,
             field_label="Nomor amandemen",
-            max_length=100,
+            max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
         )
         self.notes = _normalize_text(self.notes, field_label="Catatan")
         if self.contract_id and self.contract.status == ProcurementContract.Status.CLOSED:
@@ -272,7 +290,7 @@ class ProcurementAmendment(TimeStampedModel):
     def generate_document_number(self):
         if not self.contract_id:
             raise ValidationError({"contract": "Kontrak wajib diisi sebelum nomor amandemen dibuat."})
-        prefix = f"{self.contract.document_number}-A"
+        prefix = f"{self.contract.document_number}{AMENDMENT_DOCUMENT_NUMBER_SEPARATOR}"
         sequence = _next_prefixed_sequence(ProcurementAmendment, prefix)
         document_number = f"{prefix}{sequence}"
         max_length = self._meta.get_field("document_number").max_length

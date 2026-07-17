@@ -46,7 +46,7 @@
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Ajukan</button>
             </form>
-            {% elif contract.status == 'SUBMITTED' %}
+            {% elif contract.status == 'SUBMITTED' and can_approve_procurement_documents %}
             <form method="post" action="{% url 'procurement:contract_approve' contract.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-patch-check me-1"></i>Setujui</button>

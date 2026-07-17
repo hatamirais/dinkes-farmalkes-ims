@@ -112,6 +112,7 @@ Special rule:
 - Puskesmas receipt-confirmation create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage receipt-confirmation mutations.
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
 - `/settings/` is an explicit role-gated exception outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update system settings.
+- Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
 
@@ -202,12 +203,12 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementContract` (`procurement_contracts`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `CLOSED`
-  - Fields: `document_number` (auto-generated `SPJ-YYYY-NNNNN` when blank), `contract_date`, `notes`
+  - Fields: `document_number` (auto-generated `SPJ-YYYY-NNNNN` when blank; manual input is limited to 95 characters to reserve `{SPJ}-A{seq}` amendment suffix space inside the 100-character storage field), `contract_date`, `notes`
   - FKs: `supplier`, `sumber_dana`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable), `closed_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`, `closed_at`
   - Index: `idx_proc_contract_status_date`
   - Contract create/edit templates expose authenticated quick-create modals for `Supplier` and `FundingSource` through procurement-scoped POST endpoints that reuse receiving lookup validation
-  - Approval atomically creates or updates exactly one linked planned `receiving.Receiving(contract=this, is_planned=True)` document
+  - Approval is restricted to Admin/Superuser or `KEPALA` with procurement approval scope and atomically creates or updates exactly one linked planned `receiving.Receiving(contract=this, is_planned=True)` document
 
 - `procurement.ProcurementContractLine` (`procurement_contract_lines`):
   - FKs: `contract`, `item`
@@ -220,7 +221,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - FKs: `contract`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`
   - Index: `idx_proc_amend_status_date`
-  - Approval re-syncs the linked planned procurement receiving against the newly effective contract state and rejects revised quantities below already received quantities
+  - Approval is restricted to Admin/Superuser or `KEPALA` with procurement approval scope, re-syncs the linked planned procurement receiving against the newly effective contract state, and rejects revised quantities below already received quantities
 
 - `procurement.ProcurementAmendmentLine` (`procurement_amendment_lines`):
   - FKs: `amendment`, `contract_line`
@@ -442,7 +443,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 Operational mutation points (from app behavior and admin import logic):
 
-- Procurement contract/amendment approval never mutates stock; it only creates or re-syncs the linked planned receiving execution document.
+- Procurement contract/amendment approval is restricted to Admin/Superuser or `KEPALA` with procurement approval scope and never mutates stock; it only creates or re-syncs the linked planned receiving execution document.
 - Procurement-linked receiving leftovers are closed audit-first through procurement amendments; direct receiving-side close-items cancellation is reserved for non-contract planned receivings.
 - Receiving verify/receive path posts `Transaction(IN)` and updates/creates `Stock`.
 - Receiving CSV admin import (`import-csv/`) posts:

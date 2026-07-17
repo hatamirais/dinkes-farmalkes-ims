@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.items.models import Category, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.forms import ProcurementContractForm
 from apps.procurement.models import (
+    PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
     ProcurementAmendment,
     ProcurementAmendmentLine,
     ProcurementContract,
@@ -20,7 +21,7 @@ from apps.procurement.services import approve_amendment, approve_contract
 from apps.receiving.models import Receiving, ReceivingItem, ReceivingOrderItem
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
-from apps.users.models import User
+from apps.users.models import ModuleAccess, User
 
 
 class ProcurementWorkflowTests(TestCase):
@@ -40,7 +41,12 @@ class ProcurementWorkflowTests(TestCase):
             password="secret12345",
             role=User.Role.PUSKESMAS,
         )
-        for user in [cls.kepala, cls.puskesmas]:
+        cls.gudang = User.objects.create_user(
+            username="proc-gudang",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        for user in [cls.kepala, cls.puskesmas, cls.gudang]:
             ensure_default_module_access(user, overwrite=True)
 
         cls.unit = Unit.objects.create(code="TAB", name="Tablet")
@@ -113,6 +119,53 @@ class ProcurementWorkflowTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("document_number", form.errors)
+
+    def test_contract_form_reserves_amendment_suffix_space_for_manual_number(self):
+        form = ProcurementContractForm(
+            data={
+                "document_number": "S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
+                "contract_date": "2026-07-01",
+                "supplier": self.supplier.pk,
+                "sumber_dana": self.funding.pk,
+                "notes": "catatan",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("document_number", form.errors)
+        self.assertIn(
+            f"{PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter",
+            form.errors["document_number"][0],
+        )
+
+    def test_contract_model_validation_reserves_amendment_suffix_space(self):
+        contract = ProcurementContract(
+            document_number="S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
+            contract_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            notes="Kontrak panjang",
+            created_by=self.admin,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            f"Nomor dokumen tidak boleh lebih dari {PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter.",
+        ):
+            contract.full_clean()
+
+    def test_contract_form_accepts_manual_number_with_reserved_suffix_space(self):
+        form = ProcurementContractForm(
+            data={
+                "document_number": "S" * PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
+                "contract_date": "2026-07-01",
+                "supplier": self.supplier.pk,
+                "sumber_dana": self.funding.pk,
+                "notes": "catatan",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
 
     def test_contract_approval_creates_linked_planned_receiving(self):
         contract, line = self._approve_contract(quantity="12", unit_price="7500")
@@ -355,6 +408,80 @@ class ProcurementWorkflowTests(TestCase):
         self.client.force_login(self.puskesmas)
         denied = self.client.get(reverse("procurement:contract_list"), secure=True)
         self.assertEqual(denied.status_code, 403)
+
+    def test_gudang_cannot_approve_submitted_amendment_even_with_approve_scope(self):
+        contract, line = self._approve_contract(quantity="10", unit_price="5000")
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 6),
+            notes="Menunggu persetujuan",
+            status=ProcurementAmendment.Status.SUBMITTED,
+            created_by=self.gudang,
+            submitted_by=self.gudang,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=line,
+            revised_quantity=Decimal("8"),
+            revised_unit_price=Decimal("5000"),
+        )
+        ModuleAccess.objects.update_or_create(
+            user=self.gudang,
+            module=ModuleAccess.Module.PROCUREMENT,
+            defaults={"scope": ModuleAccess.Scope.APPROVE},
+        )
+
+        self.client.force_login(self.gudang)
+        detail_response = self.client.get(
+            reverse("procurement:amendment_detail", args=[amendment.pk]),
+            secure=True,
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Diajukan")
+        self.assertNotContains(detail_response, "Setujui")
+        self.assertNotContains(
+            detail_response,
+            reverse("procurement:amendment_approve", args=[amendment.pk]),
+        )
+
+        approve_response = self.client.post(
+            reverse("procurement:amendment_approve", args=[amendment.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(approve_response.status_code, 403)
+        amendment.refresh_from_db()
+        self.assertEqual(amendment.status, ProcurementAmendment.Status.SUBMITTED)
+
+    def test_kepala_can_see_submitted_amendment_approval_action(self):
+        contract, line = self._approve_contract(quantity="10", unit_price="5000")
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 6),
+            notes="Menunggu persetujuan",
+            status=ProcurementAmendment.Status.SUBMITTED,
+            created_by=self.gudang,
+            submitted_by=self.gudang,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=line,
+            revised_quantity=Decimal("8"),
+            revised_unit_price=Decimal("5000"),
+        )
+
+        self.client.force_login(self.kepala)
+        response = self.client.get(
+            reverse("procurement:amendment_detail", args=[amendment.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Setujui")
+        self.assertContains(
+            response,
+            reverse("procurement:amendment_approve", args=[amendment.pk]),
+        )
 
     def test_contract_create_page_renders_quick_create_hooks(self):
         response = self.client.get(reverse("procurement:contract_create"), secure=True)
