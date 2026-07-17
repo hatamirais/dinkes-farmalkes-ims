@@ -679,11 +679,7 @@ def distribution_detail(request, pk):
     can_distribute_distribution = (
         not is_allocation
         and dist.status == Distribution.Status.VERIFIED
-        and has_module_scope(
-            request.user,
-            ModuleAccess.Module.DISTRIBUTION,
-            ModuleAccess.Scope.APPROVE,
-        )
+        and _can_manage_distribution_preparation(request.user, dist)
     )
     can_return_lplpo_to_puskesmas = _can_return_generated_lplpo_to_puskesmas(
         request.user, dist
@@ -831,12 +827,17 @@ def distribution_prepare(request, pk):
 
 @login_required
 @perm_required("distribution.change_distribution")
-@module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.APPROVE)
+@module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.OPERATE)
 def distribution_distribute(request, pk):
     """Final step: deduct stock and create Transaction(OUT) records."""
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
+
+    if not _can_manage_distribution_preparation(request.user, dist):
+        raise PermissionDenied(
+            "Anda tidak memiliki akses untuk mendistribusikan dokumen ini."
+        )
 
     allowed_statuses = {Distribution.Status.VERIFIED}
     error_message = (

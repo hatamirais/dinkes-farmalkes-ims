@@ -787,6 +787,44 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(distribution_item.issued_unit_price, Decimal("5000"))
         self.assertEqual(distribution_item.issued_sumber_dana, self.funding_source)
 
+    def test_assigned_gudang_can_distribute_verified_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_distribute", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)
+        self.assertEqual(dist.approved_by, self.preparer_user)
+        self.assertEqual(self.stock.quantity, Decimal("160"))
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+
+    def test_non_assigned_gudang_cannot_distribute_assigned_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.other_preparer_user)
+
+        response = self.client.post(
+            reverse("distribution:distribution_distribute", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertIsNone(dist.approved_by)
+        self.assertEqual(self.stock.quantity, Decimal("200"))
+        self.assertEqual(self.stock.reserved, Decimal("40"))
+
     def test_distribute_insufficient_stock_fails(self):
         self.stock.quantity = Decimal("10")
         self.stock.save()
@@ -2038,7 +2076,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_gudang_cannot_distribute_distribution(self):
+    def test_unassigned_gudang_cannot_distribute_distribution_without_fallback(self):
         dist = self._create_distribution(status=Distribution.Status.VERIFIED)
         gudang = User.objects.create_user(
             username="gudang_only_distribute",
@@ -2059,7 +2097,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertIsNone(dist.approved_by)
         self.assertEqual(self.stock.quantity, Decimal("200"))
 
-    def test_gudang_does_not_see_distribute_action_for_verified_distribution(self):
+    def test_unassigned_gudang_does_not_see_distribute_action_for_verified_distribution(self):
         dist = self._create_distribution(status=Distribution.Status.VERIFIED)
         gudang = User.objects.create_user(
             username="gudang_detail_distribute",
@@ -2076,6 +2114,21 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Distribusikan")
         self.assertNotContains(response, 'id="distributeModal"')
+
+    def test_assigned_gudang_sees_distribute_action_for_verified_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Distribusikan")
+        self.assertContains(response, 'id="distributeModal"')
 
     def test_non_assigned_staff_cannot_edit_draft_distribution(self):
         dist = self._create_distribution(

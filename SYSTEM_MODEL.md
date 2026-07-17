@@ -282,7 +282,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `distribution.DistributionStaffAssignment` (`distribution_staff_assignments`):
   - FKs: `distribution`, `user`
-  - Purpose: stores staff involved in a distribution document, surfaces them in detail/print output, and acts as the object-level authorization source for draft/rejected preparation and submission
+  - Purpose: stores staff involved in a distribution document, surfaces them in detail/print output, and acts as the object-level authorization source for draft/rejected preparation, submission, and final fulfillment
   - Constraint: unique pair per (`distribution`, `user`)
 
 ### 4.7 Allocation
@@ -459,7 +459,7 @@ Operational mutation points (from app behavior and admin import logic):
 - Distribution:
   - verification and distribution validations use `Stock.available_quantity` (`quantity - reserved`) when checking the selected batch
   - prepare phase updates document status only (no stock mutation and no reservation write)
-  - draft/rejected preparation and submission are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
+  - draft/rejected preparation, submission, and final standalone distribution are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
   - verify phase now locks the selected stock rows and increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`
   - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, and delete release `reserved` using `DistributionItem.reserved_quantity` for standalone distributions, while allocation-generated child distributions release reservations only through parent allocation step-back
