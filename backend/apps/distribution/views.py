@@ -6,7 +6,17 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import (
+    Case,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    Q,
+    Sum,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -50,6 +60,16 @@ _DISTRIBUTION_REPORT_TAB_URL_NAMES = {
     Distribution.DistributionType.ALLOCATION: "distribution:distribution_report_allocation",
     Distribution.DistributionType.LPLPO: "distribution:distribution_report_lplpo",
 }
+
+
+def _order_distribution_queue(queryset):
+    return queryset.annotate(
+        queue_status_order=Case(
+            When(status=Distribution.Status.DISTRIBUTED, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+    ).order_by("queue_status_order", "-created_at", "-request_date", "-pk")
 
 
 def _redirect_distribution_detail(pk):
@@ -262,10 +282,10 @@ def sync_distribution_staff_assignments(distribution, staff_users):
 @login_required
 @perm_required("distribution.view_distribution")
 def distribution_list(request):
-    queryset = (
-        Distribution.objects.select_related("facility", "created_by")
-        .exclude(distribution_type__in=["BORROW_RS", "SWAP_RS"])
-        .order_by("-request_date")
+    queryset = _order_distribution_queue(
+        Distribution.objects.select_related("facility", "created_by").exclude(
+            distribution_type__in=["BORROW_RS", "SWAP_RS"]
+        )
     )
     can_view_reports = _can_view_reports(request.user)
 
@@ -329,10 +349,10 @@ def distribution_report_lplpo(request):
 @login_required
 @perm_required("distribution.view_distribution")
 def special_request_list(request):
-    queryset = (
-        Distribution.objects.select_related("facility", "created_by")
-        .filter(distribution_type=Distribution.DistributionType.SPECIAL_REQUEST)
-        .order_by("-request_date")
+    queryset = _order_distribution_queue(
+        Distribution.objects.select_related("facility", "created_by").filter(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST
+        )
     )
 
     return _render_distribution_list(

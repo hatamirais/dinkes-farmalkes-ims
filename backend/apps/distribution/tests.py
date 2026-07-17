@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -1645,6 +1645,57 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, reverse("distribution:manual_lplpo_create"))
         self.assertNotContains(response, "Buat Distribusi LPLPO")
+
+    def test_distribution_list_orders_active_queue_by_created_date(self):
+        active_recent = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.LPLPO,
+            document_number="QUEUE-RECENT",
+            request_date=date(2026, 1, 1),
+            facility=self.facility,
+            status=Distribution.Status.DRAFT,
+            created_by=self.user,
+        )
+        active_older = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.ALLOCATION,
+            document_number="QUEUE-OLDER",
+            request_date=date(2026, 6, 1),
+            facility=self.facility,
+            status=Distribution.Status.VERIFIED,
+            created_by=self.user,
+        )
+        distributed_newer = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            document_number="QUEUE-DISTRIBUTED",
+            request_date=date(2026, 7, 1),
+            facility=self.facility,
+            status=Distribution.Status.DISTRIBUTED,
+            created_by=self.user,
+        )
+        Distribution.objects.filter(pk=active_recent.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 7, 17, 9, 0))
+        )
+        Distribution.objects.filter(pk=active_older.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 7, 16, 9, 0))
+        )
+        Distribution.objects.filter(pk=distributed_newer.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 7, 18, 9, 0))
+        )
+
+        response = self.client.get(reverse("distribution:distribution_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dibuat")
+        self.assertContains(response, "Tanggal Dokumen")
+        self.assertContains(response, "17/07/2026")
+        content = response.content.decode()
+        self.assertLess(
+            content.index("QUEUE-RECENT"),
+            content.index("QUEUE-OLDER"),
+        )
+        self.assertLess(
+            content.index("QUEUE-OLDER"),
+            content.index("QUEUE-DISTRIBUTED"),
+        )
 
     def test_edit_distribution_updates_assigned_staff(self):
         dist = self._create_distribution(
