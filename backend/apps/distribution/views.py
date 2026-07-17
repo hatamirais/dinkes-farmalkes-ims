@@ -105,10 +105,11 @@ def _can_return_generated_lplpo_to_puskesmas(user, distribution):
     return (
         distribution.is_generated_lplpo_distribution
         and distribution.status != Distribution.Status.DISTRIBUTED
+        and _can_manage_distribution_preparation(user, distribution)
         and has_module_scope(
             user,
             ModuleAccess.Module.LPLPO,
-            ModuleAccess.Scope.APPROVE,
+            ModuleAccess.Scope.OPERATE,
         )
     )
 
@@ -687,6 +688,16 @@ def distribution_detail(request, pk):
     can_return_lplpo_to_puskesmas = _can_return_generated_lplpo_to_puskesmas(
         request.user, dist
     )
+    can_print_sbbk = (
+        dist.status in {Distribution.Status.VERIFIED, Distribution.Status.PREPARED}
+        or bool(dist.approved_by)
+    )
+    can_step_back_distribution = dist.status in {
+        Distribution.Status.SUBMITTED,
+        Distribution.Status.VERIFIED,
+        Distribution.Status.PREPARED,
+        Distribution.Status.REJECTED,
+    }
 
     return render(
         request,
@@ -722,6 +733,8 @@ def distribution_detail(request, pk):
             "can_reject_distribution": can_reject_distribution,
             "can_distribute_distribution": can_distribute_distribution,
             "can_return_lplpo_to_puskesmas": can_return_lplpo_to_puskesmas,
+            "can_print_sbbk": can_print_sbbk,
+            "can_step_back_distribution": can_step_back_distribution,
             "active_pengeluaran_submenu": (
                 "special_request"
                 if _is_special_request(dist)
@@ -1001,7 +1014,7 @@ def distribution_delete(request, pk):
 
 @login_required
 @perm_required("distribution.change_distribution")
-@module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE)
+@module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
 def distribution_return_lplpo_to_puskesmas(request, pk):
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
@@ -1077,4 +1090,6 @@ def distribution_return_lplpo_to_puskesmas(request, pk):
             f"LPLPO {lplpo_obj.document_number} dikembalikan ke Puskesmas."
         ),
     )
-    return redirect("lplpo:lplpo_detail", pk=lplpo_obj.pk)
+    if request.user.is_superuser or getattr(request.user, "role", None) == User.Role.ADMIN:
+        return redirect("lplpo:lplpo_detail", pk=lplpo_obj.pk)
+    return redirect("distribution:distribution_list")
