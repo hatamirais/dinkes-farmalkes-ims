@@ -231,7 +231,7 @@
             {% widthratio delivery_delivered delivery_total 100 as pct %}
             <div class="progress-bar {% if delivery_delivered == delivery_total %}bg-success{% else %}bg-primary{% endif %}"
                  role="progressbar"
-                 data-progress-width="{{ pct }}">
+                 style="width: {{ pct }}%">
             </div>
         </div>
         {% endif %}
@@ -394,14 +394,4 @@
     </div>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.querySelectorAll("[data-progress-width]").forEach((bar) => {
-    const width = Number.parseFloat(bar.dataset.progressWidth || "0");
-    const clampedWidth = Math.min(Math.max(width, 0), 100);
-    bar.style.width = `${clampedWidth}%`;
-});
-</script>
 {% endblock %}

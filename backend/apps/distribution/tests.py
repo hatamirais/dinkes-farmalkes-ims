@@ -1305,52 +1305,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="return-lplpo-btn"')
 
-    def test_generated_lplpo_detail_hides_generic_delete_for_assigned_gudang(self):
-        dist = self._create_distribution(
-            status=Distribution.Status.DRAFT,
-            assigned_users=[self.preparer_user],
-        )
-        self._link_lplpo_source(dist, status=LPLPO.Status.APPROVED)
-        self.client.force_login(self.preparer_user)
-
-        response = self.client.get(
-            reverse("distribution:distribution_detail", args=[dist.pk])
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'id="return-lplpo-btn"')
-        self.assertNotContains(response, "Hapus Dokumen")
-
-    def test_assigned_gudang_can_return_generated_lplpo_to_puskesmas(self):
-        dist = self._create_distribution(
-            status=Distribution.Status.DRAFT,
-            assigned_users=[self.preparer_user],
-        )
-        lplpo = self._link_lplpo_source(dist, status=LPLPO.Status.APPROVED)
-        self.client.force_login(self.preparer_user)
-
-        response = self.client.post(
-            reverse(
-                "distribution:distribution_return_lplpo_to_puskesmas",
-                args=[dist.pk],
-            ),
-            {"rejection_reason": "Data perlu diperbaiki sebelum distribusi."},
-        )
-
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(
-            response,
-            reverse("distribution:distribution_list"),
-        )
-        self.assertFalse(Distribution.objects.filter(pk=dist.pk).exists())
-        lplpo.refresh_from_db()
-        self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PUSKESMAS)
-        self.assertIsNone(lplpo.distribution)
-        self.assertEqual(
-            lplpo.rejection_reason,
-            "Data perlu diperbaiki sebelum distribusi.",
-        )
-
     # --- Edit access ---
 
     def test_edit_allowed_for_draft(self):

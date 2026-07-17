@@ -56,7 +56,7 @@ Module highlights:
 - Procurement: `/procurement/`, `/procurement/create/`, `/procurement/api/quick-create-supplier/`, `/procurement/api/quick-create-funding-source/`, `/procurement/<pk>/`, `/procurement/<pk>/edit/`, `/procurement/<pk>/submit/`, `/procurement/<pk>/approve/`, `/procurement/<pk>/close/`, `/procurement/<pk>/amend/`, `/procurement/amendments/<pk>/`, `/procurement/amendments/<pk>/edit/`, `/procurement/amendments/<pk>/submit/`, `/procurement/amendments/<pk>/approve/`
 - Receiving quick-create APIs: `/receiving/api/quick-create-supplier/`, `/receiving/api/quick-create-funding-source/`, `/receiving/api/quick-create-receiving-type/`
 - Items: `/items/`, `/items/export/`, `/items/create/`, `/items/<pk>/edit/`, `/items/<pk>/delete/`, plus quick-create lookup APIs under `/items/api/`
-- Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/lplpo/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`, `/distribution/<pk>/return-lplpo-to-puskesmas/`
+- Distribution history: `/distribution/`, `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, `/distribution/report/lplpo/`, `/distribution/create/`, `/distribution/lplpo/create/`, `/distribution/<pk>/`, `/distribution/<pk>/edit/`, `/distribution/<pk>/delete/`, `/distribution/<pk>/step-back/`, `/distribution/<pk>/reset-to-draft/`, `/distribution/<pk>/submit/`, `/distribution/<pk>/verify/`, `/distribution/<pk>/prepare/`, `/distribution/<pk>/distribute/`, `/distribution/<pk>/reject/`
 - Special requests: `/distribution/special-requests/`, `/distribution/special-requests/create/`
 - Expiry alerts: `/expired/alerts/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
@@ -455,7 +455,6 @@ Operational mutation points (from app behavior and admin import logic):
 - Receiving CSV admin template download (`export-csv-template/`) returns a blank `receiving_template.csv` with the exact columns accepted by the dedicated importer and does not mutate data.
 - LPLPO approval/finalize creates a Distribution document mapped 1:1, marks the LPLPO `APPROVED`, and closes the LPLPO once the linked Distribution reaches `DISTRIBUTED`.
 - For generated LPLPO draft distributions, the preparation edit UI displays both requested and approved quantities for reference but locks those values and rejects added/deleted rows; users only assign batches and preparation metadata there.
-- Generated LPLPO distributions cannot use the generic delete action. While still pending distribution, assigned distribution preparers or fallback distribution approvers with LPLPO module scope `OPERATE` may use `/distribution/<pk>/return-lplpo-to-puskesmas/` with a required reason to cancel the generated distribution and return the parent LPLPO to `REJECTED_PUSKESMAS`.
 - Distribution:
   - verification and distribution validations use `Stock.available_quantity` (`quantity - reserved`) when checking the selected batch
   - prepare phase updates document status only (no stock mutation and no reservation write)
@@ -463,7 +462,6 @@ Operational mutation points (from app behavior and admin import logic):
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
   - verify phase now locks the selected stock rows and increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`
   - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, and delete release `reserved` using `DistributionItem.reserved_quantity` for standalone distributions, while allocation-generated child distributions release reservations only through parent allocation step-back
-  - generated-LPLPO reversal uses the same object-level assignee/fallback authorization as preparation actions and requires LPLPO module scope `OPERATE`
   - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
