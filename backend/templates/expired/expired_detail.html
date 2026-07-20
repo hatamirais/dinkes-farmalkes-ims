@@ -76,7 +76,7 @@
                 </button>
             </form>
             {% elif expired_doc.status == 'VERIFIED' %}
-            {% if can_approve_expired_actions %}
+            {% if can_dispose_expired_actions %}
             <form method="post" action="{% url 'expired:expired_dispose' expired_doc.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-sm" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">

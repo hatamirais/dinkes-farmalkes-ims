@@ -48,6 +48,20 @@ def _can_approve_expired_actions(user):
     )
 
 
+def _can_dispose_expired_actions(user):
+    if not getattr(user, "is_authenticated", False):
+        return False
+
+    if user.role not in {User.Role.ADMIN, User.Role.KEPALA, User.Role.GUDANG}:
+        return False
+
+    return has_module_scope(
+        user,
+        ModuleAccess.Module.EXPIRED,
+        ModuleAccess.Scope.OPERATE,
+    )
+
+
 @login_required
 def expired_list(request):
     queryset = Expired.objects.select_related("created_by").order_by("-report_date")
@@ -365,6 +379,7 @@ def expired_detail(request, pk):
             "expired_doc": expired_doc,
             "items": items,
             "can_approve_expired_actions": _can_approve_expired_actions(request.user),
+            "can_dispose_expired_actions": _can_dispose_expired_actions(request.user),
         },
     )
 
@@ -531,9 +546,9 @@ def expired_verify(request, pk):
 
 @login_required
 @perm_required("expired.change_expired")
-@module_scope_required(ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.APPROVE)
+@module_scope_required(ModuleAccess.Module.EXPIRED, ModuleAccess.Scope.OPERATE)
 def expired_dispose(request, pk):
-    if not _can_approve_expired_actions(request.user):
+    if not _can_dispose_expired_actions(request.user):
         raise PermissionDenied(
             "Anda tidak memiliki izin untuk menandai dokumen ini sebagai dimusnahkan."
         )

@@ -466,7 +466,7 @@ Operational mutation points (from app behavior and admin import logic):
   - generated-LPLPO reversal uses the same object-level assignee/fallback authorization as preparation actions and requires LPLPO module scope `OPERATE`
   - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
-- Expired verify decreases stock and posts `Transaction(OUT, reference_type=EXPIRED)`
+- Expired verify is restricted to Kepala/Admin approvers, decreases stock, and posts `Transaction(OUT, reference_type=EXPIRED)`. After verification, Gudang/Kepala/Admin users with expired operate scope may mark the document `DISPOSED` to finalize the physical disposal audit stamp without another stock mutation.
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
 - Stock opname completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, and `completed_at`, and does not mutate `Stock` or write `Transaction` rows
 - Allocation:
