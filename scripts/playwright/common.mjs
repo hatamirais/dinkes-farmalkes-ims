@@ -177,6 +177,16 @@ function isLoginUrl(urlValue) {
   }
 }
 
+async function resetLoginState(context, page, baseUrl) {
+  await context.clearCookies();
+  await page.goto(new URL(LOGIN_PATH, baseUrl).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page
+    .locator("input[name='csrfmiddlewaretoken']")
+    .waitFor({ state: "attached", timeout: 10_000 });
+}
+
 async function performLogin(page, username, password) {
   await page.locator("#id_username").fill(username);
   await page.locator("#id_password").fill(password);
@@ -218,6 +228,7 @@ export async function launchRoleContext(roleCode, { headless = true, refresh = f
   await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
 
   if (isLoginUrl(page.url())) {
+    await resetLoginState(context, page, baseUrl);
     await performLogin(page, credentials.username, credentials.password);
   }
 
