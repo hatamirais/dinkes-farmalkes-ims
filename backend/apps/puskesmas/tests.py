@@ -98,6 +98,197 @@ class PuskesmasRequestFormTests(TestCase):
 		self.assertEqual(form.fields["item"].label_from_instance(self.item), "Haloperidol 5 mg")
 
 
+class PuskesmasStockCurrentViewTests(SecureClientDefaultsMixin, TestCase):
+	def setUp(self):
+		super().setUp()
+		self.unit = Unit.objects.create(code="TAB-STK", name="Tablet")
+		self.category = Category.objects.create(
+			code="OBT-STK",
+			name="Obat",
+			sort_order=1,
+		)
+		self.facility = Facility.objects.create(
+			code="PKM-STK-01",
+			name="Puskesmas Stok Satu",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.other_facility = Facility.objects.create(
+			code="PKM-STK-02",
+			name="Puskesmas Stok Dua",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.item = Item.objects.create(
+			kode_barang="STK-001",
+			nama_barang="Paracetamol 500 mg",
+			satuan=self.unit,
+			kategori=self.category,
+			minimum_stock=Decimal("0"),
+		)
+		self.matching_item = Item.objects.create(
+			kode_barang="STK-002",
+			nama_barang="Vitamin B Kompleks",
+			satuan=self.unit,
+			kategori=self.category,
+			minimum_stock=Decimal("0"),
+		)
+		self.other_item = Item.objects.create(
+			kode_barang="STK-003",
+			nama_barang="Amoxicillin",
+			satuan=self.unit,
+			kategori=self.category,
+			minimum_stock=Decimal("0"),
+		)
+		self.user = User.objects.create_user(
+			username="puskesmas-stock-current",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.facility,
+		)
+		self.internal_user = User.objects.create_user(
+			username="gudang-stock-current",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
+		)
+		self.year = timezone.localdate().year
+
+		self.latest_lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=5,
+			tahun=self.year,
+			status=LPLPO.Status.SUBMITTED,
+			created_by=self.user,
+		)
+		LPLPOItem.objects.create(
+			lplpo=self.latest_lplpo,
+			item=self.item,
+			stock_awal=20,
+			penerimaan=5,
+			pemakaian=10,
+			stock_gudang_puskesmas=12,
+		)
+		LPLPOItem.objects.create(
+			lplpo=self.latest_lplpo,
+			item=self.matching_item,
+			stock_awal=10,
+			penerimaan=0,
+			pemakaian=2,
+			stock_gudang_puskesmas=8,
+		)
+		rejected_lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=6,
+			tahun=self.year,
+			status=LPLPO.Status.REJECTED_PUSKESMAS,
+			created_by=self.user,
+		)
+		LPLPOItem.objects.create(
+			lplpo=rejected_lplpo,
+			item=self.item,
+			stock_awal=999,
+			penerimaan=0,
+			pemakaian=0,
+			stock_gudang_puskesmas=999,
+		)
+		other_lplpo = LPLPO.objects.create(
+			facility=self.other_facility,
+			bulan=7,
+			tahun=self.year,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.user,
+		)
+		LPLPOItem.objects.create(
+			lplpo=other_lplpo,
+			item=self.other_item,
+			stock_awal=50,
+			penerimaan=0,
+			pemakaian=0,
+			stock_gudang_puskesmas=50,
+		)
+
+	def test_puskesmas_user_sees_latest_usable_lplpo_for_own_facility(self):
+		self.client.force_login(self.user)
+
+		response = self.client.get(reverse("puskesmas:stock_current"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertTemplateUsed(response, "puskesmas/stock_current.html")
+		self.assertEqual(response.context["facility"], self.facility)
+		self.assertEqual(response.context["latest_lplpo"], self.latest_lplpo)
+		self.assertContains(response, "Paracetamol 500 mg")
+		self.assertContains(response, "Stok Digital")
+		self.assertNotContains(response, "Amoxicillin")
+		row = next(row for row in response.context["rows"] if row["kode_barang"] == "STK-001")
+		self.assertEqual(row["digital_stock"], 15)
+		self.assertEqual(row["physical_stock"], 12)
+		self.assertEqual(row["difference"], -3)
+		self.assertTrue(row["has_mismatch"])
+
+	def test_unlinked_puskesmas_user_receives_403(self):
+		unlinked = User.objects.create_user(
+			username="puskesmas-stock-unlinked",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+		)
+		self.client.force_login(unlinked)
+
+		response = self.client.get(reverse("puskesmas:stock_current"))
+
+		self.assertEqual(response.status_code, 403)
+
+	def test_non_puskesmas_user_cannot_access_page(self):
+		ModuleAccess.objects.update_or_create(
+			user=self.internal_user,
+			module=ModuleAccess.Module.PUSKESMAS,
+			defaults={"scope": ModuleAccess.Scope.MANAGE},
+		)
+		self.client.force_login(self.internal_user)
+
+		response = self.client.get(reverse("puskesmas:stock_current"))
+
+		self.assertEqual(response.status_code, 403)
+
+	def test_search_and_mismatch_filters_do_not_widen_facility_scope(self):
+		self.client.force_login(self.user)
+
+		response = self.client.get(
+			reverse("puskesmas:stock_current"),
+			{
+				"year": str(self.year),
+				"q": "paracetamol",
+				"mismatch": "mismatch",
+				"facility": str(self.other_facility.pk),
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(response.context["rows"]), 1)
+		self.assertEqual(response.context["rows"][0]["kode_barang"], "STK-001")
+		self.assertEqual(response.context["stats"]["mismatch_count"], 1)
+		self.assertNotContains(response, self.other_facility.name)
+
+	def test_invalid_filters_render_errors_and_no_rows(self):
+		self.client.force_login(self.user)
+
+		response = self.client.get(
+			reverse("puskesmas:stock_current"),
+			{"year": "99999", "q": "bad\x00text", "mismatch": "bad"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertTrue(response.context["form"].errors)
+		self.assertEqual(response.context["rows"], [])
+		self.assertEqual(response.context["stats"]["total_rows"], 0)
+
+	def test_sidebar_link_visible_for_puskesmas_user(self):
+		self.client.force_login(self.user)
+
+		response = self.client.get(reverse("dashboard"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, reverse("puskesmas:stock_current"))
+		self.assertContains(response, "Stok Puskesmas")
+
+
 class PuskesmasSBBKFormTests(TestCase):
 	def setUp(self):
 		self.unit = Unit.objects.create(code="TAB", name="Tablet")

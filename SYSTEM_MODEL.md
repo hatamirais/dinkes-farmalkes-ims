@@ -69,6 +69,9 @@ Module highlights:
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
   - `api/prefill-penerimaan/` sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, including January bootstrap as an editable suggestion baseline when confirmed receipt data exists.
   - `/export-xlsx/` and `/import-xlsx/` are draft-only offline-entry helpers for Puskesmas operators and super admins. They work only on existing `DRAFT` / `REJECTED_PUSKESMAS` documents after the standard monthly create flow has already generated the item rows.
+- Puskesmas stock self-check: `/puskesmas/stok/`
+  - Only users with role `PUSKESMAS` may access this page, and every request is scoped to `request.user.facility`; unlinked Puskesmas users receive `403`.
+  - Uses the latest non-rejected LPLPO for the linked facility/year and compares `LPLPOItem.stock_keseluruhan` against `LPLPOItem.stock_gudang_puskesmas` as a read-only digital-vs-physical check. It does not apply post-LPLPO receipt/consumption adjustments and does not mutate stock.
 - Puskesmas requests: `/puskesmas/permintaan/`, `/puskesmas/permintaan/buat/`, `/puskesmas/permintaan/<pk>/`, `/puskesmas/permintaan/<pk>/edit/`, `/puskesmas/permintaan/<pk>/delete/`, `/puskesmas/permintaan/<pk>/submit/`, `/puskesmas/permintaan/<pk>/approve/`, `/puskesmas/permintaan/<pk>/reject/`, `/puskesmas/permintaan/<pk>/reset-draft/`
   - Superusers may work across facilities, while every non-superuser request is forced to the linked `user.facility` and receives `403` when no facility is linked or the object belongs to another facility.
   - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` are all-facility only for superusers; every non-superuser request is forced to the request user's linked facility.
@@ -411,6 +414,12 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `puskesmas.PuskesmasRequestItem` (`puskesmas_request_items`):
   - FKs: `request`, `item`
   - Fields: `quantity_requested`, `quantity_approved` (nullable), `notes`
+
+Puskesmas stock self-check:
+
+- Route `/puskesmas/stok/` is a read-only view, not a database model.
+- It selects the latest same-year LPLPO for the logged-in Puskesmas user's linked facility, excluding `REJECTED_PUSKESMAS` and `REJECTED_PIC`.
+- It renders each selected `LPLPOItem` with digital stock (`stock_keseluruhan`), recorded physical stock (`stock_gudang_puskesmas`), and the difference for manual reconciliation.
 
 ### 4.13 LPLPO
 

@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.core.decimal_validation import validate_finite_decimal
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Facility, Item
+from apps.lplpo.models import LPLPO
 from apps.users.models import User
 
 from .models import (
@@ -1084,4 +1085,102 @@ class PuskesmasPersediaanFilterForm(forms.Form):
     def get_default_initial(cls):
         now = timezone.now().date()
         return {"year": now.year, "period": cls.PERIOD_YEARLY}
+
+
+class PuskesmasStockSelfCheckFilterForm(forms.Form):
+    """Filter form for the Puskesmas LPLPO stock self-check page."""
+
+    MISMATCH_ALL = ""
+    MISMATCH_ONLY = "mismatch"
+
+    year = forms.TypedChoiceField(
+        label="Tahun",
+        coerce=int,
+        choices=[],
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    q = forms.CharField(
+        label="Cari Barang",
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Cari kode atau nama barang",
+            }
+        ),
+    )
+    mismatch = forms.ChoiceField(
+        label="Status Selisih",
+        required=False,
+        choices=[
+            (MISMATCH_ALL, "Semua Barang"),
+            (MISMATCH_ONLY, "Hanya Ada Selisih"),
+        ],
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.facility = kwargs.pop("facility", None)
+        super().__init__(*args, **kwargs)
+
+        current_year = timezone.localdate().year
+        available_years = set(range(current_year - 3, current_year + 2))
+        if self.facility is not None:
+            available_years.update(
+                LPLPO.objects.filter(facility=self.facility)
+                .order_by()
+                .values_list("tahun", flat=True)
+                .distinct()
+            )
+        self.year_choices = sorted(
+            {year for year in available_years if 1000 <= int(year) <= 9999},
+            reverse=True,
+        )
+        self.fields["year"].choices = [
+            (str(year), str(year)) for year in self.year_choices
+        ]
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Div("year", css_class="mb-0"),
+            Div("q", css_class="mb-0"),
+            Div("mismatch", css_class="mb-0"),
+        )
+
+    @classmethod
+    def get_default_initial(cls):
+        return {
+            "year": timezone.localdate().year,
+            "q": "",
+            "mismatch": cls.MISMATCH_ALL,
+        }
+
+    def clean_year(self):
+        year = self.cleaned_data.get("year")
+        if year is None or not 1000 <= year <= 9999:
+            raise forms.ValidationError("Tahun harus berada pada rentang 1000-9999.")
+        if year not in self.year_choices:
+            raise forms.ValidationError("Pilihan tahun tidak valid.")
+        return year
+
+    def clean_q(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("q"),
+            field_label="Cari Barang",
+            max_length=100,
+        )
+
+    def clean_mismatch(self):
+        value = _normalize_text_value(
+            self.cleaned_data.get("mismatch"),
+            field_label="Status Selisih",
+            max_length=20,
+        )
+        allowed = {self.MISMATCH_ALL, self.MISMATCH_ONLY}
+        if value not in allowed:
+            raise forms.ValidationError("Pilihan status selisih tidak valid.")
+        return value
 
