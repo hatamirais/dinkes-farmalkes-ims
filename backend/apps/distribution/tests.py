@@ -2130,6 +2130,70 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertContains(response, "Distribusikan")
         self.assertContains(response, 'id="distributeModal"')
 
+    def test_kepala_does_not_see_reset_or_step_back_for_assigned_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.kepala_user)
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(
+            response,
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk]),
+        )
+        self.assertNotContains(
+            response,
+            reverse("distribution:distribution_step_back", args=[dist.pk]),
+        )
+        self.assertNotContains(response, "Kembalikan ke Draft")
+        self.assertNotContains(response, "Kembali ke status sebelumnya")
+
+    def test_assigned_gudang_sees_reset_and_step_back_for_verified_distribution(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            assigned_users=[self.preparer_user],
+        )
+        self.client.force_login(self.preparer_user)
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse("distribution:distribution_step_back", args=[dist.pk]),
+        )
+        self.assertContains(response, "Kembalikan ke Draft")
+        self.assertContains(response, "Kembali ke status sebelumnya")
+
+    def test_kepala_sees_reset_and_step_back_fallback_without_assignments(self):
+        dist = self._create_distribution(status=Distribution.Status.VERIFIED)
+        self.client.force_login(self.kepala_user)
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("distribution:distribution_reset_to_draft", args=[dist.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse("distribution:distribution_step_back", args=[dist.pk]),
+        )
+
     def test_non_assigned_staff_cannot_edit_draft_distribution(self):
         dist = self._create_distribution(
             status=Distribution.Status.DRAFT,
