@@ -688,12 +688,28 @@ def distribution_detail(request, pk):
         dist.status in {Distribution.Status.VERIFIED, Distribution.Status.PREPARED}
         or bool(dist.approved_by)
     )
-    can_step_back_distribution = dist.status in {
-        Distribution.Status.SUBMITTED,
-        Distribution.Status.VERIFIED,
-        Distribution.Status.PREPARED,
-        Distribution.Status.REJECTED,
-    }
+    can_reset_to_draft_distribution = (
+        not is_allocation
+        and dist.status
+        in {
+            Distribution.Status.SUBMITTED,
+            Distribution.Status.VERIFIED,
+            Distribution.Status.PREPARED,
+            Distribution.Status.REJECTED,
+        }
+        and _can_manage_distribution_preparation(request.user, dist)
+    )
+    can_step_back_distribution = (
+        not is_allocation
+        and dist.status
+        in {
+            Distribution.Status.SUBMITTED,
+            Distribution.Status.VERIFIED,
+            Distribution.Status.PREPARED,
+            Distribution.Status.REJECTED,
+        }
+        and _can_manage_distribution_preparation(request.user, dist)
+    )
 
     return render(
         request,
@@ -730,6 +746,7 @@ def distribution_detail(request, pk):
             "can_distribute_distribution": can_distribute_distribution,
             "can_return_lplpo_to_puskesmas": can_return_lplpo_to_puskesmas,
             "can_print_sbbk": can_print_sbbk,
+            "can_reset_to_draft_distribution": can_reset_to_draft_distribution,
             "can_step_back_distribution": can_step_back_distribution,
             "active_pengeluaran_submenu": (
                 "special_request"
