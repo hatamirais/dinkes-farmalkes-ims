@@ -2346,12 +2346,20 @@ def puskesmas_report_persediaan(request):
                 end_month,
             )
 
+        aggregated_stock_map = {}
+        for key, stock_qty in item_stock_map.items():
+            _, item_id, nama_barang, satuan, kategori, sort_order = key
+            output_key = (item_id, nama_barang, satuan, kategori, sort_order)
+            aggregated_stock_map[output_key] = (
+                aggregated_stock_map.get(output_key, 0) + stock_qty
+            )
+
         # Build sorted report_data list
         for key, stock_qty in sorted(
-            item_stock_map.items(),
-            key=lambda x: (x[0][5], x[0][4], x[0][2]),
+            aggregated_stock_map.items(),
+            key=lambda x: (x[0][4], x[0][3], x[0][1]),
         ):
-            _, _, nama_barang, satuan, kategori, _ = key
+            _, nama_barang, satuan, kategori, _ = key
             report_data.append({
                 "nama_barang": nama_barang,
                 "satuan": satuan,

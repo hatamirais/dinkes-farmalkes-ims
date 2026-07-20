@@ -2926,6 +2926,51 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(report_data[0]["stock_keseluruhan"], 60)
 		self.assertEqual(response.context["period_label"], "Triwulan II")
 
+	def test_persediaan_admin_all_facilities_aggregates_same_item_rows(self):
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		lplpo_own = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_own,
+			item=self.item,
+			stock_awal=50,
+			penerimaan=20,
+			pemakaian=10,
+		)
+
+		lplpo_other = LPLPO.objects.create(
+			facility=self.other_facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_other,
+			item=self.item,
+			stock_awal=30,
+			penerimaan=5,
+			pemakaian=3,
+		)
+
+		self.client.force_login(self.admin)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"),
+			{"year": "2026", "period": "q2"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		report_data = response.context["report_data"]
+		self.assertEqual(len(report_data), 1)
+		self.assertEqual(report_data[0]["nama_barang"], self.item.nama_barang)
+		self.assertEqual(report_data[0]["stock_keseluruhan"], 92)
+
 	def test_persediaan_period_filter_uses_period_end_month(self):
 		from apps.lplpo.models import LPLPO, LPLPOItem
 
