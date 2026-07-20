@@ -16,7 +16,7 @@ from django.db.models import (
     When,
     Window,
 )
-from django.db.models.functions import RowNumber
+from django.db.models.functions import Coalesce, RowNumber
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -2162,14 +2162,14 @@ def puskesmas_report_persediaan(request):
 
     Stock for each item is computed as:
       stock_keseluruhan from the latest non-rejected LPLPO for the facility
-      in or before the requested period, plus any additional distributions
-      received after that LPLPO's closing month up to the end of the
+      in or before the requested period, plus any confirmed Puskesmas receipt
+      confirmations after that LPLPO's closing month, minus any detailed
+      consumption after that LPLPO's closing month, up to the end of the
       requested period.
 
     Facility isolation is strictly enforced: PUSKESMAS users only see their
     own facility; super admin may optionally scope via ?facility=<id>.
     """
-    from apps.distribution.models import Distribution, DistributionItem
     from apps.items.models import Facility as FacilityModel
     from apps.lplpo.models import LPLPO, LPLPOItem
 
@@ -2222,8 +2222,8 @@ def puskesmas_report_persediaan(request):
 
         # --- Dynamic stock calculation ---
         # For each facility, find the latest usable LPLPO in or before the requested
-        # period, then add distributions that arrived after it. Keep this batched so
-        # report cost scales with returned rows rather than N facilities.
+        # period, then apply only the canonical Puskesmas-side ledgers after it:
+        # confirmed receipt confirmations minus detailed consumption.
         item_stock_map = {}
 
         latest_lplpos = (
@@ -2255,6 +2255,7 @@ def puskesmas_report_persediaan(request):
             )
             for li in lplpo_items:
                 key = (
+                    li.lplpo.facility_id,
                     li.item_id,
                     li.item.nama_barang,
                     li.item.satuan.name if li.item.satuan else "-",
@@ -2263,68 +2264,94 @@ def puskesmas_report_persediaan(request):
                 )
                 item_stock_map[key] = item_stock_map.get(key, 0) + li.stock_keseluruhan
 
-        dist_after_latest_q = Q()
-        for facility_id, latest_lplpo in latest_lplpo_by_facility.items():
-            dist_after_latest_q |= Q(
-                distribution__facility_id=facility_id,
-                distribution__distributed_date__month__gt=latest_lplpo.bulan,
-            )
-
-        facilities_without_lplpo = [
-            facility_id
-            for facility_id in facility_ids
-            if facility_id not in latest_lplpo_by_facility
-        ]
-        if facilities_without_lplpo:
-            for missing_facility_id in facilities_without_lplpo:
-                logger.info(
-                    "puskesmas_report_persediaan: no usable LPLPO found for facility=%s year=%s month=%s; "
-                    "using distribution-only fallback.",
-                    missing_facility_id,
-                    year,
-                    end_month,
-                )
-            dist_after_latest_q |= Q(
-                distribution__facility_id__in=facilities_without_lplpo
-            )
-
-        if dist_after_latest_q:
-            distribution_items = (
-                DistributionItem.objects.filter(
-                    dist_after_latest_q,
-                    distribution__status=Distribution.Status.DISTRIBUTED,
-                    distribution__distributed_date__year=year,
-                    distribution__distributed_date__month__lte=end_month,
+        baseline_facility_ids = list(latest_lplpo_by_facility.keys())
+        if baseline_facility_ids:
+            receipt_rows = (
+                PuskesmasReceiptConfirmationItem.objects.filter(
+                    sbbk__facility_id__in=baseline_facility_ids,
+                    sbbk__received_date__year=year,
+                    sbbk__received_date__month__lte=end_month,
+                    sbbk__status=PuskesmasReceiptConfirmation.ReceiptStatus.CONFIRMED,
                 )
                 .values(
+                    "sbbk__facility_id",
+                    "sbbk__received_date__month",
                     "item_id",
                     "item__nama_barang",
                     "item__satuan__name",
                     "item__kategori__name",
                     "item__kategori__sort_order",
                 )
-                .annotate(total_received=Sum("quantity_approved"))
+                .annotate(total_received=Coalesce(Sum("quantity"), Value(Decimal("0"))))
                 .order_by()
             )
-            for di in distribution_items:
-                sort_order = di["item__kategori__sort_order"]
+            for receipt in receipt_rows:
+                facility_id = receipt["sbbk__facility_id"]
+                if receipt["sbbk__received_date__month"] <= latest_lplpo_by_facility[facility_id].bulan:
+                    continue
+                sort_order = receipt["item__kategori__sort_order"]
                 key = (
-                    di["item_id"],
-                    di["item__nama_barang"],
-                    di["item__satuan__name"] or "-",
-                    di["item__kategori__name"] or "Lainnya",
+                    facility_id,
+                    receipt["item_id"],
+                    receipt["item__nama_barang"],
+                    receipt["item__satuan__name"] or "-",
+                    receipt["item__kategori__name"] or "Lainnya",
                     9999 if sort_order is None else sort_order,
                 )
                 item_stock_map[key] = item_stock_map.get(key, 0) + int(
-                    di["total_received"] or 0
+                    (receipt["total_received"] or Decimal("0")).to_integral_value()
                 )
+
+            consumption_rows = (
+                PuskesmasConsumptionEntry.objects.filter(
+                    consumption__facility_id__in=baseline_facility_ids,
+                    consumption__tahun=year,
+                    consumption__bulan__lte=end_month,
+                )
+                .values(
+                    "consumption__facility_id",
+                    "consumption__bulan",
+                    "item_id",
+                    "item__nama_barang",
+                    "item__satuan__name",
+                    "item__kategori__name",
+                    "item__kategori__sort_order",
+                )
+                .annotate(total_consumption=Coalesce(Sum("quantity"), Value(0)))
+                .order_by()
+            )
+            for consumption in consumption_rows:
+                facility_id = consumption["consumption__facility_id"]
+                if consumption["consumption__bulan"] <= latest_lplpo_by_facility[facility_id].bulan:
+                    continue
+                sort_order = consumption["item__kategori__sort_order"]
+                key = (
+                    facility_id,
+                    consumption["item_id"],
+                    consumption["item__nama_barang"],
+                    consumption["item__satuan__name"] or "-",
+                    consumption["item__kategori__name"] or "Lainnya",
+                    9999 if sort_order is None else sort_order,
+                )
+                item_stock_map[key] = item_stock_map.get(key, 0) - int(
+                    consumption["total_consumption"] or 0
+                )
+
+        for missing_facility_id in set(facility_ids) - set(latest_lplpo_by_facility.keys()):
+            logger.info(
+                "puskesmas_report_persediaan: no usable LPLPO found for facility=%s year=%s month=%s; "
+                "skipping stock calculation because no LPLPO baseline exists.",
+                missing_facility_id,
+                year,
+                end_month,
+            )
 
         # Build sorted report_data list
         for key, stock_qty in sorted(
             item_stock_map.items(),
-            key=lambda x: (x[0][4], x[0][3], x[0][1]),
+            key=lambda x: (x[0][5], x[0][4], x[0][2]),
         ):
-            _, nama_barang, satuan, kategori, _ = key
+            _, _, nama_barang, satuan, kategori, _ = key
             report_data.append({
                 "nama_barang": nama_barang,
                 "satuan": satuan,
