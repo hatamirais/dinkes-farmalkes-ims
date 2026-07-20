@@ -4,6 +4,8 @@ from . import views
 app_name = "puskesmas"
 
 urlpatterns = [
+    # Stok Puskesmas
+    path("stok/", views.stock_current, name="stock_current"),
     # Subunit Puskesmas
     path("subunit/", views.subunit_list, name="subunit_list"),
     path("subunit/buat/", views.subunit_create, name="subunit_create"),

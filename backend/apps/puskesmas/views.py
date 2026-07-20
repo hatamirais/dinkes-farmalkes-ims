@@ -41,6 +41,7 @@ from .forms import (
     PuskesmasReceiptConfirmationItemFormSet,
     PuskesmasRequestForm,
     PuskesmasRequestItemFormSet,
+    PuskesmasStockSelfCheckFilterForm,
     PuskesmasSubunitForm,
 )
 from .models import (
@@ -446,6 +447,149 @@ def _save_receiving_checklist_items(receipt_confirmation, checklist_formset):
 
 _check_puskesmas_sbbk_creator_access = _check_puskesmas_receiving_creator_access
 _check_sbbk_facility_access = _check_receiving_facility_access
+
+
+# ──────────────────────── Puskesmas Stock Self-Check ────────────────────────
+
+
+LPLPO_STOCK_SELF_CHECK_STATUSES = [
+    LPLPO.Status.DRAFT,
+    LPLPO.Status.SUBMITTED,
+    LPLPO.Status.PIC_VERIFIED,
+    LPLPO.Status.REVIEWED,
+    LPLPO.Status.APPROVED,
+    LPLPO.Status.DISTRIBUTED,
+    LPLPO.Status.CLOSED,
+]
+
+
+def _get_latest_lplpo_for_stock_self_check(facility, year):
+    return (
+        LPLPO.objects.filter(
+            facility=facility,
+            tahun=year,
+            status__in=LPLPO_STOCK_SELF_CHECK_STATUSES,
+        )
+        .select_related("facility")
+        .order_by("-bulan", "-id")
+        .first()
+    )
+
+
+def _build_lplpo_stock_self_check_rows(lplpo, *, search_term="", mismatch_only=False):
+    if lplpo is None:
+        return []
+
+    queryset = (
+        lplpo.items.select_related("item", "item__satuan", "item__kategori")
+        .order_by("item__kategori__sort_order", "item__nama_barang")
+    )
+    if search_term:
+        queryset = queryset.filter(
+            Q(item__kode_barang__icontains=search_term)
+            | Q(item__nama_barang__icontains=search_term)
+        )
+
+    rows = []
+    for line in queryset:
+        digital_stock = int(line.stock_keseluruhan or 0)
+        physical_stock = int(line.stock_gudang_puskesmas or 0)
+        difference = physical_stock - digital_stock
+        if mismatch_only and difference == 0:
+            continue
+
+        rows.append(
+            {
+                "kode_barang": line.item.kode_barang,
+                "nama_barang": line.item.nama_barang,
+                "kategori": line.item.kategori.name if line.item.kategori else "Lainnya",
+                "satuan": line.item.satuan.name if line.item.satuan else "-",
+                "digital_stock": digital_stock,
+                "physical_stock": physical_stock,
+                "difference": difference,
+                "has_mismatch": difference != 0,
+            }
+        )
+    return rows
+
+
+def _build_stock_self_check_stats(rows):
+    mismatch_count = sum(1 for row in rows if row["has_mismatch"])
+    return {
+        "total_rows": len(rows),
+        "mismatch_count": mismatch_count,
+        "matched_count": len(rows) - mismatch_count,
+        "total_digital_stock": sum(row["digital_stock"] for row in rows),
+        "total_physical_stock": sum(row["physical_stock"] for row in rows),
+        "total_difference": sum(row["difference"] for row in rows),
+    }
+
+
+@login_required
+@perm_required("puskesmas.view_puskesmasrequest")
+def stock_current(request):
+    if getattr(request.user, "role", None) != User.Role.PUSKESMAS:
+        raise PermissionDenied("Halaman stok ini hanya untuk operator Puskesmas.")
+
+    facility = _get_required_facility(request.user)
+    initial = PuskesmasStockSelfCheckFilterForm.get_default_initial()
+    effective_get = request.GET.copy()
+    for key, value in initial.items():
+        if not effective_get.get(key):
+            effective_get[key] = str(value)
+
+    form = PuskesmasStockSelfCheckFilterForm(effective_get, facility=facility)
+    selected_year = initial["year"]
+    latest_lplpo = None
+    rows = []
+    stats = _build_stock_self_check_stats(rows)
+
+    if form.is_valid():
+        selected_year = form.cleaned_data["year"]
+        latest_lplpo = _get_latest_lplpo_for_stock_self_check(
+            facility,
+            selected_year,
+        )
+        rows = _build_lplpo_stock_self_check_rows(
+            latest_lplpo,
+            search_term=form.cleaned_data["q"],
+            mismatch_only=(
+                form.cleaned_data["mismatch"]
+                == PuskesmasStockSelfCheckFilterForm.MISMATCH_ONLY
+            ),
+        )
+        stats = _build_stock_self_check_stats(rows)
+        logger.info(
+            "puskesmas_stock_self_check_viewed",
+            extra={
+                "username": request.user.username,
+                "facility_id": facility.pk,
+                "year": selected_year,
+                "lplpo_id": latest_lplpo.pk if latest_lplpo else None,
+                "has_search_term": bool(form.cleaned_data["q"]),
+                "mismatch_only": (
+                    form.cleaned_data["mismatch"]
+                    == PuskesmasStockSelfCheckFilterForm.MISMATCH_ONLY
+                ),
+            },
+        )
+
+    paginator = Paginator(rows, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "puskesmas/stock_current.html",
+        {
+            "form": form,
+            "facility": facility,
+            "latest_lplpo": latest_lplpo,
+            "selected_year": selected_year,
+            "page_obj": page_obj,
+            "rows": list(page_obj.object_list),
+            "stats": stats,
+        },
+    )
 
 
 # ──────────────────────────── SBBK CRUD ────────────────────────────

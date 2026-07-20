@@ -218,6 +218,13 @@
                     data-label="Permintaan Barang" title="Permintaan Barang">
                     <i class="bi bi-file-earmark-arrow-up"></i><span>Permintaan Barang</span>
                 </a>
+                {% if request.user.role == 'PUSKESMAS' %}
+                <a href="{% url 'puskesmas:stock_current' %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name == 'stock_current' %}active{% endif %}"
+                    data-label="Stok Puskesmas" title="Stok Puskesmas">
+                    <i class="bi bi-clipboard2-check"></i><span>Stok Puskesmas</span>
+                </a>
+                {% endif %}
                 {% endif %}
                 {% if can_view_lplpo and request.user.role == 'PUSKESMAS' %}
                 <a href="{% url 'lplpo:lplpo_my_list' %}"
