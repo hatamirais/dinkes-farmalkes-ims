@@ -303,6 +303,52 @@ class ExpiredWorkflowTest(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_gudang_can_dispose_verified_expired(self):
+        expired_doc = self._create_expired(status=Expired.Status.VERIFIED)
+        expired_doc.verified_by = self.kepala_user
+        expired_doc.verified_at = timezone.now()
+        expired_doc.save(update_fields=["verified_by", "verified_at", "updated_at"])
+        gudang = User.objects.create_user(
+            username="gudang_dispose_exp",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.post(
+            reverse("expired:expired_dispose", args=[expired_doc.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.DISPOSED)
+        self.assertEqual(expired_doc.disposed_by, gudang)
+        self.assertIsNotNone(expired_doc.disposed_at)
+
+    def test_admin_umum_cannot_dispose_verified_expired(self):
+        expired_doc = self._create_expired(status=Expired.Status.VERIFIED)
+        expired_doc.verified_by = self.kepala_user
+        expired_doc.verified_at = timezone.now()
+        expired_doc.save(update_fields=["verified_by", "verified_at", "updated_at"])
+        admin_umum = User.objects.create_user(
+            username="admin_umum_dispose_blocked",
+            password="secret12345",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ensure_default_module_access(admin_umum, overwrite=True)
+        self.client.force_login(admin_umum)
+
+        response = self.client.post(
+            reverse("expired:expired_dispose", args=[expired_doc.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.VERIFIED)
+        self.assertIsNone(expired_doc.disposed_by)
+        self.assertIsNone(expired_doc.disposed_at)
+
     def test_custom_non_kepala_approver_cannot_verify_expired(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
         custom_approver = User.objects.create_user(
@@ -338,6 +384,24 @@ class ExpiredWorkflowTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, '<i class="bi bi-patch-check me-1"></i>Verifikasi', html=False)
+
+    def test_expired_detail_shows_dispose_button_for_gudang_after_verification(self):
+        expired_doc = self._create_expired(status=Expired.Status.VERIFIED)
+        expired_doc.verified_by = self.kepala_user
+        expired_doc.verified_at = timezone.now()
+        expired_doc.save(update_fields=["verified_by", "verified_at", "updated_at"])
+        gudang = User.objects.create_user(
+            username="gudang_show_dispose",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(gudang, overwrite=True)
+        self.client.force_login(gudang)
+
+        response = self.client.get(reverse("expired:expired_detail", args=[expired_doc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<i class="bi bi-check2-circle me-1"></i>Tandai Dimusnahkan', html=False)
 
     def test_expired_detail_hides_verify_button_for_admin_umum(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
