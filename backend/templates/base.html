@@ -9,7 +9,8 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Healthcare IMS{% endblock %}</title>
     <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}?v={{ app_version }}-20260416" rel="stylesheet">
-    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}?v={{ app_version }}-20260416" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}?v={{ app_version }}-20260416"
+        rel="stylesheet">
     <link href="{% static 'css/style.css' %}?v={{ app_version }}-20260416" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
@@ -22,15 +23,15 @@
             <div class="sidebar-header">
                 <a href="{% url 'dashboard' %}" class="sidebar-brand">
                     {% if system_settings and system_settings.logo %}
-                        {% with logo_url=system_settings.logo.url|safe_media_url %}
-                        {% if logo_url %}
-                            <img src="{{ logo_url }}" alt="Logo" style="height: 32px; width: auto;" class="me-2">
-                        {% else %}
-                            <i class="bi bi-hospital"></i>
-                        {% endif %}
-                        {% endwith %}
+                    {% with logo_url=system_settings.logo.url|safe_media_url %}
+                    {% if logo_url %}
+                    <img src="{{ logo_url }}" alt="Logo" style="height: 32px; width: auto;" class="me-2">
                     {% else %}
-                        <i class="bi bi-hospital"></i>
+                    <i class="bi bi-hospital"></i>
+                    {% endif %}
+                    {% endwith %}
+                    {% else %}
+                    <i class="bi bi-hospital"></i>
                     {% endif %}
                     <span>{{ system_settings.facility_name|default:"Healthcare IMS" }}</span>
                 </a>
@@ -43,8 +44,7 @@
                 <div class="sidebar-section-title">Menu Utama</div>
                 <a href="{% url 'dashboard' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
-                    data-label="Dashboard"
-                    title="Dashboard">
+                    data-label="Dashboard" title="Dashboard">
                     <i class="bi bi-house-door"></i><span>Dashboard</span>
                 </a>
 
@@ -53,23 +53,20 @@
                 {% if can_view_items %}
                 <a href="{% url 'items:item_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'items' %}active{% endif %}"
-                    data-label="Barang"
-                    title="Barang">
+                    data-label="Barang" title="Barang">
                     <i class="bi bi-box-seam"></i><span>Barang</span>
                 </a>
                 {% endif %}
                 {% if can_view_stock %}
                 <a href="{% url 'stock:stock_list' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'stock_list' %}active{% endif %}"
-                    data-label="Stok"
-                    title="Stok">
+                    data-label="Stok" title="Stok">
                     <i class="bi bi-boxes"></i><span>Stok</span>
                 </a>
                 {% if request.user.role != 'PUSKESMAS' %}
                 <a href="{% url 'stock:puskesmas_stock' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'puskesmas_stock' %}active{% endif %}"
-                    data-label="Stok Puskesmas"
-                    title="Stok Puskesmas">
+                    data-label="Stok Puskesmas" title="Stok Puskesmas">
                     <i class="bi bi-hospital"></i><span>Stok Puskesmas</span>
                 </a>
                 {% endif %}
@@ -79,102 +76,92 @@
                 {% if can_view_receiving or can_view_procurement or can_view_distribution or can_view_allocation or can_view_recall or can_view_expired %}
                 <div class="sidebar-section-title">Transaksi</div>
                 {% if can_view_receiving or can_view_procurement %}
-                <button class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}active{% endif %}"
-                    data-label="Penerimaan"
-                    title="Penerimaan"
-                    data-bs-toggle="collapse"
+                <button
+                    class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}active{% endif %}"
+                    data-label="Penerimaan" title="Penerimaan" data-bs-toggle="collapse"
                     data-bs-target="#sidebar-receiving"
                     aria-expanded="{% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}true{% else %}false{% endif %}"
                     type="button">
                     <i class="bi bi-inbox-fill"></i><span>Penerimaan</span>
                     <i class="bi bi-chevron-down chevron"></i>
                 </button>
-                <div class="collapse sidebar-submenu {% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}show{% endif %}" id="sidebar-receiving">
+                <div class="collapse sidebar-submenu {% if request.resolver_match.app_name == 'receiving' or request.resolver_match.app_name == 'procurement' %}show{% endif %}"
+                    id="sidebar-receiving">
                     {% if can_view_receiving %}
                     <a href="{% url 'receiving:receiving_list' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'receiving_list' %}active{% endif %}"
-                        data-label="Buat Penerimaan"
-                        title="Buat Penerimaan">
+                        data-label="Buat Penerimaan" title="Buat Penerimaan">
                         <i class="bi bi-inbox-arrow-down"></i><span>Buat Penerimaan</span>
                     </a>
                     <a href="{% url 'receiving:receiving_plan_list' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'receiving_plan_list' %}active{% endif %}"
-                        data-label="Rencana Penerimaan"
-                        title="Rencana Penerimaan">
+                        data-label="Rencana Penerimaan" title="Rencana Penerimaan">
                         <i class="bi bi-clipboard-check"></i><span>Rencana Penerimaan</span>
                     </a>
                     {% endif %}
                     {% if can_view_procurement %}
                     <a href="{% url 'procurement:contract_list' %}"
                         class="sidebar-link {% if request.resolver_match.app_name == 'procurement' %}active{% endif %}"
-                        data-label="SPJ / Pengadaan"
-                        title="SPJ / Pengadaan">
+                        data-label="SPJ / Pengadaan" title="SPJ / Pengadaan">
                         <i class="bi bi-file-earmark-text"></i><span>SPJ / Pengadaan</span>
                     </a>
                     {% endif %}
                 </div>
                 {% endif %}
                 {% if can_view_distribution or can_view_allocation or can_view_recall or can_view_expired or can_view_lplpo %}
-                <button class="sidebar-link sidebar-dropdown-toggle {% if active_pengeluaran_submenu or request.resolver_match.app_name == 'distribution' or request.resolver_match.app_name == 'allocation' or request.resolver_match.app_name == 'recall' or request.resolver_match.app_name == 'expired' or request.resolver_match.app_name == 'lplpo' and request.user.role != 'PUSKESMAS' %}active{% endif %}"
-                    data-label="Pengeluaran"
-                    title="Pengeluaran"
-                    data-bs-toggle="collapse"
+                <button
+                    class="sidebar-link sidebar-dropdown-toggle {% if active_pengeluaran_submenu or request.resolver_match.app_name == 'distribution' or request.resolver_match.app_name == 'allocation' or request.resolver_match.app_name == 'recall' or request.resolver_match.app_name == 'expired' or request.resolver_match.app_name == 'lplpo' and request.user.role != 'PUSKESMAS' %}active{% endif %}"
+                    data-label="Pengeluaran" title="Pengeluaran" data-bs-toggle="collapse"
                     data-bs-target="#sidebar-pengeluaran"
                     aria-expanded="{% if active_pengeluaran_submenu or request.resolver_match.app_name == 'distribution' or request.resolver_match.app_name == 'allocation' or request.resolver_match.app_name == 'recall' or request.resolver_match.app_name == 'expired' or request.resolver_match.app_name == 'lplpo' and request.user.role != 'PUSKESMAS' %}true{% else %}false{% endif %}"
                     type="button">
                     <i class="bi bi-box-arrow-up-right"></i><span>Pengeluaran</span>
                     <i class="bi bi-chevron-down chevron"></i>
                 </button>
-                <div class="collapse sidebar-submenu {% if active_pengeluaran_submenu or request.resolver_match.app_name == 'distribution' or request.resolver_match.app_name == 'allocation' or request.resolver_match.app_name == 'recall' or request.resolver_match.app_name == 'expired' or request.resolver_match.app_name == 'lplpo' and request.user.role != 'PUSKESMAS' %}show{% endif %}" id="sidebar-pengeluaran">
+                <div class="collapse sidebar-submenu {% if active_pengeluaran_submenu or request.resolver_match.app_name == 'distribution' or request.resolver_match.app_name == 'allocation' or request.resolver_match.app_name == 'recall' or request.resolver_match.app_name == 'expired' or request.resolver_match.app_name == 'lplpo' and request.user.role != 'PUSKESMAS' %}show{% endif %}"
+                    id="sidebar-pengeluaran">
                     {% if can_view_distribution %}
                     <a href="{% url 'distribution:distribution_list' %}"
                         class="sidebar-link {% if active_pengeluaran_submenu == 'distribution_history' or request.resolver_match.app_name == 'distribution' and not active_pengeluaran_submenu %}active{% endif %}"
-                        data-label="Distribusi"
-                        title="Distribusi">
-                        <i class="bi bi-send"></i><span>Distribusi</span>
+                        data-label="Riwayat Distribusi" title="Riwayat Distribusi">
+                        <i class="bi bi-send"></i><span>Riwayat Distribusi</span>
                     </a>
                     <a href="{% url 'distribution:special_request_list' %}"
                         class="sidebar-link {% if active_pengeluaran_submenu == 'special_request' %}active{% endif %}"
-                        data-label="Permintaan Khusus"
-                        title="Permintaan Khusus">
+                        data-label="Permintaan Khusus" title="Permintaan Khusus">
                         <i class="bi bi-send-plus"></i><span>Permintaan Khusus</span>
                     </a>
                     {% endif %}
                     {% if can_view_allocation %}
                     <a href="{% url 'allocation:allocation_list' %}"
                         class="sidebar-link {% if request.resolver_match.app_name == 'allocation' %}active{% endif %}"
-                        data-label="Alokasi"
-                        title="Alokasi">
+                        data-label="Alokasi" title="Alokasi">
                         <i class="bi bi-diagram-3"></i><span>Alokasi</span>
                     </a>
                     {% endif %}
                     {% if can_view_lplpo and request.user.role != 'PUSKESMAS' %}
                     <a href="{% url 'lplpo:lplpo_list' %}"
                         class="sidebar-link {% if request.resolver_match.app_name == 'lplpo' %}active{% endif %}"
-                        data-label="Daftar LPLPO"
-                        title="Daftar LPLPO">
+                        data-label="Daftar LPLPO" title="Daftar LPLPO">
                         <i class="bi bi-file-earmark-medical"></i><span>Daftar LPLPO</span>
                     </a>
                     {% endif %}
                     {% if can_view_recall %}
                     <a href="{% url 'recall:recall_list' %}"
                         class="sidebar-link {% if request.resolver_match.app_name == 'recall' %}active{% endif %}"
-                        data-label="Recall / Retur"
-                        title="Recall / Retur">
+                        data-label="Recall / Retur" title="Recall / Retur">
                         <i class="bi bi-arrow-return-left"></i><span>Recall / Retur</span>
                     </a>
                     {% endif %}
                     {% if can_view_expired %}
                     <a href="{% url 'expired:expired_list' %}"
                         class="sidebar-link {% if request.resolver_match.app_name == 'expired' and request.resolver_match.url_name != 'expired_alerts' %}active{% endif %}"
-                        data-label="Kedaluwarsa"
-                        title="Kedaluwarsa">
+                        data-label="Kedaluwarsa" title="Kedaluwarsa">
                         <i class="bi bi-trash"></i><span>Kedaluwarsa</span>
                     </a>
                     <a href="{% url 'expired:expired_alerts' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'expired_alerts' %}active{% endif %}"
-                        data-label="Pemantauan Kedaluwarsa"
-                        title="Pemantauan Kedaluwarsa">
+                        data-label="Pemantauan Kedaluwarsa" title="Pemantauan Kedaluwarsa">
                         <i class="bi bi-exclamation-triangle"></i><span>Pemantauan Kedaluwarsa</span>
                     </a>
                     {% endif %}
@@ -186,27 +173,23 @@
                 <div class="sidebar-section-title">Transaksi Stok</div>
                 <a href="{% url 'stock:stock_card_select' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'stock_card_select' or request.resolver_match.url_name == 'stock_card_detail' %}active{% endif %}"
-                    data-label="Kartu Stok"
-                    title="Kartu Stok">
+                    data-label="Kartu Stok" title="Kartu Stok">
                     <i class="bi bi-journal-text"></i><span>Kartu Stok</span>
                 </a>
                 <a href="{% url 'stock:transaction_list' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'transaction_list' %}active{% endif %}"
-                    data-label="Log Transaksi"
-                    title="Log Transaksi">
+                    data-label="Log Transaksi" title="Log Transaksi">
                     <i class="bi bi-clock-history"></i><span>Log Transaksi</span>
                 </a>
                 <a href="{% url 'stock:transfer_list' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'transfer_list' or request.resolver_match.url_name == 'transfer_create' or request.resolver_match.url_name == 'transfer_detail' %}active{% endif %}"
-                    data-label="Mutasi Lokasi"
-                    title="Mutasi Lokasi">
+                    data-label="Mutasi Lokasi" title="Mutasi Lokasi">
                     <i class="bi bi-arrow-left-right"></i><span>Mutasi Lokasi</span>
                 </a>
                 {% if can_view_stock_opname %}
                 <a href="{% url 'stock_opname:opname_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'stock_opname' %}active{% endif %}"
-                    data-label="Stock Opname"
-                    title="Stock Opname">
+                    data-label="Stock Opname" title="Stock Opname">
                     <i class="bi bi-clipboard-check"></i><span>Stock Opname</span>
                 </a>
                 {% endif %}
@@ -217,71 +200,62 @@
                 {% if can_view_puskesmas %}
                 <a href="{% url 'puskesmas:receiving_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' %}active{% endif %}"
-                    data-label="Konfirmasi Penerimaan"
-                    title="Konfirmasi Penerimaan">
+                    data-label="Konfirmasi Penerimaan" title="Konfirmasi Penerimaan">
                     <i class="bi bi-receipt"></i><span>Konfirmasi Penerimaan</span>
                 </a>
                 <a href="{% url 'puskesmas:subunit_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'subunit_' %}active{% endif %}"
-                    data-label="Poli/Pustu Puskesmas"
-                    title="Poli/Pustu Puskesmas">
+                    data-label="Poli/Pustu Puskesmas" title="Poli/Pustu Puskesmas">
                     <i class="bi bi-diagram-2"></i><span>Poli/Pustu Puskesmas</span>
                 </a>
                 <a href="{% url 'puskesmas:consumption_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':12' == 'consumption_' %}active{% endif %}"
-                    data-label="Input Pemakaian"
-                    title="Input Pemakaian">
+                    data-label="Input Pemakaian" title="Input Pemakaian">
                     <i class="bi bi-clipboard-data"></i><span>Input Pemakaian</span>
                 </a>
                 <a href="{% url 'puskesmas:request_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' %}active{% endif %}"
-                    data-label="Permintaan Barang"
-                    title="Permintaan Barang">
+                    data-label="Permintaan Barang" title="Permintaan Barang">
                     <i class="bi bi-file-earmark-arrow-up"></i><span>Permintaan Barang</span>
                 </a>
                 {% endif %}
                 {% if can_view_lplpo and request.user.role == 'PUSKESMAS' %}
                 <a href="{% url 'lplpo:lplpo_my_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'lplpo' %}active{% endif %}"
-                    data-label="LPLPO"
-                    title="LPLPO">
+                    data-label="LPLPO" title="LPLPO">
                     <i class="bi bi-file-earmark-medical"></i><span>LPLPO</span>
                 </a>
                 {% endif %}
                 {% if can_view_puskesmas and can_view_reports and request.user.role == 'PUSKESMAS' %}
-                <button class="sidebar-link sidebar-dropdown-toggle {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
-                    data-label="Laporan Puskesmas"
-                    title="Laporan Puskesmas"
-                    data-bs-toggle="collapse"
+                <button
+                    class="sidebar-link sidebar-dropdown-toggle {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
+                    data-label="Laporan Puskesmas" title="Laporan Puskesmas" data-bs-toggle="collapse"
                     data-bs-target="#sidebar-puskesmas-laporan"
                     aria-expanded="{% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}true{% else %}false{% endif %}"
                     type="button">
                     <i class="bi bi-bar-chart-line"></i><span>Laporan Puskesmas</span>
                     <i class="bi bi-chevron-down chevron"></i>
                 </button>
-                <div class="collapse sidebar-submenu {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}show{% endif %}" id="sidebar-puskesmas-laporan">
+                <div class="collapse sidebar-submenu {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}show{% endif %}"
+                    id="sidebar-puskesmas-laporan">
                     <a href="{% url 'puskesmas:report_penerimaan' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'report_penerimaan' %}active{% endif %}"
-                        data-label="Riwayat Penerimaan"
-                        title="Riwayat Penerimaan">
+                        data-label="Riwayat Penerimaan" title="Riwayat Penerimaan">
                         <i class="bi bi-inbox-arrow-down"></i><span>Riwayat Penerimaan</span>
                     </a>
                     <a href="{% url 'puskesmas:report_pemakaian' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'report_pemakaian' %}active{% endif %}"
-                        data-label="Riwayat Pemakaian"
-                        title="Riwayat Pemakaian">
+                        data-label="Riwayat Pemakaian" title="Riwayat Pemakaian">
                         <i class="bi bi-clipboard-data"></i><span>Riwayat Pemakaian</span>
                     </a>
                     <a href="{% url 'puskesmas:report_persediaan' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'report_persediaan' %}active{% endif %}"
-                        data-label="Rincian Laporan Persediaan"
-                        title="Rincian Laporan Persediaan">
+                        data-label="Rincian Laporan Persediaan" title="Rincian Laporan Persediaan">
                         <i class="bi bi-boxes"></i><span>Rincian Laporan Persediaan</span>
                     </a>
                     <a href="{% url 'puskesmas:report_rekap_persediaan' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'report_rekap_persediaan' %}active{% endif %}"
-                        data-label="Rekap Laporan Persediaan"
-                        title="Rekap Laporan Persediaan">
+                        data-label="Rekap Laporan Persediaan" title="Rekap Laporan Persediaan">
                         <i class="bi bi-table"></i><span>Rekap Laporan Persediaan</span>
                     </a>
                 </div>
@@ -291,57 +265,49 @@
 
                 {% if can_view_reports %}
                 <div class="sidebar-section-title">Laporan</div>
-                <button class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"
-                    data-label="Laporan"
-                    title="Laporan"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#sidebar-reports"
+                <button
+                    class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"
+                    data-label="Laporan" title="Laporan" data-bs-toggle="collapse" data-bs-target="#sidebar-reports"
                     aria-expanded="{% if request.resolver_match.app_name == 'reports' %}true{% else %}false{% endif %}"
                     type="button">
                     <i class="bi bi-bar-chart-line"></i><span>Laporan</span>
                     <i class="bi bi-chevron-down chevron"></i>
                 </button>
-                <div class="collapse sidebar-submenu {% if request.resolver_match.app_name == 'reports' %}show{% endif %}" id="sidebar-reports">
+                <div class="collapse sidebar-submenu {% if request.resolver_match.app_name == 'reports' %}show{% endif %}"
+                    id="sidebar-reports">
                     <a href="{% url 'reports:index' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}"
-                        data-label="Persediaan (Rincian)"
-                        title="Persediaan (Rincian)">
+                        data-label="Persediaan (Rincian)" title="Persediaan (Rincian)">
                         <i class="bi bi-card-list"></i><span>Persediaan (Rincian)</span>
                     </a>
                     <a href="{% url 'reports:numbering_history' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'numbering_history' %}active{% endif %}"
-                        data-label="Riwayat Penomoran"
-                        title="Riwayat Penomoran">
+                        data-label="Riwayat Penomoran" title="Riwayat Penomoran">
                         <i class="bi bi-123"></i><span>Riwayat Penomoran</span>
                     </a>
                     <a href="{% url 'reports:rekap' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'rekap' %}active{% endif %}"
-                        data-label="Persediaan (Rekap)"
-                        title="Persediaan (Rekap)">
+                        data-label="Persediaan (Rekap)" title="Persediaan (Rekap)">
                         <i class="bi bi-journal-check"></i><span>Persediaan (Rekap)</span>
                     </a>
                     <a href="{% url 'reports:penerimaan_hibah' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'penerimaan_hibah' %}active{% endif %}"
-                        data-label="Penerimaan Hibah"
-                        title="Penerimaan Hibah">
+                        data-label="Penerimaan Hibah" title="Penerimaan Hibah">
                         <i class="bi bi-box-arrow-in-down"></i><span>Penerimaan Hibah</span>
                     </a>
                     <a href="{% url 'reports:pengadaan' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'pengadaan' %}active{% endif %}"
-                        data-label="Pengadaan"
-                        title="Pengadaan">
+                        data-label="Pengadaan" title="Pengadaan">
                         <i class="bi bi-cart-check"></i><span>Pengadaan</span>
                     </a>
                     <a href="{% url 'reports:kadaluarsa' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'kadaluarsa' %}active{% endif %}"
-                        data-label="Kadaluarsa"
-                        title="Kadaluarsa">
+                        data-label="Kadaluarsa" title="Kadaluarsa">
                         <i class="bi bi-exclamation-triangle"></i><span>Kadaluarsa</span>
                     </a>
                     <a href="{% url 'reports:pengeluaran' %}"
                         class="sidebar-link {% if request.resolver_match.url_name == 'pengeluaran' %}active{% endif %}"
-                        data-label="Pengeluaran"
-                        title="Pengeluaran">
+                        data-label="Pengeluaran" title="Pengeluaran">
                         <i class="bi bi-box-arrow-up-right"></i><span>Pengeluaran</span>
                     </a>
                 </div>
@@ -352,25 +318,23 @@
                 {% if can_view_user_management %}
                 <a href="{% url 'users:user_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}"
-                    data-label="Manajemen Pengguna"
-                    title="Manajemen Pengguna">
+                    data-label="Manajemen Pengguna" title="Manajemen Pengguna">
                     <i class="bi bi-people"></i><span>Manajemen Pengguna</span>
                 </a>
                 {% endif %}
                 <a href="{% url 'administration_receiving_history' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'administration_receiving_history' %}active{% endif %}"
-                    data-label="Riwayat Penerimaan"
-                    title="Riwayat Penerimaan">
+                    data-label="Riwayat Penerimaan" title="Riwayat Penerimaan">
                     <i class="bi bi-inbox"></i><span>Riwayat Penerimaan</span>
                 </a>
                 <a href="{% url 'administration_distribution_history' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'administration_distribution_history' %}active{% endif %}"
-                    data-label="Riwayat Pengeluaran"
-                    title="Riwayat Pengeluaran">
+                    data-label="Riwayat Pengeluaran" title="Riwayat Pengeluaran">
                     <i class="bi bi-send-check"></i><span>Riwayat Pengeluaran</span>
                 </a>
                 {% if can_open_admin_panel %}
-                <a href="{% url 'admin:index' %}" class="sidebar-link" target="_blank" rel="noopener noreferrer" data-label="Admin Panel" title="Admin Panel">
+                <a href="{% url 'admin:index' %}" class="sidebar-link" target="_blank" rel="noopener noreferrer"
+                    data-label="Admin Panel" title="Admin Panel">
                     <i class="bi bi-gear"></i><span>Admin Panel</span>
                 </a>
                 {% endif %}
@@ -378,7 +342,9 @@
 
                 {% if user.role == 'ADMIN' or user.role == 'KEPALA' %}
                 <div class="sidebar-section-title">Konfigurasi</div>
-                <a href="{% url 'settings' %}" class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" data-label="Pengaturan" title="Pengaturan">
+                <a href="{% url 'settings' %}"
+                    class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}"
+                    data-label="Pengaturan" title="Pengaturan">
                     <i class="bi bi-sliders"></i><span>Pengaturan</span>
                 </a>
                 {% endif %}
@@ -394,60 +360,74 @@
                         <button class="btn btn-link sidebar-toggle d-lg-none" id="sidebarToggleMobile">
                             <i class="bi bi-list fs-4"></i>
                         </button>
-                        <button class="btn btn-link sidebar-collapse-btn d-none d-lg-flex" id="sidebarCollapseBtn" title="Tampilkan/sembunyikan panel samping">
+                        <button class="btn btn-link sidebar-collapse-btn d-none d-lg-flex" id="sidebarCollapseBtn"
+                            title="Tampilkan/sembunyikan panel samping">
                             <i class="bi bi-layout-sidebar"></i>
                         </button>
 
                         {% if request.resolver_match.app_name == 'distribution' and request.resolver_match.url_name != 'distribution_list' %}
-                        <a href="{% url 'distribution:distribution_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Distribusi">
+                        <a href="{% url 'distribution:distribution_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Distribusi">
                             <i class="bi bi-arrow-left me-1"></i>Distribusi
                         </a>
                         {% elif request.resolver_match.app_name == 'allocation' and request.resolver_match.url_name != 'allocation_list' %}
-                        <a href="{% url 'allocation:allocation_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Alokasi">
+                        <a href="{% url 'allocation:allocation_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Alokasi">
                             <i class="bi bi-arrow-left me-1"></i>Alokasi
                         </a>
                         {% elif request.resolver_match.app_name == 'recall' and request.resolver_match.url_name != 'recall_list' %}
-                        <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Recall / Retur">
+                        <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Recall / Retur">
                             <i class="bi bi-arrow-left me-1"></i>Recall / Retur
                         </a>
                         {% elif request.resolver_match.app_name == 'expired' and request.resolver_match.url_name != 'expired_list' %}
-                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Kedaluwarsa">
+                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Kedaluwarsa">
                             <i class="bi bi-arrow-left me-1"></i>Kedaluwarsa
                         </a>
                         {% elif request.resolver_match.url_name == 'expired_alerts' %}
-                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Kedaluwarsa">
+                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Kedaluwarsa">
                             <i class="bi bi-arrow-left me-1"></i>Kedaluwarsa
                         </a>
                         {% elif request.resolver_match.app_name == 'procurement' and request.resolver_match.url_name != 'contract_list' %}
-                        <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke SPJ / Pengadaan">
+                        <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke SPJ / Pengadaan">
                             <i class="bi bi-arrow-left me-1"></i>SPJ / Pengadaan
                         </a>
                         {% elif request.resolver_match.app_name == 'receiving' and 'receiving_plan_' in request.resolver_match.url_name and request.resolver_match.url_name != 'receiving_plan_list' %}
-                        <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Rencana Penerimaan">
+                        <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Rencana Penerimaan">
                             <i class="bi bi-arrow-left me-1"></i>Rencana Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'receiving' and request.resolver_match.url_name != 'receiving_list' %}
-                        <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Buat Penerimaan">
+                        <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Buat Penerimaan">
                             <i class="bi bi-arrow-left me-1"></i>Buat Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'stock' and request.resolver_match.url_name == 'transfer_create' or request.resolver_match.app_name == 'stock' and request.resolver_match.url_name == 'transfer_detail' or request.resolver_match.app_name == 'stock' and request.resolver_match.url_name == 'transfer_complete' %}
-                        <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Mutasi Lokasi">
+                        <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Mutasi Lokasi">
                             <i class="bi bi-arrow-left me-1"></i>Mutasi Lokasi
                         </a>
                         {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' and request.resolver_match.url_name != 'receiving_list' %}
-                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Konfirmasi Penerimaan">
+                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Konfirmasi Penerimaan">
                             <i class="bi bi-arrow-left me-1"></i>Konfirmasi Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' and request.resolver_match.url_name != 'request_list' %}
-                        <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Permintaan Puskesmas">
+                        <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Permintaan Puskesmas">
                             <i class="bi bi-arrow-left me-1"></i>Permintaan Puskesmas
                         </a>
                         {% elif request.resolver_match.app_name == 'lplpo' and request.resolver_match.url_name != 'lplpo_list' %}
-                        <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke LPLPO">
+                        <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke LPLPO">
                             <i class="bi bi-arrow-left me-1"></i>LPLPO
                         </a>
                         {% elif request.resolver_match.app_name == 'users' and request.resolver_match.url_name != 'user_list' %}
-                        <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm" title="Kembali ke Manajemen Pengguna">
+                        <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Manajemen Pengguna">
                             <i class="bi bi-arrow-left me-1"></i>Manajemen Pengguna
                         </a>
                         {% endif %}
@@ -461,16 +441,20 @@
                         {% if user.is_authenticated %}
                         {% if user.role != 'PUSKESMAS' or nav_notification_count > 0 %}
                         <div class="dropdown">
-                            <button class="btn btn-link position-relative p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifikasi aktivitas" aria-label="Notifikasi">
+                            <button class="btn btn-link position-relative p-1" type="button" data-bs-toggle="dropdown"
+                                aria-expanded="false" title="Notifikasi aktivitas" aria-label="Notifikasi">
                                 <i class="bi bi-bell fs-5"></i>
                                 {% if nav_notification_count > 0 %}
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem; min-width: 1.2rem;">
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                    style="font-size:0.6rem; min-width: 1.2rem;">
                                     {{ nav_notification_count }}
                                     <span class="visually-hidden">aktivitas perlu diperiksa</span>
                                 </span>
                                 {% endif %}
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-0 overflow-hidden" style="width: 320px; max-width: calc(100vw - 2rem);">
+                            <div class="dropdown-menu dropdown-menu-end p-0 overflow-hidden"
+                                style="width: 320px; max-width: calc(100vw - 2rem);">
                                 <div class="px-3 py-2 border-bottom text-center text-muted small">
                                     {% if nav_notification_count > 0 %}
                                     {{ nav_notification_count }} aktivitas perlu diperiksa
@@ -479,22 +463,24 @@
                                     {% endif %}
                                 </div>
                                 {% if nav_notification_items %}
-                                    {% for item in nav_notification_items %}
-                                    <a href="{{ item.url }}" class="dropdown-item d-flex align-items-center justify-content-between gap-3 py-3 px-3">
-                                        <span class="d-flex align-items-center gap-2 min-w-0">
-                                            <i class="bi {{ item.icon }} text-primary"></i>
-                                            <span class="small text-wrap">{{ item.label }}</span>
-                                        </span>
-                                        <span class="text-muted small">{{ item.count }}</span>
-                                    </a>
-                                    {% endfor %}
+                                {% for item in nav_notification_items %}
+                                <a href="{{ item.url }}"
+                                    class="dropdown-item d-flex align-items-center justify-content-between gap-3 py-3 px-3">
+                                    <span class="d-flex align-items-center gap-2 min-w-0">
+                                        <i class="bi {{ item.icon }} text-primary"></i>
+                                        <span class="small text-wrap">{{ item.label }}</span>
+                                    </span>
+                                    <span class="text-muted small">{{ item.count }}</span>
+                                </a>
+                                {% endfor %}
                                 {% else %}
                                 <div class="px-3 py-3 text-center text-muted small">
                                     Semua modul sedang bersih.
                                 </div>
                                 {% endif %}
                                 <div class="border-top text-center">
-                                    <a href="{% url 'dashboard' %}" class="dropdown-item py-2 small text-primary">Lihat Dashboard</a>
+                                    <a href="{% url 'dashboard' %}" class="dropdown-item py-2 small text-primary">Lihat
+                                        Dashboard</a>
                                 </div>
                             </div>
                         </div>
@@ -540,14 +526,12 @@
                 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
                     {% for message in messages %}
                     <div class="toast flash-toast show text-bg-{% if 'error' in message.tags %}danger{% elif 'success' in message.tags %}success{% elif 'warning' in message.tags %}warning{% elif 'info' in message.tags %}info{% else %}primary{% endif %} border-0"
-                        role="alert"
-                        aria-live="assertive"
-                        aria-atomic="true"
-                        data-bs-autohide="true"
+                        role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true"
                         data-bs-delay="4500">
                         <div class="d-flex align-items-center">
                             <div class="toast-body">{{ message }}</div>
-                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                                aria-label="Close"></button>
                         </div>
                     </div>
                     {% endfor %}
@@ -576,4 +560,3 @@
 </body>
 
 </html>
-
