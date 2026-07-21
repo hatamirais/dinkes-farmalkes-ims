@@ -2926,6 +2926,51 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(report_data[0]["stock_keseluruhan"], 60)
 		self.assertEqual(response.context["period_label"], "Triwulan II")
 
+	def test_persediaan_admin_all_facilities_aggregates_same_item_rows(self):
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		lplpo_own = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_own,
+			item=self.item,
+			stock_awal=50,
+			penerimaan=20,
+			pemakaian=10,
+		)
+
+		lplpo_other = LPLPO.objects.create(
+			facility=self.other_facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=lplpo_other,
+			item=self.item,
+			stock_awal=30,
+			penerimaan=5,
+			pemakaian=3,
+		)
+
+		self.client.force_login(self.admin)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"),
+			{"year": "2026", "period": "q2"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		report_data = response.context["report_data"]
+		self.assertEqual(len(report_data), 1)
+		self.assertEqual(report_data[0]["nama_barang"], self.item.nama_barang)
+		self.assertEqual(report_data[0]["stock_keseluruhan"], 92)
+
 	def test_persediaan_period_filter_uses_period_end_month(self):
 		from apps.lplpo.models import LPLPO, LPLPOItem
 
@@ -2969,6 +3014,115 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["period_label"], "Triwulan I")
 		self.assertEqual(response.context["report_data"][0]["stock_keseluruhan"], 13)
+
+	def test_persediaan_uses_confirmed_receipts_and_detailed_consumption_after_lplpo_baseline(self):
+		from datetime import date as dt
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		baseline = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=3,
+			tahun=2026,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.admin,
+		)
+		LPLPOItem.objects.create(
+			lplpo=baseline,
+			item=self.item,
+			stock_awal=20,
+			penerimaan=0,
+			pemakaian=5,
+		)
+		april_receipt = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date=dt(2026, 4, 10),
+			status=PuskesmasSBBK.ReceiptStatus.CONFIRMED,
+			created_by=self.admin,
+		)
+		PuskesmasSBBKItem.objects.create(
+			sbbk=april_receipt,
+			item=self.item,
+			quantity=Decimal("7"),
+			unit_price=Decimal("1000"),
+			batch_lot="PKM-RCV-001",
+		)
+		draft_receipt = PuskesmasSBBK.objects.create(
+			facility=self.facility,
+			received_date=dt(2026, 5, 10),
+			status=PuskesmasSBBK.ReceiptStatus.DRAFT,
+			created_by=self.admin,
+		)
+		PuskesmasSBBKItem.objects.create(
+			sbbk=draft_receipt,
+			item=self.item,
+			quantity=Decimal("99"),
+			unit_price=Decimal("1000"),
+			batch_lot="PKM-DRAFT",
+		)
+		subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Umum",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		may_consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=5,
+			tahun=2026,
+			created_by=self.admin,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=may_consumption,
+			item=self.item,
+			subunit=subunit,
+			quantity=4,
+		)
+		baseline_month_consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=3,
+			tahun=2026,
+			created_by=self.admin,
+		)
+		PuskesmasConsumptionEntry.objects.create(
+			consumption=baseline_month_consumption,
+			item=self.item,
+			subunit=subunit,
+			quantity=50,
+		)
+
+		self.client.force_login(self.report_operator)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"),
+			{"year": "2026", "period": "s1"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["period_label"], "Semester I")
+		self.assertEqual(len(response.context["report_data"]), 1)
+		self.assertEqual(response.context["report_data"][0]["stock_keseluruhan"], 18)
+
+	def test_persediaan_does_not_use_distribution_fallback_without_lplpo_baseline(self):
+		from datetime import date as dt
+
+		distribution = self._make_distribution(
+			self.facility,
+			Distribution.Status.DISTRIBUTED,
+			distributed_date=dt(2026, 4, 10),
+		)
+		DistributionItem.objects.create(
+			distribution=distribution,
+			item=self.item,
+			quantity_requested=Decimal("12"),
+			quantity_approved=Decimal("12"),
+		)
+
+		self.client.force_login(self.report_operator)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"),
+			{"year": "2026", "period": "q2"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["report_data"], [])
 
 	def test_rekap_persediaan_aggregates_asset_valuation_by_category(self):
 		from apps.lplpo.models import LPLPO, LPLPOItem
