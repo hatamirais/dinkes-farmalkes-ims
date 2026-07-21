@@ -114,6 +114,7 @@ Special rule:
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
 - `/settings/` is an explicit role-gated exception outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update system settings.
 - Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
+- `AUDITOR` retains read-only module scopes for direct authorized pages, but the global sidebar renders only the `Laporan` group for this role and the dashboard suppresses linked drill-through cards/sections that open operational menus.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
 

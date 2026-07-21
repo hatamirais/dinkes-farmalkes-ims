@@ -840,6 +840,53 @@ class DashboardViewTests(TestCase):
         self.assertNotContains(response, "Input Pemakaian")
         self.assertNotContains(response, "Permintaan Barang")
 
+    def test_auditor_sidebar_only_shows_reports_group(self):
+        auditor = User.objects.create_user(
+            username="auditor-sidebar",
+            password="TestPassword123!",
+            role=User.Role.AUDITOR,
+        )
+
+        self.client.force_login(auditor)
+        response = self.client.get(reverse("password_change"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<div class="sidebar-section-title">Laporan</div>', html=False)
+        self.assertContains(response, 'href="/reports/"', html=False)
+        self.assertContains(response, 'href="/reports/riwayat-penomoran/"', html=False)
+        self.assertNotContains(response, '<div class="sidebar-section-title">Menu Utama</div>', html=False)
+        self.assertNotContains(response, '<div class="sidebar-section-title">Master Data</div>', html=False)
+        self.assertNotContains(response, '<div class="sidebar-section-title">Transaksi</div>', html=False)
+        self.assertNotContains(response, '<div class="sidebar-section-title">Transaksi Stok</div>', html=False)
+        self.assertNotContains(response, '<div class="sidebar-section-title">Administrasi</div>', html=False)
+        self.assertNotContains(response, '<div class="sidebar-section-title">Konfigurasi</div>', html=False)
+        self.assertNotContains(response, 'href="/stock/"', html=False)
+        self.assertNotContains(response, 'href="/receiving/"', html=False)
+        self.assertNotContains(response, 'href="/distribution/"', html=False)
+
+    def test_auditor_dashboard_hides_linked_drill_through_sections(self):
+        auditor = User.objects.create_user(
+            username="auditor-dashboard",
+            password="TestPassword123!",
+            role=User.Role.AUDITOR,
+        )
+
+        self.client.force_login(auditor)
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Total Jenis Barang")
+        self.assertContains(response, "Total Stok Aktif")
+        self.assertContains(response, "Total Kuantitas Tersedia")
+        self.assertContains(response, "Estimasi Nilai Stok")
+        self.assertContains(response, "Transaksi Hari Ini")
+        self.assertNotContains(response, "Pergerakan Stok")
+        self.assertNotContains(response, "Transaksi Terakhir")
+        self.assertNotContains(response, "Aksi Cepat")
+        self.assertNotContains(response, "Mendekati Kedaluwarsa")
+        self.assertNotContains(response, 'href="/stock/transactions/"', html=False)
+        self.assertNotContains(response, 'href="/expired/alerts/?level=all&amp;pending=1"', html=False)
+
     def test_superuser_dashboard_keeps_puskesmas_sidebar_visible(self):
         admin_user = User.objects.create_superuser(
             username="dashboard-admin-puskesmas",

@@ -136,6 +136,7 @@
     </div>
 </div>
 
+{% if show_linked_dashboard_sections %}
 <div class="row g-3 mb-4">
     <div class="{% if has_quick_actions %}col-lg-8{% else %}col-lg-12{% endif %}">
         <div class="card content-card h-100 position-relative">
@@ -214,7 +215,9 @@
     </div>
     {% endif %}
 </div>
+{% endif %}
 
+{% if show_linked_dashboard_sections %}
 <div class="row g-3">
     <!-- Recent Transactions -->
     <div class="{% if show_expiring_metrics %}col-lg-8{% else %}col-lg-12{% endif %}">
@@ -307,4 +310,5 @@
     </div>
     {% endif %}
 </div>
+{% endif %}
 {% endblock %}

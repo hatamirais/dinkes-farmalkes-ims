@@ -21,6 +21,7 @@ def access_flags(request):
             "can_view_puskesmas": False,
             "can_view_lplpo": False,
             "is_super_admin_user": False,
+            "is_auditor_user": False,
         }
 
     is_super_admin_user = is_super_admin(user)
@@ -75,4 +76,5 @@ def access_flags(request):
         )
         and has_linked_puskesmas_facility,
         "is_super_admin_user": is_super_admin_user,
+        "is_auditor_user": getattr(user, "role", None) == "AUDITOR",
     }

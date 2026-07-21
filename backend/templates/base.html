@@ -41,6 +41,7 @@
             </div>
 
             <div class="sidebar-nav">
+                {% if not is_auditor_user %}
                 <div class="sidebar-section-title">Menu Utama</div>
                 <a href="{% url 'dashboard' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
@@ -269,6 +270,7 @@
                 {% endif %}
                 {% endif %}
 
+                {% endif %}
 
                 {% if can_view_reports %}
                 <div class="sidebar-section-title">Laporan</div>
@@ -320,6 +322,7 @@
                 </div>
                 {% endif %}
 
+                {% if not is_auditor_user %}
                 {% if can_view_user_management or can_open_admin_panel %}
                 <div class="sidebar-section-title">Administrasi</div>
                 {% if can_view_user_management %}
@@ -343,6 +346,7 @@
                     data-label="Pengaturan" title="Pengaturan">
                     <i class="bi bi-sliders"></i><span>Pengaturan</span>
                 </a>
+                {% endif %}
                 {% endif %}
             </div>
         </nav>
