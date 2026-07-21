@@ -33,8 +33,6 @@ Root route include map from `backend/config/urls.py`:
 - `/login/`, `/logout/`, `/password/change/`, `/password/change/done/`
   - `/password/change/` uses a rate-limited subclass of Django's `PasswordChangeView`
 - `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
-- `/administration/history/receiving/` -> placeholder riwayat penerimaan administrasi (`apps.core.views.administration_receiving_history`)
-- `/administration/history/distribution/` -> placeholder riwayat pengeluaran administrasi (`apps.core.views.administration_distribution_history`)
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
 - `/users/`, `/items/`, `/stock/`, `/receiving/`, `/procurement/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
 

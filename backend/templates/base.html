@@ -329,19 +329,8 @@
                     <i class="bi bi-people"></i><span>Manajemen Pengguna</span>
                 </a>
                 {% endif %}
-                <a href="{% url 'administration_receiving_history' %}"
-                    class="sidebar-link {% if request.resolver_match.url_name == 'administration_receiving_history' %}active{% endif %}"
-                    data-label="Riwayat Penerimaan" title="Riwayat Penerimaan">
-                    <i class="bi bi-inbox"></i><span>Riwayat Penerimaan</span>
-                </a>
-                <a href="{% url 'administration_distribution_history' %}"
-                    class="sidebar-link {% if request.resolver_match.url_name == 'administration_distribution_history' %}active{% endif %}"
-                    data-label="Riwayat Pengeluaran" title="Riwayat Pengeluaran">
-                    <i class="bi bi-send-check"></i><span>Riwayat Pengeluaran</span>
-                </a>
                 {% if can_open_admin_panel %}
-                <a href="{% url 'admin:index' %}" class="sidebar-link" target="_blank" rel="noopener noreferrer"
-                    data-label="Admin Panel" title="Admin Panel">
+                <a href="{% url 'admin:index' %}" class="sidebar-link" target="_blank" rel="noopener noreferrer" data-label="Admin Panel" title="Admin Panel">
                     <i class="bi bi-gear"></i><span>Admin Panel</span>
                 </a>
                 {% endif %}

@@ -7,8 +7,6 @@ from django.contrib.auth import views as auth_views
 from apps.users.views import RateLimitedPasswordChangeView
 from apps.core.views import (
     SystemSettingsUpdateView,
-    administration_distribution_history,
-    administration_receiving_history,
     bad_request,
     dashboard,
     debug_page_not_found,
@@ -22,16 +20,6 @@ urlpatterns = [
     # Dashboard (root)
     path("", dashboard, name="dashboard"),
     path("settings/", SystemSettingsUpdateView.as_view(), name="settings"),
-    path(
-        "administration/history/receiving/",
-        administration_receiving_history,
-        name="administration_receiving_history",
-    ),
-    path(
-        "administration/history/distribution/",
-        administration_distribution_history,
-        name="administration_distribution_history",
-    ),
     path("maintenance/", maintenance_mode, name="maintenance_mode"),
 
     # Auth

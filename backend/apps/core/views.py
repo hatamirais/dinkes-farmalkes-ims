@@ -383,52 +383,6 @@ def _can_access_administration_history(user):
     )
 
 
-@login_required
-def administration_receiving_history(request):
-    if not _can_access_administration_history(request.user):
-        raise PermissionDenied
-
-    return render(
-        request,
-        "core/document_history_placeholder.html",
-        {
-            "page_title": "Riwayat Penerimaan Administrasi",
-            "title": "Riwayat Penerimaan",
-            "history_scope": "Penerimaan",
-            "source_url": reverse_lazy("receiving:receiving_list"),
-            "source_label": "Buka daftar penerimaan aktif",
-            "next_focus": [
-                "Pisahkan histori dokumen dari halaman transaksi operasional.",
-                "Tambahkan filter nomor dokumen, status, sumber dana, dan rentang tanggal.",
-                "Siapkan ekspor dan print layout yang mengikuti pola laporan lain.",
-            ],
-        },
-    )
-
-
-@login_required
-def administration_distribution_history(request):
-    if not _can_access_administration_history(request.user):
-        raise PermissionDenied
-
-    return render(
-        request,
-        "core/document_history_placeholder.html",
-        {
-            "page_title": "Riwayat Pengeluaran Administrasi",
-            "title": "Riwayat Pengeluaran",
-            "history_scope": "Pengeluaran",
-            "source_url": reverse_lazy("distribution:distribution_list"),
-            "source_label": "Buka daftar pengeluaran aktif",
-            "next_focus": [
-                "Pisahkan riwayat distribusi operasional dari arsip administrasi final.",
-                "Tambahkan filter tipe dokumen, fasilitas, dan status distribusi.",
-                "Sambungkan ke format cetak dan ekspor yang konsisten dengan modul laporan.",
-            ],
-        },
-    )
-
-
 class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = SystemSettings
     form_class = SystemSettingsForm

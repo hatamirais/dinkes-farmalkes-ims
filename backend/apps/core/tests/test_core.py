@@ -1060,56 +1060,6 @@ class SystemSettingsAccessTests(TestCase):
         self.assertIn("logo", payload["errors"])
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
-class AdministrationHistoryAccessTests(TestCase):
-    def test_anonymous_user_is_redirected_to_login(self):
-        response = self.client.get(reverse("administration_receiving_history"))
-
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/login/", response.url)
-
-    def test_non_admin_user_is_denied_access(self):
-        user = User.objects.create_user(
-            username="admin-history-operator",
-            password="TestPassword123!",
-            role=User.Role.ADMIN_UMUM,
-        )
-        self.client.force_login(user)
-
-        response = self.client.get(reverse("administration_receiving_history"))
-
-        self.assertEqual(response.status_code, 403)
-
-    def test_admin_user_can_open_receiving_history_placeholder(self):
-        user = User.objects.create_superuser(
-            username="admin-history-admin",
-            email="admin-history-admin@example.com",
-            password="TestPassword123!",
-        )
-        self.client.force_login(user)
-
-        response = self.client.get(reverse("administration_receiving_history"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Riwayat Penerimaan")
-        self.assertContains(response, "MVP Placeholder")
-        self.assertContains(response, reverse("receiving:receiving_list"))
-
-    def test_admin_user_can_open_distribution_history_placeholder(self):
-        user = User.objects.create_superuser(
-            username="admin-history-dist-admin",
-            email="admin-history-dist-admin@example.com",
-            password="TestPassword123!",
-        )
-        self.client.force_login(user)
-
-        response = self.client.get(reverse("administration_distribution_history"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Riwayat Pengeluaran")
-        self.assertContains(response, reverse("distribution:distribution_list"))
-
-
 class ErrorHandlerTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
