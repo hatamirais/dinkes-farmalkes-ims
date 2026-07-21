@@ -7,6 +7,10 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Removed
+
+- Removed the unfinished `Administrasi` placeholder pages for `Riwayat Penerimaan` and `Riwayat Pengeluaran`; users should use the implemented operational screens and `Laporan` module instead.
+
 ## [1.28.0] - 2026-07-13
 
 ### Added
