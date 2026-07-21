@@ -2250,7 +2250,7 @@ def puskesmas_report_persediaan(request):
         if latest_lplpo_ids:
             lplpo_items = (
                 LPLPOItem.objects.filter(lplpo_id__in=latest_lplpo_ids)
-                .select_related("item", "item__satuan", "item__kategori")
+                .select_related("lplpo", "item", "item__satuan", "item__kategori")
                 .order_by()
             )
             for li in lplpo_items:
