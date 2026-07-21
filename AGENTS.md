@@ -96,6 +96,7 @@ Default scopes per role are defined in `backend/apps/users/access.py`.
 - Super Admin (`is_superuser` / role `ADMIN`) remains exempt from `puskesmas` and `lplpo` facility scoping. `lplpo` also grants limited stage-gated cross-facility access to Instalasi Farmasi roles: `GUDANG` for active warehouse processing states and `KEPALA` for the legacy `REVIEWED/finalize` compatibility path plus historical read-only states.
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback). Superusers may query all facilities; any non-superuser user is forced to their linked `facility` on those report querysets and receives `403` when no facility is linked.
 - `/settings/` is not governed by module-scope fallback. It is an explicit role-gated `core` view that allows only superusers plus users whose role is `ADMIN` or `KEPALA`.
+- `AUDITOR` keeps read-only module scopes for direct authorized pages, but its sidebar is intentionally report-focused and only renders the `Laporan` group. Its dashboard hides linked drill-through components that open operational menu pages, leaving non-linked summary KPIs visible.
 
 ## Workflow and Data Mutation Rules
 

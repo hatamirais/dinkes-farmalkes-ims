@@ -238,9 +238,10 @@ def dashboard(request):
         request.user, ModuleAccess.Module.STOCK, ModuleAccess.Scope.OPERATE
     )
     can_view_transaction_user = _can_access_administration_history(request.user)
+    show_linked_dashboard_sections = request.user.role != User.Role.AUDITOR
     has_quick_actions = any(
         [can_create_receiving, can_create_distribution, can_create_transfer]
-    )
+    ) and show_linked_dashboard_sections
 
     today = timezone.now().date()
     three_months_later = today + timedelta(days=90)
@@ -287,7 +288,7 @@ def dashboard(request):
     # Expiring soon: stock entries expiring within 3 months
     expiring_soon = []
     expiring_soon_count = None
-    if can_view_expired:
+    if can_view_expired and show_linked_dashboard_sections:
         expiring_soon_queryset = stock_queryset.filter(
             expiry_date__gte=today,
             expiry_date__lte=three_months_later,
@@ -354,7 +355,8 @@ def dashboard(request):
             "expiring_soon_count": expiring_soon_count,
             "expiring_soon": expiring_soon,
             "show_items_metrics": can_view_items,
-            "show_expiring_metrics": can_view_expired,
+            "show_expiring_metrics": can_view_expired and show_linked_dashboard_sections,
+            "show_linked_dashboard_sections": show_linked_dashboard_sections,
             "show_receiving_quick_action": can_create_receiving,
             "show_distribution_quick_action": can_create_distribution,
             "show_transfer_quick_action": can_create_transfer,
