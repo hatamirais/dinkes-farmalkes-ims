@@ -7,6 +7,34 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-07-22
+
+### Added
+
+- Puskesmas: new read-only stock self-check page for operators that compares the latest usable LPLPO digital stock against the same document's recorded physical warehouse stock without mutating inventory.
+- Receiving admin: new CSV template download alongside the admin CSV import flow, making the supported import format easier to follow operationally.
+- Items: optional unique `barcode` support on the item catalog, preserved through legacy import paths for future scanner-oriented workflows.
+- Auditability: added `django-auditlog` object history for selected critical models and row-by-row audit coverage for user bulk active/inactive status changes.
+- Playwright: expanded local multi-role browser support to cover all six operational roles, with updated helper configuration and docs for local regression and manual workflow checks.
+
+### Changed
+
+- Procurement/SPJ: contract and amendment workflows were completed and tightened, including contract-aware amendment management, scoped amendment numbering using `{SPJ}-A{seq}`, quick-create supplier/funding-source flows, and explicit approval gating so `GUDANG` can operate procurement documents but cannot approve them.
+- Receiving/procurement coordination: SPJ-linked planned receiving leftovers must now be corrected through procurement amendments rather than receiving-side close-items actions, while procurement-linked execution documents continue to auto-sync from approved contracts or amendments.
+- Distribution workflow: assigned warehouse staff can now fulfill standalone distributions directly, while generated LPLPO return-to-Puskesmas actions and step-back visibility follow the same assignee/fallback and role-gated authorization rules more strictly.
+- Puskesmas/LPLPO reporting: `Rincian Persediaan` and related LPLPO-backed stock reporting now align around the same LPLPO baseline plus confirmed receipts and detailed consumption, with better query efficiency and more consistent facility aggregation.
+- Navigation/UI: `Distribusi` was renamed to `Riwayat Distribusi` in the user-facing navigation, auditor navigation was reduced to a report-focused surface, admin history placeholders were removed, and Puskesmas/LPLPO sidebar visibility was tightened to match actual role policy.
+- Core/settings access: `/settings/` is now explicitly limited to superusers plus `ADMIN` and `KEPALA`, and the dashboard/sidebar facility-linked navigation rules were aligned with that policy.
+
+### Fixed
+
+- Procurement: clarified amendment contract context, restored contract-line and amendment-line dynamic form controls, reserved suffix space for manual SPJ numbers, and limited manual SPJ numbers so amendment suffixes still fit safely.
+- Receiving: hardened admin CSV import validation, rejected malformed or unsupported CSV rows earlier, and improved planned receiving detail behavior for SPJ-linked leftovers.
+- Distribution/LPLPO: corrected generated LPLPO return actions, queue ordering and created-date presentation, and ensured role-based action visibility no longer exposes invalid revert/step-back paths.
+- Expired workflow: allowed `GUDANG` users with the correct expired operate scope to finalize already verified disposal documents, while keeping approval and posting logic restricted appropriately.
+- Puskesmas reports: fixed all-facility persediaan aggregation, preserved zero-valued category ordering, and eager-loaded LPLPO-backed report rows to avoid unnecessary query churn.
+- Security/UI hardening: refreshed Playwright/session handling to avoid stale Puskesmas auth state, tightened public navigation exposure, and kept delete/redirect flows aligned with the latest hardened role rules.
+
 ### Removed
 
 - Removed the unfinished `Administrasi` placeholder pages for `Riwayat Penerimaan` and `Riwayat Pengeluaran`; users should use the implemented operational screens and `Laporan` module instead.
