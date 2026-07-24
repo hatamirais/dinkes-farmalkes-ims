@@ -1,10 +1,51 @@
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm
+
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
+
 from .models import SystemSettings
 from .upload_validation import validate_image_upload
 
 
 REQUIRED_NUMBERING_TOKENS = ("{seq}", "{year}")
 LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024
+
+
+class CrispyAuthenticationForm(AuthenticationForm):
+    """AuthenticationForm rendered through crispy-forms on the login page."""
+
+    def __init__(self, request=None, *args, **kwargs):
+        super().__init__(request=request, *args, **kwargs)
+        self.fields["username"].label = "Nama Pengguna"
+        self.fields["username"].widget.attrs.update(
+            {
+                "autocomplete": "username",
+                "autofocus": True,
+                "class": "form-control form-control-lg",
+                "placeholder": "Masukkan username",
+            }
+        )
+        self.fields["password"].label = "Kata Sandi"
+        self.fields["password"].help_text = (
+            "Minimal 10 karakter sesuai kebijakan sistem"
+        )
+        self.fields["password"].widget.attrs.update(
+            {
+                "autocomplete": "current-password",
+                "class": "form-control form-control-lg",
+                "placeholder": "Masukkan kata sandi",
+            }
+        )
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+        self.helper.layout = Layout(
+            Field("username", wrapper_class="auth-field-group"),
+            Field("password", wrapper_class="auth-field-group"),
+        )
+
 
 class SystemSettingsForm(forms.ModelForm):
     class Meta:

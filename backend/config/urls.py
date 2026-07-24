@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 
+from apps.core.forms import CrispyAuthenticationForm
 from apps.users.views import RateLimitedPasswordChangeView
 from apps.core.views import (
     SystemSettingsUpdateView,
@@ -23,7 +24,11 @@ urlpatterns = [
     path("maintenance/", maintenance_mode, name="maintenance_mode"),
 
     # Auth
-    path("login/", auth_views.LoginView.as_view(), name="login"),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(authentication_form=CrispyAuthenticationForm),
+        name="login",
+    ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     # Password change
     path(

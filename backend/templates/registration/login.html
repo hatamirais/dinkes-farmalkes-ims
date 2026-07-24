@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load crispy_forms_tags %}
 {% load number_format %}
 
 {% block title %}Masuk — Healthcare IMS{% endblock %}
@@ -82,45 +82,7 @@
 
                 <form method="post" action="{% url 'login' %}" class="auth-form">
                     {% csrf_token %}
-                    <div class="auth-field-group">
-                        <label for="id_username" class="form-label">Nama Pengguna</label>
-                        <div class="auth-input-wrap">
-                            <span class="auth-input-icon"><i class="bi bi-person"></i></span>
-                            <input
-                                type="text"
-                                name="username"
-                                id="id_username"
-                                class="form-control form-control-lg"
-                                placeholder="Masukkan username"
-                                value="{{ form.username.value|default:'' }}"
-                                autocomplete="username"
-                                autofocus
-                                required
-                            >
-                        </div>
-                    </div>
-
-                    <div class="auth-field-group">
-                        <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
-                            <label for="id_password" class="form-label mb-0">Kata Sandi</label>
-                            <span class="auth-field-hint">Minimal 10 karakter sesuai kebijakan sistem</span>
-                        </div>
-                        <div class="auth-input-wrap auth-input-wrap-password">
-                            <span class="auth-input-icon"><i class="bi bi-key"></i></span>
-                            <input
-                                type="password"
-                                name="password"
-                                id="id_password"
-                                class="form-control form-control-lg"
-                                placeholder="Masukkan kata sandi"
-                                autocomplete="current-password"
-                                required
-                            >
-                            <button class="auth-password-toggle" type="button" id="togglePassword" tabindex="-1" aria-label="Tampilkan kata sandi" aria-pressed="false">
-                                <i class="bi bi-eye-slash"></i>
-                            </button>
-                        </div>
-                    </div>
+                    {% crispy form %}
 
                     <div class="auth-support-row">
                         <div class="auth-support-note">
@@ -150,8 +112,4 @@
         </div>
     </div>
 </section>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'js/login.js' %}"></script>
 {% endblock %}

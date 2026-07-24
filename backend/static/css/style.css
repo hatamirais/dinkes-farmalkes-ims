@@ -1156,50 +1156,12 @@ body {
     color: #64748b;
 }
 
-.auth-input-wrap {
-    position: relative;
-}
-
-.auth-input-icon {
-    position: absolute;
-    top: 50%;
-    left: 16px;
-    transform: translateY(-50%);
-    color: #64748b;
-    pointer-events: none;
-}
-
-.auth-input-wrap .form-control {
+.auth-form .form-control {
     min-height: 60px;
-    padding-left: 48px;
     padding-right: 18px;
     border-radius: 18px;
     border-color: rgba(148, 163, 184, 0.4);
     background: rgba(255, 255, 255, 0.86);
-}
-
-.auth-input-wrap-password .form-control {
-    padding-right: 56px;
-}
-
-.auth-password-toggle {
-    position: absolute;
-    top: 50%;
-    right: 12px;
-    transform: translateY(-50%);
-    width: 42px;
-    height: 42px;
-    border: none;
-    border-radius: 14px;
-    background: transparent;
-    color: #64748b;
-    transition: background 0.2s ease, color 0.2s ease;
-}
-
-.auth-password-toggle:hover,
-.auth-password-toggle:focus {
-    background: rgba(79, 140, 255, 0.08);
-    color: var(--primary);
 }
 
 .auth-support-row {
