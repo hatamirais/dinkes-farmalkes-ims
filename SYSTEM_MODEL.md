@@ -31,6 +31,7 @@ Root route include map from `backend/config/urls.py`:
 - `/` -> dashboard (`apps.core.views.dashboard`)
 - `/admin/` -> Django admin, including the `django-auditlog` `LogEntry` webview for authorized staff/admin users
 - `/login/`, `/logout/`, `/password/change/`, `/password/change/done/`
+  - `/login/` uses Django `LoginView` with `apps.core.forms.CrispyAuthenticationForm`, a crispy-backed subclass of Django `AuthenticationForm`
   - `/password/change/` uses a rate-limited subclass of Django's `PasswordChangeView`
 - `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)

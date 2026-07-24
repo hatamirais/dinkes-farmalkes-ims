@@ -7,12 +7,17 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Changed
+
+- Login page rendering now uses a crispy-backed Django `AuthenticationForm` instead of duplicating username/password inputs in the template.
+
 ### Security
 
 - Authentication and centralized error audit logs now ignore spoofed `X-Forwarded-For` headers unless the immediate peer is explicitly trusted through `AUTH_AUDIT_TRUSTED_PROXIES`.
 
 ### Tests
 
+- Added regression coverage for crispy login form rendering, failed-login form errors, safe `next` redirects, and unsafe external `next` fallback behavior.
 - Added regression coverage for login success/failure audit IP logging with default `REMOTE_ADDR`, spoofed forwarded headers, trusted proxy forwarding, and malformed forwarded chains.
 
 ### Documentation

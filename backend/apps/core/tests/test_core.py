@@ -26,6 +26,7 @@ from apps.core.admin_mixins import ImportGuideMixin
 from apps.core.context_processors import nav_notifications
 from apps.core.csv_exports import SanitizedCSV, escape_csv_formula
 from apps.core.forms import SystemSettingsForm
+from apps.core.forms import CrispyAuthenticationForm
 from apps.core.models import SystemSettings
 from apps.core.xlsx_exports import escape_xlsx_formula
 from apps.core.templatetags.number_format import safe_media_url
@@ -928,6 +929,75 @@ class ErrorPageTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "registration/login.html")
         self.assertContains(response, "<form", status_code=200)
+        self.assertIsInstance(response.context["form"], CrispyAuthenticationForm)
+        self.assertContains(response, 'autocomplete="username"', status_code=200)
+        self.assertContains(response, 'autocomplete="current-password"', status_code=200)
+        self.assertContains(response, 'name="next"', status_code=200)
+
+    def test_failed_login_renders_bound_form_errors_without_user_enumeration(self):
+        user = User.objects.create_user(
+            username="login-form-user",
+            password="TestPassword123!",
+        )
+
+        known_response = self.client.post(
+            reverse("login"),
+            {"username": user.username, "password": "WrongPassword123!"},
+        )
+        unknown_response = self.client.post(
+            reverse("login"),
+            {"username": "missing-login-user", "password": "WrongPassword123!"},
+        )
+
+        self.assertEqual(known_response.status_code, 200)
+        self.assertEqual(unknown_response.status_code, 200)
+        self.assertTemplateUsed(known_response, "registration/login.html")
+        self.assertContains(known_response, "Autentikasi gagal.", status_code=200)
+        self.assertTrue(known_response.context["form"].non_field_errors())
+        self.assertEqual(
+            list(known_response.context["form"].non_field_errors()),
+            list(unknown_response.context["form"].non_field_errors()),
+        )
+        self.assertNotContains(known_response, "tidak ditemukan")
+        self.assertNotContains(unknown_response, "tidak ditemukan")
+
+    def test_successful_login_redirects_to_safe_next_value(self):
+        User.objects.create_user(
+            username="login-safe-next",
+            password="TestPassword123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": "login-safe-next",
+                "password": "TestPassword123!",
+                "next": reverse("items:item_list"),
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("items:item_list"),
+            fetch_redirect_response=False,
+        )
+
+    def test_successful_login_rejects_external_next_value(self):
+        User.objects.create_user(
+            username="login-unsafe-next",
+            password="TestPassword123!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": "login-unsafe-next",
+                "password": "TestPassword123!",
+                "next": "https://evil.example/phish/",
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard"))
 
     def test_404_page_renders_back_and_fallback_actions(self):
         response = self.client.get("/halaman-yang-tidak-ada/")
