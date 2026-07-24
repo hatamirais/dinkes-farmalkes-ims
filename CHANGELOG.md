@@ -7,6 +7,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.29.3] - 2026-07-24
+
 ### Changed
 
 - Login page rendering now uses a crispy-backed Django `AuthenticationForm` instead of duplicating username/password inputs in the template.
