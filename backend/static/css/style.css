@@ -909,6 +909,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 28px 60px rgba(15, 23, 42, 0.24);
     backdrop-filter: blur(16px);
+    align-items: center;
 }
 
 .auth-showcase::before {
@@ -953,6 +954,33 @@ body {
     color: #fff;
 }
 
+.auth-card-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.auth-brand-mark-card {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    flex: 0 0 auto;
+    background: rgba(79, 140, 255, 0.12);
+    border-color: rgba(79, 140, 255, 0.2);
+    box-shadow: none;
+}
+
+.auth-brand-mark-card img {
+    max-width: 36px;
+    max-height: 36px;
+}
+
+.auth-brand-mark-card i {
+    color: var(--auth-accent);
+    font-size: 1.55rem;
+}
+
 .auth-eyebrow {
     display: inline-flex;
     align-items: center;
@@ -965,6 +993,12 @@ body {
     font-weight: 700;
     color: rgba(255, 255, 255, 0.92);
     background: rgba(255, 255, 255, 0.1);
+}
+
+.auth-eyebrow-card {
+    color: #2453b8;
+    background: rgba(79, 140, 255, 0.12);
+    overflow-wrap: anywhere;
 }
 
 .auth-showcase h1 {
@@ -1132,6 +1166,11 @@ body {
     line-height: 1.55;
 }
 
+.auth-alert ul {
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
 .auth-alert-lockout {
     margin-bottom: 24px;
 }
@@ -1162,6 +1201,28 @@ body {
     border-radius: 18px;
     border-color: rgba(148, 163, 184, 0.4);
     background: rgba(255, 255, 255, 0.86);
+}
+
+.auth-password-group .input-group {
+    flex-wrap: nowrap;
+}
+
+.auth-password-group .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.auth-password-toggle {
+    min-width: 52px;
+    min-height: 60px;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #475569;
+    border-top-right-radius: 18px;
+    border-bottom-right-radius: 18px;
+}
+
+.auth-password-toggle:focus {
+    box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
 }
 
 .auth-support-row {
@@ -1206,13 +1267,16 @@ body {
 .auth-footer-item {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    color: #475569;
-    font-size: 0.9rem;
+    gap: 8px;
+    color: #64748b;
+    font-size: 0.78rem;
+    line-height: 1.45;
 }
 
 .auth-footer-item i {
     color: var(--auth-accent);
+    font-size: 0.85rem;
+    opacity: 0.8;
 }
 
 .auth-lockout-grid {

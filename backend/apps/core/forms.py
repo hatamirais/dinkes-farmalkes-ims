@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
 from crispy_forms.helper import FormHelper
+from crispy_forms.bootstrap import FieldWithButtons, StrictButton
 from crispy_forms.layout import Field, Layout
 
 from .models import SystemSettings
@@ -20,7 +21,7 @@ class CrispyAuthenticationForm(AuthenticationForm):
         self.fields["username"].label = "Nama Pengguna"
         self.fields["username"].widget.attrs.update(
             {
-                "autocomplete": "username",
+                "autocomplete": "off",
                 "autofocus": True,
                 "class": "form-control form-control-lg",
                 "placeholder": "Masukkan username",
@@ -43,7 +44,20 @@ class CrispyAuthenticationForm(AuthenticationForm):
         self.helper.disable_csrf = True
         self.helper.layout = Layout(
             Field("username", wrapper_class="auth-field-group"),
-            Field("password", wrapper_class="auth-field-group"),
+            FieldWithButtons(
+                Field("password"),
+                StrictButton(
+                    '<i class="bi bi-eye" aria-hidden="true"></i><span class="visually-hidden">Tampilkan kata sandi</span>',
+                    css_id="passwordToggle",
+                    css_class="btn-outline-secondary auth-password-toggle",
+                    type="button",
+                    aria_label="Tampilkan kata sandi",
+                    aria_pressed="false",
+                    data_password_toggle="id_password",
+                ),
+                input_size="input-group-lg",
+                css_class="auth-password-group flex-nowrap",
+            ),
         )
 
 
