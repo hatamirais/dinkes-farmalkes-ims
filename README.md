@@ -87,6 +87,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 ## Keamanan
 
 - Perlindungan brute-force login menggunakan `django-axes`, dengan lockout berbasis username agar percobaan terdistribusi terhadap satu akun tetap terblokir tanpa mengandalkan counter IP sumber yang sensitif terhadap konfigurasi proxy.
+- Log autentikasi dan error terpusat mengambil IP klien dari `REMOTE_ADDR` secara default. Header `X-Forwarded-For` hanya dipakai bila request datang dari proxy yang tercantum di `AUTH_AUDIT_TRUSTED_PROXIES`, sehingga client langsung tidak dapat memalsukan IP audit lewat header tersebut.
 - Rate limiting untuk endpoint POST sensitif seperti perubahan password, mutasi master barang, dan aksi manajemen pengguna menggunakan `django-ratelimit`.
 - Riwayat create/update/delete model penting dicatat melalui `django-auditlog` pada tabel `LogEntry` dan dapat dilihat dari `/admin/`. Auditlog melengkapi, bukan menggantikan, log keamanan terstruktur dan `Transaction` sebagai ledger mutasi stok.
 - Endpoint simpan/edit/hapus konfirmasi penerimaan Puskesmas dibatasi melalui `django-ratelimit` dengan knob environment `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`; pratinjau pemuatan checklist distribusi pada form buat memakai `GET` non-mutasi dan tidak dihitung ke kuota ini. Nama lama `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` tetap diterima sebagai fallback kompatibilitas.

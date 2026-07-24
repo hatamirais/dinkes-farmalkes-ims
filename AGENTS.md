@@ -200,6 +200,7 @@ Before opening a PR, verify:
 ## Sensitive POST Throttling
 
 - `django-axes` remains the login brute-force control. Login lockout is enforced by username (`AXES_LOCKOUT_PARAMETERS = ["username"]`) so distributed attempts against one account are blocked without relying on proxy-sensitive IP-wide counters.
+- Authentication and centralized error logs resolve client IPs through `apps.core.client_ip.get_client_ip()`. The resolver uses `REMOTE_ADDR` by default and accepts `X-Forwarded-For` only when the immediate peer matches `AUTH_AUDIT_TRUSTED_PROXIES`; configure that env var only for proxies that strip client-supplied forwarded headers.
 - Additional authenticated POST throttling uses `django-ratelimit`.
 - `django-auditlog` records database-backed create/update/delete history for selected critical models. Its initial webview is Django Admin at `/admin/` through the auditlog `LogEntry` admin; no custom IMS audit-log sidebar page exists yet.
 - Auditlog is signal-driven and does not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` paths. Keep explicit workflow logs or tests for critical bulk operations where row-level audit history is required. User bulk activate/deactivate intentionally uses locked per-row `save(update_fields=["is_active"])` calls so account-status changes produce audit entries.

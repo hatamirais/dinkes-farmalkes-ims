@@ -23,18 +23,12 @@ from django.views.generic.edit import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django_ratelimit.exceptions import Ratelimited
+from apps.core.client_ip import get_client_ip
 from apps.core.models import SystemSettings
 from apps.core.forms import SystemSettingsForm
 
 security_logger = logging.getLogger("security")
 app_logger = logging.getLogger("core")
-
-
-def _get_client_ip(request):
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "unknown")
 
 
 def _get_error_fallback(request):
@@ -69,7 +63,7 @@ def _log_error_event(logger, level, event, request, status_code, exception=None)
     )
     message = (
         f"event={event} status_code={status_code} method={request.method} "
-        f"path={request.path} username={username} ip={_get_client_ip(request)}"
+        f"path={request.path} username={username} ip={get_client_ip(request)}"
     )
     if exception:
         message = f"{message} exception={exception.__class__.__name__}"

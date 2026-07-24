@@ -1029,6 +1029,97 @@ class LoginLockoutTests(TestCase):
         self.assertNotContains(response, "5 percobaan gagal")
 
 
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    AUTH_AUDIT_TRUSTED_PROXIES=(),
+    AXES_LOCKOUT_PARAMETERS=["username"],
+)
+class AuthenticationAuditClientIpTests(TestCase):
+    def setUp(self):
+        AccessAttempt.objects.all().delete()
+        self.user = User.objects.create_user(
+            username="audit-login-user",
+            password="TestPassword123!",
+        )
+
+    def tearDown(self):
+        AccessAttempt.objects.all().delete()
+
+    @staticmethod
+    def _record_for_event(captured_logs, event):
+        for record in captured_logs.records:
+            if getattr(record, "event", None) == event:
+                return record
+        raise AssertionError(f"No log record captured for event={event}")
+
+    def _post_login(self, password, **request_meta):
+        return self.client.post(
+            reverse("login"),
+            {"username": self.user.username, "password": password},
+            **request_meta,
+        )
+
+    def test_login_success_logs_remote_addr_without_forwarded_header(self):
+        with self.assertLogs("security", level="INFO") as captured:
+            response = self._post_login(
+                "TestPassword123!",
+                REMOTE_ADDR="198.51.100.10",
+            )
+
+        self.assertEqual(response.status_code, 302)
+        record = self._record_for_event(captured, "login_success")
+        self.assertEqual(record.ip, "198.51.100.10")
+
+    def test_login_failure_logs_remote_addr_without_forwarded_header(self):
+        with self.assertLogs("security", level="WARNING") as captured:
+            response = self._post_login(
+                "WrongPassword123!",
+                REMOTE_ADDR="198.51.100.11",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        record = self._record_for_event(captured, "login_failed")
+        self.assertEqual(record.ip, "198.51.100.11")
+
+    def test_untrusted_forwarded_for_is_not_logged_as_client_ip(self):
+        with self.assertLogs("security", level="WARNING") as captured:
+            response = self._post_login(
+                "WrongPassword123!",
+                REMOTE_ADDR="198.51.100.12",
+                HTTP_X_FORWARDED_FOR="203.0.113.200",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        record = self._record_for_event(captured, "login_failed")
+        self.assertEqual(record.ip, "198.51.100.12")
+
+    @override_settings(AUTH_AUDIT_TRUSTED_PROXIES=("10.10.0.1",))
+    def test_trusted_proxy_forwarded_for_is_logged_as_client_ip(self):
+        with self.assertLogs("security", level="WARNING") as captured:
+            response = self._post_login(
+                "WrongPassword123!",
+                REMOTE_ADDR="10.10.0.1",
+                HTTP_X_FORWARDED_FOR="203.0.113.25, 10.10.0.1",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        record = self._record_for_event(captured, "login_failed")
+        self.assertEqual(record.ip, "203.0.113.25")
+
+    @override_settings(AUTH_AUDIT_TRUSTED_PROXIES=("10.10.0.1",))
+    def test_malformed_forwarded_for_from_trusted_proxy_falls_back_to_remote_addr(self):
+        with self.assertLogs("security", level="WARNING") as captured:
+            response = self._post_login(
+                "WrongPassword123!",
+                REMOTE_ADDR="10.10.0.1",
+                HTTP_X_FORWARDED_FOR="not-an-ip",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        record = self._record_for_event(captured, "login_failed")
+        self.assertEqual(record.ip, "10.10.0.1")
+
+
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class SystemSettingsAccessTests(TestCase):

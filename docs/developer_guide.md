@@ -68,6 +68,7 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `FEATURE_ALLOCATION_UI_ENABLED`
 - `DJANGO_LOG_LEVEL`
 - `SECURE_SSL_REDIRECT`
+- `AUTH_AUDIT_TRUSTED_PROXIES`
 
 Catatan:
 
@@ -75,6 +76,7 @@ Catatan:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` default `10000` untuk mengakomodasi form LPLPO dan form bulk serupa yang mengirim banyak field dalam satu request.
 - `FEATURE_ALLOCATION_UI_ENABLED` masih dibaca ke Django settings untuk kompatibilitas dan test override, tetapi route/UI runtime Allocation saat ini tidak bercabang pada flag tersebut; akses tetap dikendalikan oleh permission Django + `ModuleAccess`.
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
+- Log autentikasi dan error terpusat memakai `REMOTE_ADDR` sebagai IP klien default. Isi `AUTH_AUDIT_TRUSTED_PROXIES` hanya dengan IP/CIDR reverse proxy langsung yang Anda kontrol dan yang menghapus header `X-Forwarded-For` dari client sebelum menulis nilainya sendiri.
 - Perubahan create/update/delete pada model penting dicatat melalui `django-auditlog`. Webview awalnya tersedia di Django Admin `/admin/` sebagai `LogEntry` untuk staff/admin yang berwenang.
 - Auditlog bersifat signal-driven; `bulk_create`, `bulk_update`, dan `QuerySet.update()` tidak otomatis menghasilkan audit entry per objek. Untuk jalur bulk yang kritis, tambahkan log eksplisit atau test yang mendokumentasikan gap tersebut. Bulk activate/deactivate user memakai per-row `save(update_fields=["is_active"])` dengan row lock agar perubahan status akun tetap tercatat.
 - `stock.Transaction` tetap menjadi ledger mutasi stok yang authoritative dan append-only; jangan menggantinya dengan auditlog.
