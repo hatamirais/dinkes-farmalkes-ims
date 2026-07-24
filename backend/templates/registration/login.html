@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load crispy_forms_tags %}
 {% load number_format %}
+{% load static %}
 
 {% block title %}Masuk — Healthcare IMS{% endblock %}
 
@@ -10,57 +11,26 @@
     <div class="auth-orb auth-orb-one"></div>
     <div class="auth-orb auth-orb-two"></div>
 
-    <div class="auth-layout auth-layout-login">
-        <aside class="auth-showcase">
-            <div class="auth-showcase-inner">
-                <div class="auth-brand-mark">
-                    {% if system_settings and system_settings.logo %}
-                    {% with logo_url=system_settings.logo.url|safe_media_url %}
-                    {% if logo_url %}
-                    <img src="{{ logo_url }}" alt="Logo {{ system_settings.facility_name|default:'Healthcare IMS'|escape }}">
-                    {% else %}
-                    <i class="bi bi-hospital"></i>
-                    {% endif %}
-                    {% endwith %}
-                    {% else %}
-                    <i class="bi bi-hospital"></i>
-                    {% endif %}
+    <div class="auth-layout auth-layout-centered">
+        <div class="auth-panel px-3 px-md-0">
+            <div class="auth-card auth-card-login px-4 px-sm-5 py-4 py-sm-5">
+                <div class="auth-card-brand">
+                    <div class="auth-brand-mark auth-brand-mark-card">
+                        {% if system_settings and system_settings.logo %}
+                        {% with logo_url=system_settings.logo.url|safe_media_url %}
+                        {% if logo_url %}
+                        <img src="{{ logo_url }}" alt="Logo {{ system_settings.facility_name|default:'Healthcare IMS'|escape }}">
+                        {% else %}
+                        <i class="bi bi-hospital"></i>
+                        {% endif %}
+                        {% endwith %}
+                        {% else %}
+                        <i class="bi bi-hospital"></i>
+                        {% endif %}
+                    </div>
+                    <span class="auth-eyebrow auth-eyebrow-card">{{ system_settings.platform_label|default:"Healthcare Inventory Platform" }}</span>
                 </div>
 
-                <span class="auth-eyebrow">{{ system_settings.platform_label|default:"Healthcare Inventory Platform" }}</span>
-                <h1>{{ system_settings.facility_name|default:"Healthcare IMS" }}</h1>
-                <p class="auth-showcase-copy">
-                    {{ system_settings.header_title|default:"Sistem Manajemen Inventaris untuk pengelolaan obat dan alat kesehatan." }}
-                </p>
-
-                <div class="auth-feature-list">
-                    <div class="auth-feature-item">
-                        <i class="bi bi-shield-check"></i>
-                        <div>
-                            <strong>Akses terkendali</strong>
-                            <span>Otorisasi berbasis peran dan perlindungan brute-force aktif.</span>
-                        </div>
-                    </div>
-                    <div class="auth-feature-item">
-                        <i class="bi bi-box-seam"></i>
-                        <div>
-                            <strong>Jejak stok terpusat</strong>
-                            <span>Penerimaan, distribusi, recall, dan stok opname tercatat dalam satu alur.</span>
-                        </div>
-                    </div>
-                    <div class="auth-feature-item">
-                        <i class="bi bi-clipboard-data"></i>
-                        <div>
-                            <strong>Siap untuk operasional</strong>
-                            <span>Dirancang untuk gudang farmasi dinas kesehatan dan fasilitas layanan.</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <div class="auth-panel">
-            <div class="auth-card auth-card-login">
                 <div class="auth-card-header">
                     <span class="auth-badge">
                         <i class="bi bi-person-lock"></i>
@@ -75,12 +45,20 @@
                     <i class="bi bi-exclamation-circle"></i>
                     <div>
                         <strong>Autentikasi gagal.</strong>
+                        {% if form.non_field_errors %}
+                        <ul class="mb-0 ps-3">
+                            {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
                         <span>Periksa kembali nama pengguna dan kata sandi Anda.</span>
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
 
-                <form method="post" action="{% url 'login' %}" class="auth-form">
+                <form method="post" action="{% url 'login' %}" class="auth-form" autocomplete="off">
                     {% csrf_token %}
                     {% crispy form %}
 
@@ -92,7 +70,7 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-lg auth-submit-btn">
-                        <i class="bi bi-box-arrow-in-right"></i>
+                        <i class="bi bi-box-arrow-in-left"></i>
                         Masuk
                     </button>
                     <input type="hidden" name="next" value="{{ next }}">
@@ -112,4 +90,8 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/login.js' %}?v={{ app_version }}-20260724"></script>
 {% endblock %}

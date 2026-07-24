@@ -928,11 +928,22 @@ class ErrorPageTemplateTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "registration/login.html")
-        self.assertContains(response, "<form", status_code=200)
+        self.assertContains(response, '<form method="post" action="/login/" class="auth-form" autocomplete="off">', status_code=200)
         self.assertIsInstance(response.context["form"], CrispyAuthenticationForm)
-        self.assertContains(response, 'autocomplete="username"', status_code=200)
+        self.assertContains(response, 'autocomplete="off"', status_code=200)
         self.assertContains(response, 'autocomplete="current-password"', status_code=200)
         self.assertContains(response, 'name="next"', status_code=200)
+        self.assertNotContains(response, "auth-showcase")
+        self.assertContains(response, 'class="auth-layout auth-layout-centered"', status_code=200)
+        self.assertContains(response, 'class="auth-panel px-3 px-md-0"', status_code=200)
+        self.assertContains(response, 'class="auth-card-brand"', status_code=200)
+        self.assertContains(response, 'class="auth-eyebrow auth-eyebrow-card"', status_code=200)
+        self.assertContains(response, 'id="passwordToggle"', status_code=200)
+        self.assertContains(response, 'type="button"', status_code=200)
+        self.assertContains(response, 'aria-pressed="false"', status_code=200)
+        self.assertContains(response, 'data-password-toggle="id_password"', status_code=200)
+        self.assertContains(response, 'js/login.js', status_code=200)
+        self.assertNotContains(response, 'value="super_admin"')
 
     def test_failed_login_renders_bound_form_errors_without_user_enumeration(self):
         user = User.objects.create_user(
@@ -952,7 +963,14 @@ class ErrorPageTemplateTests(TestCase):
         self.assertEqual(known_response.status_code, 200)
         self.assertEqual(unknown_response.status_code, 200)
         self.assertTemplateUsed(known_response, "registration/login.html")
+        self.assertContains(
+            known_response,
+            '<div class="alert alert-danger auth-alert" role="alert">',
+            status_code=200,
+            html=False,
+        )
         self.assertContains(known_response, "Autentikasi gagal.", status_code=200)
+        self.assertContains(known_response, "<ul", status_code=200)
         self.assertTrue(known_response.context["form"].non_field_errors())
         self.assertEqual(
             list(known_response.context["form"].non_field_errors()),
@@ -1077,6 +1095,12 @@ class LoginLockoutTests(TestCase):
 
         self.assertEqual(response.status_code, 429)
         self.assertTemplateUsed(response, "registration/lockout.html")
+        self.assertContains(
+            response,
+            '<div class="alert alert-warning auth-alert auth-alert-lockout" role="alert">',
+            status_code=429,
+            html=False,
+        )
 
     def test_shared_source_ip_does_not_lock_unrelated_usernames(self):
         for index in range(3):
