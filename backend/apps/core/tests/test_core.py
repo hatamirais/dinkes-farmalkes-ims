@@ -969,7 +969,7 @@ class ErrorPageTemplateTests(TestCase):
     SECURE_SSL_REDIRECT=False,
     AXES_FAILURE_LIMIT=3,
     AXES_COOLOFF_TIME=1,
-    AXES_LOCKOUT_PARAMETERS=["username", "ip_address"],
+    AXES_LOCKOUT_PARAMETERS=["username"],
     AXES_RESET_ON_SUCCESS=True,
 )
 class LoginLockoutTests(TestCase):
@@ -1008,18 +1008,18 @@ class LoginLockoutTests(TestCase):
         self.assertEqual(response.status_code, 429)
         self.assertTemplateUsed(response, "registration/lockout.html")
 
-    def test_ip_lockout_blocks_multiple_usernames_from_one_source_ip(self):
-        for index in range(2):
+    def test_shared_source_ip_does_not_lock_unrelated_usernames(self):
+        for index in range(3):
             response = self._post_login(
                 f"unknown-user-{index}",
                 remote_addr="10.0.1.10",
             )
             self.assertEqual(response.status_code, 200)
 
-        response = self._post_login("unknown-user-3", remote_addr="10.0.1.10")
+        response = self._post_login("unknown-user-4", remote_addr="10.0.1.10")
 
-        self.assertEqual(response.status_code, 429)
-        self.assertTemplateUsed(response, "registration/lockout.html")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/login.html")
 
     def test_login_page_does_not_disclose_exact_failure_limit(self):
         response = self.client.get(reverse("login"))
