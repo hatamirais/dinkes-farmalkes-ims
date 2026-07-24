@@ -2,7 +2,7 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-07-14
+Last verified: 2026-07-24
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
 
 ## 1) Domain Overview
@@ -494,6 +494,7 @@ From `backend/config/settings.py`:
 - `django-auditlog` is installed for database-backed create/update/delete history on selected critical models; the initial audit-log webview is available through Django Admin `/admin/`
 - `DEBUG` defaults to `False` unless overridden by environment
 - `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` are environment-driven comma-separated lists
+- `AUTH_AUDIT_TRUSTED_PROXIES` is an environment-driven comma-separated list of trusted immediate reverse proxy IPs/CIDRs for authentication and centralized error logging. When unset, audit client IPs are derived from `REMOTE_ADDR`. `X-Forwarded-For` is accepted only from a trusted immediate proxy and only when the forwarded chain is syntactically valid.
 - `FEATURE_ALLOCATION_UI_ENABLED` is still loaded into settings for compatibility/tests, but current runtime routing and navigation rely on permissions/module scope instead of branching on this flag
 - Static assets are collected to `STATIC_ROOT = backend/staticfiles` and served by `whitenoise.middleware.WhiteNoiseMiddleware` using `STORAGES["staticfiles"] = "whitenoise.storage.CompressedStaticFilesStorage"`. The `default` storage alias remains Django `FileSystemStorage` for uploaded media, so this staticfiles setting does not replace media-file handling.
 - `AUTHENTICATION_BACKENDS` order:

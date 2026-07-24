@@ -43,6 +43,12 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
+AUTH_AUDIT_TRUSTED_PROXIES = tuple(
+    proxy.strip()
+    for proxy in os.getenv("AUTH_AUDIT_TRUSTED_PROXIES", "").split(",")
+    if proxy.strip()
+)
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",

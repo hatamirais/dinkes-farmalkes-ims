@@ -7,6 +7,20 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.29.3] - 2026-07-24
+
+### Security
+
+- Authentication and centralized error audit logs now ignore spoofed `X-Forwarded-For` headers unless the immediate peer is explicitly trusted through `AUTH_AUDIT_TRUSTED_PROXIES`.
+
+### Tests
+
+- Added regression coverage for login success/failure audit IP logging with default `REMOTE_ADDR`, spoofed forwarded headers, trusted proxy forwarding, and malformed forwarded chains.
+
+### Documentation
+
+- Documented the trusted-proxy requirement for authentication audit IP derivation in deployment and system docs.
+
 ## [1.29.2] - 2026-07-24
 
 ### Security
