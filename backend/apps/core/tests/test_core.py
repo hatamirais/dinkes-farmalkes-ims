@@ -20,6 +20,7 @@ from django.template import Context, Template
 from django.urls import resolve, reverse
 from django.utils import timezone
 from django_ratelimit.exceptions import Ratelimited
+from axes.models import AccessAttempt
 
 from apps.core.admin_mixins import ImportGuideMixin
 from apps.core.context_processors import nav_notifications
@@ -962,6 +963,70 @@ class ErrorPageTemplateTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertContains(response, "Kembali ke Halaman Sebelumnya", status_code=403)
         self.assertContains(response, "Buka Dashboard", status_code=403)
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    AXES_FAILURE_LIMIT=3,
+    AXES_COOLOFF_TIME=1,
+    AXES_LOCKOUT_PARAMETERS=["username"],
+    AXES_RESET_ON_SUCCESS=True,
+)
+class LoginLockoutTests(TestCase):
+    def setUp(self):
+        AccessAttempt.objects.all().delete()
+        self.user = User.objects.create_user(
+            username="spray-target",
+            password="TestPassword123!",
+        )
+
+    def tearDown(self):
+        AccessAttempt.objects.all().delete()
+
+    def _post_login(
+        self,
+        username,
+        password="WrongPassword123!",
+        remote_addr="127.0.0.1",
+    ):
+        return self.client.post(
+            reverse("login"),
+            {"username": username, "password": password},
+            REMOTE_ADDR=remote_addr,
+        )
+
+    def test_username_lockout_blocks_distributed_source_ips(self):
+        for index in range(2):
+            response = self._post_login(
+                self.user.username,
+                remote_addr=f"10.0.0.{index + 1}",
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self._post_login(self.user.username, remote_addr="10.0.0.3")
+
+        self.assertEqual(response.status_code, 429)
+        self.assertTemplateUsed(response, "registration/lockout.html")
+
+    def test_shared_source_ip_does_not_lock_unrelated_usernames(self):
+        for index in range(3):
+            response = self._post_login(
+                f"unknown-user-{index}",
+                remote_addr="10.0.1.10",
+            )
+            self.assertEqual(response.status_code, 200)
+
+        response = self._post_login("unknown-user-4", remote_addr="10.0.1.10")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/login.html")
+
+    def test_login_page_does_not_disclose_exact_failure_limit(self):
+        response = self.client.get(reverse("login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "terlalu banyak percobaan gagal")
+        self.assertNotContains(response, "5 percobaan gagal")
 
 
 

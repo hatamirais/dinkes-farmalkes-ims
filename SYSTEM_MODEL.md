@@ -505,6 +505,7 @@ From `backend/config/settings.py`:
 - `AUDITLOG_INCLUDE_TRACKING_MODELS` registers critical user/access, master-data, operational-header, and `Stock` models. No custom IMS audit-log page is implemented yet.
 - Auditlog does not replace `stock.Transaction`, and signal-driven audit entries do not automatically cover `bulk_create`, `bulk_update`, or `QuerySet.update()` changes. User bulk activate/deactivate avoids `QuerySet.update()` and saves locked rows individually so account-status changes are captured.
 - `AXES_FAILURE_LIMIT = 5`, `AXES_COOLOFF_TIME = 0.5`, `AXES_RESET_ON_SUCCESS = True`
+- `AXES_LOCKOUT_PARAMETERS = ["username"]`, so django-axes locks repeated failures by username rather than only the combined username/IP tuple; standalone IP-wide lockout is intentionally avoided until proxy-aware client IP handling is configured
 - Sensitive POST throttling uses `django-ratelimit` with settings-backed defaults:
   - `USER_BULK_ACTION_RATE_LIMIT = 10/m`
   - `USER_MUTATION_RATE_LIMIT = 20/m`
