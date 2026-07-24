@@ -15,6 +15,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Database | PostgreSQL 16 |
 | Cache/Broker | None (In-Memory / LocMemCache) |
 | Antarmuka | Django Templates + Bootstrap 5 |
+| Static Files | WhiteNoise serving collected static assets |
 | Form | django-crispy-forms + crispy-bootstrap5 |
 | Import Data | django-import-export |
 | Keamanan & Audit | django-axes + django-ratelimit + django-auditlog |
@@ -95,6 +96,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.
+- Static asset produksi dilayani melalui WhiteNoise dari hasil `collectstatic`, sehingga Django Admin `/admin/` dan UI aplikasi tetap memuat CSS/JavaScript ketika tidak ada web server eksternal yang melayani `/static/`.
 - Lampiran `ReceivingDocument` tidak lagi mengandalkan `MEDIA_URL`; file disimpan di `PRIVATE_MEDIA_ROOT` dan hanya diakses melalui endpoint unduh yang membutuhkan login + permission `receiving.view_receiving`.
 - Dukungan `CSRF_TRUSTED_ORIGINS`, backend email berbasis environment, dan batas field upload yang dinaikkan untuk form LPLPO berukuran besar.
 - Error umum `400/403/404/500` dirender lewat halaman khusus yang konsisten, mencatat event ke logger aplikasi, dan menyediakan tombol kembali ke halaman sebelumnya dengan fallback dinamis ke login atau dashboard.
