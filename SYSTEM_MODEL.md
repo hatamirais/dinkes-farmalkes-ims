@@ -495,6 +495,7 @@ From `backend/config/settings.py`:
 - `DEBUG` defaults to `False` unless overridden by environment
 - `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` are environment-driven comma-separated lists
 - `FEATURE_ALLOCATION_UI_ENABLED` is still loaded into settings for compatibility/tests, but current runtime routing and navigation rely on permissions/module scope instead of branching on this flag
+- Static assets are collected to `STATIC_ROOT = backend/staticfiles` and served by `whitenoise.middleware.WhiteNoiseMiddleware` using `STORAGES["staticfiles"] = "whitenoise.storage.CompressedStaticFilesStorage"`. The `default` storage alias remains Django `FileSystemStorage` for uploaded media, so this staticfiles setting does not replace media-file handling.
 - `AUTHENTICATION_BACKENDS` order:
   1. `axes.backends.AxesStandaloneBackend`
   2. `django.contrib.auth.backends.ModelBackend`

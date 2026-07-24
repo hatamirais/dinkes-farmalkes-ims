@@ -118,7 +118,21 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 6. Jalankan server pengembangan
+### 6. Kumpulkan static assets untuk deployment
+
+WhiteNoise melayani hasil `collectstatic` dari `STATIC_ROOT` (`backend/staticfiles`) untuk halaman admin dan aset aplikasi pada deployment. Jalankan perintah ini setelah dependency terpasang dan sebelum menjalankan build/image produksi:
+
+```bash
+python manage.py collectstatic --noinput
+```
+
+Untuk validasi tanpa menulis file, gunakan:
+
+```bash
+python manage.py collectstatic --noinput --dry-run
+```
+
+### 7. Jalankan server pengembangan
 
 ```bash
 python manage.py runserver

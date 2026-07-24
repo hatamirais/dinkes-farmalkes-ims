@@ -15,6 +15,7 @@ This project is a Django-based healthcare inventory system used by internal gove
 | Database | PostgreSQL 16 |
 | Cache/Broker | None (In-Memory / LocMemCache) |
 | UI | Django templates + Bootstrap 5 |
+| Static serving | WhiteNoise for collected static assets |
 | Auth model | `apps.users.User` |
 | Object audit | django-auditlog |
 | Settings | `backend/config/settings.py` |
@@ -155,6 +156,7 @@ Apply these principles:
 - Keep `DEBUG=False` production hardening documented and synchronized with settings.
 - Keep import workflow docs aligned with dry-run/confirm semantics from django-import-export.
 - Keep axes backend ordering and middleware placement documented exactly as configured.
+- Keep WhiteNoise middleware and `STORAGES["staticfiles"]` behavior documented so deployment notes reflect how collected admin/app static assets are served.
 - Keep sensitive POST throttling settings and the centralized `429` behavior documented exactly as configured.
 
 ## Development Commands
