@@ -7,6 +7,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.29.1] - 2026-07-24
+
 ### Fixed
 
 - Admin/static assets: serve collected static files with WhiteNoise so deployed Django admin pages load their CSS and JavaScript correctly instead of rendering as unstyled fallback HTML.
