@@ -7,6 +7,21 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.29.2] - 2026-07-24
+
+### Security
+
+- Login brute-force protection now locks by username or source IP through django-axes, closing the gap where distributed attempts against the same username could avoid the previous username/IP-combination counter.
+- Public login and lockout copy no longer discloses the exact failed-attempt threshold, reducing operational detail exposed to unauthenticated users.
+
+### Tests
+
+- Added regression coverage for distributed username spraying, single-source multi-username spraying, and public login copy that avoids precise lockout tuning disclosure.
+
+### Documentation
+
+- Updated `AGENTS.md`, `README.md`, and `SYSTEM_MODEL.md` to document the active username-or-IP login lockout policy.
+
 ## [1.29.1] - 2026-07-24
 
 ### Fixed

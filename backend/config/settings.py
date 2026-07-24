@@ -325,7 +325,9 @@ CSRF_COOKIE_SAMESITE = "Lax"
 AXES_FAILURE_LIMIT = 5  # Lock after 5 failed attempts
 AXES_COOLOFF_TIME = 0.5  # 30-minute cooldown (in hours)
 AXES_RESET_ON_SUCCESS = True  # Reset failed count on successful login
-AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+# Lock by username OR source IP. A combined username+IP tuple is too narrow
+# for password-spraying attempts that rotate network origin.
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 AXES_LOCKOUT_TEMPLATE = "registration/lockout.html"
 
 # ─── Cache (Local Memory) ─────────────────────────────────────────────
