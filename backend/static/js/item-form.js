@@ -45,13 +45,11 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleProgramField();
     }
 
-    function getCookie(name) {
-        var val = null;
-        document.cookie.split(';').forEach(function (c) {
-            c = c.trim();
-            if (c.startsWith(name + '=')) val = decodeURIComponent(c.substring(name.length + 1));
-        });
-        return val;
+    function getCsrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) return meta.content;
+        var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return input ? input.value : '';
     }
 
     function quickCreate(url, bodyStr, errorElId, modalId, tomInstance, fieldIds, options) {
@@ -59,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
         errorEl.classList.add('d-none');
         fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken')},
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrfToken()},
             body: bodyStr,
         })
         .then(function (r) { return r.json().then(function (data) { return {ok: r.ok, data: data}; }); })
