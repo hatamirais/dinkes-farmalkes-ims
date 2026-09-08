@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.31.11] - 2026-09-07
+
+### Fixed
+
+- Item quick-create modals now read the CSRF token from the rendered page token instead of the HttpOnly CSRF cookie, restoring therapeutic class creation when `CSRF_COOKIE_HTTPONLY=True`.
+
 ## [1.31.10] - 2026-09-04
 
 ### Fixed
