@@ -20,22 +20,25 @@ class ReportingApiAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed("Missing bearer token.")
 
         parts = header.split()
-        if len(parts) != 2 or parts[0].lower() != self.keyword.lower().encode("ascii"):
+        expected_keyword = self.keyword.lower().encode("ascii")
+        if len(parts) != 2 or parts[0].lower() != expected_keyword:
             raise exceptions.AuthenticationFailed("Invalid bearer token.")
-
-        try:
-            token = parts[1].decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise exceptions.AuthenticationFailed("Invalid bearer token.") from exc
 
         configured_secret = getattr(settings, "REPORTING_API_SHARED_SECRET", "")
         if not configured_secret:
             raise exceptions.AuthenticationFailed("Reporting API secret is not configured.")
 
-        if not hmac.compare_digest(token, configured_secret):
+        try:
+            configured_secret_bytes = configured_secret.encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise exceptions.AuthenticationFailed(
+                "Reporting API secret must contain ASCII characters only."
+            ) from exc
+
+        if not hmac.compare_digest(parts[1], configured_secret_bytes):
             raise exceptions.AuthenticationFailed("Invalid bearer token.")
 
-        return ReportingApiPrincipal(), token
+        return ReportingApiPrincipal(), parts[1].decode("ascii")
 
     def authenticate_header(self, request):
         return self.keyword

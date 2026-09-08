@@ -81,6 +81,25 @@ class ReportingApiAuthTests(ReportingApiTestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_non_ascii_bearer_token_returns_401(self):
+        response = self.client.get(
+            reverse("reporting_api:stocks_latest"),
+            secure=True,
+            HTTP_AUTHORIZATION="Bearer \xe9",
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    @override_settings(REPORTING_API_SHARED_SECRET="s\xe9cret")
+    def test_non_ascii_configured_secret_returns_401(self):
+        response = self.client.get(
+            reverse("reporting_api:stocks_latest"),
+            secure=True,
+            HTTP_AUTHORIZATION="Bearer s\xe9cret",
+        )
+
+        self.assertEqual(response.status_code, 401)
+
     @override_settings(REPORTING_API_ENABLED=False)
     def test_disabled_api_returns_403(self):
         response = self.client.get(
