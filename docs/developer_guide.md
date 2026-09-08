@@ -104,6 +104,8 @@ Catatan:
 docker compose up -d
 ```
 
+Compose development mengikat Redis ke `127.0.0.1:6379`, bukan ke semua interface host. Ini menjaga cache tetap dapat diakses oleh Django yang berjalan langsung di host development, sambil mencegah Redis unauthenticated terbuka ke jaringan lokal. Untuk deployment, jalankan Redis pada private network dan/atau aktifkan autentikasi lalu gunakan credential tersebut di `REDIS_URL`.
+
 ### 4. Buat virtual environment dan install dependency
 
 Linux atau macOS:
