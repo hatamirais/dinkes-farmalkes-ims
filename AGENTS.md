@@ -106,7 +106,7 @@ Receiving and opening-balance imports enforce `Item.requires_expiry_date`: blank
 - Never mutate historical `Transaction` rows; append-only behavior is expected.
 - Stock-changing checkpoints happen during workflow actions (`verify`, `prepare`, `distribute`, `complete`, depending on module), not arbitrary model saves.
 - Stock transfer completion writes paired `OUT` and `IN` transactions.
-- Do not claim REST API/React production paths as implemented; those are planned.
+- Do not claim React production paths or general-purpose REST APIs as implemented; the only implemented REST surface is the read-only reporting API under `/api/v1/reporting/`.
 - Keep terminology consistent: use "module scope" for `ModuleAccess` and "Django permissions" for `has_perm` checks.
 
 ## Development Guardrails

@@ -63,6 +63,24 @@ class ReportingApiAuthTests(ReportingApiTestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_bearer_scheme_is_case_insensitive(self):
+        response = self.client.get(
+            reverse("reporting_api:stocks_latest"),
+            secure=True,
+            HTTP_AUTHORIZATION="bearer test-reporting-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_malformed_authorization_bytes_return_401(self):
+        response = self.client.get(
+            reverse("reporting_api:stocks_latest"),
+            secure=True,
+            HTTP_AUTHORIZATION="Bearer \xff",
+        )
+
+        self.assertEqual(response.status_code, 401)
+
     @override_settings(REPORTING_API_ENABLED=False)
     def test_disabled_api_returns_403(self):
         response = self.client.get(
@@ -187,6 +205,50 @@ class LatestWarehouseStockApiTests(ReportingApiTestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.json(), second.json())
+
+    def test_latest_stock_serializes_aggregates_larger_than_one_stock_row(self):
+        unit = Unit.objects.create(code="AMP", name="Ampoule")
+        category = Category.objects.create(code="BIG", name="Large Stock", sort_order=1)
+        funding_source = FundingSource.objects.create(code="APBD", name="APBD")
+        location = Location.objects.create(code="BIG-GUD", name="Big Gudang")
+        item = Item.objects.create(
+            kode_barang="ITM-BIG",
+            nama_barang="Large Aggregate",
+            satuan=unit,
+            kategori=category,
+        )
+        Stock.objects.create(
+            item=item,
+            location=location,
+            batch_lot="BIG-1",
+            quantity=Decimal("9999999999.99"),
+            reserved=Decimal("1.00"),
+            unit_price=Decimal("1000"),
+            sumber_dana=funding_source,
+            source_document_number="BIG-DOC-1",
+        )
+        Stock.objects.create(
+            item=item,
+            location=location,
+            batch_lot="BIG-2",
+            quantity=Decimal("9999999999.99"),
+            reserved=Decimal("2.00"),
+            unit_price=Decimal("1000"),
+            sumber_dana=funding_source,
+            source_document_number="BIG-DOC-2",
+        )
+
+        response = self.client.get(
+            reverse("reporting_api:stocks_latest"),
+            secure=True,
+            **self._auth(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["results"][0]
+        self.assertEqual(row["physical_quantity"], "19999999999.98")
+        self.assertEqual(row["reserved_quantity"], "3.00")
+        self.assertEqual(row["available_quantity"], "19999999996.98")
 
 
 @override_settings(**REPORTING_SETTINGS)

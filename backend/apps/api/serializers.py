@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
 
+AGGREGATE_QUANTITY_MAX_DIGITS = 20
+
+
 class ItemProgramSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     code = serializers.CharField()
@@ -23,9 +26,18 @@ class WarehouseStockItemSerializer(serializers.Serializer):
     program = ItemProgramSerializer(allow_null=True)
     therapeutic_classes = TherapeuticClassSerializer(many=True)
     minimum_stock = serializers.DecimalField(max_digits=12, decimal_places=2)
-    physical_quantity = serializers.DecimalField(max_digits=12, decimal_places=2)
-    reserved_quantity = serializers.DecimalField(max_digits=12, decimal_places=2)
-    available_quantity = serializers.DecimalField(max_digits=12, decimal_places=2)
+    physical_quantity = serializers.DecimalField(
+        max_digits=AGGREGATE_QUANTITY_MAX_DIGITS,
+        decimal_places=2,
+    )
+    reserved_quantity = serializers.DecimalField(
+        max_digits=AGGREGATE_QUANTITY_MAX_DIGITS,
+        decimal_places=2,
+    )
+    available_quantity = serializers.DecimalField(
+        max_digits=AGGREGATE_QUANTITY_MAX_DIGITS,
+        decimal_places=2,
+    )
     is_low_stock = serializers.BooleanField()
     expired_batch_count = serializers.IntegerField()
     expiring_batch_count = serializers.IntegerField()

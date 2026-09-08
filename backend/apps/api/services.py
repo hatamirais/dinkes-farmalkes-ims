@@ -11,6 +11,9 @@ from apps.stock.models import Stock
 from apps.stock.views import _build_puskesmas_stock_snapshot
 
 
+AGGREGATE_QUANTITY_MAX_DIGITS = 20
+
+
 def _item_program_payload(item):
     if not item.program_id:
         return None
@@ -46,7 +49,10 @@ def build_latest_warehouse_stock_payload():
     zero = Decimal("0")
     available_expression = ExpressionWrapper(
         F("quantity") - F("reserved"),
-        output_field=DecimalField(max_digits=12, decimal_places=2),
+        output_field=DecimalField(
+            max_digits=AGGREGATE_QUANTITY_MAX_DIGITS,
+            decimal_places=2,
+        ),
     )
 
     stock_summaries = {
