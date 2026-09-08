@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
@@ -18,13 +20,34 @@ from .services import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def _cached_payload(cache_key, builder):
-    cached = cache.get(cache_key)
+    try:
+        cached = cache.get(cache_key)
+    except Exception:
+        logger.warning(
+            "Reporting API cache read failed for key %s",
+            cache_key,
+            exc_info=True,
+        )
+        cached = None
+
     if cached is not None:
         return cached
 
     payload = builder()
-    cache.set(cache_key, payload, settings.REPORTING_API_CACHE_TTL_SECONDS)
+
+    try:
+        cache.set(cache_key, payload, settings.REPORTING_API_CACHE_TTL_SECONDS)
+    except Exception:
+        logger.warning(
+            "Reporting API cache write failed for key %s",
+            cache_key,
+            exc_info=True,
+        )
+
     return payload
 
 

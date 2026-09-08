@@ -225,6 +225,62 @@ class LatestWarehouseStockApiTests(ReportingApiTestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.json(), second.json())
 
+    def test_latest_stock_treats_cache_read_failure_as_miss(self):
+        unit = Unit.objects.create(code="VIAL", name="Vial")
+        category = Category.objects.create(code="READ", name="Read Failure", sort_order=1)
+        Item.objects.create(
+            kode_barang="ITM-READ-FAIL",
+            nama_barang="Read Failure Item",
+            satuan=unit,
+            kategori=category,
+        )
+
+        with patch("apps.api.views.cache.get", side_effect=ConnectionError), patch(
+            "apps.api.views.cache.set"
+        ) as cache_set, self.assertLogs("apps.api.views", level="WARNING") as logs:
+            response = self.client.get(
+                reverse("reporting_api:stocks_latest"),
+                secure=True,
+                **self._auth(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+        self.assertTrue(cache_set.called)
+        self.assertTrue(
+            any("Reporting API cache read failed" in message for message in logs.output)
+        )
+
+    def test_latest_stock_ignores_cache_write_failure(self):
+        unit = Unit.objects.create(code="SACH", name="Sachet")
+        category = Category.objects.create(
+            code="WRITE",
+            name="Write Failure",
+            sort_order=1,
+        )
+        Item.objects.create(
+            kode_barang="ITM-WRITE-FAIL",
+            nama_barang="Write Failure Item",
+            satuan=unit,
+            kategori=category,
+        )
+
+        with patch("apps.api.views.cache.get", return_value=None), patch(
+            "apps.api.views.cache.set",
+            side_effect=ConnectionError,
+        ), self.assertLogs("apps.api.views", level="WARNING") as logs:
+            response = self.client.get(
+                reverse("reporting_api:stocks_latest"),
+                secure=True,
+                **self._auth(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+        self.assertTrue(
+            any("Reporting API cache write failed" in message for message in logs.output)
+        )
+
     def test_latest_stock_serializes_aggregates_larger_than_one_stock_row(self):
         unit = Unit.objects.create(code="AMP", name="Ampoule")
         category = Category.objects.create(code="BIG", name="Large Stock", sort_order=1)
