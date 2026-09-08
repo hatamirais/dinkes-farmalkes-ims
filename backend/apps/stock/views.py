@@ -373,7 +373,14 @@ def _build_consumption_ledger_page(year, facility_id="", search_term="", page_nu
     }
 
 
-def _build_puskesmas_stock_snapshot(year, facility_id="", search_term="", page_number=None, include_rows=True):
+def _build_puskesmas_stock_snapshot(
+    year,
+    facility_id="",
+    search_term="",
+    page_number=None,
+    include_rows=True,
+    paginate=True,
+):
     facilities = _get_latest_lplpo_facilities(year, facility_id=facility_id)
     latest_facilities = [facility for facility in facilities if facility.latest_lplpo_id]
     if not latest_facilities:
@@ -505,6 +512,7 @@ def _build_puskesmas_stock_snapshot(year, facility_id="", search_term="", page_n
             {
                 "facility_id": facility_pk,
                 "facility_name": facility_state[facility_pk]["facility_name"],
+                "item_id": item_obj.pk,
                 "kode_barang": item_obj.kode_barang,
                 "nama_barang": item_obj.nama_barang,
                 "kategori": category_name,
@@ -531,6 +539,13 @@ def _build_puskesmas_stock_snapshot(year, facility_id="", search_term="", page_n
         return {
             "rows": [],
             "page": _paginate_ledger_rows([], page_number),
+            "stats": stats,
+        }
+
+    if not paginate:
+        return {
+            "rows": stock_rows,
+            "page": None,
             "stats": stats,
         }
 

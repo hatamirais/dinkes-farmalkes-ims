@@ -64,6 +64,9 @@ INSTALLED_APPS = [
     "import_export",
     "axes",
     "auditlog",
+    "rest_framework",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
     # Local apps
     "apps.core",
     "apps.users",
@@ -79,6 +82,7 @@ INSTALLED_APPS = [
     "apps.stock_opname",
     "apps.puskesmas",
     "apps.lplpo",
+    "apps.api",
 ]
 
 MIDDLEWARE = [
@@ -338,14 +342,56 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 AXES_CLIENT_IP_CALLABLE = "apps.core.client_ip.get_axes_client_ip"
 AXES_LOCKOUT_TEMPLATE = "registration/lockout.html"
 
-# ─── Cache (Local Memory) ─────────────────────────────────────────────
+# ─── Cache ───────────────────────────────────────────────────────────
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+
 CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "healthcare-ims-cache",
-    },
+    "default": (
+        {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+        if REDIS_URL
+        else {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "healthcare-ims-cache",
+        }
+    ),
     "locmem": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
+}
+
+# ─── Read-only Reporting API ─────────────────────────────────────────
+REPORTING_API_ENABLED = os.getenv("REPORTING_API_ENABLED", "False") == "True"
+REPORTING_API_SHARED_SECRET = os.getenv("REPORTING_API_SHARED_SECRET", "")
+try:
+    REPORTING_API_CACHE_TTL_SECONDS = int(
+        os.getenv("REPORTING_API_CACHE_TTL_SECONDS", "21600")
+    )
+except ValueError:
+    REPORTING_API_CACHE_TTL_SECONDS = 21600
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Healthcare IMS Reporting API",
+    "DESCRIPTION": "Read-only reporting snapshots for internal dashboard clients.",
+    "VERSION": APP_VERSION,
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "ReportingApiBearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Server-to-server reporting API secret.",
+            },
+        },
     },
 }
 

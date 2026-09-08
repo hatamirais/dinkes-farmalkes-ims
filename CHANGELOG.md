@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- Added an initial DRF read-only reporting API MVP under `/api/v1/reporting/` for external internal-dashboard experiments, with warehouse and Puskesmas stock snapshot endpoints, bearer-secret access, six-hour response caching, Redis cache support with local fallback behavior, and generated OpenAPI/Swagger/ReDoc documentation via `drf-spectacular`.
+
+### Notes
+
+- The reporting API is intentionally marked as an MVP and is expected to be revised before it becomes a stable dashboard contract.
+
 ## [1.31.11] - 2026-09-07
 
 ### Fixed

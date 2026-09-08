@@ -13,8 +13,9 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 | Bahasa | Python 3.13+ |
 | Framework | Django 6.0.8 |
 | Database | PostgreSQL 16 |
-| Cache/Broker | None (In-Memory / LocMemCache) |
+| Cache/Broker | Redis when configured; LocMemCache fallback |
 | Antarmuka | Django Templates + Bootstrap 5 |
+| API | Django REST Framework + drf-spectacular |
 | Static Files | WhiteNoise serving collected static assets |
 | Form | django-crispy-forms + crispy-bootstrap5 |
 | Import Data | django-import-export |
@@ -30,6 +31,8 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 - Log `Transaction` yang imutabel untuk seluruh pergerakan stok, sehingga histori tetap terjaga.
 - Pengendalian akses melalui kombinasi permission Django dan `ModuleAccess` per pengguna.
 - Jejak audit perubahan objek penting melalui `django-auditlog`, dengan webview awal tersedia di Django Admin `/admin/` untuk pengguna staff/admin yang berwenang.
+- API pelaporan baca-saja untuk dashboard eksternal internal-network tersedia di `/api/v1/reporting/`, dengan skema OpenAPI otomatis di `/api/schema/` dan dokumentasi Swagger/ReDoc di `/api/docs/swagger/` serta `/api/docs/redoc/`.
+- Compose lokal mengikat Redis ke `127.0.0.1:6379` agar cache dapat dipakai dari host development tanpa membuka Redis unauthenticated ke jaringan LAN. Untuk deployment, gunakan Redis pada private network dan/atau aktifkan autentikasi lalu isi kredensialnya di `REDIS_URL`.
 - Dukungan import CSV dari Django Admin, termasuk endpoint khusus `Saldo Awal` di Stock Admin untuk bootstrap stok awal dengan tahap pratinjau/konfirmasi sebelum menulis `Transaction(IN, reference_type=INITIAL_IMPORT)`, serta endpoint penerimaan barang yang mengelompokkan baris per `document_number` dan langsung membentuk stok serta `Transaction(IN)`. Baris import penerimaan dapat membawa override sumber dana per item; layer sumber dana/dokumen yang benar-benar diposting disimpan pada `ReceivingItem` agar koreksi/batal penerimaan membalik stok dari layer aktual tersebut. Reimport Saldo Awal dapat memakai ulang `document_number` yang sama untuk melengkapi baris yang belum masuk; layer stok yang sudah persis sama akan dilewati. Stok kini disimpan sebagai layer `item + lokasi + batch + sumber dana + document_number` agar harga dari dokumen berbeda tidak dirata-ratakan. Harga satuan disimpan dengan presisi akuntansi sampai 10 angka desimal sehingga nilai `quantity * unit_price` dapat direkonsiliasi dengan data sumber; halaman web dapat membulatkan tampilan, sementara ekspor laporan mempertahankan presisi tersimpan. Kolom `expiry_date` pada import penerimaan dan saldo awal kini opsional hanya untuk barang yang ditandai tidak memerlukan kedaluwarsa; untuk barang lain kolom tersebut tetap wajib.
 
 ## Modul Saat Ini
@@ -53,6 +56,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 - `core`: dashboard, middleware akses panel admin, pengaturan sistem (label platform login, logo, header dokumen, nama fasilitas, serta template penomoran dokumen distribusi) secara dinamis yang hanya dapat diakses oleh `ADMIN` dan `KEPALA`, dan handler error terpusat untuk `400/403/404/500` plus halaman maintenance `503`. Role `AUDITOR` tetap memakai scope baca modul untuk akses halaman, tetapi navigasi sidebar difokuskan ke grup `Laporan` dan dashboard menyembunyikan komponen drill-through yang langsung membuka menu operasional.
 - `reports`: halaman ringkasan laporan dengan keluaran `rekap`, `penerimaan hibah`, `pengadaan`, `kadaluarsa`, dan `pengeluaran`; `rekap` mengklasifikasikan `INITIAL_IMPORT` berdasarkan tanggal efektif Saldo Awal sebagai `saldo_awal` bila efektif pada/sebelum awal periode, atau `nilai_terima` bila efektif di dalam periode, sementara tahun berikutnya membawa saldo akhir ledger tanpa re-import. Laporan `pengeluaran` tetap tersedia sebagai ringkasan gabungan di `/reports/pengeluaran/`, sedangkan riwayat distribusi menyediakan endpoint khusus di `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, dan `/distribution/report/lplpo/`.
+- `api`: API DRF baca-saja untuk dashboard eksternal, mencakup snapshot stok gudang per barang dan snapshot stok Puskesmas berbasis LPLPO. Baris barang menyertakan metadata program dan Terapi Obat. Endpoint data membutuhkan bearer secret server-to-server dan response di-cache sesuai `REPORTING_API_CACHE_TTL_SECONDS`.
 
 ## Ringkasan Workflow
 
@@ -101,6 +105,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
 - Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.
 - Static asset produksi dilayani melalui WhiteNoise dari hasil `collectstatic`, sehingga Django Admin `/admin/` dan UI aplikasi tetap memuat CSS/JavaScript ketika tidak ada web server eksternal yang melayani `/static/`.
+- Redis cache tidak boleh dipublikasikan tanpa autentikasi ke interface jaringan publik/LAN. Compose development hanya membuka Redis pada loopback host; deployment harus memakai private network dan/atau Redis dengan password/TLS sesuai infrastruktur.
 - Lampiran `ReceivingDocument` tidak lagi mengandalkan `MEDIA_URL`; file disimpan di `PRIVATE_MEDIA_ROOT` dan hanya diakses melalui endpoint unduh yang membutuhkan login + permission `receiving.view_receiving`.
 - Dukungan `CSRF_TRUSTED_ORIGINS`, backend email berbasis environment, dan batas field upload yang dinaikkan untuk form LPLPO berukuran besar.
 - Error umum `400/403/404/500` dirender lewat halaman khusus yang konsisten, mencatat event ke logger aplikasi, dan menyediakan tombol kembali ke halaman sebelumnya dengan fallback dinamis ke login atau dashboard.

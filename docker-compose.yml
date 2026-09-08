@@ -12,5 +12,12 @@ services:
       - "5432:5432"
     restart: unless-stopped
 
+  redis:
+    image: redis:8-alpine
+    container_name: ims_redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
