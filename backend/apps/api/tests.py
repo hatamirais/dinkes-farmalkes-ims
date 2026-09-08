@@ -7,7 +7,16 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
+from apps.items.models import (
+    Category,
+    Facility,
+    FundingSource,
+    Item,
+    Location,
+    Program,
+    TherapeuticClass,
+    Unit,
+)
 from apps.lplpo.models import LPLPO, LPLPOItem
 from apps.puskesmas.models import (
     PuskesmasConsumption,
@@ -72,13 +81,21 @@ class LatestWarehouseStockApiTests(ReportingApiTestCase):
         category = Category.objects.create(code="MED", name="Medicine", sort_order=1)
         funding_source = FundingSource.objects.create(code="DAK", name="DAK")
         location = Location.objects.create(code="GUD", name="Gudang")
+        program = Program.objects.create(code="CCG", name="Kecacingan")
+        therapeutic_class = TherapeuticClass.objects.create(
+            code="ANT",
+            name="Antelmintik",
+        )
         stocked_item = Item.objects.create(
             kode_barang="ITM-001",
             nama_barang="Amoxicillin",
             satuan=unit,
             kategori=category,
+            is_program_item=True,
+            program=program,
             minimum_stock=Decimal("20"),
         )
+        stocked_item.therapeutic_classes.add(therapeutic_class)
         zero_item = Item.objects.create(
             kode_barang="ITM-002",
             nama_barang="Paracetamol",
@@ -124,11 +141,23 @@ class LatestWarehouseStockApiTests(ReportingApiTestCase):
         self.assertEqual(rows["ITM-001"]["reserved_quantity"], "5.00")
         self.assertEqual(rows["ITM-001"]["available_quantity"], "20.00")
         self.assertFalse(rows["ITM-001"]["is_low_stock"])
+        self.assertTrue(rows["ITM-001"]["is_program_item"])
+        self.assertEqual(
+            rows["ITM-001"]["program"],
+            {"id": program.pk, "code": "CCG", "name": "Kecacingan"},
+        )
+        self.assertEqual(
+            rows["ITM-001"]["therapeutic_classes"],
+            [{"id": therapeutic_class.pk, "code": "ANT", "name": "Antelmintik"}],
+        )
         self.assertEqual(rows["ITM-001"]["expired_batch_count"], 1)
         self.assertEqual(rows["ITM-001"]["expiring_batch_count"], 1)
         self.assertEqual(rows["ITM-002"]["physical_quantity"], "0.00")
         self.assertEqual(rows["ITM-002"]["available_quantity"], "0.00")
         self.assertTrue(rows["ITM-002"]["is_low_stock"])
+        self.assertFalse(rows["ITM-002"]["is_program_item"])
+        self.assertIsNone(rows["ITM-002"]["program"])
+        self.assertEqual(rows["ITM-002"]["therapeutic_classes"], [])
         self.assertIn("generated_at", payload)
         self.assertEqual(payload["cache_ttl_seconds"], 21600)
 
@@ -175,13 +204,25 @@ class LatestPuskesmasStockApiTests(ReportingApiTestCase):
             password="TestPassword123!",
             role=User.Role.GUDANG,
         )
+        program = Program.objects.create(code="TB", name="Tuberkulosis")
+        therapeutic_one = TherapeuticClass.objects.create(
+            code="ABX",
+            name="Antibiotik",
+        )
+        therapeutic_two = TherapeuticClass.objects.create(
+            code="RESP",
+            name="Respirasi",
+        )
         item = Item.objects.create(
             kode_barang="ITM-PKM",
             nama_barang="ORS",
             satuan=unit,
             kategori=category,
+            is_program_item=True,
+            program=program,
             minimum_stock=Decimal("10"),
         )
+        item.therapeutic_classes.add(therapeutic_one, therapeutic_two)
         year = timezone.localdate().year
         lplpo = LPLPO.objects.create(
             facility=facility,
@@ -244,7 +285,20 @@ class LatestPuskesmasStockApiTests(ReportingApiTestCase):
         self.assertEqual(payload["count"], 1)
         row = payload["results"][0]
         self.assertEqual(row["facility_name"], "Puskesmas 01")
+        self.assertEqual(row["item_id"], item.pk)
         self.assertEqual(row["kode_barang"], "ITM-PKM")
+        self.assertTrue(row["is_program_item"])
+        self.assertEqual(
+            row["program"],
+            {"id": program.pk, "code": "TB", "name": "Tuberkulosis"},
+        )
+        self.assertEqual(
+            row["therapeutic_classes"],
+            [
+                {"id": therapeutic_one.pk, "code": "ABX", "name": "Antibiotik"},
+                {"id": therapeutic_two.pk, "code": "RESP", "name": "Respirasi"},
+            ],
+        )
         self.assertEqual(row["stock_current"], 78)
         self.assertEqual(row["base_month"], 3)
         self.assertEqual(row["base_year"], year)
@@ -263,7 +317,7 @@ class LatestPuskesmasStockApiTests(ReportingApiTestCase):
 
     def test_puskesmas_stock_cache_varies_by_year(self):
         with patch(
-            "apps.reporting_api.views.build_latest_puskesmas_stock_payload",
+            "apps.api.views.build_latest_puskesmas_stock_payload",
             side_effect=lambda year: {
                 "generated_at": timezone.now(),
                 "cache_ttl_seconds": 21600,

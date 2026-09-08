@@ -11,6 +11,27 @@ from apps.stock.models import Stock
 from apps.stock.views import _build_puskesmas_stock_snapshot
 
 
+def _item_program_payload(item):
+    if not item.program_id:
+        return None
+    return {
+        "id": item.program_id,
+        "code": item.program.code,
+        "name": item.program.name,
+    }
+
+
+def _item_therapeutic_classes_payload(item):
+    return [
+        {
+            "id": therapeutic.pk,
+            "code": therapeutic.code,
+            "name": therapeutic.name,
+        }
+        for therapeutic in item.therapeutic_classes.all()
+    ]
+
+
 def _metadata(*, period):
     return {
         "generated_at": timezone.now(),
@@ -45,10 +66,15 @@ def build_latest_warehouse_stock_payload():
     }
 
     results = []
-    items = Item.objects.filter(is_active=True).select_related("kategori", "satuan").order_by(
-        "kategori__sort_order",
-        "nama_barang",
-        "kode_barang",
+    items = (
+        Item.objects.filter(is_active=True)
+        .select_related("kategori", "satuan", "program")
+        .prefetch_related("therapeutic_classes")
+        .order_by(
+            "kategori__sort_order",
+            "nama_barang",
+            "kode_barang",
+        )
     )
     for item in items:
         summary = stock_summaries.get(item.pk, {})
@@ -63,6 +89,9 @@ def build_latest_warehouse_stock_payload():
                 "nama_barang": item.nama_barang,
                 "kategori": item.kategori.name if item.kategori_id else "Lainnya",
                 "satuan": item.satuan.name if item.satuan_id else "-",
+                "is_program_item": item.is_program_item,
+                "program": _item_program_payload(item),
+                "therapeutic_classes": _item_therapeutic_classes_payload(item),
                 "minimum_stock": minimum_stock,
                 "physical_quantity": physical_quantity,
                 "reserved_quantity": reserved_quantity,
@@ -87,16 +116,30 @@ def build_latest_puskesmas_stock_payload(*, year):
         include_rows=True,
         paginate=False,
     )
+    item_ids = {row["item_id"] for row in snapshot["rows"] if row.get("item_id")}
+    items_by_id = {
+        item.pk: item
+        for item in Item.objects.filter(pk__in=item_ids)
+        .select_related("program")
+        .prefetch_related("therapeutic_classes")
+    }
     results = []
     for row in snapshot["rows"]:
+        item = items_by_id.get(row["item_id"])
         results.append(
             {
                 "facility_id": row["facility_id"],
                 "facility_name": row["facility_name"],
+                "item_id": row["item_id"],
                 "kode_barang": row["kode_barang"],
                 "nama_barang": row["nama_barang"],
                 "kategori": row["kategori"],
                 "satuan": row["satuan"],
+                "is_program_item": item.is_program_item if item else False,
+                "program": _item_program_payload(item) if item else None,
+                "therapeutic_classes": _item_therapeutic_classes_payload(item)
+                if item
+                else [],
                 "stock_current": row["stock_current"],
                 "minimum_stock": row["minimum_stock"],
                 "is_below_threshold": row["is_below_threshold"],

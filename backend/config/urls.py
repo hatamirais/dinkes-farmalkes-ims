@@ -3,6 +3,11 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerSplitView,
+)
 
 from apps.core.rate_limits import login_ratelimit
 from apps.core.forms import CrispyAuthenticationForm
@@ -62,6 +67,18 @@ urlpatterns = [
     path("stock-opname/", include("apps.stock_opname.urls")),
     path("puskesmas/", include("apps.puskesmas.urls")),
     path("lplpo/", include("apps.lplpo.urls")),
+    path("api/schema/", SpectacularAPIView.as_view(), name="api_schema"),
+    path(
+        "api/docs/swagger/",
+        SpectacularSwaggerSplitView.as_view(url_name="api_schema"),
+        name="api_docs_swagger",
+    ),
+    path(
+        "api/docs/redoc/",
+        SpectacularRedocView.as_view(url_name="api_schema"),
+        name="api_docs_redoc",
+    ),
+    path("api/v1/reporting/", include("apps.api.urls")),
 ]
 
 if settings.DEBUG:

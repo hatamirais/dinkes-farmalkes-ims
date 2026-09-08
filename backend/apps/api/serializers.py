@@ -1,12 +1,27 @@
 from rest_framework import serializers
 
 
+class ItemProgramSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+
+
+class TherapeuticClassSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+
+
 class WarehouseStockItemSerializer(serializers.Serializer):
     item_id = serializers.IntegerField()
     kode_barang = serializers.CharField(allow_blank=True)
     nama_barang = serializers.CharField()
     kategori = serializers.CharField()
     satuan = serializers.CharField()
+    is_program_item = serializers.BooleanField()
+    program = ItemProgramSerializer(allow_null=True)
+    therapeutic_classes = TherapeuticClassSerializer(many=True)
     minimum_stock = serializers.DecimalField(max_digits=12, decimal_places=2)
     physical_quantity = serializers.DecimalField(max_digits=12, decimal_places=2)
     reserved_quantity = serializers.DecimalField(max_digits=12, decimal_places=2)
@@ -27,10 +42,14 @@ class WarehouseStockResponseSerializer(serializers.Serializer):
 class PuskesmasStockItemSerializer(serializers.Serializer):
     facility_id = serializers.IntegerField()
     facility_name = serializers.CharField()
+    item_id = serializers.IntegerField()
     kode_barang = serializers.CharField(allow_blank=True)
     nama_barang = serializers.CharField()
     kategori = serializers.CharField()
     satuan = serializers.CharField()
+    is_program_item = serializers.BooleanField()
+    program = ItemProgramSerializer(allow_null=True)
+    therapeutic_classes = TherapeuticClassSerializer(many=True)
     stock_current = serializers.IntegerField()
     minimum_stock = serializers.IntegerField()
     is_below_threshold = serializers.BooleanField()
