@@ -5,8 +5,11 @@ from django.utils import timezone
 
 from apps.core.decorators import perm_required
 from apps.items.models import Item
-from apps.stock.services import StockListOptions, build_stock_list_context
-from apps.stock.views import _build_stock_card_data, _parse_filter_date
+from apps.stock.services import (
+    StockListOptions,
+    build_mobile_stock_detail_context,
+    build_mobile_stock_search_context,
+)
 
 
 def manifest(request):
@@ -55,11 +58,25 @@ def home(request):
 @login_required
 @perm_required("stock.view_stock")
 def stock_list(request):
-    context = build_stock_list_context(
+    context = build_mobile_stock_search_context(
         request.GET,
         options=StockListOptions(page_size=20),
     )
     context["today"] = timezone.localdate()
+    if request.GET.get("partial") == "1":
+        response = render(request, "mobile/partials/stock_item_results.html", context)
+        response["X-Has-Next"] = "1" if context["items"].has_next() else "0"
+        response["X-Next-Page"] = (
+            str(context["items"].next_page_number())
+            if context["items"].has_next()
+            else ""
+        )
+        response["X-Result-Count"] = str(context["items"].paginator.count)
+        response["X-Quick-Expired"] = str(context["quick_counts"]["expired"])
+        response["X-Quick-Expiring"] = str(context["quick_counts"]["expiring"])
+        response["X-Quick-Safe"] = str(context["quick_counts"]["safe"])
+        return response
+
     return render(request, "mobile/stock_list.html", context)
 
 
@@ -67,28 +84,13 @@ def stock_list(request):
 @perm_required("stock.view_stock")
 def stock_card(request, item_id):
     item = get_object_or_404(Item, pk=item_id)
-    location_id = request.GET.get("location")
-    sumber_dana_id = request.GET.get("sumber_dana")
-    date_from_raw = request.GET.get("date_from", "").strip()
-    date_to_raw = request.GET.get("date_to", "").strip()
-    date_from = _parse_filter_date(date_from_raw)
-    date_to = _parse_filter_date(date_to_raw)
-
-    data = _build_stock_card_data(
+    data = build_mobile_stock_detail_context(
         item,
-        location_id=location_id,
-        sumber_dana_id=sumber_dana_id,
-        date_from=date_from,
-        date_to=date_to,
+        request.GET,
+        options=StockListOptions(page_size=20),
     )
     context = {
         "item": item,
         **data,
-        "date_from": date_from.strftime("%d/%m/%Y")
-        if date_from
-        else (date_from_raw or ""),
-        "date_to": date_to.strftime("%d/%m/%Y") if date_to else (date_to_raw or ""),
-        "selected_location": location_id or "",
-        "selected_sumber_dana": sumber_dana_id or "",
     }
     return render(request, "mobile/stock_card.html", context)

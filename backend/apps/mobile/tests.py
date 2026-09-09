@@ -49,17 +49,26 @@ class MobileStockTestCase(TestCase):
         item.therapeutic_classes.add(self.therapeutic_class)
         return item
 
-    def _make_stock(self, item, *, quantity=Decimal("30"), reserved=Decimal("5")):
+    def _make_stock(
+        self,
+        item,
+        *,
+        quantity=Decimal("30"),
+        reserved=Decimal("5"),
+        location=None,
+        batch_lot="B-001",
+        source_document_number="DOC-001",
+    ):
         return Stock.objects.create(
             item=item,
-            location=self.location,
-            batch_lot="B-001",
+            location=location or self.location,
+            batch_lot=batch_lot,
             expiry_date=timezone.localdate() + timedelta(days=60),
             quantity=quantity,
             reserved=reserved,
             unit_price=Decimal("1000"),
             sumber_dana=self.funding_source,
-            source_document_number="DOC-001",
+            source_document_number=source_document_number,
         )
 
 
@@ -152,17 +161,28 @@ class MobileDiscoveryTests(MobileStockTestCase):
 
 
 class MobileStockListTests(MobileStockTestCase):
-    def test_mobile_stock_list_renders_stock_cards_with_available_quantity(self):
+    def test_mobile_stock_list_groups_stock_rows_by_item(self):
         item = self._make_item()
         self._make_stock(item)
+        self._make_stock(
+            item,
+            quantity=Decimal("10"),
+            reserved=Decimal("0"),
+            batch_lot="B-002",
+            source_document_number="DOC-002",
+        )
         self.client.force_login(self.user)
 
         response = self.client.get(reverse("mobile:stock_list"), secure=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "mobile/stock_list.html")
+        self.assertEqual(response.context["items"].paginator.count, 1)
         self.assertContains(response, "Amoxicillin")
-        self.assertContains(response, "25")
+        self.assertContains(response, "40")
+        self.assertContains(response, "35")
+        self.assertContains(response, "2 batch/lokasi")
+        self.assertContains(response, "Filter detail")
         self.assertContains(response, "Kartu stok")
 
     def test_mobile_stock_list_filters_by_program_and_therapeutic_class(self):
@@ -185,11 +205,38 @@ class MobileStockListTests(MobileStockTestCase):
         self.assertContains(response, "Included Item")
         self.assertNotContains(response, "Excluded Item")
 
+    def test_mobile_stock_partial_returns_item_cards_and_pagination_headers(self):
+        item = self._make_item(name="Partial Item")
+        self._make_stock(item)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_list"),
+            {"partial": "1", "q": "Partial"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Partial Item")
+        self.assertContains(response, 'href="/mobile/stocks/', html=False)
+        self.assertNotContains(response, "??", html=False)
+        self.assertEqual(response["X-Result-Count"], "1")
+        self.assertEqual(response["X-Has-Next"], "0")
+
 
 class MobileStockCardTests(MobileStockTestCase):
-    def test_mobile_stock_card_renders_existing_stock_card_data(self):
+    def test_mobile_stock_card_renders_batch_level_stock_data(self):
         item = self._make_item()
-        self._make_stock(item)
+        second_location = Location.objects.create(code="KAR", name="Karantina")
+        self._make_stock(item, quantity=Decimal("30"), reserved=Decimal("5"))
+        self._make_stock(
+            item,
+            quantity=Decimal("12"),
+            reserved=Decimal("0"),
+            location=second_location,
+            batch_lot="B-002",
+            source_document_number="DOC-002",
+        )
         Transaction.objects.create(
             transaction_type=Transaction.TransactionType.IN,
             item=item,
@@ -213,6 +260,8 @@ class MobileStockCardTests(MobileStockTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "mobile/stock_card.html")
-        self.assertContains(response, "Kartu Stok")
+        self.assertContains(response, "Amoxicillin")
         self.assertContains(response, "DAU")
         self.assertContains(response, "30")
+        self.assertContains(response, "Karantina")
+        self.assertContains(response, "DOC-002")

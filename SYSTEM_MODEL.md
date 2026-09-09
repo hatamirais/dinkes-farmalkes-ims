@@ -64,8 +64,8 @@ Module highlights:
 - Mobile stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
   - Server-rendered Django mobile/PWA surface using the existing login/session, CSRF, Django permissions, and module-scope fallback.
   - Users with stock-view access can discover `/mobile/` from the authenticated desktop shell, and mobile pages provide dismissible install guidance for supported PWA-capable browsers.
-  - `/mobile/stocks/` reuses stock-list query semantics for active stock rows and supports small-screen filtering by search, program flag, therapeutic class, location, funding source, low-stock threshold, and expiry quick filters.
-  - `/mobile/stocks/<item_id>/card/` renders the existing stock-card data for one item in a mobile layout.
+  - `/mobile/stocks/` groups active stock rows by item/SKU, shows aggregated physical and available stock totals, supports live search, lazy loading, program flag, therapeutic class, location, funding source, low-stock threshold, and item-level expiry quick filters.
+  - `/mobile/stocks/<item_id>/card/` renders the selected item's batch/location stock rows in a mobile layout, including document reference, physical stock, available stock, reserved stock when non-zero, and expiry status filtering.
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
   - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
