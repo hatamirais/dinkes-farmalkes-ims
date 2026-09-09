@@ -29,6 +29,21 @@
             {% endfor %}
         </div>
         {% endif %}
+        <section class="mobile-install" data-pwa-install hidden>
+            <div class="mobile-install__icon" aria-hidden="true">
+                <i class="bi bi-phone"></i>
+            </div>
+            <div class="mobile-install__body">
+                <h2>Pasang IMS Mobile</h2>
+                <p data-pwa-install-text>Tambahkan ke layar utama agar akses cek stok lebih cepat.</p>
+            </div>
+            <div class="mobile-install__actions">
+                <button type="button" class="mobile-install__primary" data-pwa-install-button hidden>Pasang</button>
+                <button type="button" class="mobile-install__dismiss" data-pwa-install-dismiss aria-label="Tutup">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </section>
         {% block content %}{% endblock %}
     </main>
 

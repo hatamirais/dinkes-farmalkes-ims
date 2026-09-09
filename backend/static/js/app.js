@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     initSidebar();
     initSidebarCollapse();
+    initMobileDiscoveryPrompt();
     initAlertDismiss();
     initFlashToasts();
     initDeleteConfirmation();
@@ -39,6 +40,33 @@ function initSidebar() {
     if (toggleBtn) toggleBtn.addEventListener('click', openSidebar);
     if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
     if (overlay) overlay.addEventListener('click', closeSidebar);
+}
+
+/** Show a one-time link to IMS Mobile on phone-sized regular pages. */
+function initMobileDiscoveryPrompt() {
+    const prompt = document.querySelector('[data-mobile-discovery]');
+    if (!prompt) return;
+
+    const dismissKey = 'imsMobileDiscoveryDismissed';
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isPhoneSized = window.matchMedia('(max-width: 991.98px)').matches;
+
+    if (isStandalone || !isPhoneSized || localStorage.getItem(dismissKey) === 'true') {
+        prompt.hidden = true;
+        return;
+    }
+
+    prompt.hidden = false;
+    prompt.classList.add('d-flex');
+
+    const dismissButton = prompt.querySelector('[data-mobile-discovery-dismiss]');
+    if (dismissButton) {
+        dismissButton.addEventListener('click', () => {
+            localStorage.setItem(dismissKey, 'true');
+            prompt.hidden = true;
+            prompt.classList.remove('d-flex');
+        });
+    }
 }
 
 /** Enable keyboard focus on table rows for quicker navigation */

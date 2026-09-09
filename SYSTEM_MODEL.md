@@ -63,6 +63,7 @@ Module highlights:
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
 - Mobile stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
   - Server-rendered Django mobile/PWA surface using the existing login/session, CSRF, Django permissions, and module-scope fallback.
+  - Users with stock-view access can discover `/mobile/` from the authenticated desktop shell, and mobile pages provide dismissible install guidance for supported PWA-capable browsers.
   - `/mobile/stocks/` reuses stock-list query semantics for active stock rows and supports small-screen filtering by search, program flag, therapeutic class, location, funding source, low-stock threshold, and expiry quick filters.
   - `/mobile/stocks/<item_id>/card/` renders the existing stock-card data for one item in a mobile layout.
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`

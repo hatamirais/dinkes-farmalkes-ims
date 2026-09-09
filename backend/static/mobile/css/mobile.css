@@ -55,6 +55,88 @@
     padding: 1rem;
 }
 
+.mobile-install {
+    align-items: flex-start;
+    background: #ecfdf3;
+    border: 1px solid #a6f4c5;
+    border-radius: .5rem;
+    display: flex;
+    gap: .75rem;
+    margin-bottom: 1rem;
+    padding: .875rem;
+}
+
+.mobile-install[hidden] {
+    display: none;
+}
+
+.mobile-install__icon {
+    align-items: center;
+    background: #d1fadf;
+    border-radius: .5rem;
+    color: #027a48;
+    display: inline-flex;
+    flex: 0 0 2.5rem;
+    height: 2.5rem;
+    justify-content: center;
+}
+
+.mobile-install__icon i {
+    font-size: 1.25rem;
+}
+
+.mobile-install__body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.mobile-install__body h2 {
+    color: var(--mobile-text);
+    font-size: .9375rem;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 0;
+}
+
+.mobile-install__body p {
+    color: #475467;
+    font-size: .8125rem;
+    line-height: 1.35;
+    margin: .125rem 0 0;
+}
+
+.mobile-install__actions {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: .375rem;
+}
+
+.mobile-install__primary,
+.mobile-install__dismiss {
+    align-items: center;
+    border: 0;
+    display: inline-flex;
+    font-weight: 700;
+    justify-content: center;
+}
+
+.mobile-install__primary {
+    background: #027a48;
+    border-radius: .375rem;
+    color: #fff;
+    min-height: 2rem;
+    padding: .375rem .625rem;
+}
+
+.mobile-install__dismiss {
+    background: transparent;
+    color: #667085;
+    height: 2rem;
+    padding: 0;
+    width: 2rem;
+}
+
 .mobile-page-heading {
     align-items: flex-start;
     display: flex;

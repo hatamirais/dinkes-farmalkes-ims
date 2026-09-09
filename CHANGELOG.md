@@ -10,6 +10,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 ### Added
 
 - Added an initial server-rendered mobile/PWA stock surface under `/mobile/`, with mobile stock search, program/therapeutic filters, and item stock-card access using the existing Django session and stock permissions.
+- Added PWA install/discovery prompts so stock users can find the mobile surface from the desktop shell and install it from mobile browsers that support PWA installation.
 
 ### Removed
 

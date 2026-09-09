@@ -16,7 +16,7 @@ from apps.items.models import (
     Unit,
 )
 from apps.stock.models import Stock, Transaction
-from apps.users.models import User
+from apps.users.models import ModuleAccess, User
 
 
 class MobileStockTestCase(TestCase):
@@ -107,6 +107,48 @@ class MobileStockAccessTests(MobileStockTestCase):
         response = self.client.get(reverse("mobile:stock_list"), secure=True)
 
         self.assertEqual(response.status_code, 403)
+
+
+class MobileDiscoveryTests(MobileStockTestCase):
+    def test_mobile_stock_page_renders_install_prompt_container(self):
+        item = self._make_item()
+        self._make_stock(item)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("mobile:stock_list"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-pwa-install', html=False)
+        self.assertContains(response, "Pasang IMS Mobile")
+        self.assertContains(response, 'data-pwa-install-button', html=False)
+
+    def test_desktop_shell_links_stock_users_to_mobile_surface(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("password_change"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/mobile/"', html=False)
+        self.assertContains(response, "IMS Mobile tersedia untuk cek stok")
+
+    def test_desktop_shell_hides_mobile_link_without_stock_scope(self):
+        user = User.objects.create_user(
+            username="no-stock-mobile-link",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ModuleAccess.objects.update_or_create(
+            user=user,
+            module=ModuleAccess.Module.STOCK,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("password_change"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'href="/mobile/"', html=False)
+        self.assertNotContains(response, "IMS Mobile tersedia untuk cek stok")
 
 
 class MobileStockListTests(MobileStockTestCase):

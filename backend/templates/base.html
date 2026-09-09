@@ -440,6 +440,11 @@
                         <h5 class="mb-0 page-title">{% block page_title %}Dashboard{% endblock %}</h5>
                     </div>
                     <div class="d-flex align-items-center gap-3">
+                        {% if can_view_stock %}
+                        <a href="{% url 'mobile:home' %}" class="btn btn-outline-primary btn-sm d-none d-lg-inline-flex align-items-center gap-1" title="Buka IMS Mobile">
+                            <i class="bi bi-phone"></i><span>Mobile</span>
+                        </a>
+                        {% endif %}
                         <span class="badge text-bg-light border">v{{ app_version }}</span>
                         {% if user.is_authenticated %}
                         {% if user.role != 'PUSKESMAS' or nav_notification_count > 0 %}
@@ -525,6 +530,17 @@
 
             <!-- Main Content -->
             <main class="main-content">
+                {% if can_view_stock %}
+                <div class="alert alert-primary d-lg-none align-items-center justify-content-between gap-2 py-2 px-3 mb-3" data-mobile-discovery hidden>
+                    <span class="small">
+                        <i class="bi bi-phone me-1"></i>IMS Mobile tersedia untuk cek stok di layar kecil.
+                    </span>
+                    <span class="d-inline-flex align-items-center gap-2">
+                        <a href="{% url 'mobile:home' %}" class="btn btn-primary btn-sm">Buka</a>
+                        <button type="button" class="btn-close" data-mobile-discovery-dismiss aria-label="Tutup"></button>
+                    </span>
+                </div>
+                {% endif %}
                 {% if messages %}
                 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
                     {% for message in messages %}
@@ -557,7 +573,7 @@
     {% endif %}
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}?v={{ app_version }}-20260416"></script>
-    <script src="{% static 'js/app.js' %}?v={{ app_version }}-20260901a"></script>
+    <script src="{% static 'js/app.js' %}?v={{ app_version }}-20260909a"></script>
     <script src="{% static 'js/confirm-actions.js' %}?v={{ app_version }}-20260416"></script>
     {% block extra_js %}{% endblock %}
 </body>
