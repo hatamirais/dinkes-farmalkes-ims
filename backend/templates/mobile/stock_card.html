@@ -1,0 +1,89 @@
+{% extends "mobile/base.html" %}
+{% load number_format %}
+
+{% block title %}Kartu Stok - IMS Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-page-heading">
+    <div>
+        <h1>Kartu Stok</h1>
+        <p>{{ item.nama_barang }}</p>
+    </div>
+    <a class="mobile-date" href="{% url 'mobile:stock_list' %}">Stok</a>
+</section>
+
+<form method="get" class="mobile-filter">
+    <div class="mobile-filter-grid">
+        <select name="location" class="form-select" aria-label="Lokasi">
+            <option value="">Semua lokasi</option>
+            {% for loc in locations %}
+            <option value="{{ loc.id }}" {% if loc.id|stringformat:"s" == selected_location %}selected{% endif %}>{{ loc.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="sumber_dana" class="form-select" aria-label="Sumber dana">
+            <option value="">Semua dana</option>
+            {% for source in funding_sources %}
+            <option value="{{ source.id }}" {% if source.id|stringformat:"s" == selected_sumber_dana %}selected{% endif %}>{{ source.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="date_from" class="form-control" placeholder="Dari: dd/mm/yyyy" value="{{ date_from }}">
+        <input type="text" name="date_to" class="form-control" placeholder="Sampai: dd/mm/yyyy" value="{{ date_to }}">
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Terapkan</button>
+</form>
+
+<section class="mobile-list" aria-label="Kartu stok">
+    {% for card in funding_source_cards %}
+    <article class="mobile-stock-card">
+        <div class="mobile-stock-card__head">
+            <div>
+                <h2>{{ card.sumber_dana.name|default:"Tanpa sumber dana" }}</h2>
+                <p>{{ card.location_name }} · {{ card.batch_lot }}</p>
+            </div>
+            <span class="badge text-bg-light border">{{ card.source_document_number }}</span>
+        </div>
+        <dl class="mobile-stock-card__quantities">
+            <div>
+                <dt>Masuk</dt>
+                <dd>{{ card.total_in|id_decimal:0 }}</dd>
+            </div>
+            <div>
+                <dt>Keluar</dt>
+                <dd>{{ card.total_out|id_decimal:0 }}</dd>
+            </div>
+            <div>
+                <dt>Saldo</dt>
+                <dd>{{ card.closing_balance|id_decimal:0 }}</dd>
+            </div>
+        </dl>
+        <div class="mobile-timeline">
+            {% if card.show_opening_balance %}
+            <div class="mobile-timeline__row">
+                <span>Saldo awal</span>
+                <strong>{{ card.opening_balance|id_decimal:0 }}</strong>
+            </div>
+            {% endif %}
+            {% for tx in card.transactions %}
+            <div class="mobile-timeline__row">
+                <span>
+                    {{ tx.created_at|date:"d M Y" }}
+                    <small>{{ tx.activity_label }} · {{ tx.reference_type }}</small>
+                </span>
+                <strong>{{ tx.quantity|id_decimal:0 }}</strong>
+            </div>
+            {% empty %}
+            <div class="mobile-timeline__row">
+                <span>Belum ada transaksi pada filter ini.</span>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+    {% empty %}
+    <div class="mobile-empty">
+        <i class="bi bi-card-list"></i>
+        <strong>Kartu stok kosong.</strong>
+        <span>Belum ada transaksi untuk barang ini.</span>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

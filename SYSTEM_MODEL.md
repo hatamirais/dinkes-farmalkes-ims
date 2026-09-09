@@ -36,8 +36,7 @@ Root route include map from `backend/config/urls.py`:
 - `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
 - `/users/`, `/items/`, `/stock/`, `/receiving/`, `/procurement/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
-- `/api/schema/`, `/api/docs/swagger/`, `/api/docs/redoc/`
-- `/api/v1/reporting/stocks/latest/`, `/api/v1/reporting/puskesmas-stocks/latest/`
+- `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
 
 Global error handlers in `backend/config/urls.py`:
 
@@ -62,11 +61,10 @@ Module highlights:
 - Expiry alerts: `/expired/alerts/`
 - Stock opname: `/stock-opname/`, `/stock-opname/create/`, `/stock-opname/<pk>/`, `/stock-opname/<pk>/edit/`, `/stock-opname/<pk>/start/`, `/stock-opname/<pk>/input/`, `/stock-opname/<pk>/complete/`, `/stock-opname/<pk>/report/`, `/stock-opname/<pk>/print/`, `/stock-opname/<pk>/delete/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
-- Reporting API: `/api/v1/reporting/stocks/latest/`, `/api/v1/reporting/puskesmas-stocks/latest/`
-  - Read-only DRF endpoints for an external internal-network dashboard.
-  - Data endpoints require `Authorization: Bearer <REPORTING_API_SHARED_SECRET>` and are disabled unless `REPORTING_API_ENABLED=True`.
-  - Warehouse latest stock returns active catalog items with aggregate physical, reserved, available, low-stock, expiry-risk, program, and Terapi Obat values.
-  - Puskesmas latest stock defaults to the current local server year, reuses the existing LPLPO-derived snapshot logic, and includes program/Terapi Obat metadata for each item row.
+- Mobile stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
+  - Server-rendered Django mobile/PWA surface using the existing login/session, CSRF, Django permissions, and module-scope fallback.
+  - `/mobile/stocks/` reuses stock-list query semantics for active stock rows and supports small-screen filtering by search, program flag, therapeutic class, location, funding source, low-stock threshold, and expiry quick filters.
+  - `/mobile/stocks/<item_id>/card/` renders the existing stock-card data for one item in a mobile layout.
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
   - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.

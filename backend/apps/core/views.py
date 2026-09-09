@@ -1,9 +1,12 @@
 import json
 import logging
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponsePermanentRedirect
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from django.utils.http import escape_leading_slashes
 from datetime import timedelta
 from django.views.decorators.csrf import requires_csrf_token
 
@@ -15,7 +18,7 @@ from apps.stock.models import Stock, Transaction
 from apps.users.models import User
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess
-from django.urls import reverse, reverse_lazy
+from django.urls import Resolver404, resolve, reverse, reverse_lazy
 from django.views.generic.edit import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
@@ -164,6 +167,20 @@ def page_not_found_handler(request, exception):
 
 
 def debug_page_not_found(request, unmatched_path=""):
+    if settings.APPEND_SLASH and not request.path_info.endswith("/"):
+        slash_path = f"{request.path_info}/"
+        try:
+            match = resolve(slash_path)
+        except Resolver404:
+            match = None
+
+        if match and match.view_name != "debug_page_not_found":
+            redirect_path = escape_leading_slashes(slash_path)
+            query_string = request.META.get("QUERY_STRING")
+            if query_string:
+                redirect_path = f"{redirect_path}?{query_string}"
+            return HttpResponsePermanentRedirect(redirect_path)
+
     return page_not_found_handler(request, FileNotFoundError(unmatched_path or request.path))
 
 

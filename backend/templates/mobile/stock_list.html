@@ -1,0 +1,141 @@
+{% extends "mobile/base.html" %}
+{% load number_format %}
+
+{% block title %}Stok - IMS Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-page-heading">
+    <div>
+        <h1>Stok Barang</h1>
+        <p>{{ stocks.paginator.count }} baris stok aktif</p>
+    </div>
+    <span class="mobile-date">{{ today|date:"d M Y" }}</span>
+</section>
+
+<section class="mobile-stat-strip" aria-label="Ringkasan stok">
+    <div>
+        <span>Fisik</span>
+        <strong>{{ stock_stats.total_quantity|id_decimal:0 }}</strong>
+    </div>
+    <div>
+        <span>Reserved</span>
+        <strong>{{ stock_stats.total_reserved|id_decimal:0 }}</strong>
+    </div>
+    <div>
+        <span>Tersedia</span>
+        <strong>{{ stock_stats.total_available|id_decimal:0 }}</strong>
+    </div>
+</section>
+
+<form method="get" class="mobile-filter">
+    {% if selected_quick %}
+    <input type="hidden" name="quick" value="{{ selected_quick }}">
+    {% endif %}
+    <label class="visually-hidden" for="mobile-stock-search">Cari stok</label>
+    <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input id="mobile-stock-search" type="search" name="q" class="form-control" placeholder="Cari barang, batch, dokumen" value="{{ search }}">
+    </div>
+
+    <div class="mobile-filter-grid">
+        <select name="program" class="form-select" aria-label="Tipe program">
+            <option value="">Semua tipe</option>
+            <option value="1" {% if selected_program == "1" %}selected{% endif %}>Program</option>
+            <option value="0" {% if selected_program == "0" %}selected{% endif %}>Non-program</option>
+        </select>
+        <select name="therapeutic_class" class="form-select" aria-label="Terapi obat">
+            <option value="">Semua terapi</option>
+            {% for therapeutic in therapeutic_classes %}
+            <option value="{{ therapeutic.id }}" {{ therapeutic.selected }}>{{ therapeutic.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="location" class="form-select" aria-label="Lokasi">
+            <option value="">Semua lokasi</option>
+            {% for loc in locations %}
+            <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="sumber_dana" class="form-select" aria-label="Sumber dana">
+            <option value="">Semua dana</option>
+            {% for sd in funding_sources %}
+            <option value="{{ sd.id }}" {{ sd.selected }}>{{ sd.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <label class="mobile-check">
+        <input type="checkbox" name="low_stock" value="1" {% if selected_low_stock == "1" %}checked{% endif %}>
+        <span>Di bawah minimum</span>
+    </label>
+
+    <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if search or selected_location or selected_sumber_dana or selected_program or selected_therapeutic_class or selected_low_stock or selected_quick %}
+        <a href="{% url 'mobile:stock_list' %}" class="btn btn-outline-secondary">Reset</a>
+        {% endif %}
+    </div>
+</form>
+
+<section class="mobile-chip-row" aria-label="Filter kedaluwarsa">
+    <a href="{% querystring quick='' page=None %}" class="{% if not selected_quick %}active{% endif %}">Semua</a>
+    <a href="{% querystring quick='expired' page=None %}" class="{% if selected_quick == 'expired' %}active danger{% endif %}">Expired {{ quick_counts.expired }}</a>
+    <a href="{% querystring quick='expiring' page=None %}" class="{% if selected_quick == 'expiring' %}active warning{% endif %}">{{ near_expiry_days }} hari {{ quick_counts.expiring }}</a>
+    <a href="{% querystring quick='safe' page=None %}" class="{% if selected_quick == 'safe' %}active success{% endif %}">Aman {{ quick_counts.safe }}</a>
+</section>
+
+<section class="mobile-list" aria-label="Daftar stok">
+    {% for stock in stocks %}
+    <article class="mobile-stock-card">
+        <div class="mobile-stock-card__head">
+            <div>
+                <h2>{{ stock.item.nama_barang }}</h2>
+                <p><code>{{ stock.item.kode_barang }}</code> · {{ stock.item.satuan.name }}</p>
+            </div>
+            <span class="badge {{ stock.expiry_badge_class }}">{{ stock.expiry_badge_label }}</span>
+        </div>
+        <dl class="mobile-stock-card__quantities">
+            <div>
+                <dt>Fisik</dt>
+                <dd>{{ stock.quantity|id_decimal:0 }}</dd>
+            </div>
+            <div>
+                <dt>Reserved</dt>
+                <dd>{{ stock.reserved|id_decimal:0 }}</dd>
+            </div>
+            <div>
+                <dt>Tersedia</dt>
+                <dd>{{ stock.available_quantity|id_decimal:0 }}</dd>
+            </div>
+        </dl>
+        <div class="mobile-stock-card__meta">
+            <span><i class="bi bi-geo-alt"></i>{{ stock.location.name }}</span>
+            <span><i class="bi bi-upc-scan"></i>{{ stock.batch_lot }}</span>
+            <span><i class="bi bi-file-earmark-text"></i>{{ stock.source_document_number }}</span>
+            <span><i class="bi bi-cash-stack"></i>{{ stock.sumber_dana.name }}</span>
+            {% if stock.item.is_program_item and stock.item.program %}
+            <span><i class="bi bi-bookmark-check"></i>{{ stock.item.program.name }}</span>
+            {% endif %}
+        </div>
+        <a class="mobile-card-action" href="{% url 'mobile:stock_card' stock.item_id %}">Kartu stok</a>
+    </article>
+    {% empty %}
+    <div class="mobile-empty">
+        <i class="bi bi-inbox"></i>
+        <strong>Tidak ada stok yang cocok.</strong>
+        <span>Ubah kata kunci atau filter.</span>
+    </div>
+    {% endfor %}
+</section>
+
+{% if stocks.paginator.num_pages > 1 %}
+<nav class="mobile-pagination" aria-label="Halaman stok">
+    {% if stocks.has_previous %}
+    <a href="{% querystring page=stocks.previous_page_number %}">Sebelumnya</a>
+    {% endif %}
+    <span>{{ stocks.number }} / {{ stocks.paginator.num_pages }}</span>
+    {% if stocks.has_next %}
+    <a href="{% querystring page=stocks.next_page_number %}">Berikutnya</a>
+    {% endif %}
+</nav>
+{% endif %}
+{% endblock %}

@@ -9,11 +9,11 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Added
 
-- Added an initial DRF read-only reporting API MVP under `/api/v1/reporting/` for external internal-dashboard experiments, with warehouse and Puskesmas stock snapshot endpoints, bearer-secret access, six-hour response caching, Redis cache support with local fallback behavior, and generated OpenAPI/Swagger/ReDoc documentation via `drf-spectacular`.
+- Added an initial server-rendered mobile/PWA stock surface under `/mobile/`, with mobile stock search, program/therapeutic filters, and item stock-card access using the existing Django session and stock permissions.
 
-### Notes
+### Removed
 
-- The reporting API is intentionally marked as an MVP and is expected to be revised before it becomes a stable dashboard contract.
+- Retired the experimental DRF reporting API surface, including `/api/v1/reporting/`, generated OpenAPI docs routes, bearer-secret reporting settings, and unused DRF/drf-spectacular dependencies.
 
 ## [1.31.11] - 2026-09-07
 
