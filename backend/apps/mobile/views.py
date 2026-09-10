@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.decorators import perm_required
@@ -55,6 +56,17 @@ def home(request):
     return redirect("mobile:stock_list")
 
 
+def _stock_list_return_url(request):
+    params = request.GET.copy()
+    params.pop("page", None)
+    params.pop("partial", None)
+    querystring = params.urlencode()
+    url = reverse("mobile:stock_list")
+    if querystring:
+        return f"{url}?{querystring}"
+    return url
+
+
 @login_required
 @perm_required("stock.view_stock")
 def stock_list(request):
@@ -92,6 +104,7 @@ def stock_card(request, item_id):
     )
     context = {
         "item": item,
+        "stock_list_return_url": _stock_list_return_url(request),
         **data,
     }
     return render(request, "mobile/stock_card.html", context)

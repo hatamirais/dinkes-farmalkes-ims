@@ -9,7 +9,7 @@
         <h1>{{ item.nama_barang }}</h1>
         <p><code>{{ item.kode_barang }}</code> · {{ item.satuan.name }}</p>
     </div>
-    <a class="mobile-date" href="{% url 'mobile:stock_list' %}">Kembali</a>
+    <a class="mobile-date" href="{{ stock_list_return_url }}">Kembali</a>
 </section>
 
 <section class="mobile-stat-strip" aria-label="Ringkasan stok barang">

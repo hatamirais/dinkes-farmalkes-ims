@@ -391,3 +391,32 @@ class MobileStockCardTests(MobileStockTestCase):
         self.assertContains(response, "30")
         self.assertContains(response, "Karantina")
         self.assertContains(response, "DOC-002")
+
+    def test_mobile_stock_card_back_link_preserves_list_filters(self):
+        item = self._make_item()
+        self._make_stock(item)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_card", args=[item.pk]),
+            {
+                "q": "Amox",
+                "quick": "expired",
+                "location": str(self.location.pk),
+                "page": "3",
+                "partial": "1",
+            },
+            secure=True,
+        )
+
+        expected_url = (
+            f"{reverse('mobile:stock_list')}"
+            f"?q=Amox&quick=expired&location={self.location.pk}"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["stock_list_return_url"], expected_url)
+        self.assertContains(
+            response,
+            f'href="{expected_url.replace("&", "&amp;")}"',
+            html=False,
+        )

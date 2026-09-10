@@ -304,8 +304,10 @@
   }
 
   window.addEventListener("load", function () {
-    navigator.serviceWorker.register("/mobile/service-worker.js/").catch(function () {
-      // Mobile pages remain usable without service worker support.
-    });
+    navigator.serviceWorker
+      .register("/mobile/service-worker.js/", { scope: "/mobile/" })
+      .catch(function () {
+        // Mobile pages remain usable without service worker support.
+      });
   });
 })();
