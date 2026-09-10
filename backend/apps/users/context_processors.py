@@ -40,9 +40,8 @@ def access_flags(request):
         "can_view_items": has_module_scope(
             user, ModuleAccess.Module.ITEMS, ModuleAccess.Scope.VIEW
         ),
-        "can_view_stock": has_module_scope(
-            user, ModuleAccess.Module.STOCK, ModuleAccess.Scope.VIEW
-        ),
+        "can_view_stock": user.has_perm("stock.view_stock")
+        or has_module_permission(user, "stock.view_stock"),
         "can_view_receiving": has_module_scope(
             user, ModuleAccess.Module.RECEIVING, ModuleAccess.Scope.VIEW
         ),

@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.contrib.auth.models import Permission
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -165,6 +166,30 @@ class MobileDiscoveryTests(MobileStockTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'href="/mobile/"', html=False)
         self.assertNotContains(response, "IMS Mobile tersedia untuk cek stok")
+
+    def test_desktop_shell_links_django_permission_stock_users_to_mobile_surface(self):
+        user = User.objects.create_user(
+            username="django-perm-mobile-link",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+        )
+        ModuleAccess.objects.update_or_create(
+            user=user,
+            module=ModuleAccess.Module.STOCK,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        view_stock = Permission.objects.get(
+            content_type__app_label="stock",
+            codename="view_stock",
+        )
+        user.user_permissions.add(view_stock)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("password_change"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/mobile/"', html=False)
+        self.assertContains(response, "IMS Mobile tersedia untuk cek stok")
 
 
 class MobileStockListTests(MobileStockTestCase):
