@@ -105,6 +105,13 @@ class MobileEntryPointRedirectTests(TestCase):
         self.assertEqual(response.status_code, 301)
         self.assertEqual(response["Location"], reverse("mobile:home"))
 
+    def test_debug_404_does_not_redirect_slashless_mobile_mutation(self):
+        request = RequestFactory().post(reverse("mobile:home").rstrip("/"), secure=True)
+
+        response = debug_page_not_found(request, "mobile")
+
+        self.assertEqual(response.status_code, 404)
+
 
 class MobileStockAccessTests(MobileStockTestCase):
     def test_mobile_stock_requires_login(self):

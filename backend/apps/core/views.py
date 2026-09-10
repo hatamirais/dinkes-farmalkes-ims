@@ -167,7 +167,11 @@ def page_not_found_handler(request, exception):
 
 
 def debug_page_not_found(request, unmatched_path=""):
-    if settings.APPEND_SLASH and not request.path_info.endswith("/"):
+    if (
+        request.method in {"GET", "HEAD"}
+        and settings.APPEND_SLASH
+        and not request.path_info.endswith("/")
+    ):
         slash_path = f"{request.path_info}/"
         try:
             match = resolve(slash_path)
