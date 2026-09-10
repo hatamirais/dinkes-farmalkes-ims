@@ -36,7 +36,14 @@ class MobileStockTestCase(TestCase):
             role=User.Role.GUDANG,
         )
 
-    def _make_item(self, *, code="ITM-001", name="Amoxicillin", program=True):
+    def _make_item(
+        self,
+        *,
+        code="ITM-001",
+        name="Amoxicillin",
+        program=True,
+        minimum_stock=Decimal("10"),
+    ):
         item = Item.objects.create(
             kode_barang=code,
             nama_barang=name,
@@ -44,7 +51,7 @@ class MobileStockTestCase(TestCase):
             kategori=self.category,
             is_program_item=program,
             program=self.program if program else None,
-            minimum_stock=Decimal("10"),
+            minimum_stock=minimum_stock,
         )
         item.therapeutic_classes.add(self.therapeutic_class)
         return item
@@ -204,6 +211,73 @@ class MobileStockListTests(MobileStockTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Included Item")
         self.assertNotContains(response, "Excluded Item")
+
+    def test_mobile_stock_search_does_not_duplicate_multi_therapy_items(self):
+        respiratory_class = TherapeuticClass.objects.create(
+            code="RESP",
+            name="Respiratory",
+        )
+        item = self._make_item(name="Multi Therapy Item")
+        item.therapeutic_classes.add(respiratory_class)
+        self._make_stock(item, quantity=Decimal("30"), reserved=Decimal("5"))
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_list"),
+            {"q": "Multi Therapy"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        row = response.context["items"].object_list[0]
+        self.assertEqual(row["total_quantity"], Decimal("30"))
+        self.assertEqual(row["total_available"], Decimal("25"))
+        self.assertEqual(row["batch_count"], 1)
+
+    def test_mobile_stock_low_stock_filter_uses_item_level_totals(self):
+        enough_item = self._make_item(
+            code="ITM-ENOUGH",
+            name="Enough Aggregate",
+            minimum_stock=Decimal("10"),
+        )
+        low_item = self._make_item(
+            code="ITM-LOW",
+            name="Low Aggregate",
+            minimum_stock=Decimal("10"),
+        )
+        self._make_stock(
+            enough_item,
+            quantity=Decimal("8"),
+            reserved=Decimal("0"),
+            batch_lot="B-001",
+            source_document_number="DOC-001",
+        )
+        self._make_stock(
+            enough_item,
+            quantity=Decimal("8"),
+            reserved=Decimal("0"),
+            batch_lot="B-002",
+            source_document_number="DOC-002",
+        )
+        self._make_stock(
+            low_item,
+            quantity=Decimal("9"),
+            reserved=Decimal("0"),
+            batch_lot="B-003",
+            source_document_number="DOC-003",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_list"),
+            {"low_stock": "1"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["items"].paginator.count, 1)
+        self.assertContains(response, "Low Aggregate")
+        self.assertNotContains(response, "Enough Aggregate")
 
     def test_mobile_stock_partial_returns_item_cards_and_pagination_headers(self):
         item = self._make_item(name="Partial Item")

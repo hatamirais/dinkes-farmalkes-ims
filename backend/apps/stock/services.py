@@ -4,11 +4,21 @@ from decimal import Decimal
 import unicodedata
 
 from django.core.paginator import Paginator
-from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import (
+    Count,
+    DecimalField,
+    Exists,
+    ExpressionWrapper,
+    F,
+    OuterRef,
+    Q,
+    Sum,
+    Value,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.items.models import FundingSource, Location, TherapeuticClass
+from apps.items.models import FundingSource, Item, Location, TherapeuticClass
 
 from .models import Stock
 
@@ -112,6 +122,12 @@ def _build_mobile_stock_queryset(params, *, options):
 
     search = normalize_text_param(params.get("q", ""), max_length=100)
     if search:
+        therapeutic_match = Item.therapeutic_classes.through.objects.filter(
+            item_id=OuterRef("item_id"),
+        ).filter(
+            Q(therapeuticclass__code__icontains=search)
+            | Q(therapeuticclass__name__icontains=search)
+        )
         queryset = queryset.filter(
             Q(item__kode_barang__icontains=search)
             | Q(item__nama_barang__icontains=search)
@@ -119,9 +135,8 @@ def _build_mobile_stock_queryset(params, *, options):
             | Q(source_document_number__icontains=search)
             | Q(item__program__code__icontains=search)
             | Q(item__program__name__icontains=search)
-            | Q(item__therapeutic_classes__code__icontains=search)
-            | Q(item__therapeutic_classes__name__icontains=search)
-        ).distinct()
+            | Q(Exists(therapeutic_match))
+        )
 
     location = resolve_selected_id(params.get("location"), active_location_ids)
     if location:
@@ -147,12 +162,14 @@ def _build_mobile_stock_queryset(params, *, options):
         active_therapeutic_class_ids,
     )
     if therapeutic_class:
-        queryset = queryset.filter(item__therapeutic_classes__id=int(therapeutic_class))
+        selected_therapeutic_match = Item.therapeutic_classes.through.objects.filter(
+            item_id=OuterRef("item_id"),
+            therapeuticclass_id=int(therapeutic_class),
+        )
+        queryset = queryset.filter(Exists(selected_therapeutic_match))
 
     low_stock = normalize_text_param(params.get("low_stock", ""), max_length=1)
-    if low_stock == "1":
-        queryset = queryset.filter(available_qty__lt=F("item__minimum_stock"))
-    else:
+    if low_stock != "1":
         low_stock = ""
 
     expiry_from = parse_iso_date_param(params.get("expiry_from"))
@@ -245,6 +262,7 @@ def build_mobile_stock_search_context(params, *, options=None):
             "item__nama_barang",
             "item__satuan__name",
             "item__kategori__sort_order",
+            "item__minimum_stock",
         )
         .annotate(
             total_quantity=Coalesce(Sum("quantity"), Value(zero_decimal)),
@@ -270,6 +288,12 @@ def build_mobile_stock_search_context(params, *, options=None):
         )
     )
 
+    if state["low_stock"]:
+        grouped_rows = [
+            row for row in grouped_rows
+            if row["total_available"] < row["item__minimum_stock"]
+        ]
+
     quick_counts = {
         "expired": 0,
         "expiring": 0,
@@ -285,7 +309,7 @@ def build_mobile_stock_search_context(params, *, options=None):
         ]
 
     stats_queryset = queryset
-    if state["quick"]:
+    if state["low_stock"] or state["quick"]:
         stats_queryset = queryset.filter(
             item_id__in=[row["item_id"] for row in grouped_rows]
         )
