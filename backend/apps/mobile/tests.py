@@ -362,6 +362,48 @@ class MobileStockListTests(MobileStockTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["selected_location"], "")
 
+    def test_mobile_stock_rejects_overlong_filter_values(self):
+        program_item = self._make_item(
+            code="ITM-PROGRAM",
+            name="Program Item",
+            minimum_stock=Decimal("10"),
+        )
+        regular_item = self._make_item(
+            code="ITM-REGULAR",
+            name="Regular Item",
+            program=False,
+            minimum_stock=Decimal("1"),
+        )
+        self._make_stock(
+            program_item,
+            quantity=Decimal("5"),
+            reserved=Decimal("0"),
+            source_document_number="DOC-PROGRAM",
+        )
+        self._make_stock(
+            regular_item,
+            quantity=Decimal("20"),
+            reserved=Decimal("0"),
+            source_document_number="DOC-REGULAR",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_list"),
+            {
+                "program": "10",
+                "low_stock": "10",
+                "expiry_from": "9999-12-31garbage",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["items"].paginator.count, 2)
+        self.assertEqual(response.context["selected_program"], "")
+        self.assertEqual(response.context["selected_low_stock"], "")
+        self.assertIsNone(response.context["expiry_from"])
+
     def test_mobile_stock_partial_returns_item_cards_and_pagination_headers(self):
         item = self._make_item(name="Partial Item")
         self._make_stock(item)

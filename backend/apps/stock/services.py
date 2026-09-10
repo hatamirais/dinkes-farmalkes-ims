@@ -35,7 +35,9 @@ def normalize_text_param(value, *, max_length=100):
         return ""
 
     normalized = unicodedata.normalize("NFC", raw_value).strip()
-    return normalized[:max_length]
+    if len(normalized) > max_length:
+        return ""
+    return normalized
 
 
 def parse_iso_date_param(value):
