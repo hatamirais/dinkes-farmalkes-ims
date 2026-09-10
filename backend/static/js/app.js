@@ -51,7 +51,7 @@ function initMobileDiscoveryPrompt() {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     const isPhoneSized = window.matchMedia('(max-width: 991.98px)').matches;
 
-    if (isStandalone || !isPhoneSized || localStorage.getItem(dismissKey) === 'true') {
+    if (isStandalone || !isPhoneSized || storageGet(dismissKey) === 'true') {
         prompt.hidden = true;
         return;
     }
@@ -62,10 +62,26 @@ function initMobileDiscoveryPrompt() {
     const dismissButton = prompt.querySelector('[data-mobile-discovery-dismiss]');
     if (dismissButton) {
         dismissButton.addEventListener('click', () => {
-            localStorage.setItem(dismissKey, 'true');
+            storageSet(dismissKey, 'true');
             prompt.hidden = true;
             prompt.classList.remove('d-flex');
         });
+    }
+}
+
+function storageGet(key) {
+    try {
+        return window.localStorage.getItem(key);
+    } catch (error) {
+        return null;
+    }
+}
+
+function storageSet(key, value) {
+    try {
+        window.localStorage.setItem(key, value);
+    } catch (error) {
+        // Storage may be disabled by browser policy; keep optional UI non-blocking.
     }
 }
 
