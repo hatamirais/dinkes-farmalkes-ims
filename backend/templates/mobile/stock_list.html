@@ -7,7 +7,7 @@
 <section class="mobile-page-heading">
     <div>
         <h1>Stok Barang</h1>
-        <p><span data-mobile-result-count>{{ items.paginator.count }}</span> barang cocok dari {{ stock_stats.total_entries }} batch/lokasi</p>
+        <p><span data-mobile-result-count>{{ items.paginator.count }}</span> barang cocok dari <span data-mobile-entry-count>{{ stock_stats.total_entries }}</span> batch/lokasi</p>
     </div>
     <span class="mobile-date">{{ today|date:"d M Y" }}</span>
 </section>

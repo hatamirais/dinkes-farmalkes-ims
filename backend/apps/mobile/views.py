@@ -72,6 +72,7 @@ def stock_list(request):
             else ""
         )
         response["X-Result-Count"] = str(context["items"].paginator.count)
+        response["X-Entry-Count"] = str(context["stock_stats"]["total_entries"])
         response["X-Quick-Expired"] = str(context["quick_counts"]["expired"])
         response["X-Quick-Expiring"] = str(context["quick_counts"]["expiring"])
         response["X-Quick-Safe"] = str(context["quick_counts"]["safe"])

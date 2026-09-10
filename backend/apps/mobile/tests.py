@@ -279,6 +279,57 @@ class MobileStockListTests(MobileStockTestCase):
         self.assertContains(response, "Low Aggregate")
         self.assertNotContains(response, "Enough Aggregate")
 
+    def test_mobile_stock_low_stock_filter_includes_depleted_items(self):
+        depleted_item = self._make_item(
+            code="ITM-DEPLETED",
+            name="Depleted Item",
+            minimum_stock=Decimal("10"),
+        )
+        zero_row_item = self._make_item(
+            code="ITM-ZERO",
+            name="Zero Row Item",
+            minimum_stock=Decimal("10"),
+        )
+        self._make_stock(
+            zero_row_item,
+            quantity=Decimal("0"),
+            reserved=Decimal("0"),
+            batch_lot="B-ZERO",
+            source_document_number="DOC-ZERO",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_list"),
+            {"low_stock": "1"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Depleted Item")
+        self.assertContains(response, "Zero Row Item")
+
+        rows = {
+            row["item__nama_barang"]: row
+            for row in response.context["items"].object_list
+        }
+        self.assertEqual(rows["Depleted Item"]["total_available"], Decimal("0"))
+        self.assertEqual(rows["Zero Row Item"]["batch_count"], 0)
+
+    def test_mobile_stock_rejects_null_byte_foreign_key_filter(self):
+        item = self._make_item()
+        self._make_stock(item)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("mobile:stock_list"),
+            {"location": f"{self.location.pk}\x00"},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["selected_location"], "")
+
     def test_mobile_stock_partial_returns_item_cards_and_pagination_headers(self):
         item = self._make_item(name="Partial Item")
         self._make_stock(item)
@@ -295,6 +346,7 @@ class MobileStockListTests(MobileStockTestCase):
         self.assertContains(response, 'href="/mobile/stocks/', html=False)
         self.assertNotContains(response, "??", html=False)
         self.assertEqual(response["X-Result-Count"], "1")
+        self.assertEqual(response["X-Entry-Count"], "1")
         self.assertEqual(response["X-Has-Next"], "0")
 
 

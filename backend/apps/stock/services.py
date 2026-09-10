@@ -30,8 +30,11 @@ class StockListOptions:
 
 
 def normalize_text_param(value, *, max_length=100):
-    normalized = unicodedata.normalize("NFC", value or "")
-    normalized = normalized.replace("\x00", "").strip()
+    raw_value = value or ""
+    if "\x00" in raw_value:
+        return ""
+
+    normalized = unicodedata.normalize("NFC", raw_value).strip()
     return normalized[:max_length]
 
 
@@ -245,6 +248,64 @@ def _mobile_filter_options(active_rows, selected_id):
     ]
 
 
+def _apply_mobile_item_filters(queryset, state):
+    if state["search"]:
+        therapeutic_match = Item.therapeutic_classes.through.objects.filter(
+            item_id=OuterRef("pk"),
+        ).filter(
+            Q(therapeuticclass__code__icontains=state["search"])
+            | Q(therapeuticclass__name__icontains=state["search"])
+        )
+        queryset = queryset.filter(
+            Q(kode_barang__icontains=state["search"])
+            | Q(nama_barang__icontains=state["search"])
+            | Q(program__code__icontains=state["search"])
+            | Q(program__name__icontains=state["search"])
+            | Q(Exists(therapeutic_match))
+        )
+
+    if state["program"] == "1":
+        queryset = queryset.filter(is_program_item=True)
+    elif state["program"] == "0":
+        queryset = queryset.filter(is_program_item=False)
+
+    if state["therapeutic_class"]:
+        selected_therapeutic_match = Item.therapeutic_classes.through.objects.filter(
+            item_id=OuterRef("pk"),
+            therapeuticclass_id=int(state["therapeutic_class"]),
+        )
+        queryset = queryset.filter(Exists(selected_therapeutic_match))
+
+    return queryset
+
+
+def _mobile_zero_stock_item_rows(state, existing_item_ids, zero_decimal):
+    item_queryset = (
+        Item.objects.select_related("satuan", "kategori")
+        .filter(is_active=True, minimum_stock__gt=zero_decimal)
+        .exclude(pk__in=existing_item_ids)
+    )
+    item_queryset = _apply_mobile_item_filters(item_queryset, state)
+
+    return [
+        {
+            "item_id": item.pk,
+            "item__kode_barang": item.kode_barang,
+            "item__nama_barang": item.nama_barang,
+            "item__satuan__name": item.satuan.name,
+            "item__kategori__sort_order": item.kategori.sort_order,
+            "item__minimum_stock": item.minimum_stock,
+            "total_quantity": zero_decimal,
+            "total_reserved": zero_decimal,
+            "total_available": zero_decimal,
+            "batch_count": 0,
+            "expired_batch_count": 0,
+            "expiring_batch_count": 0,
+        }
+        for item in item_queryset
+    ]
+
+
 def build_mobile_stock_search_context(params, *, options=None):
     options = options or StockListOptions()
     state = _build_mobile_stock_queryset(params, options=options)
@@ -289,10 +350,21 @@ def build_mobile_stock_search_context(params, *, options=None):
     )
 
     if state["low_stock"]:
+        scoped_item_ids = {row["item_id"] for row in grouped_rows}
         grouped_rows = [
             row for row in grouped_rows
             if row["total_available"] < row["item__minimum_stock"]
         ]
+        grouped_rows.extend(
+            _mobile_zero_stock_item_rows(state, scoped_item_ids, zero_decimal)
+        )
+        grouped_rows.sort(
+            key=lambda row: (
+                row["item__kategori__sort_order"],
+                row["item__nama_barang"],
+                row["item__kode_barang"],
+            )
+        )
 
     quick_counts = {
         "expired": 0,
