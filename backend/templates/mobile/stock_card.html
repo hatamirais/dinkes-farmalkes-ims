@@ -1,0 +1,82 @@
+{% extends "mobile/base.html" %}
+{% load number_format %}
+
+{% block title %}Kartu Stok - IMS Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-page-heading">
+    <div>
+        <h1>{{ item.nama_barang }}</h1>
+        <p><code>{{ item.kode_barang }}</code> · {{ item.satuan.name }}</p>
+    </div>
+    <a class="mobile-date" href="{{ stock_list_return_url }}">Kembali</a>
+</section>
+
+<section class="mobile-stat-strip" aria-label="Ringkasan stok barang">
+    <div>
+        <span>Fisik</span>
+        <strong>{{ stock_stats.total_quantity|id_decimal:0 }}</strong>
+    </div>
+    {% if stock_stats.total_reserved %}
+    <div>
+        <span>Reserved</span>
+        <strong>{{ stock_stats.total_reserved|id_decimal:0 }}</strong>
+    </div>
+    {% endif %}
+    <div>
+        <span>Tersedia</span>
+        <strong>{{ stock_stats.total_available|id_decimal:0 }}</strong>
+    </div>
+</section>
+
+<section class="mobile-chip-row" aria-label="Filter kedaluwarsa batch">
+    <a href="{% querystring quick='' page=None %}" class="{% if not selected_quick %}active{% endif %}">Semua</a>
+    <a href="{% querystring quick='expired' page=None %}" class="{% if selected_quick == 'expired' %}active danger{% endif %}">Expired {{ quick_counts.expired }}</a>
+    <a href="{% querystring quick='expiring' page=None %}" class="{% if selected_quick == 'expiring' %}active warning{% endif %}">{{ near_expiry_days }} hari {{ quick_counts.expiring }}</a>
+    <a href="{% querystring quick='safe' page=None %}" class="{% if selected_quick == 'safe' %}active success{% endif %}">Aman {{ quick_counts.safe }}</a>
+</section>
+
+<section class="mobile-list" aria-label="Batch dan lokasi stok">
+    {% for stock in batches %}
+    <article class="mobile-stock-card mobile-stock-card--static">
+        <div class="mobile-stock-card__head">
+            <div>
+                <h2>{{ stock.location.name }}</h2>
+                <p>{{ stock.batch_lot }} · {{ stock.sumber_dana.name }}</p>
+            </div>
+            <span class="badge {{ stock.expiry_badge_class }}">{{ stock.expiry_badge_label }}</span>
+        </div>
+        <dl class="mobile-stock-card__quantities">
+            <div>
+                <dt>Fisik</dt>
+                <dd>{{ stock.quantity|id_decimal:0 }}</dd>
+            </div>
+            {% if stock.reserved %}
+            <div>
+                <dt>Reserved</dt>
+                <dd>{{ stock.reserved|id_decimal:0 }}</dd>
+            </div>
+            {% endif %}
+            <div>
+                <dt>Tersedia</dt>
+                <dd>{{ stock.available_quantity|id_decimal:0 }}</dd>
+            </div>
+        </dl>
+        <div class="mobile-stock-card__meta">
+            <span><i class="bi bi-file-earmark-text"></i>{{ stock.source_document_number }}</span>
+            {% if stock.expiry_date %}
+            <span><i class="bi bi-calendar-event"></i>{{ stock.expiry_date|date:"d M Y" }}</span>
+            {% else %}
+            <span><i class="bi bi-calendar-check"></i>Tanpa kedaluwarsa</span>
+            {% endif %}
+        </div>
+    </article>
+    {% empty %}
+    <div class="mobile-empty">
+        <i class="bi bi-card-list"></i>
+        <strong>Tidak ada batch yang cocok.</strong>
+        <span>Ubah filter kedaluwarsa dari halaman ini.</span>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

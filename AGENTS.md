@@ -14,7 +14,7 @@ For app-specific rules, see `backend/apps/<app_name>/AGENTS.md` if present.
 | Django | 6.0.8 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis when `REDIS_URL` is set; otherwise In-Memory / LocMemCache |
-| UI | Django templates + Bootstrap 5; DRF read-only reporting API |
+| UI | Django templates + Bootstrap 5; server-rendered mobile/PWA surface |
 | Static serving | WhiteNoise for collected static assets |
 | Auth model | `apps.users.User` |
 | Object audit | django-auditlog |
@@ -59,7 +59,7 @@ Update docs when the change affects schema, routes, permissions, settings, workf
 | `puskesmas` | Facility-scoped requests, receipt confirmations, subunit master data, consumption input, and stock self-checks. |
 | `lplpo` | Monthly Puskesmas reporting and stock request workflow. |
 | `reports` | Report index, rekap, receiving/procurement/expiry/outbound reports, numbering history, and Puskesmas inventory reports. |
-| `api` | Read-only DRF endpoints for internal external-dashboard stock snapshots. |
+| `mobile` | Server-rendered mobile/PWA stock-check surface using existing auth and permissions. |
 
 ## Permissions And Errors
 
@@ -106,7 +106,7 @@ Receiving and opening-balance imports enforce `Item.requires_expiry_date`: blank
 - Never mutate historical `Transaction` rows; append-only behavior is expected.
 - Stock-changing checkpoints happen during workflow actions (`verify`, `prepare`, `distribute`, `complete`, depending on module), not arbitrary model saves.
 - Stock transfer completion writes paired `OUT` and `IN` transactions.
-- Do not claim React production paths or general-purpose REST APIs as implemented; the only implemented REST surface is the read-only reporting API under `/api/v1/reporting/`.
+- Do not claim React production paths or general-purpose REST APIs as implemented; the mobile surface is server-rendered Django, not a standalone frontend app or public REST contract.
 - Keep terminology consistent: use "module scope" for `ModuleAccess` and "Django permissions" for `has_perm` checks.
 
 ## Development Guardrails
@@ -142,7 +142,6 @@ When adding constraints that existing rows might violate:
 - The login route uses Django `LoginView` with `apps.core.forms.CrispyAuthenticationForm`; do not hand-code username/password inputs in `registration/login.html`.
 - Authentication and centralized error logs resolve client IPs through `apps.core.client_ip.get_client_ip()`, using `REMOTE_ADDR` by default and accepting `X-Forwarded-For` only when the immediate peer matches `AUTH_AUDIT_TRUSTED_PROXIES`.
 - Additional authenticated POST throttling uses `django-ratelimit`; counters use `CACHES["default"]` and `RATELIMIT_USE_CACHE`.
-- The read-only reporting API is disabled by default. Enable it with `REPORTING_API_ENABLED=True`, protect it with `REPORTING_API_SHARED_SECRET`, and keep it behind internal network controls. Its snapshot responses cache for `REPORTING_API_CACHE_TTL_SECONDS` seconds, default `21600`.
 - `RATELIMIT_FAIL_OPEN=True` is the default so rate-limiting degrades gracefully if there are cache issues.
 - Settings-backed knobs include `LOGIN_RATE_LIMIT`, `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `ITEM_MUTATION_RATE_LIMIT`, `RECEIVING_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`, `PROCUREMENT_MUTATION_RATE_LIMIT`, and `LPLPO_IMPORT_RATE_LIMIT`; legacy `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains accepted as a compatibility fallback.
 - Receipt-confirmation throttling is mutation-only: create/edit/delete saves are POST-limited, while the create-form distribution preview uses non-mutating `GET` and must not consume that quota.

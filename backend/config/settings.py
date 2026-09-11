@@ -64,9 +64,6 @@ INSTALLED_APPS = [
     "import_export",
     "axes",
     "auditlog",
-    "rest_framework",
-    "drf_spectacular",
-    "drf_spectacular_sidecar",
     # Local apps
     "apps.core",
     "apps.users",
@@ -82,7 +79,7 @@ INSTALLED_APPS = [
     "apps.stock_opname",
     "apps.puskesmas",
     "apps.lplpo",
-    "apps.api",
+    "apps.mobile",
 ]
 
 MIDDLEWARE = [
@@ -359,39 +356,6 @@ CACHES = {
     ),
     "locmem": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-    },
-}
-
-# ─── Read-only Reporting API ─────────────────────────────────────────
-REPORTING_API_ENABLED = os.getenv("REPORTING_API_ENABLED", "False") == "True"
-REPORTING_API_SHARED_SECRET = os.getenv("REPORTING_API_SHARED_SECRET", "")
-try:
-    REPORTING_API_CACHE_TTL_SECONDS = int(
-        os.getenv("REPORTING_API_CACHE_TTL_SECONDS", "21600")
-    )
-except ValueError:
-    REPORTING_API_CACHE_TTL_SECONDS = 21600
-
-REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-}
-
-SPECTACULAR_SETTINGS = {
-    "TITLE": "Healthcare IMS Reporting API",
-    "DESCRIPTION": "Read-only reporting snapshots for internal dashboard clients.",
-    "VERSION": APP_VERSION,
-    "SERVE_INCLUDE_SCHEMA": False,
-    "SWAGGER_UI_DIST": "SIDECAR",
-    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
-    "REDOC_DIST": "SIDECAR",
-    "APPEND_COMPONENTS": {
-        "securitySchemes": {
-            "ReportingApiBearerAuth": {
-                "type": "http",
-                "scheme": "bearer",
-                "description": "Server-to-server reporting API secret.",
-            },
-        },
     },
 }
 

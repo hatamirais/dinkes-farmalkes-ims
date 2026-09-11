@@ -69,9 +69,6 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS`
 - `FEATURE_ALLOCATION_UI_ENABLED`
 - `REDIS_URL`
-- `REPORTING_API_ENABLED`
-- `REPORTING_API_SHARED_SECRET`
-- `REPORTING_API_CACHE_TTL_SECONDS`
 - `DJANGO_LOG_LEVEL`
 - `SECURE_SSL_REDIRECT`
 - `AUTH_AUDIT_TRUSTED_PROXIES`
@@ -92,8 +89,7 @@ Catatan:
 - Mutasi koreksi/batal penerimaan reguler (`/receiving/<pk>/edit/`, `/receiving/<pk>/delete/`) juga memakai `django-ratelimit`; gunakan `RECEIVING_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput koreksi petugas gudang.
 - Mutasi impor XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) juga memakai `django-ratelimit`; gunakan `LPLPO_IMPORT_RATE_LIMIT` bila perlu menyesuaikan throughput input offline per operator.
 - Mutasi modul `procurement` (`/procurement/*`) juga memakai `django-ratelimit`; gunakan `PROCUREMENT_MUTATION_RATE_LIMIT` bila perlu menyesuaikan throughput pembuatan, pengajuan, approval, pembatalan, penutupan, dan amandemen SPJ.
-- API pelaporan baca-saja untuk dashboard eksternal tersedia di `/api/v1/reporting/` bila `REPORTING_API_ENABLED=True`. Endpoint data membutuhkan `Authorization: Bearer <REPORTING_API_SHARED_SECRET>`, memakai cache selama `REPORTING_API_CACHE_TTL_SECONDS` detik, menyertakan metadata program/Terapi Obat per item, dan ditujukan untuk akses backend-to-backend di jaringan internal. Gunakan secret ASCII dengan entropy tinggi, misalnya token URL-safe.
-- Skema OpenAPI tersedia di `/api/schema/`, dengan Swagger UI di `/api/docs/swagger/` dan ReDoc di `/api/docs/redoc/`. Aset dokumentasi memakai `drf-spectacular-sidecar`, dan Swagger memakai split view agar kompatibel dengan CSP `script-src 'self'`.
+- Surface mobile/PWA awal tersedia di `/mobile/` dan tetap memakai login/session, CSRF, permission Django, serta fallback `ModuleAccess` yang sama dengan aplikasi utama. Shell desktop menampilkan discovery link untuk pengguna yang dapat melihat stok, sedangkan shell mobile menampilkan panduan install PWA yang dapat ditutup. Alur stok mobile memakai pencarian barang teragregasi lebih dulu, lalu detail batch/lokasi pada kartu stok barang.
 - `REDIS_URL` mengaktifkan Django Redis cache untuk `CACHES["default"]`; bila kosong, aplikasi memakai fallback `LocMemCache` untuk development dan test lokal.
 - Lampiran dokumen penerimaan disimpan di `PRIVATE_MEDIA_ROOT` dan diunduh melalui route aplikasi yang membutuhkan login, jadi jangan arahkan web server publik langsung ke direktori ini.
 - Setelah sebuah migration pernah dibagikan, di-review, atau diaplikasikan di environment mana pun, nama file migration tersebut harus dianggap immutable. Jangan rename, hapus, atau tulis ulang history migration yang sudah terpublikasi; gunakan migration kompatibilitas dan merge migration bila ada dua lineage yang sempat beredar.
