@@ -440,7 +440,7 @@
                         <h5 class="mb-0 page-title">{% block page_title %}Dashboard{% endblock %}</h5>
                     </div>
                     <div class="d-flex align-items-center gap-3">
-                        {% if can_view_stock %}
+                        {% if can_view_mobile_stock %}
                         <a href="{% url 'mobile:home' %}" class="btn btn-outline-primary btn-sm d-none d-lg-inline-flex align-items-center gap-1" title="Buka IMS Mobile">
                             <i class="bi bi-phone"></i><span>Mobile</span>
                         </a>
@@ -530,7 +530,7 @@
 
             <!-- Main Content -->
             <main class="main-content">
-                {% if can_view_stock %}
+                {% if can_view_mobile_stock %}
                 <div class="alert alert-primary d-lg-none align-items-center justify-content-between gap-2 py-2 px-3 mb-3" data-mobile-discovery hidden>
                     <span class="small">
                         <i class="bi bi-phone me-1"></i>IMS Mobile tersedia untuk cek stok di layar kecil.

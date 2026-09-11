@@ -10,6 +10,7 @@ def access_flags(request):
             "can_open_admin_panel": False,
             "can_view_items": False,
             "can_view_stock": False,
+            "can_view_mobile_stock": False,
             "can_view_receiving": False,
             "can_view_procurement": False,
             "can_view_distribution": False,
@@ -40,7 +41,10 @@ def access_flags(request):
         "can_view_items": has_module_scope(
             user, ModuleAccess.Module.ITEMS, ModuleAccess.Scope.VIEW
         ),
-        "can_view_stock": user.has_perm("stock.view_stock")
+        "can_view_stock": has_module_scope(
+            user, ModuleAccess.Module.STOCK, ModuleAccess.Scope.VIEW
+        ),
+        "can_view_mobile_stock": user.has_perm("stock.view_stock")
         or has_module_permission(user, "stock.view_stock"),
         "can_view_receiving": has_module_scope(
             user, ModuleAccess.Module.RECEIVING, ModuleAccess.Scope.VIEW

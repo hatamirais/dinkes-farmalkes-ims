@@ -197,6 +197,8 @@ class MobileDiscoveryTests(MobileStockTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'href="/mobile/"', html=False)
         self.assertContains(response, "IMS Mobile tersedia untuk cek stok")
+        self.assertNotContains(response, "Log Transaksi")
+        self.assertNotContains(response, "Mutasi Lokasi")
 
 
 class MobileStockListTests(MobileStockTestCase):
