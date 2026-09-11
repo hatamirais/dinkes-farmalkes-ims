@@ -33,9 +33,9 @@
 
         <div class="mobile-filter-group">
             <section class="mobile-chip-row" aria-label="Status ED">
-                <a href="{% querystring quick='expired' page=None %}" class="{% if selected_quick == 'expired' %}active danger{% endif %}">Expired <span data-mobile-quick-count="expired">{{ quick_counts.expired }}</span></a>
-                <a href="{% querystring quick='expiring' page=None %}" class="{% if selected_quick == 'expiring' %}active warning{% endif %}">{{ near_expiry_days }} hari <span data-mobile-quick-count="expiring">{{ quick_counts.expiring }}</span></a>
-                <a href="{% querystring quick='safe' page=None %}" class="{% if selected_quick == 'safe' %}active success{% endif %}">Aman <span data-mobile-quick-count="safe">{{ quick_counts.safe }}</span></a>
+                <a href="{% querystring quick='expired' page=None %}" class="{% if selected_quick == 'expired' %}active danger{% endif %}" data-mobile-quick-link data-quick-value="expired">Expired <span data-mobile-quick-count="expired">{{ quick_counts.expired }}</span></a>
+                <a href="{% querystring quick='expiring' page=None %}" class="{% if selected_quick == 'expiring' %}active warning{% endif %}" data-mobile-quick-link data-quick-value="expiring">{{ near_expiry_days }} hari <span data-mobile-quick-count="expiring">{{ quick_counts.expiring }}</span></a>
+                <a href="{% querystring quick='safe' page=None %}" class="{% if selected_quick == 'safe' %}active success{% endif %}" data-mobile-quick-link data-quick-value="safe">Aman <span data-mobile-quick-count="safe">{{ quick_counts.safe }}</span></a>
             </section>
         </div>
 

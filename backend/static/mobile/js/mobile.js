@@ -127,6 +127,7 @@
       expiring: document.querySelector("[data-mobile-quick-count='expiring']"),
       safe: document.querySelector("[data-mobile-quick-count='safe']"),
     };
+    const quickLinks = Array.from(form.querySelectorAll("[data-mobile-quick-link]"));
     const searchInput = form.querySelector("input[name='q']");
     let loading = false;
     let debounceTimer = null;
@@ -146,6 +147,28 @@
       url.searchParams.set("page", String(page));
       url.searchParams.set("partial", "1");
       return url;
+    }
+
+    function buildQuickUrl(quickValue) {
+      const url = new URL(form.action || window.location.href, window.location.origin);
+      const formData = new FormData(form);
+
+      url.search = "";
+      formData.forEach(function (value, key) {
+        if (value && key !== "quick") {
+          url.searchParams.append(key, value);
+        }
+      });
+      if (quickValue) {
+        url.searchParams.set("quick", quickValue);
+      }
+      return `${url.pathname}${url.search}`;
+    }
+
+    function updateQuickLinks() {
+      quickLinks.forEach(function (link) {
+        link.href = buildQuickUrl(link.dataset.quickValue || "");
+      });
     }
 
     function updateNext(response, sourceUrl) {
@@ -248,6 +271,7 @@
           }
         }
         updateStats(response);
+        updateQuickLinks();
         updateNext(response, url);
       } catch (error) {
         if (error.name !== "AbortError" && nextContainer) {
@@ -266,8 +290,11 @@
       loadPage(1, "replace");
     });
 
+    form.addEventListener("change", updateQuickLinks);
+
     if (searchInput) {
       searchInput.addEventListener("input", function () {
+        updateQuickLinks();
         window.clearTimeout(debounceTimer);
         debounceTimer = window.setTimeout(function () {
           loadPage(1, "replace");
@@ -295,6 +322,8 @@
         observer.observe(nextContainer);
       }
     }
+
+    updateQuickLinks();
   }
 
   document.addEventListener("DOMContentLoaded", initMobileStockSearch);
