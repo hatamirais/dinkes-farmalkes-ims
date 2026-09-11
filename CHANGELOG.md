@@ -7,6 +7,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-09-11
+
 ### Added
 
 - Added an initial server-rendered mobile/PWA stock surface under `/mobile/`, with mobile stock search, program/therapeutic filters, and item stock-card access using the existing Django session and stock permissions.
