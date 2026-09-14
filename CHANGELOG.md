@@ -15,6 +15,10 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Added PWA install/discovery prompts so stock users can find the mobile surface from the desktop shell and install it from mobile browsers that support PWA installation.
 - Refactored the mobile stock flow into item-level search results with aggregated totals and batch-level stock detail cards, plus live search and lazy loading.
 
+### Fixed
+
+- Mobile stock item search now paginates grouped stock results in the database for normal search and quick-filter paths instead of materializing every item group before returning a page.
+
 ### Removed
 
 - Retired the experimental DRF reporting API surface, including `/api/v1/reporting/`, generated OpenAPI docs routes, bearer-secret reporting settings, and unused DRF/drf-spectacular dependencies.

@@ -318,7 +318,7 @@ def build_mobile_stock_search_context(params, *, options=None):
         if key in preserved_params:
             del preserved_params[key]
 
-    grouped_rows = list(
+    grouped_queryset = (
         queryset.values(
             "item_id",
             "item__kode_barang",
@@ -352,11 +352,10 @@ def build_mobile_stock_search_context(params, *, options=None):
     )
 
     if state["low_stock"]:
-        scoped_item_ids = {row["item_id"] for row in grouped_rows}
-        grouped_rows = [
-            row for row in grouped_rows
-            if row["total_available"] < row["item__minimum_stock"]
-        ]
+        scoped_item_ids = queryset.values_list("item_id", flat=True).distinct()
+        grouped_rows = list(
+            grouped_queryset.filter(total_available__lt=F("item__minimum_stock"))
+        )
         grouped_rows.extend(
             _mobile_zero_stock_item_rows(state, scoped_item_ids, zero_decimal)
         )
@@ -368,25 +367,54 @@ def build_mobile_stock_search_context(params, *, options=None):
             )
         )
 
-    quick_counts = {
-        "expired": 0,
-        "expiring": 0,
-        "safe": 0,
-    }
-    for row in grouped_rows:
-        quick_counts[_mobile_item_risk_state(row)] += 1
+        quick_counts = {
+            "expired": 0,
+            "expiring": 0,
+            "safe": 0,
+        }
+        for row in grouped_rows:
+            quick_counts[_mobile_item_risk_state(row)] += 1
 
-    if state["quick"]:
-        grouped_rows = [
-            row for row in grouped_rows
-            if _mobile_item_risk_state(row) == state["quick"]
-        ]
+        if state["quick"]:
+            grouped_rows = [
+                row for row in grouped_rows
+                if _mobile_item_risk_state(row) == state["quick"]
+            ]
+
+        filtered_item_ids = [row["item_id"] for row in grouped_rows]
+        paginator_source = grouped_rows
+    else:
+        quick_counts = {
+            "expired": grouped_queryset.filter(expired_batch_count__gt=0).count(),
+            "expiring": grouped_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count__gt=0,
+            ).count(),
+            "safe": grouped_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count=0,
+            ).count(),
+        }
+
+        if state["quick"] == "expired":
+            grouped_queryset = grouped_queryset.filter(expired_batch_count__gt=0)
+        elif state["quick"] == "expiring":
+            grouped_queryset = grouped_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count__gt=0,
+            )
+        elif state["quick"] == "safe":
+            grouped_queryset = grouped_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count=0,
+            )
+
+        filtered_item_ids = grouped_queryset.order_by().values("item_id")
+        paginator_source = grouped_queryset
 
     stats_queryset = queryset
     if state["low_stock"] or state["quick"]:
-        stats_queryset = queryset.filter(
-            item_id__in=[row["item_id"] for row in grouped_rows]
-        )
+        stats_queryset = queryset.filter(item_id__in=filtered_item_ids)
 
     stock_stats = stats_queryset.aggregate(
         total_entries=Count("pk"),
@@ -396,7 +424,7 @@ def build_mobile_stock_search_context(params, *, options=None):
         total_available=Coalesce(Sum("available_qty"), Value(zero_decimal)),
     )
 
-    paginator = Paginator(grouped_rows, options.page_size)
+    paginator = Paginator(paginator_source, options.page_size)
     items = paginator.get_page(params.get("page"))
     items.object_list = [_decorate_mobile_item_row(row) for row in items.object_list]
 
