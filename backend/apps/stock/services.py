@@ -10,6 +10,7 @@ from django.db.models import (
     Exists,
     ExpressionWrapper,
     F,
+    IntegerField,
     OuterRef,
     Q,
     Sum,
@@ -281,31 +282,42 @@ def _apply_mobile_item_filters(queryset, state):
     return queryset
 
 
-def _mobile_zero_stock_item_rows(state, existing_item_ids, zero_decimal):
+def _mobile_zero_stock_item_queryset(state, existing_item_ids, zero_decimal):
     item_queryset = (
-        Item.objects.select_related("satuan", "kategori")
-        .filter(is_active=True, minimum_stock__gt=zero_decimal)
-        .exclude(pk__in=existing_item_ids)
+        Item.objects.filter(is_active=True, minimum_stock__gt=zero_decimal)
+        .exclude(pk__in=existing_item_ids.order_by())
     )
     item_queryset = _apply_mobile_item_filters(item_queryset, state)
 
-    return [
-        {
-            "item_id": item.pk,
-            "item__kode_barang": item.kode_barang,
-            "item__nama_barang": item.nama_barang,
-            "item__satuan__name": item.satuan.name,
-            "item__kategori__sort_order": item.kategori.sort_order,
-            "item__minimum_stock": item.minimum_stock,
-            "total_quantity": zero_decimal,
-            "total_reserved": zero_decimal,
-            "total_available": zero_decimal,
-            "batch_count": 0,
-            "expired_batch_count": 0,
-            "expiring_batch_count": 0,
-        }
-        for item in item_queryset
-    ]
+    zero_decimal_value = Value(
+        zero_decimal,
+        output_field=DecimalField(max_digits=20, decimal_places=2),
+    )
+    return (
+        item_queryset.annotate(
+            total_quantity=zero_decimal_value,
+            total_reserved=zero_decimal_value,
+            total_available=zero_decimal_value,
+            batch_count=Value(0, output_field=IntegerField()),
+            expired_batch_count=Value(0, output_field=IntegerField()),
+            expiring_batch_count=Value(0, output_field=IntegerField()),
+        )
+        .values(
+            "id",
+            "kode_barang",
+            "nama_barang",
+            "satuan__name",
+            "kategori__sort_order",
+            "minimum_stock",
+            "total_quantity",
+            "total_reserved",
+            "total_available",
+            "batch_count",
+            "expired_batch_count",
+            "expiring_batch_count",
+        )
+        .order_by()
+    )
 
 
 def build_mobile_stock_search_context(params, *, options=None):
@@ -344,45 +356,66 @@ def build_mobile_stock_search_context(params, *, options=None):
                 ),
             ),
         )
-        .order_by(
-            "item__kategori__sort_order",
-            "item__nama_barang",
-            "item__kode_barang",
-        )
+    )
+    result_ordering = (
+        "item__kategori__sort_order",
+        "item__nama_barang",
+        "item__kode_barang",
     )
 
     if state["low_stock"]:
         scoped_item_ids = queryset.values_list("item_id", flat=True).distinct()
-        grouped_rows = list(
-            grouped_queryset.filter(total_available__lt=F("item__minimum_stock"))
-        )
-        grouped_rows.extend(
-            _mobile_zero_stock_item_rows(state, scoped_item_ids, zero_decimal)
-        )
-        grouped_rows.sort(
-            key=lambda row: (
-                row["item__kategori__sort_order"],
-                row["item__nama_barang"],
-                row["item__kode_barang"],
-            )
+        stock_low_queryset = grouped_queryset.filter(
+            total_available__lt=F("item__minimum_stock")
+        ).order_by()
+        zero_stock_queryset = _mobile_zero_stock_item_queryset(
+            state,
+            scoped_item_ids,
+            zero_decimal,
         )
 
         quick_counts = {
-            "expired": 0,
-            "expiring": 0,
-            "safe": 0,
+            "expired": stock_low_queryset.filter(expired_batch_count__gt=0).count(),
+            "expiring": stock_low_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count__gt=0,
+            ).count(),
+            "safe": (
+                stock_low_queryset.filter(
+                    expired_batch_count=0,
+                    expiring_batch_count=0,
+                ).count()
+                + zero_stock_queryset.count()
+            ),
         }
-        for row in grouped_rows:
-            quick_counts[_mobile_item_risk_state(row)] += 1
 
-        if state["quick"]:
-            grouped_rows = [
-                row for row in grouped_rows
-                if _mobile_item_risk_state(row) == state["quick"]
-            ]
+        if state["quick"] == "expired":
+            paginator_source = stock_low_queryset.filter(expired_batch_count__gt=0)
+            filtered_item_ids = paginator_source.order_by().values("item_id")
+        elif state["quick"] == "expiring":
+            paginator_source = stock_low_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count__gt=0,
+            )
+            filtered_item_ids = paginator_source.order_by().values("item_id")
+        elif state["quick"] == "safe":
+            stock_safe_queryset = stock_low_queryset.filter(
+                expired_batch_count=0,
+                expiring_batch_count=0,
+            )
+            paginator_source = stock_safe_queryset.union(
+                zero_stock_queryset,
+                all=True,
+            )
+            filtered_item_ids = stock_safe_queryset.order_by().values("item_id")
+        else:
+            paginator_source = stock_low_queryset.union(
+                zero_stock_queryset,
+                all=True,
+            )
+            filtered_item_ids = stock_low_queryset.order_by().values("item_id")
 
-        filtered_item_ids = [row["item_id"] for row in grouped_rows]
-        paginator_source = grouped_rows
+        paginator_source = paginator_source.order_by(*result_ordering)
     else:
         quick_counts = {
             "expired": grouped_queryset.filter(expired_batch_count__gt=0).count(),
@@ -410,7 +443,7 @@ def build_mobile_stock_search_context(params, *, options=None):
             )
 
         filtered_item_ids = grouped_queryset.order_by().values("item_id")
-        paginator_source = grouped_queryset
+        paginator_source = grouped_queryset.order_by(*result_ordering)
 
     stats_queryset = queryset
     if state["low_stock"] or state["quick"]:

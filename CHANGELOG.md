@@ -17,7 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
-- Mobile stock item search now paginates grouped stock results in the database for normal search and quick-filter paths instead of materializing every item group before returning a page.
+- Mobile stock item search now paginates grouped stock results in the database, including low-stock depleted-item fallback rows, instead of materializing every item group before returning a page.
 
 ### Removed
 
