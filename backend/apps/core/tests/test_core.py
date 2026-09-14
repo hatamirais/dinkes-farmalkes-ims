@@ -886,7 +886,7 @@ class ErrorPageTemplateTests(TestCase):
         self.assertContains(response, 'data-password-toggle="id_password"', status_code=200)
         self.assertContains(response, 'css/style.css?v=', status_code=200)
         self.assertContains(response, f'css/style.css?v={settings.APP_VERSION}-20260901a', status_code=200)
-        self.assertContains(response, f'js/app.js?v={settings.APP_VERSION}-20260901a', status_code=200)
+        self.assertContains(response, f'js/app.js?v={settings.APP_VERSION}-20260909a', status_code=200)
         self.assertContains(response, 'js/login.js', status_code=200)
         self.assertNotContains(response, 'value="super_admin"')
 
