@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -23,7 +24,7 @@ from apps.stock.services import (
     build_mobile_stock_detail_context,
     build_mobile_stock_search_context,
 )
-from apps.users.access import can_approve_workflow
+from apps.users.access import can_approve_workflow, can_view_mobile_stock
 from apps.users.models import ModuleAccess
 
 
@@ -71,7 +72,7 @@ def manifest(request):
         {
             "name": "Healthcare IMS Mobile",
             "short_name": "IMS Mobile",
-            "start_url": "/mobile/stocks/",
+            "start_url": reverse("mobile:home"),
             "scope": "/mobile/",
             "display": "standalone",
             "background_color": "#f8fafc",
@@ -106,7 +107,11 @@ self.addEventListener("activate", event => {
 
 @login_required
 def home(request):
-    return redirect("mobile:stock_list")
+    if can_view_mobile_stock(request.user):
+        return redirect("mobile:stock_list")
+    if any(_mobile_approval_access(request.user).values()):
+        return redirect("mobile:approval_inbox")
+    raise PermissionDenied("Anda tidak memiliki akses ke IMS Mobile.")
 
 
 def _stock_list_return_url(request):
@@ -179,7 +184,7 @@ def approval_inbox(request):
             Distribution.objects.filter(status=Distribution.Status.SUBMITTED)
             .exclude(distribution_type=Distribution.DistributionType.ALLOCATION)
             .select_related("facility", "created_by")
-            .prefetch_related("staff_assignments")
+            .annotate(item_count=Count("items"))
             .order_by("created_at", "pk")
         )
 

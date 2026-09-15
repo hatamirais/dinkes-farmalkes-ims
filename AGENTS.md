@@ -75,7 +75,7 @@ Super Admin (`is_superuser` / role `ADMIN`) remains exempt from `puskesmas` and 
 
 `/settings/` is not governed by module-scope fallback. It is an explicit role-gated `core` view that allows only superusers plus users whose role is `ADMIN` or `KEPALA`.
 
-Distribution and expired verification checkpoints are also explicitly role-gated: only superusers or users whose role is `ADMIN` / `KEPALA` and whose relevant module scope is at least `APPROVE` may act. Elevated module scope alone does not turn another role into an approver. The mobile approval inbox follows the same policy and excludes allocation-generated child distributions.
+Distribution and expired verification checkpoints are also explicitly role-gated: only superusers or users whose role is `ADMIN` / `KEPALA` and whose relevant module scope is at least `APPROVE` may act. Elevated module scope alone does not turn another role into an approver. The mobile approval inbox follows the same policy and excludes allocation-generated child distributions. Desktop and installed PWA entry points use `/mobile/`: stock-view users land on stock, approval-only users land on the inbox, and users with neither access receive 403.
 
 `AUDITOR` keeps read-only module scopes for direct authorized pages; its sidebar is report-focused and only renders the `Laporan` group. Its dashboard hides linked drill-through components that open operational menu pages.
 

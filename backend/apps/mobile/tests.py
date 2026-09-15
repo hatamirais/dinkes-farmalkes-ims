@@ -2,7 +2,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import Permission
+from django.db import connection
 from django.test import RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -555,6 +557,94 @@ class MobileApprovalTests(MobileStockTestCase):
             notes="Melewati tanggal kedaluwarsa",
         )
         return expired_document
+
+    def _remove_stock_access(self):
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.STOCK,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+
+    def test_approval_only_kepala_can_discover_and_launch_mobile_inbox(self):
+        self._remove_stock_access()
+        self.assertFalse(self.kepala.has_perm("stock.view_stock"))
+        self.client.force_login(self.kepala)
+
+        desktop = self.client.get(reverse("password_change"), secure=True)
+        home = self.client.get(reverse("mobile:home"), secure=True)
+        inbox = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+        stock = self.client.get(reverse("mobile:stock_list"), secure=True)
+        manifest = self.client.get(reverse("mobile:manifest"), secure=True)
+
+        self.assertContains(desktop, 'href="/mobile/"', html=False)
+        self.assertContains(desktop, "IMS Mobile tersedia untuk persetujuan")
+        self.assertEqual(home.status_code, 302)
+        self.assertEqual(home["Location"], reverse("mobile:approval_inbox"))
+        self.assertEqual(inbox.status_code, 200)
+        self.assertContains(inbox, 'class="mobile-brand" href="/mobile/"', html=False)
+        self.assertEqual(stock.status_code, 403)
+        self.assertEqual(manifest.json()["start_url"], reverse("mobile:home"))
+
+    def test_expired_only_kepala_uses_approval_entry_point(self):
+        self._remove_stock_access()
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(self.kepala)
+
+        home = self.client.get(reverse("mobile:home"), secure=True)
+        inbox = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(home.status_code, 302)
+        self.assertEqual(home["Location"], reverse("mobile:approval_inbox"))
+        self.assertEqual(inbox.status_code, 200)
+        self.assertTrue(inbox.context["mobile_approval_access"]["expired"])
+        self.assertFalse(inbox.context["mobile_approval_access"]["distribution"])
+
+    def test_mobile_home_keeps_stock_as_default_when_user_can_see_both(self):
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("mobile:home"), secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("mobile:stock_list"))
+
+    def test_mobile_home_denies_user_without_stock_or_approval_access(self):
+        user = User.objects.create_user(
+            username="mobile-no-access",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("mobile:home"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_distribution_inbox_query_count_does_not_grow_per_card(self):
+        self._make_distribution()
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.EXPIRED,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(self.kepala)
+
+        with CaptureQueriesContext(connection) as one_card_queries:
+            one_card = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        for _ in range(19):
+            self._make_distribution()
+
+        with CaptureQueriesContext(connection) as twenty_card_queries:
+            twenty_cards = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(one_card.status_code, 200)
+        self.assertEqual(twenty_cards.status_code, 200)
+        self.assertEqual(len(one_card_queries), len(twenty_card_queries))
+        self.assertContains(twenty_cards, "1 item", count=20)
 
     def test_approval_inbox_requires_kepala_admin_role_and_approve_scope(self):
         self.client.force_login(self.user)

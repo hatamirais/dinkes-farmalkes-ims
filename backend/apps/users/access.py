@@ -141,6 +141,14 @@ def can_approve_workflow(user: User, module: str) -> bool:
     return has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
 
 
+def can_view_mobile_stock(user: User) -> bool:
+    """Match the stock view decorator's Django-permission/module-scope access."""
+    return bool(getattr(user, "is_authenticated", False)) and (
+        user.has_perm("stock.view_stock")
+        or has_module_permission(user, "stock.view_stock")
+    )
+
+
 def required_scope_for_perm(perm: str) -> int:
     _, codename = perm.split(".", 1)
     action = codename.split("_", 1)[0]

@@ -2,8 +2,8 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-09-14
-Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
+Last verified: 2026-09-15
+Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/apps/users/context_processors.py`, `backend/apps/mobile/views.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
 
 ## 1) Domain Overview
 
@@ -61,14 +61,15 @@ Module highlights:
 - Expiry alerts: `/expired/alerts/`
 - Stock opname: `/stock-opname/`, `/stock-opname/create/`, `/stock-opname/<pk>/`, `/stock-opname/<pk>/edit/`, `/stock-opname/<pk>/start/`, `/stock-opname/<pk>/input/`, `/stock-opname/<pk>/complete/`, `/stock-opname/<pk>/report/`, `/stock-opname/<pk>/print/`, `/stock-opname/<pk>/delete/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
-- Mobile stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
+- Mobile entry and stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
   - Server-rendered Django mobile/PWA surface using the existing login/session, CSRF, Django permissions, and module-scope fallback.
-  - Users with stock-view access can discover `/mobile/` from the authenticated desktop shell, and mobile pages provide dismissible install guidance for supported PWA-capable browsers.
+  - The desktop shell exposes `/mobile/` to users with stock-view access or distribution/expired approval access. The PWA manifest and mobile brand also start at `/mobile/`: stock-view users land on stock, approval-only users land on the approval inbox, and users with neither access receive 403. Mobile pages provide dismissible install guidance for supported PWA-capable browsers.
   - `/mobile/stocks/` groups active stock rows by item/SKU, shows aggregated physical and available stock totals, supports live search, lazy loading, program flag, therapeutic class, location, funding source, low-stock threshold, and item-level expiry quick filters.
   - `/mobile/stocks/<item_id>/card/` renders the selected item's batch/location stock rows in a mobile layout, including document reference, physical stock, available stock, reserved stock when non-zero, and expiry status filtering.
 - Mobile approvals: `/mobile/approvals/`, `/mobile/approvals/distributions/<pk>/`, `/mobile/approvals/distributions/<pk>/approve/`, `/mobile/approvals/distributions/<pk>/reject/`, `/mobile/approvals/expired/<pk>/`, `/mobile/approvals/expired/<pk>/approve/`
   - The combined inbox is visible only to superusers or role `ADMIN` / `KEPALA` with `APPROVE` scope for at least one supported module; each section and detail/action route independently enforces its module scope.
   - Only `SUBMITTED` documents are listed. Allocation-generated child distributions are excluded because they remain controlled by the parent Allocation workflow.
+  - Distribution inbox cards show an ORM-annotated item count rather than querying each document's items separately.
   - Distribution approval reserves stock and rejection returns the document to `REJECTED`; expired approval immediately deducts stock and appends `Transaction(OUT)`. Final distribution and physical-disposal completion remain outside the mobile approval surface.
   - All approval mutations require an online, CSRF-protected POST. The PWA service worker does not cache or queue approval writes.
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`

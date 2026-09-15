@@ -61,7 +61,7 @@
     if (mode === "native" && installButton) {
       installButton.hidden = false;
       if (installText) {
-        installText.textContent = "Tambahkan ke layar utama agar akses cek stok lebih cepat.";
+        installText.textContent = "Tambahkan ke layar utama agar akses IMS Mobile lebih cepat.";
       }
     } else {
       if (installButton) {
