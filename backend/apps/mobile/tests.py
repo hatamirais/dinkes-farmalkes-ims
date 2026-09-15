@@ -72,6 +72,7 @@ class MobileStockTestCase(TestCase):
         location=None,
         batch_lot="B-001",
         source_document_number="DOC-001",
+        funding_source=None,
     ):
         return Stock.objects.create(
             item=item,
@@ -81,7 +82,7 @@ class MobileStockTestCase(TestCase):
             quantity=quantity,
             reserved=reserved,
             unit_price=Decimal("1000"),
-            sumber_dana=self.funding_source,
+            sumber_dana=funding_source or self.funding_source,
             source_document_number=source_document_number,
         )
 
@@ -732,6 +733,78 @@ class MobileApprovalTests(MobileStockTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "0,40", count=2)
         self.assertContains(response, "30,00")
+
+    def test_distribution_approval_shows_and_reserves_selected_source_layer(self):
+        other_funding = FundingSource.objects.create(
+            code="DAK", name="Dana Alokasi Khusus"
+        )
+        selected_stock = self._make_stock(
+            self.item,
+            quantity=Decimal("30"),
+            reserved=Decimal("0"),
+            source_document_number="DOC-002",
+            funding_source=other_funding,
+        )
+        distribution = self._make_distribution()
+        line = distribution.items.get()
+        line.stock = selected_stock
+        line.save(update_fields=["stock"])
+        self.client.force_login(self.kepala)
+
+        detail = self.client.get(
+            reverse("mobile:distribution_approval_detail", args=[distribution.pk]),
+            secure=True,
+        )
+        approval = self.client.post(
+            reverse("mobile:distribution_approve", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "Sumber dana: DAK · Dana Alokasi Khusus")
+        self.assertContains(detail, "Dokumen asal: DOC-002")
+        self.assertNotContains(detail, "Dokumen asal: DOC-001")
+        self.assertEqual(approval.status_code, 302)
+        selected_stock.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(selected_stock.reserved, Decimal("5"))
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+
+    def test_expired_approval_shows_and_deducts_selected_source_layer(self):
+        other_funding = FundingSource.objects.create(
+            code="DAK", name="Dana Alokasi Khusus"
+        )
+        selected_stock = self._make_stock(
+            self.item,
+            quantity=Decimal("30"),
+            reserved=Decimal("0"),
+            source_document_number="DOC-002",
+            funding_source=other_funding,
+        )
+        expired_document = self._make_expired()
+        line = expired_document.items.get()
+        line.stock = selected_stock
+        line.save(update_fields=["stock"])
+        self.client.force_login(self.kepala)
+
+        detail = self.client.get(
+            reverse("mobile:expired_approval_detail", args=[expired_document.pk]),
+            secure=True,
+        )
+        approval = self.client.post(
+            reverse("mobile:expired_approve", args=[expired_document.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "Sumber dana: DAK · Dana Alokasi Khusus")
+        self.assertContains(detail, "Dokumen asal: DOC-002")
+        self.assertNotContains(detail, "Dokumen asal: DOC-001")
+        self.assertEqual(approval.status_code, 302)
+        selected_stock.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(selected_stock.quantity, Decimal("26"))
+        self.assertEqual(self.stock.quantity, Decimal("30"))
 
     def test_distribution_approval_reserves_stock_and_records_kepala(self):
         distribution = self._make_distribution()

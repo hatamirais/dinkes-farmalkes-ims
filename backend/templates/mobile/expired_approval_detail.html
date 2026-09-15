@@ -33,7 +33,7 @@
                 <div><dt>Dikeluarkan</dt><dd>{{ line.quantity|id_decimal:2 }}</dd></div>
                 <div><dt>Tersedia kini</dt><dd>{{ line.stock.available_quantity|id_decimal:2 }}</dd></div>
             </dl>
-            <div class="mobile-stock-card__meta"><span><i class="bi bi-box"></i>{{ line.stock.batch_lot }}</span><span><i class="bi bi-geo-alt"></i>{{ line.stock.location.name }}</span>{% if line.stock.expiry_date %}<span><i class="bi bi-calendar-x"></i>{{ line.stock.expiry_date|date:"d M Y" }}</span>{% endif %}</div>
+            <div class="mobile-stock-card__meta"><span><i class="bi bi-box"></i>{{ line.stock.batch_lot }}</span><span><i class="bi bi-geo-alt"></i>{{ line.stock.location.name }}</span>{% if line.stock.expiry_date %}<span><i class="bi bi-calendar-x"></i>{{ line.stock.expiry_date|date:"d M Y" }}</span>{% endif %}<span><i class="bi bi-cash-stack"></i>Sumber dana: {{ line.stock.sumber_dana.code }} · {{ line.stock.sumber_dana.name }}</span><span class="text-break"><i class="bi bi-file-earmark-text"></i>Dokumen asal: {{ line.stock.source_document_number }}</span></div>
             {% if line.notes %}<p class="mobile-line-note">{{ line.notes }}</p>{% endif %}
         </article>
         {% endfor %}

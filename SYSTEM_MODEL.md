@@ -70,6 +70,7 @@ Module highlights:
   - The combined inbox is visible only to superusers or role `ADMIN` / `KEPALA` with `APPROVE` scope for at least one supported module; each section and detail/action route independently enforces its module scope.
   - Only `SUBMITTED` documents are listed. Allocation-generated child distributions are excluded because they remain controlled by the parent Allocation workflow.
   - Distribution inbox cards show an ORM-annotated item count rather than querying each document's items separately.
+  - Distribution and expired approval detail cards identify the selected stock layer by funding source and source document number alongside batch, location, and expiry, so approvers can distinguish otherwise identical-looking rows before reserving or deducting stock.
   - Distribution approval reserves stock and rejection returns the document to `REJECTED`; expired approval immediately deducts stock and appends `Transaction(OUT)`. Final distribution and physical-disposal completion remain outside the mobile approval surface.
   - All approval mutations require an online, CSRF-protected POST. The PWA service worker does not cache or queue approval writes.
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
