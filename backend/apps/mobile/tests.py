@@ -609,6 +609,40 @@ class MobileApprovalTests(MobileStockTestCase):
         self.assertNotContains(response, expired_document.document_number)
         self.assertFalse(response.context["mobile_approval_access"]["expired"])
 
+    def test_distribution_approval_detail_preserves_fractional_quantities(self):
+        distribution = self._make_distribution()
+        line = distribution.items.get()
+        line.quantity_requested = Decimal("1.50")
+        line.quantity_approved = Decimal("0.40")
+        line.save(update_fields=["quantity_requested", "quantity_approved"])
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(
+            reverse("mobile:distribution_approval_detail", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1,50")
+        self.assertContains(response, "0,40")
+        self.assertContains(response, "30,00")
+
+    def test_expired_approval_detail_preserves_fractional_quantities(self):
+        expired_document = self._make_expired()
+        line = expired_document.items.get()
+        line.quantity = Decimal("0.40")
+        line.save(update_fields=["quantity"])
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(
+            reverse("mobile:expired_approval_detail", args=[expired_document.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "0,40", count=2)
+        self.assertContains(response, "30,00")
+
     def test_distribution_approval_reserves_stock_and_records_kepala(self):
         distribution = self._make_distribution()
         self.client.force_login(self.kepala)

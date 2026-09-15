@@ -34,9 +34,9 @@
         <article class="mobile-stock-card mobile-stock-card--static">
             <div class="mobile-stock-card__head"><div><h3>{{ line.item.nama_barang }}</h3><p>{{ line.item.kode_barang }} · {{ line.item.satuan.name }}</p></div></div>
             <dl class="mobile-stock-card__quantities">
-                <div><dt>Diminta</dt><dd>{{ line.quantity_requested|id_decimal:0 }}</dd></div>
-                <div><dt>Disetujui</dt><dd>{{ line.quantity_approved|id_decimal:0 }}</dd></div>
-                <div><dt>Tersedia</dt><dd>{% if line.stock %}{{ line.stock.available_quantity|id_decimal:0 }}{% else %}—{% endif %}</dd></div>
+                <div><dt>Diminta</dt><dd>{{ line.quantity_requested|id_decimal:2 }}</dd></div>
+                <div><dt>Disetujui</dt><dd>{{ line.quantity_approved|id_decimal:2 }}</dd></div>
+                <div><dt>Tersedia</dt><dd>{% if line.stock %}{{ line.stock.available_quantity|id_decimal:2 }}{% else %}—{% endif %}</dd></div>
             </dl>
             {% if line.stock %}<div class="mobile-stock-card__meta"><span><i class="bi bi-box"></i>{{ line.stock.batch_lot }}</span><span><i class="bi bi-geo-alt"></i>{{ line.stock.location.name }}</span>{% if line.stock.expiry_date %}<span><i class="bi bi-calendar-event"></i>{{ line.stock.expiry_date|date:"d M Y" }}</span>{% endif %}</div>{% else %}<p class="mobile-field-error">Batch stok belum dipilih.</p>{% endif %}
             {% if line.notes %}<p class="mobile-line-note">{{ line.notes }}</p>{% endif %}
