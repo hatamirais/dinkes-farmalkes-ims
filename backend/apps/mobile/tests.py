@@ -2,13 +2,18 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import Permission
+from django.db import connection
 from django.test import RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.views import debug_page_not_found
+from apps.distribution.models import Distribution, DistributionItem
+from apps.expired.models import Expired, ExpiredItem
 from apps.items.models import (
     Category,
+    Facility,
     FundingSource,
     Item,
     Location,
@@ -17,6 +22,7 @@ from apps.items.models import (
     Unit,
 )
 from apps.stock.models import Stock, Transaction
+from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
 
@@ -66,6 +72,7 @@ class MobileStockTestCase(TestCase):
         location=None,
         batch_lot="B-001",
         source_document_number="DOC-001",
+        funding_source=None,
     ):
         return Stock.objects.create(
             item=item,
@@ -75,7 +82,7 @@ class MobileStockTestCase(TestCase):
             quantity=quantity,
             reserved=reserved,
             unit_price=Decimal("1000"),
-            sumber_dana=self.funding_source,
+            sumber_dana=funding_source or self.funding_source,
             source_document_number=source_document_number,
         )
 
@@ -496,3 +503,383 @@ class MobileStockCardTests(MobileStockTestCase):
             f'href="{expected_url.replace("&", "&amp;")}"',
             html=False,
         )
+
+
+class MobileApprovalTests(MobileStockTestCase):
+    def setUp(self):
+        super().setUp()
+        self.facility = Facility.objects.create(code="PKM-MOB", name="Puskesmas Mobile")
+        self.kepala = User.objects.create_user(
+            username="kepala-mobile",
+            password="TestPassword123!",
+            role=User.Role.KEPALA,
+        )
+        ensure_default_module_access(self.kepala, overwrite=True)
+        self.item = self._make_item()
+        self.stock = self._make_stock(
+            self.item,
+            quantity=Decimal("30"),
+            reserved=Decimal("0"),
+        )
+
+    def _make_distribution(
+        self,
+        *,
+        distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+    ):
+        distribution = Distribution.objects.create(
+            distribution_type=distribution_type,
+            request_date=timezone.localdate(),
+            facility=self.facility,
+            status=Distribution.Status.SUBMITTED,
+            created_by=self.user,
+        )
+        DistributionItem.objects.create(
+            distribution=distribution,
+            item=self.item,
+            quantity_requested=Decimal("6"),
+            quantity_approved=Decimal("5"),
+            stock=self.stock,
+        )
+        distribution.staff_assignments.create(user=self.user)
+        return distribution
+
+    def _make_expired(self):
+        expired_document = Expired.objects.create(
+            report_date=timezone.localdate(),
+            status=Expired.Status.SUBMITTED,
+            created_by=self.user,
+        )
+        ExpiredItem.objects.create(
+            expired=expired_document,
+            item=self.item,
+            stock=self.stock,
+            quantity=Decimal("4"),
+            notes="Melewati tanggal kedaluwarsa",
+        )
+        return expired_document
+
+    def _remove_stock_access(self):
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.STOCK,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+
+    def test_approval_only_kepala_can_discover_and_launch_mobile_inbox(self):
+        self._remove_stock_access()
+        self.assertFalse(self.kepala.has_perm("stock.view_stock"))
+        self.client.force_login(self.kepala)
+
+        desktop = self.client.get(reverse("password_change"), secure=True)
+        home = self.client.get(reverse("mobile:home"), secure=True)
+        inbox = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+        stock = self.client.get(reverse("mobile:stock_list"), secure=True)
+        manifest = self.client.get(reverse("mobile:manifest"), secure=True)
+
+        self.assertContains(desktop, 'href="/mobile/"', html=False)
+        self.assertContains(desktop, "IMS Mobile tersedia untuk persetujuan")
+        self.assertEqual(home.status_code, 302)
+        self.assertEqual(home["Location"], reverse("mobile:approval_inbox"))
+        self.assertEqual(inbox.status_code, 200)
+        self.assertContains(inbox, 'class="mobile-brand" href="/mobile/"', html=False)
+        self.assertEqual(stock.status_code, 403)
+        self.assertEqual(manifest.json()["start_url"], reverse("mobile:home"))
+
+    def test_expired_only_kepala_uses_approval_entry_point(self):
+        self._remove_stock_access()
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(self.kepala)
+
+        home = self.client.get(reverse("mobile:home"), secure=True)
+        inbox = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(home.status_code, 302)
+        self.assertEqual(home["Location"], reverse("mobile:approval_inbox"))
+        self.assertEqual(inbox.status_code, 200)
+        self.assertTrue(inbox.context["mobile_approval_access"]["expired"])
+        self.assertFalse(inbox.context["mobile_approval_access"]["distribution"])
+
+    def test_mobile_home_keeps_stock_as_default_when_user_can_see_both(self):
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("mobile:home"), secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("mobile:stock_list"))
+
+    def test_mobile_home_denies_user_without_stock_or_approval_access(self):
+        user = User.objects.create_user(
+            username="mobile-no-access",
+            password="TestPassword123!",
+            role=User.Role.PUSKESMAS,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("mobile:home"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_distribution_inbox_query_count_does_not_grow_per_card(self):
+        self._make_distribution()
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.EXPIRED,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(self.kepala)
+
+        with CaptureQueriesContext(connection) as one_card_queries:
+            one_card = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        for _ in range(19):
+            self._make_distribution()
+
+        with CaptureQueriesContext(connection) as twenty_card_queries:
+            twenty_cards = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(one_card.status_code, 200)
+        self.assertEqual(twenty_cards.status_code, 200)
+        self.assertEqual(len(one_card_queries), len(twenty_card_queries))
+        self.assertContains(twenty_cards, "1 item", count=20)
+
+    def test_approval_inbox_requires_kepala_admin_role_and_approve_scope(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_custom_non_kepala_approver_cannot_open_inbox(self):
+        ModuleAccess.objects.update_or_create(
+            user=self.user,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.APPROVE},
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_inbox_groups_actionable_documents_and_excludes_allocation_children(self):
+        distribution = self._make_distribution()
+        expired_document = self._make_expired()
+        allocation = self._make_distribution(
+            distribution_type=Distribution.DistributionType.ALLOCATION
+        )
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "mobile/approval_inbox.html")
+        self.assertContains(response, distribution.document_number)
+        self.assertContains(response, expired_document.document_number)
+        self.assertNotContains(response, allocation.document_number)
+        self.assertEqual(response.context["mobile_pending_approval_count"], 2)
+
+    def test_inbox_hides_module_when_kepala_scope_is_downgraded(self):
+        distribution = self._make_distribution()
+        expired_document = self._make_expired()
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.EXPIRED,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, distribution.document_number)
+        self.assertNotContains(response, expired_document.document_number)
+        self.assertFalse(response.context["mobile_approval_access"]["expired"])
+
+    def test_distribution_approval_detail_preserves_fractional_quantities(self):
+        distribution = self._make_distribution()
+        line = distribution.items.get()
+        line.quantity_requested = Decimal("1.50")
+        line.quantity_approved = Decimal("0.40")
+        line.save(update_fields=["quantity_requested", "quantity_approved"])
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(
+            reverse("mobile:distribution_approval_detail", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1,50")
+        self.assertContains(response, "0,40")
+        self.assertContains(response, "30,00")
+
+    def test_expired_approval_detail_preserves_fractional_quantities(self):
+        expired_document = self._make_expired()
+        line = expired_document.items.get()
+        line.quantity = Decimal("0.40")
+        line.save(update_fields=["quantity"])
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(
+            reverse("mobile:expired_approval_detail", args=[expired_document.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "0,40", count=2)
+        self.assertContains(response, "30,00")
+
+    def test_distribution_approval_shows_and_reserves_selected_source_layer(self):
+        other_funding = FundingSource.objects.create(
+            code="DAK", name="Dana Alokasi Khusus"
+        )
+        selected_stock = self._make_stock(
+            self.item,
+            quantity=Decimal("30"),
+            reserved=Decimal("0"),
+            source_document_number="DOC-002",
+            funding_source=other_funding,
+        )
+        distribution = self._make_distribution()
+        line = distribution.items.get()
+        line.stock = selected_stock
+        line.save(update_fields=["stock"])
+        self.client.force_login(self.kepala)
+
+        detail = self.client.get(
+            reverse("mobile:distribution_approval_detail", args=[distribution.pk]),
+            secure=True,
+        )
+        approval = self.client.post(
+            reverse("mobile:distribution_approve", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "Sumber dana: DAK · Dana Alokasi Khusus")
+        self.assertContains(detail, "Dokumen asal: DOC-002")
+        self.assertNotContains(detail, "Dokumen asal: DOC-001")
+        self.assertEqual(approval.status_code, 302)
+        selected_stock.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(selected_stock.reserved, Decimal("5"))
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+
+    def test_expired_approval_shows_and_deducts_selected_source_layer(self):
+        other_funding = FundingSource.objects.create(
+            code="DAK", name="Dana Alokasi Khusus"
+        )
+        selected_stock = self._make_stock(
+            self.item,
+            quantity=Decimal("30"),
+            reserved=Decimal("0"),
+            source_document_number="DOC-002",
+            funding_source=other_funding,
+        )
+        expired_document = self._make_expired()
+        line = expired_document.items.get()
+        line.stock = selected_stock
+        line.save(update_fields=["stock"])
+        self.client.force_login(self.kepala)
+
+        detail = self.client.get(
+            reverse("mobile:expired_approval_detail", args=[expired_document.pk]),
+            secure=True,
+        )
+        approval = self.client.post(
+            reverse("mobile:expired_approve", args=[expired_document.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "Sumber dana: DAK · Dana Alokasi Khusus")
+        self.assertContains(detail, "Dokumen asal: DOC-002")
+        self.assertNotContains(detail, "Dokumen asal: DOC-001")
+        self.assertEqual(approval.status_code, 302)
+        selected_stock.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(selected_stock.quantity, Decimal("26"))
+        self.assertEqual(self.stock.quantity, Decimal("30"))
+
+    def test_distribution_approval_reserves_stock_and_records_kepala(self):
+        distribution = self._make_distribution()
+        self.client.force_login(self.kepala)
+
+        response = self.client.post(
+            reverse("mobile:distribution_approve", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            reverse("mobile:distribution_approval_detail", args=[distribution.pk]),
+        )
+        distribution.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.VERIFIED)
+        self.assertEqual(distribution.verified_by, self.kepala)
+        self.assertEqual(self.stock.quantity, Decimal("30"))
+        self.assertEqual(self.stock.reserved, Decimal("5"))
+        self.assertFalse(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.DISTRIBUTION,
+                reference_id=distribution.pk,
+            ).exists()
+        )
+
+    def test_distribution_rejection_returns_document_to_petugas(self):
+        distribution = self._make_distribution()
+        self.client.force_login(self.kepala)
+
+        response = self.client.post(
+            reverse("mobile:distribution_reject", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.REJECTED)
+
+    def test_expired_approval_deducts_stock_once_and_creates_out_transaction(self):
+        expired_document = self._make_expired()
+        self.client.force_login(self.kepala)
+        approval_url = reverse("mobile:expired_approve", args=[expired_document.pk])
+
+        first_response = self.client.post(approval_url, secure=True)
+        second_response = self.client.post(approval_url, secure=True)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        expired_document.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(expired_document.status, Expired.Status.VERIFIED)
+        self.assertEqual(expired_document.verified_by, self.kepala)
+        self.assertEqual(self.stock.quantity, Decimal("26"))
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.EXPIRED,
+                reference_id=expired_document.pk,
+            ).count(),
+            1,
+        )
+
+    def test_mobile_approval_actions_are_post_only(self):
+        distribution = self._make_distribution()
+        expired_document = self._make_expired()
+        self.client.force_login(self.kepala)
+
+        urls = [
+            reverse("mobile:distribution_approve", args=[distribution.pk]),
+            reverse("mobile:distribution_reject", args=[distribution.pk]),
+            reverse("mobile:expired_approve", args=[expired_document.pk]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url, secure=True)
+                self.assertEqual(response.status_code, 405)

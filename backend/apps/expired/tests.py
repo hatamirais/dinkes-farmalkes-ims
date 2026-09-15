@@ -5,19 +5,25 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.expired.forms import ExpiredItemForm
 from apps.expired.models import Expired, ExpiredItem
-from apps.expired.services import build_expired_audit_report
+from apps.expired.services import (
+    ExpiredWorkflowError,
+    build_expired_audit_report,
+    execute_expired_verification,
+)
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
 
-class ExpiredWorkflowTest(TestCase):
+class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
     """Tests for the expired module workflow transitions, stock posting, and edge cases."""
 
     def setUp(self):
+        super().setUp()
         self.user = User.objects.create_superuser(
             username="gudang_expired",
             password="secret12345",
@@ -129,7 +135,8 @@ class ExpiredWorkflowTest(TestCase):
     def test_verify_deducts_stock_and_creates_transaction(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
         response = self.client.post(
-            reverse("expired:expired_verify", args=[expired_doc.pk])
+            reverse("expired:expired_verify", args=[expired_doc.pk]),
+            secure=True,
         )
         self.assertEqual(response.status_code, 302)
 
@@ -170,6 +177,25 @@ class ExpiredWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 302)
         expired_doc.refresh_from_db()
         self.assertEqual(expired_doc.status, Expired.Status.DRAFT)  # unchanged
+
+    def test_verify_rechecks_locked_document_state_before_deducting_again(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        stale_document = Expired.objects.get(pk=expired_doc.pk)
+
+        execute_expired_verification(expired_doc, self.user)
+
+        with self.assertRaises(ExpiredWorkflowError):
+            execute_expired_verification(stale_document, self.user)
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("45"))
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.EXPIRED,
+                reference_id=expired_doc.pk,
+            ).count(),
+            1,
+        )
 
     # --- Dispose workflow ---
 
@@ -365,7 +391,8 @@ class ExpiredWorkflowTest(TestCase):
         self.client.force_login(custom_approver)
 
         response = self.client.post(
-            reverse("expired:expired_verify", args=[expired_doc.pk])
+            reverse("expired:expired_verify", args=[expired_doc.pk]),
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 403)

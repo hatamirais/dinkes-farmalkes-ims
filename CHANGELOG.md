@@ -7,6 +7,22 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-09-15
+
+### Added
+
+- Added an online-only mobile approval inbox for Kepala/Admin users with distribution or expired `APPROVE` module scope. Submitted standalone distributions can be approved or returned to staff; submitted expired documents can be verified from the PWA. Allocation-generated child distributions remain outside this inbox.
+- Added mobile approval detail cards showing the selected stock row's funding source and source document alongside its batch, location, and expiry, so otherwise similar stock layers can be distinguished before approval.
+
+### Changed
+
+- Made the desktop Mobile link and PWA entry point available to approval-only users. `/mobile/` opens stock for users with stock-view access or the approval inbox for approval-only users; users with neither access receive 403.
+
+### Fixed
+
+- Preserved fractional quantities in mobile distribution and expired approval detail displays without altering stored values.
+- Removed per-card distribution item-count queries from the mobile approval inbox.
+
 ## [1.32.0] - 2026-09-11
 
 ### Added

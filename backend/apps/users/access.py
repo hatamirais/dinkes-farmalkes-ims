@@ -130,6 +130,25 @@ def has_module_scope(user: User, module: str, min_scope: int) -> bool:
     return get_user_module_scope(user, module) >= min_scope
 
 
+def can_approve_workflow(user: User, module: str) -> bool:
+    """Return whether a user may perform a Kepala/Admin approval checkpoint."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    if getattr(user, "role", None) not in {User.Role.ADMIN, User.Role.KEPALA}:
+        return False
+    return has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
+
+
+def can_view_mobile_stock(user: User) -> bool:
+    """Match the stock view decorator's Django-permission/module-scope access."""
+    return bool(getattr(user, "is_authenticated", False)) and (
+        user.has_perm("stock.view_stock")
+        or has_module_permission(user, "stock.view_stock")
+    )
+
+
 def required_scope_for_perm(perm: str) -> int:
     _, codename = perm.split(".", 1)
     action = codename.split("_", 1)[0]

@@ -129,6 +129,15 @@ This page answers "where should I look?" for each module.
   - `backend/apps/reports/exports.py`
   - `backend/apps/reports/tests.py`
 
+## `mobile`
+
+- Purpose: server-rendered PWA stock lookup plus a role- and module-scoped approval inbox for submitted Distribution and Expired documents
+- Start with:
+  - `backend/apps/mobile/views.py`
+  - `backend/apps/mobile/urls.py`
+  - `backend/apps/mobile/tests.py`
+  - `backend/templates/mobile/`
+
 ## Cross-Cutting Files
 
 - `backend/templates/`: server-rendered HTML

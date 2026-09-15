@@ -4,7 +4,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseBadRequest
@@ -14,14 +13,16 @@ from datetime import timedelta
 
 from apps.core.decorators import module_scope_required, perm_required
 from apps.items.models import Location
-from apps.stock.models import Stock, Transaction
-from apps.users.access import has_module_scope
+from apps.stock.models import Stock
+from apps.users.access import can_approve_workflow, has_module_scope
 from apps.users.models import ModuleAccess, User
 
 from .forms import ExpiredAuditReportFilterForm, ExpiredForm, ExpiredItemFormSet
 from .models import Expired, ExpiredItem
 from .services import (
+    ExpiredWorkflowError,
     build_expired_audit_report,
+    execute_expired_verification,
     export_expired_audit_report_csv,
 )
 
@@ -35,16 +36,9 @@ def _build_expired_audit_filter_form(request):
 
 
 def _can_approve_expired_actions(user):
-    if not getattr(user, "is_authenticated", False):
-        return False
-
-    if user.role not in {User.Role.ADMIN, User.Role.KEPALA}:
-        return False
-
-    return has_module_scope(
+    return can_approve_workflow(
         user,
         ModuleAccess.Module.EXPIRED,
-        ModuleAccess.Scope.APPROVE,
     )
 
 
@@ -488,53 +482,9 @@ def expired_verify(request, pk):
         )
         return redirect("expired:expired_detail", pk=pk)
 
-    expired_items = list(expired_doc.items.select_related("item", "stock"))
-    if not expired_items:
-        messages.error(request, "Dokumen tidak memiliki item untuk diverifikasi.")
-        return redirect("expired:expired_detail", pk=pk)
-
     try:
-        with transaction.atomic():
-            for expired_item in expired_items:
-                stock = Stock.objects.select_for_update().get(pk=expired_item.stock_id)
-
-                if stock.item_id != expired_item.item_id:
-                    raise ValueError(
-                        f"Batch stok tidak sesuai untuk item {expired_item.item.nama_barang}."
-                    )
-
-                if expired_item.quantity > stock.available_quantity:
-                    raise ValueError(
-                        f"Stok tidak cukup untuk {expired_item.item.nama_barang}. "
-                        f"Tersedia {stock.available_quantity}, diminta {expired_item.quantity}."
-                    )
-
-                stock.quantity = stock.quantity - expired_item.quantity
-                stock.save(update_fields=["quantity", "updated_at"])
-
-                Transaction.objects.create(
-                    transaction_type=Transaction.TransactionType.OUT,
-                    item=expired_item.item,
-                    location=stock.location,
-                    batch_lot=stock.batch_lot,
-                    quantity=expired_item.quantity,
-                    unit_price=stock.unit_price,
-                    source_document_number=stock.source_document_number,
-                    sumber_dana=stock.sumber_dana,
-                    reference_type=Transaction.ReferenceType.EXPIRED,
-                    reference_id=expired_doc.id,
-                    user=request.user,
-                    notes=f"Expired {expired_doc.document_number}: {expired_item.notes}".strip(),
-                )
-
-            expired_doc.status = Expired.Status.VERIFIED
-            expired_doc.verified_by = request.user
-            expired_doc.verified_at = timezone.now()
-            expired_doc.save(
-                update_fields=["status", "verified_by", "verified_at", "updated_at"]
-            )
-
-    except ValueError as exc:
+        execute_expired_verification(expired_doc, request.user)
+    except ExpiredWorkflowError as exc:
         messages.error(request, str(exc))
         return redirect("expired:expired_detail", pk=pk)
 

@@ -2,8 +2,8 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-Last verified: 2026-07-24
-Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
+Last verified: 2026-09-15
+Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/apps/users/context_processors.py`, `backend/apps/mobile/views.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
 
 ## 1) Domain Overview
 
@@ -36,7 +36,7 @@ Root route include map from `backend/config/urls.py`:
 - `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
 - `/users/`, `/items/`, `/stock/`, `/receiving/`, `/procurement/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
-- `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
+- `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`, `/mobile/approvals/`, `/mobile/approvals/distributions/<pk>/`, `/mobile/approvals/expired/<pk>/` and their POST-only approval actions
 
 Global error handlers in `backend/config/urls.py`:
 
@@ -61,11 +61,18 @@ Module highlights:
 - Expiry alerts: `/expired/alerts/`
 - Stock opname: `/stock-opname/`, `/stock-opname/create/`, `/stock-opname/<pk>/`, `/stock-opname/<pk>/edit/`, `/stock-opname/<pk>/start/`, `/stock-opname/<pk>/input/`, `/stock-opname/<pk>/complete/`, `/stock-opname/<pk>/report/`, `/stock-opname/<pk>/print/`, `/stock-opname/<pk>/delete/`
 - Reports: `/reports/`, `/reports/riwayat-penomoran/`, `/reports/rekap/`, `/reports/penerimaan-hibah/`, `/reports/pengadaan/`, `/reports/kadaluarsa/`, `/reports/pengeluaran/`
-- Mobile stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
+- Mobile entry and stock: `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`
   - Server-rendered Django mobile/PWA surface using the existing login/session, CSRF, Django permissions, and module-scope fallback.
-  - Users with stock-view access can discover `/mobile/` from the authenticated desktop shell, and mobile pages provide dismissible install guidance for supported PWA-capable browsers.
+  - The desktop shell exposes `/mobile/` to users with stock-view access or distribution/expired approval access. The PWA manifest and mobile brand also start at `/mobile/`: stock-view users land on stock, approval-only users land on the approval inbox, and users with neither access receive 403. Mobile pages provide dismissible install guidance for supported PWA-capable browsers.
   - `/mobile/stocks/` groups active stock rows by item/SKU, shows aggregated physical and available stock totals, supports live search, lazy loading, program flag, therapeutic class, location, funding source, low-stock threshold, and item-level expiry quick filters.
   - `/mobile/stocks/<item_id>/card/` renders the selected item's batch/location stock rows in a mobile layout, including document reference, physical stock, available stock, reserved stock when non-zero, and expiry status filtering.
+- Mobile approvals: `/mobile/approvals/`, `/mobile/approvals/distributions/<pk>/`, `/mobile/approvals/distributions/<pk>/approve/`, `/mobile/approvals/distributions/<pk>/reject/`, `/mobile/approvals/expired/<pk>/`, `/mobile/approvals/expired/<pk>/approve/`
+  - The combined inbox is visible only to superusers or role `ADMIN` / `KEPALA` with `APPROVE` scope for at least one supported module; each section and detail/action route independently enforces its module scope.
+  - Only `SUBMITTED` documents are listed. Allocation-generated child distributions are excluded because they remain controlled by the parent Allocation workflow.
+  - Distribution inbox cards show an ORM-annotated item count rather than querying each document's items separately.
+  - Distribution and expired approval detail cards identify the selected stock layer by funding source and source document number alongside batch, location, and expiry, so approvers can distinguish otherwise identical-looking rows before reserving or deducting stock.
+  - Distribution approval reserves stock and rejection returns the document to `REJECTED`; expired approval immediately deducts stock and appends `Transaction(OUT)`. Final distribution and physical-disposal completion remain outside the mobile approval surface.
+  - All approval mutations require an online, CSRF-protected POST. The PWA service worker does not cache or queue approval writes.
 - LPLPO: `/lplpo/` (All), `/lplpo/my/` (Puskesmas scoped), `/lplpo/create/`, `/lplpo/print-report/`, `/lplpo/api/prefill-penerimaan/`, `/lplpo/<pk>/`, `/lplpo/<pk>/edit/`, `/lplpo/<pk>/export-xlsx/`, `/lplpo/<pk>/import-xlsx/`, `/lplpo/<pk>/submit/`, `/lplpo/<pk>/verify/`, `/lplpo/<pk>/reject/`, `/lplpo/<pk>/review/`, `/lplpo/<pk>/finalize/`, `/lplpo/<pk>/delete/`, `/lplpo/<pk>/print/`
   - `review/` is the active stock-planning checkpoint: PIC review saves `pemberian_*`, stamps review audit fields, and atomically creates the linked draft LPLPO distribution.
   - `finalize/` remains only as a compatibility endpoint for older rows still stuck in `REVIEWED` from the previous workflow.
@@ -122,6 +129,7 @@ Special rule:
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
 - `/settings/` is an explicit role-gated exception outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update system settings.
 - Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
+- Distribution and expired verification use the same explicit approver rule: superusers or role `ADMIN` / `KEPALA` with the relevant module scope at `APPROVE` or higher. Elevated scope alone does not authorize another role.
 - `AUDITOR` retains read-only module scopes for direct authorized pages, but the global sidebar renders only the `Laporan` group for this role and the dashboard suppresses linked drill-through cards/sections that open operational menus.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
@@ -507,12 +515,12 @@ Operational mutation points (from app behavior and admin import logic):
   - prepare phase updates document status only (no stock mutation and no reservation write)
   - draft/rejected preparation, submission, and final standalone distribution are restricted to assigned `DistributionStaffAssignment` users, with approve-scope users as a fallback only when no staff assignments exist
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
-  - verify phase now locks the selected stock rows and increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`
+  - verify phase locks and re-checks the submitted distribution plus selected stock rows, then increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`; rejection also locks and re-checks submitted state
   - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, and delete release `reserved` using `DistributionItem.reserved_quantity` for standalone distributions, while allocation-generated child distributions release reservations only through parent allocation step-back
   - generated-LPLPO reversal uses the same object-level assignee/fallback authorization as preparation actions and requires LPLPO module scope `OPERATE`
   - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
-- Expired verify is restricted to Kepala/Admin approvers, decreases stock, and posts `Transaction(OUT, reference_type=EXPIRED)`. After verification, Gudang/Kepala/Admin users with expired operate scope may mark the document `DISPOSED` to finalize the physical disposal audit stamp without another stock mutation.
+- Expired verify is restricted to Kepala/Admin approvers, locks and re-checks the submitted document plus affected stock rows, decreases stock exactly once, and posts `Transaction(OUT, reference_type=EXPIRED)`. After verification, Gudang/Kepala/Admin users with expired operate scope may mark the document `DISPOSED` to finalize the physical disposal audit stamp without another stock mutation.
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
 - Stock opname completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, `completed_at`, and each row's `completion_stock_quantity`, and does not mutate `Stock` or write `Transaction` rows. `GUDANG` / operate-scope users may complete only when the physical count matches the current refreshed stock quantity for every counted row; if any current discrepancy remains, completion requires stock-opname approve scope (`KEPALA`/Admin/superuser by default). In-progress views compare `Stok Fisik` to live refreshed `Stock.quantity`; completed views and reports compare against the frozen `completion_stock_quantity`.
 - Allocation:

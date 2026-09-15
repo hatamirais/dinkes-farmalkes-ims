@@ -3,16 +3,91 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.http import StreamingHttpResponse
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.decimal_validation import multiply_decimals, sum_decimals
 from apps.core.csv_exports import sanitize_csv_row
 from apps.expired.models import Expired
-from apps.stock.models import Transaction
+from apps.stock.models import Stock, Transaction
 
 
 OUTCOME_DESTROY = "DESTROY"
+
+
+class ExpiredWorkflowError(ValueError):
+    pass
+
+
+def execute_expired_verification(expired_doc, user):
+    """Verify an expired document and post its stock deductions exactly once."""
+    with transaction.atomic():
+        locked_document = Expired.objects.select_for_update().get(pk=expired_doc.pk)
+        if locked_document.status != Expired.Status.SUBMITTED:
+            raise ExpiredWorkflowError(
+                "Hanya dokumen berstatus Diajukan yang dapat diverifikasi."
+            )
+
+        expired_items = list(
+            locked_document.items.select_related("item", "stock").order_by("pk")
+        )
+        if not expired_items:
+            raise ExpiredWorkflowError(
+                "Dokumen tidak memiliki item untuk diverifikasi."
+            )
+
+        stock_ids = sorted({item.stock_id for item in expired_items})
+        locked_stocks = {
+            stock.pk: stock
+            for stock in Stock.objects.select_for_update().filter(pk__in=stock_ids)
+        }
+
+        for expired_item in expired_items:
+            stock = locked_stocks.get(expired_item.stock_id)
+            if stock is None:
+                raise ExpiredWorkflowError(
+                    f"Batch stok untuk {expired_item.item.nama_barang} tidak ditemukan."
+                )
+            if stock.item_id != expired_item.item_id:
+                raise ExpiredWorkflowError(
+                    f"Batch stok tidak sesuai untuk item {expired_item.item.nama_barang}."
+                )
+            if expired_item.quantity > stock.available_quantity:
+                raise ExpiredWorkflowError(
+                    f"Stok tidak cukup untuk {expired_item.item.nama_barang}. "
+                    f"Tersedia {stock.available_quantity}, diminta {expired_item.quantity}."
+                )
+
+            stock.quantity = stock.quantity - expired_item.quantity
+            stock.save(update_fields=["quantity", "updated_at"])
+
+            Transaction.objects.create(
+                transaction_type=Transaction.TransactionType.OUT,
+                item=expired_item.item,
+                location=stock.location,
+                batch_lot=stock.batch_lot,
+                quantity=expired_item.quantity,
+                unit_price=stock.unit_price,
+                source_document_number=stock.source_document_number,
+                sumber_dana=stock.sumber_dana,
+                reference_type=Transaction.ReferenceType.EXPIRED,
+                reference_id=locked_document.id,
+                user=user,
+                notes=(
+                    f"Expired {locked_document.document_number}: "
+                    f"{expired_item.notes}"
+                ).strip(),
+            )
+
+        locked_document.status = Expired.Status.VERIFIED
+        locked_document.verified_by = user
+        locked_document.verified_at = timezone.now()
+        locked_document.save(
+            update_fields=["status", "verified_by", "verified_at", "updated_at"]
+        )
+
+    return locked_document
 
 
 def _safe_decimal(value):

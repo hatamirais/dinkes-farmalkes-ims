@@ -1,0 +1,58 @@
+{% extends "mobile/base.html" %}
+{% load number_format %}
+
+{% block title %}Persetujuan Distribusi - IMS Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-page-heading">
+    <div>
+        <h1>{{ distribution.document_number }}</h1>
+        <p>{{ distribution.get_distribution_type_display }} · {{ distribution.facility.name }}</p>
+    </div>
+    <a class="mobile-date" href="{% url 'mobile:approval_inbox' %}">Kembali</a>
+</section>
+
+<section class="mobile-review-summary">
+    <dl>
+        <div><dt>Status</dt><dd><span class="badge {% if distribution.status == 'SUBMITTED' %}text-bg-warning{% elif distribution.status == 'VERIFIED' %}text-bg-success{% else %}text-bg-secondary{% endif %}">{{ distribution.get_status_display }}</span></dd></div>
+        <div><dt>Tanggal permintaan</dt><dd>{{ distribution.request_date|date:"d M Y" }}</dd></div>
+        <div><dt>Dibuat oleh</dt><dd>{{ distribution.created_by }}</dd></div>
+        <div><dt>Petugas</dt><dd>{% for assignment in distribution.staff_assignments.all %}{{ assignment.user }}{% if not forloop.last %}, {% endif %}{% empty %}Belum ditentukan{% endfor %}</dd></div>
+    </dl>
+    {% if distribution.notes %}<p class="mobile-review-note"><strong>Catatan:</strong> {{ distribution.notes }}</p>{% endif %}
+</section>
+
+<section class="mobile-review-warning">
+    <i class="bi bi-bookmark-check"></i>
+    <div><strong>Persetujuan akan mereservasi stok.</strong><span>Stok fisik baru berkurang saat petugas menyelesaikan distribusi.</span></div>
+</section>
+
+<section class="mobile-approval-section" aria-labelledby="distribution-items-title">
+    <div class="mobile-section-heading"><div><span class="mobile-section-kicker">Rincian</span><h2 id="distribution-items-title">Barang yang diajukan</h2></div></div>
+    <div class="mobile-list">
+        {% for line in items %}
+        <article class="mobile-stock-card mobile-stock-card--static">
+            <div class="mobile-stock-card__head"><div><h3>{{ line.item.nama_barang }}</h3><p>{{ line.item.kode_barang }} · {{ line.item.satuan.name }}</p></div></div>
+            <dl class="mobile-stock-card__quantities">
+                <div><dt>Diminta</dt><dd>{{ line.quantity_requested|id_decimal:2 }}</dd></div>
+                <div><dt>Disetujui</dt><dd>{{ line.quantity_approved|id_decimal:2 }}</dd></div>
+                <div><dt>Tersedia</dt><dd>{% if line.stock %}{{ line.stock.available_quantity|id_decimal:2 }}{% else %}—{% endif %}</dd></div>
+            </dl>
+            {% if line.stock %}<div class="mobile-stock-card__meta"><span><i class="bi bi-box"></i>{{ line.stock.batch_lot }}</span><span><i class="bi bi-geo-alt"></i>{{ line.stock.location.name }}</span>{% if line.stock.expiry_date %}<span><i class="bi bi-calendar-event"></i>{{ line.stock.expiry_date|date:"d M Y" }}</span>{% endif %}<span><i class="bi bi-cash-stack"></i>Sumber dana: {{ line.stock.sumber_dana.code }} · {{ line.stock.sumber_dana.name }}</span><span class="text-break"><i class="bi bi-file-earmark-text"></i>Dokumen asal: {{ line.stock.source_document_number }}</span></div>{% else %}<p class="mobile-field-error">Batch stok belum dipilih.</p>{% endif %}
+            {% if line.notes %}<p class="mobile-line-note">{{ line.notes }}</p>{% endif %}
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+{% if distribution.status == 'SUBMITTED' %}
+<section class="mobile-approval-actions" aria-label="Tindakan persetujuan distribusi">
+    <form method="post" action="{% url 'mobile:distribution_reject' distribution.pk %}" data-mobile-confirm="Kembalikan distribusi ini ke petugas?">
+        {% csrf_token %}<button type="submit" class="mobile-action-button mobile-action-button--danger"><i class="bi bi-x-circle"></i>Kembalikan</button>
+    </form>
+    <form method="post" action="{% url 'mobile:distribution_approve' distribution.pk %}" data-mobile-confirm="Setujui distribusi ini dan reservasi stok yang dipilih?">
+        {% csrf_token %}<button type="submit" class="mobile-action-button mobile-action-button--primary"><i class="bi bi-check2-circle"></i>Setujui</button>
+    </form>
+</section>
+{% endif %}
+{% endblock %}
