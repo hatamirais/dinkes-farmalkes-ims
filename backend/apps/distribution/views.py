@@ -30,7 +30,11 @@ from apps.reports.views import (
     render_pengeluaran_report,
 )
 from apps.stock.models import Stock
-from apps.users.access import has_module_permission, has_module_scope
+from apps.users.access import (
+    can_approve_workflow,
+    has_module_permission,
+    has_module_scope,
+)
 from apps.users.models import ModuleAccess, User
 
 from .forms import (
@@ -880,10 +884,9 @@ def distribution_detail(request, pk):
     can_verify_distribution = (
         not is_allocation
         and dist.status == Distribution.Status.SUBMITTED
-        and has_module_scope(
+        and can_approve_workflow(
             request.user,
             ModuleAccess.Module.DISTRIBUTION,
-            ModuleAccess.Scope.APPROVE,
         )
     )
     can_reject_distribution = can_verify_distribution
@@ -1002,6 +1005,14 @@ def distribution_submit(request, pk):
 @perm_required("distribution.change_distribution")
 @module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.APPROVE)
 def distribution_verify(request, pk):
+    if not can_approve_workflow(
+        request.user,
+        ModuleAccess.Module.DISTRIBUTION,
+    ):
+        raise PermissionDenied(
+            "Hanya Kepala Instalasi atau Admin yang dapat menyetujui distribusi."
+        )
+
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
@@ -1098,6 +1109,14 @@ def distribution_distribute(request, pk):
 @perm_required("distribution.change_distribution")
 @module_scope_required(ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Scope.APPROVE)
 def distribution_reject(request, pk):
+    if not can_approve_workflow(
+        request.user,
+        ModuleAccess.Module.DISTRIBUTION,
+    ):
+        raise PermissionDenied(
+            "Hanya Kepala Instalasi atau Admin yang dapat menolak distribusi."
+        )
+
     dist = get_object_or_404(Distribution, pk=pk)
     if request.method != "POST":
         return _redirect_distribution_detail(pk)
@@ -1108,7 +1127,11 @@ def distribution_reject(request, pk):
         )
         return _redirect_distribution_detail(pk)
 
-    execute_distribution_rejection(dist)
+    try:
+        execute_distribution_rejection(dist)
+    except DistributionWorkflowError as exc:
+        messages.error(request, str(exc))
+        return _redirect_distribution_detail(pk)
     messages.success(request, f"Distribusi {dist.document_number} ditolak.")
     return _redirect_distribution_detail(pk)
 

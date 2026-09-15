@@ -1,0 +1,102 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Persetujuan - IMS Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-page-heading">
+    <div>
+        <h1>Persetujuan</h1>
+        <p>{{ mobile_pending_approval_count }} dokumen menunggu tindakan</p>
+    </div>
+    <span class="mobile-date">Kepala</span>
+</section>
+
+{% if mobile_approval_access.distribution %}
+<section class="mobile-approval-section" aria-labelledby="distribution-approval-title">
+    <div class="mobile-section-heading">
+        <div>
+            <span class="mobile-section-kicker">Distribusi</span>
+            <h2 id="distribution-approval-title">Menunggu persetujuan</h2>
+        </div>
+        <span class="mobile-count-badge">{{ distributions.paginator.count }}</span>
+    </div>
+    <div class="mobile-list">
+        {% for distribution in distributions %}
+        <article class="mobile-stock-card mobile-approval-card">
+            <a class="mobile-stock-card__link" href="{% url 'mobile:distribution_approval_detail' distribution.pk %}">
+                <div class="mobile-stock-card__head">
+                    <div>
+                        <h3>{{ distribution.document_number }}</h3>
+                        <p>{{ distribution.get_distribution_type_display }} · {{ distribution.facility.name }}</p>
+                    </div>
+                    <span class="badge text-bg-warning">Diajukan</span>
+                </div>
+                <div class="mobile-approval-meta">
+                    <span><i class="bi bi-calendar-event"></i>{{ distribution.request_date|date:"d M Y" }}</span>
+                    <span><i class="bi bi-person"></i>{{ distribution.created_by }}</span>
+                    <span><i class="bi bi-box-seam"></i>{{ distribution.items.count }} item</span>
+                </div>
+                <span class="mobile-stock-card__cue">Tinjau distribusi <i class="bi bi-chevron-right"></i></span>
+            </a>
+        </article>
+        {% empty %}
+        <div class="mobile-empty mobile-empty--compact">
+            <i class="bi bi-check2-circle"></i>
+            <strong>Tidak ada distribusi menunggu persetujuan.</strong>
+        </div>
+        {% endfor %}
+    </div>
+    {% if distributions.has_other_pages %}
+    <nav class="mobile-pagination" aria-label="Halaman persetujuan distribusi">
+        {% if distributions.has_previous %}<a href="{% querystring distribution_page=distributions.previous_page_number %}">Sebelumnya</a>{% endif %}
+        <span>{{ distributions.number }} / {{ distributions.paginator.num_pages }}</span>
+        {% if distributions.has_next %}<a href="{% querystring distribution_page=distributions.next_page_number %}">Berikutnya</a>{% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endif %}
+
+{% if mobile_approval_access.expired %}
+<section class="mobile-approval-section" aria-labelledby="expired-approval-title">
+    <div class="mobile-section-heading">
+        <div>
+            <span class="mobile-section-kicker mobile-section-kicker--danger">Kedaluwarsa</span>
+            <h2 id="expired-approval-title">Menunggu verifikasi</h2>
+        </div>
+        <span class="mobile-count-badge mobile-count-badge--danger">{{ expired_documents.paginator.count }}</span>
+    </div>
+    <div class="mobile-list">
+        {% for expired_document in expired_documents %}
+        <article class="mobile-stock-card mobile-approval-card">
+            <a class="mobile-stock-card__link" href="{% url 'mobile:expired_approval_detail' expired_document.pk %}">
+                <div class="mobile-stock-card__head">
+                    <div>
+                        <h3>{{ expired_document.document_number }}</h3>
+                        <p>Laporan {{ expired_document.report_date|date:"d M Y" }}</p>
+                    </div>
+                    <span class="badge text-bg-danger">Perlu verifikasi</span>
+                </div>
+                <div class="mobile-approval-meta">
+                    <span><i class="bi bi-person"></i>{{ expired_document.created_by }}</span>
+                    <span><i class="bi bi-box-seam"></i>{{ expired_document.items.count }} item</span>
+                </div>
+                <span class="mobile-stock-card__cue">Tinjau barang kedaluwarsa <i class="bi bi-chevron-right"></i></span>
+            </a>
+        </article>
+        {% empty %}
+        <div class="mobile-empty mobile-empty--compact">
+            <i class="bi bi-check2-circle"></i>
+            <strong>Tidak ada dokumen kedaluwarsa menunggu verifikasi.</strong>
+        </div>
+        {% endfor %}
+    </div>
+    {% if expired_documents.has_other_pages %}
+    <nav class="mobile-pagination" aria-label="Halaman persetujuan kedaluwarsa">
+        {% if expired_documents.has_previous %}<a href="{% querystring expired_page=expired_documents.previous_page_number %}">Sebelumnya</a>{% endif %}
+        <span>{{ expired_documents.number }} / {{ expired_documents.paginator.num_pages }}</span>
+        {% if expired_documents.has_next %}<a href="{% querystring expired_page=expired_documents.next_page_number %}">Berikutnya</a>{% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

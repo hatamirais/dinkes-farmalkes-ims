@@ -1,0 +1,50 @@
+{% extends "mobile/base.html" %}
+{% load number_format %}
+
+{% block title %}Verifikasi Kedaluwarsa - IMS Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-page-heading">
+    <div><h1>{{ expired_document.document_number }}</h1><p>Laporan barang kedaluwarsa</p></div>
+    <a class="mobile-date" href="{% url 'mobile:approval_inbox' %}">Kembali</a>
+</section>
+
+<section class="mobile-review-summary">
+    <dl>
+        <div><dt>Status</dt><dd><span class="badge {% if expired_document.status == 'SUBMITTED' %}text-bg-warning{% elif expired_document.status == 'VERIFIED' %}text-bg-success{% else %}text-bg-secondary{% endif %}">{{ expired_document.get_status_display }}</span></dd></div>
+        <div><dt>Tanggal laporan</dt><dd>{{ expired_document.report_date|date:"d M Y" }}</dd></div>
+        <div><dt>Dibuat oleh</dt><dd>{{ expired_document.created_by }}</dd></div>
+    </dl>
+    {% if expired_document.notes %}<p class="mobile-review-note"><strong>Catatan:</strong> {{ expired_document.notes }}</p>{% endif %}
+</section>
+
+<section class="mobile-review-warning mobile-review-warning--danger">
+    <i class="bi bi-exclamation-triangle"></i>
+    <div><strong>Verifikasi langsung mengurangi stok.</strong><span>Sistem akan membuat transaksi OUT untuk seluruh barang di bawah ini. Tindakan ini tidak dapat dikembalikan ke Draft.</span></div>
+</section>
+
+<section class="mobile-approval-section" aria-labelledby="expired-items-title">
+    <div class="mobile-section-heading"><div><span class="mobile-section-kicker mobile-section-kicker--danger">Rincian</span><h2 id="expired-items-title">Barang kedaluwarsa</h2></div></div>
+    <div class="mobile-list">
+        {% for line in items %}
+        <article class="mobile-stock-card mobile-stock-card--static">
+            <div class="mobile-stock-card__head"><div><h3>{{ line.item.nama_barang }}</h3><p>{{ line.item.kode_barang }} · {{ line.item.satuan.name }}</p></div><span class="badge text-bg-danger">{{ line.quantity|id_decimal:0 }}</span></div>
+            <dl class="mobile-stock-card__quantities mobile-stock-card__quantities--two">
+                <div><dt>Dikeluarkan</dt><dd>{{ line.quantity|id_decimal:0 }}</dd></div>
+                <div><dt>Tersedia kini</dt><dd>{{ line.stock.available_quantity|id_decimal:0 }}</dd></div>
+            </dl>
+            <div class="mobile-stock-card__meta"><span><i class="bi bi-box"></i>{{ line.stock.batch_lot }}</span><span><i class="bi bi-geo-alt"></i>{{ line.stock.location.name }}</span>{% if line.stock.expiry_date %}<span><i class="bi bi-calendar-x"></i>{{ line.stock.expiry_date|date:"d M Y" }}</span>{% endif %}</div>
+            {% if line.notes %}<p class="mobile-line-note">{{ line.notes }}</p>{% endif %}
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+{% if expired_document.status == 'SUBMITTED' %}
+<section class="mobile-approval-actions mobile-approval-actions--single" aria-label="Tindakan verifikasi kedaluwarsa">
+    <form method="post" action="{% url 'mobile:expired_approve' expired_document.pk %}" data-mobile-confirm="Verifikasi dokumen ini? Stok akan langsung dikurangi dan transaksi OUT dibuat.">
+        {% csrf_token %}<button type="submit" class="mobile-action-button mobile-action-button--danger-solid"><i class="bi bi-patch-check"></i>Verifikasi &amp; Keluarkan dari Stok</button>
+    </form>
+</section>
+{% endif %}
+{% endblock %}

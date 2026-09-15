@@ -11,7 +11,11 @@ from django.utils import timezone
 from apps.distribution.forms import DistributionForm, DistributionItemForm
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
-from apps.distribution.services import DistributionWorkflowError, execute_distribution_verification
+from apps.distribution.services import (
+    DistributionWorkflowError,
+    execute_distribution_rejection,
+    execute_distribution_verification,
+)
 from apps.core.models import SystemSettings
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.lplpo.models import LPLPO
@@ -2399,9 +2403,48 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.client.force_login(gudang)
 
         response = self.client.post(
-            reverse("distribution:distribution_verify", args=[dist.pk])
+            reverse("distribution:distribution_verify", args=[dist.pk]),
+            secure=True,
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_custom_non_kepala_approver_cannot_verify_distribution(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        custom_approver = User.objects.create_user(
+            username="distribution_custom_approver",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(custom_approver, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=custom_approver,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.APPROVE},
+        )
+        self.client.force_login(custom_approver)
+
+        response = self.client.post(
+            reverse("distribution:distribution_verify", args=[dist.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        dist.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+        self.assertEqual(self.stock.reserved, Decimal("0"))
+
+    def test_reject_rechecks_locked_distribution_state(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        stale_distribution = Distribution.objects.get(pk=dist.pk)
+
+        execute_distribution_rejection(dist)
+
+        with self.assertRaises(DistributionWorkflowError):
+            execute_distribution_rejection(stale_distribution)
+
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.REJECTED)
 
     def test_unassigned_gudang_cannot_distribute_distribution_without_fallback(self):
         dist = self._create_distribution(status=Distribution.Status.VERIFIED)

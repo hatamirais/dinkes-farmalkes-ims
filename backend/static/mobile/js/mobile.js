@@ -1,4 +1,11 @@
 (function () {
+  document.addEventListener("submit", function (event) {
+    const form = event.target.closest("form[data-mobile-confirm]");
+    if (form && !window.confirm(form.dataset.mobileConfirm)) {
+      event.preventDefault();
+    }
+  });
+
   const installBanner = document.querySelector("[data-pwa-install]");
   const installText = document.querySelector("[data-pwa-install-text]");
   const installButton = document.querySelector("[data-pwa-install-button]");

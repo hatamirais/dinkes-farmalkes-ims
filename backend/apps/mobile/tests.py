@@ -7,8 +7,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.views import debug_page_not_found
+from apps.distribution.models import Distribution, DistributionItem
+from apps.expired.models import Expired, ExpiredItem
 from apps.items.models import (
     Category,
+    Facility,
     FundingSource,
     Item,
     Location,
@@ -17,6 +20,7 @@ from apps.items.models import (
     Unit,
 )
 from apps.stock.models import Stock, Transaction
+from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
 
@@ -496,3 +500,189 @@ class MobileStockCardTests(MobileStockTestCase):
             f'href="{expected_url.replace("&", "&amp;")}"',
             html=False,
         )
+
+
+class MobileApprovalTests(MobileStockTestCase):
+    def setUp(self):
+        super().setUp()
+        self.facility = Facility.objects.create(code="PKM-MOB", name="Puskesmas Mobile")
+        self.kepala = User.objects.create_user(
+            username="kepala-mobile",
+            password="TestPassword123!",
+            role=User.Role.KEPALA,
+        )
+        ensure_default_module_access(self.kepala, overwrite=True)
+        self.item = self._make_item()
+        self.stock = self._make_stock(
+            self.item,
+            quantity=Decimal("30"),
+            reserved=Decimal("0"),
+        )
+
+    def _make_distribution(
+        self,
+        *,
+        distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+    ):
+        distribution = Distribution.objects.create(
+            distribution_type=distribution_type,
+            request_date=timezone.localdate(),
+            facility=self.facility,
+            status=Distribution.Status.SUBMITTED,
+            created_by=self.user,
+        )
+        DistributionItem.objects.create(
+            distribution=distribution,
+            item=self.item,
+            quantity_requested=Decimal("6"),
+            quantity_approved=Decimal("5"),
+            stock=self.stock,
+        )
+        distribution.staff_assignments.create(user=self.user)
+        return distribution
+
+    def _make_expired(self):
+        expired_document = Expired.objects.create(
+            report_date=timezone.localdate(),
+            status=Expired.Status.SUBMITTED,
+            created_by=self.user,
+        )
+        ExpiredItem.objects.create(
+            expired=expired_document,
+            item=self.item,
+            stock=self.stock,
+            quantity=Decimal("4"),
+            notes="Melewati tanggal kedaluwarsa",
+        )
+        return expired_document
+
+    def test_approval_inbox_requires_kepala_admin_role_and_approve_scope(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_custom_non_kepala_approver_cannot_open_inbox(self):
+        ModuleAccess.objects.update_or_create(
+            user=self.user,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.APPROVE},
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_inbox_groups_actionable_documents_and_excludes_allocation_children(self):
+        distribution = self._make_distribution()
+        expired_document = self._make_expired()
+        allocation = self._make_distribution(
+            distribution_type=Distribution.DistributionType.ALLOCATION
+        )
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "mobile/approval_inbox.html")
+        self.assertContains(response, distribution.document_number)
+        self.assertContains(response, expired_document.document_number)
+        self.assertNotContains(response, allocation.document_number)
+        self.assertEqual(response.context["mobile_pending_approval_count"], 2)
+
+    def test_inbox_hides_module_when_kepala_scope_is_downgraded(self):
+        distribution = self._make_distribution()
+        expired_document = self._make_expired()
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.EXPIRED,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("mobile:approval_inbox"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, distribution.document_number)
+        self.assertNotContains(response, expired_document.document_number)
+        self.assertFalse(response.context["mobile_approval_access"]["expired"])
+
+    def test_distribution_approval_reserves_stock_and_records_kepala(self):
+        distribution = self._make_distribution()
+        self.client.force_login(self.kepala)
+
+        response = self.client.post(
+            reverse("mobile:distribution_approve", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            reverse("mobile:distribution_approval_detail", args=[distribution.pk]),
+        )
+        distribution.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.VERIFIED)
+        self.assertEqual(distribution.verified_by, self.kepala)
+        self.assertEqual(self.stock.quantity, Decimal("30"))
+        self.assertEqual(self.stock.reserved, Decimal("5"))
+        self.assertFalse(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.DISTRIBUTION,
+                reference_id=distribution.pk,
+            ).exists()
+        )
+
+    def test_distribution_rejection_returns_document_to_petugas(self):
+        distribution = self._make_distribution()
+        self.client.force_login(self.kepala)
+
+        response = self.client.post(
+            reverse("mobile:distribution_reject", args=[distribution.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.REJECTED)
+
+    def test_expired_approval_deducts_stock_once_and_creates_out_transaction(self):
+        expired_document = self._make_expired()
+        self.client.force_login(self.kepala)
+        approval_url = reverse("mobile:expired_approve", args=[expired_document.pk])
+
+        first_response = self.client.post(approval_url, secure=True)
+        second_response = self.client.post(approval_url, secure=True)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        expired_document.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertEqual(expired_document.status, Expired.Status.VERIFIED)
+        self.assertEqual(expired_document.verified_by, self.kepala)
+        self.assertEqual(self.stock.quantity, Decimal("26"))
+        self.assertEqual(
+            Transaction.objects.filter(
+                reference_type=Transaction.ReferenceType.EXPIRED,
+                reference_id=expired_document.pk,
+            ).count(),
+            1,
+        )
+
+    def test_mobile_approval_actions_are_post_only(self):
+        distribution = self._make_distribution()
+        expired_document = self._make_expired()
+        self.client.force_login(self.kepala)
+
+        urls = [
+            reverse("mobile:distribution_approve", args=[distribution.pk]),
+            reverse("mobile:distribution_reject", args=[distribution.pk]),
+            reverse("mobile:expired_approve", args=[expired_document.pk]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url, secure=True)
+                self.assertEqual(response.status_code, 405)

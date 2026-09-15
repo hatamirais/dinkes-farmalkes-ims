@@ -10,7 +10,7 @@
     <link rel="icon" type="image/svg+xml" href="{% static 'img/default-logo.svg' %}">
     <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}?v={{ app_version }}" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}?v={{ app_version }}" rel="stylesheet">
-    <link href="{% static 'mobile/css/mobile.css' %}?v={{ app_version }}-20260909b" rel="stylesheet">
+    <link href="{% static 'mobile/css/mobile.css' %}?v={{ app_version }}-20260914a" rel="stylesheet">
 </head>
 <body class="mobile-shell">
     <header class="mobile-topbar">
@@ -48,13 +48,24 @@
     </main>
 
     <nav class="mobile-bottom-nav" aria-label="Navigasi mobile">
+        {% if can_view_mobile_stock %}
         <a href="{% url 'mobile:stock_list' %}" class="{% if request.resolver_match.url_name == 'stock_list' or request.resolver_match.url_name == 'stock_card' %}active{% endif %}">
             <i class="bi bi-boxes"></i>
             <span>Stok</span>
         </a>
+        {% endif %}
+        {% if can_view_mobile_approvals %}
+        <a href="{% url 'mobile:approval_inbox' %}" class="mobile-nav-item {% if 'approval' in request.resolver_match.url_name or request.resolver_match.url_name == 'distribution_approve' or request.resolver_match.url_name == 'distribution_reject' or request.resolver_match.url_name == 'expired_approve' %}active{% endif %}">
+            <span class="mobile-nav-icon">
+                <i class="bi bi-clipboard2-check"></i>
+                {% if mobile_pending_approval_count %}<span class="mobile-nav-badge">{{ mobile_pending_approval_count }}</span>{% endif %}
+            </span>
+            <span>Persetujuan</span>
+        </a>
+        {% endif %}
     </nav>
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}?v={{ app_version }}"></script>
-    <script src="{% static 'mobile/js/mobile.js' %}?v={{ app_version }}-20260909b"></script>
+    <script src="{% static 'mobile/js/mobile.js' %}?v={{ app_version }}-20260914a"></script>
 </body>
 </html>

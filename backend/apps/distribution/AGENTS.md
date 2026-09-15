@@ -9,6 +9,7 @@ App-specific guidance for outbound distribution workflows.
 ## Core Workflow
 
 - Regular and special-request distributions use `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`.
+- Verification/rejection at `SUBMITTED` is restricted to superusers or role `ADMIN` / `KEPALA` with distribution module scope `APPROVE`; elevated scope alone does not authorize another role.
 - Assigned `DistributionStaffAssignment` users control draft/rejected preparation, submission, and final fulfillment.
 - When no preparers are assigned, approve-scope users remain the fallback managers.
 - Final distribution for standalone documents follows the same assignee/fallback authorization rule as preparation.
@@ -17,6 +18,7 @@ App-specific guidance for outbound distribution workflows.
 ## Reservation And Stock Deduction
 
 - Verification reserves the selected batch quantities on `Stock`.
+- Verification and rejection lock and re-check the distribution status so repeated or stale approval actions cannot apply twice.
 - Reset, step-back, delete, and reversal release reservations for standalone distributions.
 - Final distribution consumes both `quantity` and `reserved` together in one transaction-safe workflow step.
 - Verification reserves the selected stock batch per `DistributionItem`.

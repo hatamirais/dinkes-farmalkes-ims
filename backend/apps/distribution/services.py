@@ -367,8 +367,17 @@ def execute_stock_distribution(distribution, user):
 
 
 def execute_distribution_rejection(distribution):
-    distribution.status = Distribution.Status.REJECTED
-    _save_distribution(distribution, ["status"])
+    with transaction.atomic():
+        locked_distribution = Distribution.objects.select_for_update().get(
+            pk=distribution.pk
+        )
+        if locked_distribution.status != Distribution.Status.SUBMITTED:
+            raise DistributionWorkflowError(
+                "Hanya distribusi berstatus Diajukan yang dapat ditolak."
+            )
+
+        locked_distribution.status = Distribution.Status.REJECTED
+        _save_distribution(locked_distribution, ["status"])
 
 
 

@@ -595,6 +595,230 @@
     font-size: 1.125rem;
 }
 
+.mobile-nav-icon {
+    display: inline-flex;
+    position: relative;
+}
+
+.mobile-nav-badge {
+    align-items: center;
+    background: #dc2626;
+    border: 2px solid var(--mobile-surface);
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    font-size: .625rem;
+    font-weight: 800;
+    justify-content: center;
+    min-height: 1.125rem;
+    min-width: 1.125rem;
+    padding: 0 .25rem;
+    position: absolute;
+    right: -.75rem;
+    top: -.5rem;
+}
+
+.mobile-approval-section {
+    margin-bottom: 1.25rem;
+}
+
+.mobile-section-heading {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: .625rem;
+}
+
+.mobile-section-heading h2 {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: .125rem 0 0;
+}
+
+.mobile-section-kicker {
+    color: var(--mobile-accent);
+    font-size: .6875rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.mobile-section-kicker--danger {
+    color: #b42318;
+}
+
+.mobile-count-badge {
+    background: #ccfbf1;
+    border-radius: 999px;
+    color: var(--mobile-accent-dark);
+    font-size: .75rem;
+    font-weight: 800;
+    padding: .25rem .5rem;
+}
+
+.mobile-count-badge--danger {
+    background: #fee4e2;
+    color: #b42318;
+}
+
+.mobile-approval-card h3,
+.mobile-stock-card h3 {
+    font-size: .9375rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.mobile-approval-meta {
+    color: var(--mobile-muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: .75rem;
+    gap: .375rem .75rem;
+    margin-top: .625rem;
+}
+
+.mobile-approval-meta span {
+    align-items: center;
+    display: inline-flex;
+    gap: .25rem;
+}
+
+.mobile-empty--compact {
+    padding: 1.25rem .75rem;
+}
+
+.mobile-review-summary,
+.mobile-review-warning {
+    background: var(--mobile-surface);
+    border: 1px solid var(--mobile-border);
+    border-radius: .5rem;
+    margin-bottom: .75rem;
+    padding: .875rem;
+}
+
+.mobile-review-summary dl {
+    display: grid;
+    gap: .5rem;
+    margin: 0;
+}
+
+.mobile-review-summary dl div {
+    display: grid;
+    gap: .125rem;
+    grid-template-columns: minmax(7rem, .8fr) minmax(0, 1.2fr);
+}
+
+.mobile-review-summary dt {
+    color: var(--mobile-muted);
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+.mobile-review-summary dd {
+    font-size: .8125rem;
+    font-weight: 700;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.mobile-review-note,
+.mobile-line-note {
+    border-top: 1px solid var(--mobile-border);
+    font-size: .8125rem;
+    margin: .75rem 0 0;
+    padding-top: .625rem;
+}
+
+.mobile-review-warning {
+    align-items: flex-start;
+    background: #ecfdf3;
+    border-color: #a6f4c5;
+    color: #05603a;
+    display: flex;
+    gap: .625rem;
+}
+
+.mobile-review-warning--danger {
+    background: #fff1f0;
+    border-color: #fecdca;
+    color: #912018;
+}
+
+.mobile-review-warning i {
+    font-size: 1.125rem;
+}
+
+.mobile-review-warning div {
+    display: grid;
+    gap: .125rem;
+}
+
+.mobile-review-warning strong {
+    font-size: .8125rem;
+}
+
+.mobile-review-warning span {
+    font-size: .75rem;
+    line-height: 1.4;
+}
+
+.mobile-field-error {
+    color: #b42318;
+    font-size: .75rem;
+    font-weight: 700;
+    margin: .625rem 0 0;
+}
+
+.mobile-approval-actions {
+    background: rgba(248, 250, 252, .96);
+    bottom: calc(3.9rem + env(safe-area-inset-bottom));
+    display: grid;
+    gap: .625rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: .75rem -.875rem -.875rem;
+    padding: .75rem .875rem;
+    position: sticky;
+    z-index: 18;
+}
+
+.mobile-approval-actions--single {
+    grid-template-columns: 1fr;
+}
+
+.mobile-approval-actions form {
+    margin: 0;
+}
+
+.mobile-action-button {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: .5rem;
+    display: inline-flex;
+    font-size: .8125rem;
+    font-weight: 800;
+    gap: .375rem;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: .625rem .75rem;
+    width: 100%;
+}
+
+.mobile-action-button--primary {
+    background: var(--mobile-accent);
+    color: #fff;
+}
+
+.mobile-action-button--danger {
+    background: #fff;
+    border-color: #f04438;
+    color: #b42318;
+}
+
+.mobile-action-button--danger-solid {
+    background: #b42318;
+    color: #fff;
+}
+
 @media (min-width: 40rem) {
     .mobile-filter-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
