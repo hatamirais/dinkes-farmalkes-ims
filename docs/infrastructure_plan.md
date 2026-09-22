@@ -39,6 +39,7 @@ Documented in `.env.example` and consumed by settings:
 
 - `DJANGO_SETTINGS_MODULE`
 - `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG` (`DEBUG` is a lower-priority compatibility fallback)
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
 - `ALLOWED_HOSTS`
 - `CSRF_TRUSTED_ORIGINS`
@@ -50,7 +51,7 @@ Documented in `.env.example` and consumed by settings:
 - `AUTH_USER_MODEL = "users.User"`
 - Axes backend is first in `AUTHENTICATION_BACKENDS`
 - `axes.middleware.AxesMiddleware` installed in middleware stack
-- Production hardening enabled when `DEBUG=False`:
+- Production hardening enabled when `DJANGO_DEBUG=False`:
   - secure cookies
   - HSTS
   - frame deny
@@ -69,7 +70,7 @@ When preparing production docs and manifests:
 
 1. Verify all environment variables in docs exist in settings or runtime scripts.
 2. Verify all service names/ports in docs match compose files.
-3. Verify security claims match `settings.py` branches (`DEBUG=True/False`).
+3. Verify security claims match `settings.py` branches (`DJANGO_DEBUG=True/False`).
 4. Verify backup/restore steps are executable and include DB + media handling.
 5. Verify runbooks mention migration order and rollback strategy.
 6. Verify documented deployment examples stay aligned with the actual tracked runtime assets.

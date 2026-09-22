@@ -1274,10 +1274,11 @@ class SystemSettingsAccessTests(TestCase):
             )
 
     def test_anonymous_user_is_redirected_to_login(self):
-        response = self.client.get(reverse("settings"))
-
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/login/", response.url)
+        for url_name in ("settings", "numbering_settings"):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/login/", response.url)
 
     def test_non_admin_user_is_denied_access(self):
         user = User.objects.create_user(
@@ -1287,9 +1288,10 @@ class SystemSettingsAccessTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get(reverse("settings"))
-
-        self.assertEqual(response.status_code, 403)
+        for url_name in ("settings", "numbering_settings"):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 403)
 
     def test_kepala_user_sees_settings_menu_and_can_open_settings(self):
         user = User.objects.create_user(
@@ -1303,9 +1305,18 @@ class SystemSettingsAccessTests(TestCase):
         self.assertEqual(sidebar_response.status_code, 200)
         self.assertContains(sidebar_response, "Pengaturan")
         self.assertContains(sidebar_response, 'href="/settings/"', html=False)
+        self.assertContains(
+            sidebar_response,
+            'href="/settings/numbering/"',
+            html=False,
+        )
+        self.assertContains(sidebar_response, "Umum")
+        self.assertContains(sidebar_response, "Penomoran")
 
         settings_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
         self.assertEqual(settings_response.status_code, 200)
+        self.assertEqual(numbering_response.status_code, 200)
 
     def test_admin_panel_manager_without_admin_or_kepala_role_is_denied_settings(self):
         user = User.objects.create_user(
@@ -1325,9 +1336,11 @@ class SystemSettingsAccessTests(TestCase):
         self.assertNotContains(sidebar_response, "Pengaturan")
 
         settings_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
         self.assertEqual(settings_response.status_code, 403)
+        self.assertEqual(numbering_response.status_code, 403)
 
-    def test_admin_user_sees_numbering_preview_card(self):
+    def test_general_and_numbering_settings_are_separate(self):
         user = User.objects.create_superuser(
             username="settings-admin",
             email="settings-admin@example.com",
@@ -1335,13 +1348,27 @@ class SystemSettingsAccessTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get(reverse("settings"))
+        general_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Preview Rule")
-        self.assertContains(response, "DISTRIBUTION_LPLPO")
-        self.assertContains(response, "DISTRIBUTION_SPECIAL_REQUEST")
-        self.assertNotContains(response, "last_value")
+        self.assertEqual(general_response.status_code, 200)
+        self.assertContains(general_response, "Pengaturan Umum")
+        self.assertNotContains(general_response, "DISTRIBUTION_LPLPO")
+        self.assertNotContains(general_response, "Preview Rule")
+
+        self.assertEqual(numbering_response.status_code, 200)
+        self.assertNotContains(numbering_response, "Preview Rule")
+        self.assertContains(numbering_response, "DISTRIBUTION_LPLPO")
+        self.assertContains(numbering_response, "DISTRIBUTION_SPECIAL_REQUEST")
+        self.assertContains(numbering_response, "Minimum digit urutan")
+        self.assertContains(numbering_response, "data-numbering-preview", count=10)
+        self.assertContains(numbering_response, "bi-info-circle")
+        self.assertContains(
+            numbering_response,
+            f"js/system-settings.js?v={settings.APP_VERSION}-20260922a",
+        )
+        self.assertNotContains(numbering_response, "facility_name")
+        self.assertNotContains(numbering_response, "last_value")
 
     def test_admin_can_update_rule_format_without_exposing_counter(self):
         user = User.objects.create_superuser(
@@ -1352,11 +1379,6 @@ class SystemSettingsAccessTests(TestCase):
         self.client.force_login(user)
         rules = list(DocumentNumberRule.objects.order_by("label", "key"))
         data = {
-            "platform_label": "Healthcare IMS",
-            "facility_name": "Instalasi Farmasi",
-            "facility_address": "",
-            "facility_phone": "",
-            "header_title": "Dinas Kesehatan",
             "numbering_rules-TOTAL_FORMS": str(len(rules)),
             "numbering_rules-INITIAL_FORMS": str(len(rules)),
             "numbering_rules-MIN_NUM_FORMS": "0",
@@ -1372,13 +1394,51 @@ class SystemSettingsAccessTests(TestCase):
             data[f"numbering_rules-{index}-reset_period"] = rule.reset_period
             data[f"numbering_rules-{index}-padding"] = str(rule.padding)
 
-        response = self.client.post(reverse("settings"), data)
+        response = self.client.post(reverse("numbering_settings"), data)
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("numbering_settings"))
         rule = DocumentNumberRule.objects.get(
             key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
         )
         self.assertEqual(rule.template, "SBBK/{year}/{seq}")
+
+    def test_invalid_numbering_rule_is_rejected_without_saving(self):
+        user = User.objects.create_superuser(
+            username="settings-numbering-invalid-admin",
+            email="settings-numbering-invalid-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(user)
+        rules = list(DocumentNumberRule.objects.order_by("label", "key"))
+        stock_opname_rule = next(
+            rule
+            for rule in rules
+            if rule.key == DocumentNumberRule.Key.STOCK_OPNAME
+        )
+        original_template = stock_opname_rule.template
+        data = {
+            "numbering_rules-TOTAL_FORMS": str(len(rules)),
+            "numbering_rules-INITIAL_FORMS": str(len(rules)),
+            "numbering_rules-MIN_NUM_FORMS": "0",
+            "numbering_rules-MAX_NUM_FORMS": "1000",
+        }
+        for index, rule in enumerate(rules):
+            data[f"numbering_rules-{index}-id"] = str(rule.pk)
+            data[f"numbering_rules-{index}-template"] = (
+                "SO-{seq}"
+                if rule.key == DocumentNumberRule.Key.STOCK_OPNAME
+                else rule.template
+            )
+            data[f"numbering_rules-{index}-reset_period"] = rule.reset_period
+            data[f"numbering_rules-{index}-padding"] = str(rule.padding)
+
+        response = self.client.post(reverse("numbering_settings"), data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Rule bulanan harus memuat")
+        stock_opname_rule.refresh_from_db()
+        self.assertEqual(stock_opname_rule.template, original_template)
 
     def test_admin_user_logo_upload_is_audit_logged(self):
         user = User.objects.create_superuser(

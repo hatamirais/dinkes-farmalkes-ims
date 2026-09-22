@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', function () {
-    var previewCard = document.getElementById('numbering-preview-card');
-    if (!previewCard) {
+    var settingsCard = document.getElementById('numbering-settings-card');
+    if (!settingsCard) {
         return;
     }
 
-    var year = previewCard.getAttribute('data-preview-year') || String(new Date().getFullYear());
-    var month = previewCard.getAttribute('data-preview-month') || '01';
-    var parent = previewCard.getAttribute('data-preview-parent') || 'SPJ-2026-00001';
+    var year = settingsCard.getAttribute('data-preview-year') || String(new Date().getFullYear());
+    var month = settingsCard.getAttribute('data-preview-month') || '01';
+    var parent = settingsCard.getAttribute('data-preview-parent') || 'SPJ-2026-00001';
 
     document.querySelectorAll('[data-numbering-rule]').forEach(function (row) {
         var templateInput = row.querySelector('input[name$="-template"]');

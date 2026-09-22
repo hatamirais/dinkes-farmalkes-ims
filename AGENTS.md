@@ -73,7 +73,7 @@ Permission denials should raise `PermissionDenied` so requests flow through the 
 
 Super Admin (`is_superuser` / role `ADMIN`) remains exempt from `puskesmas` and `lplpo` facility scoping. Puskesmas report routes require `reports.view_reports` or REPORTS module-scope `VIEW`; superusers may query all facilities, while non-superusers are forced to their linked `facility`.
 
-`/settings/` is not governed by module-scope fallback. It is an explicit role-gated `core` view that allows only superusers plus users whose role is `ADMIN` or `KEPALA`.
+`/settings/` (Umum) and `/settings/numbering/` (Penomoran) are not governed by module-scope fallback. Both are explicit role-gated `core` views that allow only superusers plus users whose role is `ADMIN` or `KEPALA`.
 
 Distribution and expired verification checkpoints are also explicitly role-gated: only superusers or users whose role is `ADMIN` / `KEPALA` and whose relevant module scope is at least `APPROVE` may act. Elevated module scope alone does not turn another role into an approver. The mobile approval inbox follows the same policy and excludes allocation-generated child distributions. Desktop and installed PWA entry points use `/mobile/`: stock-view users land on stock, approval-only users land on the inbox, and users with neither access receive 403.
 
@@ -93,7 +93,7 @@ Opening balance: Stock Admin opening-balance import -> `stock.OpeningBalanceImpo
 
 Outbound: `allocation` approval or `lplpo` PIC review or manual/special request -> `distribution.Distribution` / `DistributionItem` -> stock reservation at verification -> stock deduction and reservation clearing at final distribution.
 
-Official document numbering for non-Puskesmas workflows is centralized in `core.DocumentNumberRule`, `DocumentNumberSequence`, `DocumentNumberIssue`, and `apps.core.numbering`. Rules are configurable on `/settings/`; sequence counters are internal. Period selection uses each workflow's business date, while issuance/void timestamps use server time for audit. Issued values are never reused. Allocation children are `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id!=NULL)`, share the normal Permintaan Khusus rule/counter, and are selected as allocation-origin records through `allocation_id`. Puskesmas documents and the LPLPO parent document remain outside this centralized numbering system.
+Official document numbering for non-Puskesmas workflows is centralized in `core.DocumentNumberRule`, `DocumentNumberSequence`, `DocumentNumberIssue`, and `apps.core.numbering`. Rules are configurable on `/settings/numbering/`; sequence counters are internal. Period selection uses each workflow's business date, while issuance/void timestamps use server time for audit. Issued values are never reused. Allocation children are `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id!=NULL)`, share the normal Permintaan Khusus rule/counter, and are selected as allocation-origin records through `allocation_id`. Puskesmas documents and the LPLPO parent document remain outside this centralized numbering system.
 
 Facility receipt/reporting: delivered distribution -> `puskesmas.PuskesmasReceiptConfirmation` / items -> same-month editable `lplpo` receiving and price sync -> reports derive Puskesmas inventory from LPLPO baseline plus confirmed receipts and detailed consumption.
 
@@ -183,4 +183,4 @@ Before opening a PR, verify documented routes exist in URLconfs, model/table nam
 
 Use Context7 as primary guidance for third-party best practices. Current reference library IDs: Django `/django/django`, django-import-export `/websites/django-import-export_readthedocs_io_en`, django-axes `/jazzband/django-axes`, and django-auditlog `/jazzband/django-auditlog`.
 
-Keep `AUTH_USER_MODEL` explicitly configured, `SECRET_KEY` environment-driven, `DEBUG=False` production hardening documented, import workflow docs aligned with django-import-export dry-run/confirm semantics, axes backend and middleware docs aligned with configuration, WhiteNoise middleware and `STORAGES["staticfiles"]` docs accurate, and sensitive POST throttling plus centralized `429` behavior synchronized with settings.
+Keep `AUTH_USER_MODEL` explicitly configured, `SECRET_KEY` environment-driven, `DJANGO_DEBUG=False` production hardening documented, import workflow docs aligned with django-import-export dry-run/confirm semantics, axes backend and middleware docs aligned with configuration, WhiteNoise middleware and `STORAGES["staticfiles"]` docs accurate, and sensitive POST throttling plus centralized `429` behavior synchronized with settings.

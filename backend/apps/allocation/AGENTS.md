@@ -29,7 +29,7 @@ App-specific guidance for pre-distribution allocation planning.
 ## Numbering
 
 - Allocation drafts have no official number. The `ALLOCATION` rule is issued atomically on submit using `allocation_date`.
-- Templates/reset/padding are configured centrally on `/settings/`; users cannot enter official numbers or edit counters.
+- Templates/reset/padding are configured centrally on `/settings/numbering/`; users cannot enter official numbers or edit counters.
 
 ## Stock Behavior
 

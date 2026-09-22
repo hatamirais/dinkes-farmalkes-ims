@@ -77,7 +77,7 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 ## Penomoran Dokumen Resmi
 
-- `/settings/` mengelola template, periode reset (`tidak pernah`, tahunan, bulanan), dan padding untuk setiap rule non-Puskesmas. Counter internal tidak dapat diedit dari UI. Placeholder umum adalah `{seq}`, `{year}`, dan `{month}`; rule amandemen juga memakai `{parent}`.
+- Menu Pengaturan dipisah menjadi `/settings/` untuk branding/identitas umum dan `/settings/numbering/` untuk template, periode reset (`tidak pernah`, tahunan, bulanan), serta minimum digit urutan setiap rule non-Puskesmas. Counter internal tidak dapat diedit dari UI. Placeholder umum adalah `{seq}`, `{year}`, dan `{month}`; rule amandemen juga memakai `{parent}`.
 - Nomor diterbitkan secara atomik dari `DocumentNumberSequence` dan dicatat pada `DocumentNumberIssue`. Periode memakai tanggal bisnis dokumen; `created_at` hanya menjadi waktu audit server. Nomor yang sudah diterbitkan tidak pernah dipakai ulang, dan pembatalan/penghapusan yang membatalkan dokumen resmi mengubah ledger menjadi `VOID`.
 - Checkpoint penerbitan: Allocation saat submit; child Allocation saat approval induk; Distribution LPLPO/Permintaan Khusus saat submit; SPJ/amandemen saat submit; rencana Receiving procurement saat approval SPJ; rencana Receiving manual legacy saat submit; Receiving reguler/CSV saat posting stok berhasil; Recall/Expired saat submit; Stock Opname saat mulai (`period_end`); dan Stock Transfer saat completion.
 - Form operasional tidak menerima nomor resmi manual. Dokumen yang belum mencapai checkpoint menyimpan `document_number=NULL` dan ditampilkan sebagai `Belum diterbitkan`.
@@ -109,7 +109,7 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 - Endpoint import XLSX LPLPO (`/lplpo/<pk>/import-xlsx/`) dibatasi melalui `django-ratelimit` dengan knob environment `LPLPO_IMPORT_RATE_LIMIT`.
 - Validasi kata sandi kuat dengan minimum 10 karakter dan validator kustom tambahan.
 - Kombinasi pengamanan sesi dan CSRF dengan `HttpOnly` serta `SameSite=Lax`.
-- Hardening produksi aktif saat `DEBUG=False`, termasuk secure cookie dan header keamanan terkait.
+- Hardening produksi aktif saat `DJANGO_DEBUG=False`, termasuk secure cookie dan header keamanan terkait. Nama generik `DEBUG` hanya dipertahankan sebagai fallback kompatibilitas; `DJANGO_DEBUG` selalu diprioritaskan agar tidak berbenturan dengan environment variable milik tool lain.
 - Static asset produksi dilayani melalui WhiteNoise dari hasil `collectstatic`, sehingga Django Admin `/admin/` dan UI aplikasi tetap memuat CSS/JavaScript ketika tidak ada web server eksternal yang melayani `/static/`.
 - Redis cache tidak boleh dipublikasikan tanpa autentikasi ke interface jaringan publik/LAN. Compose development hanya membuka Redis pada loopback host; deployment harus memakai private network dan/atau Redis dengan password/TLS sesuai infrastruktur.
 - Lampiran `ReceivingDocument` tidak lagi mengandalkan `MEDIA_URL`; file disimpan di `PRIVATE_MEDIA_ROOT` dan hanya diakses melalui endpoint unduh yang membutuhkan login + permission `receiving.view_receiving`.

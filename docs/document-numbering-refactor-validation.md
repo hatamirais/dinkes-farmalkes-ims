@@ -25,7 +25,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 ### Arsitektur
 
 - `DocumentNumberRule` menyimpan konfigurasi format yang dapat diubah pengguna.
-- `DocumentNumberSequence` menyimpan counter internal per rule, period, dan scope. Counter tidak ditampilkan atau dapat diedit dari `/settings/`.
+- `DocumentNumberSequence` menyimpan counter internal per rule, period, dan scope. Counter tidak ditampilkan atau dapat diedit dari `/settings/numbering/`.
 - `DocumentNumberIssue` adalah ledger nomor resmi, termasuk status `ISSUED` dan `VOID`, snapshot konfigurasi saat penerbitan, tanggal bisnis, serta timestamp server untuk audit.
 - Nomor diterbitkan di dalam transaksi database yang sama dengan checkpoint workflow.
 - Nomor yang pernah diterbitkan tidak boleh digunakan kembali, termasuk setelah dokumen dihapus atau dibatalkan.
@@ -47,7 +47,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 | Mutasi Lokasi | `TRF-{year}-{seq}` | Tahunan | 5 |
 | Stock Opname | `SO-{year}{month}-{seq}` | Bulanan | 5 |
 
-Dokumen Puskesmas dan dokumen induk LPLPO berada di luar sistem ini. Mekanisme nomor mereka tidak boleh berubah akibat konfigurasi rule di `/settings/`.
+Dokumen Puskesmas dan dokumen induk LPLPO berada di luar sistem ini. Mekanisme nomor mereka tidak boleh berubah akibat konfigurasi rule di `/settings/numbering/`.
 
 ### Checkpoint Penerbitan
 
@@ -84,7 +84,7 @@ Tanggal mulai: `____________________`
 
 - [ ] Backup atau snapshot database development dibuat sebelum migration. Catatan: `____________________`
 - [ ] `python manage.py migrate` selesai tanpa error. Catatan: `____________________`
-- [ ] `/settings/` menampilkan tepat sepuluh rule di atas. Catatan: `____________________`
+- [ ] `/settings/` hanya menampilkan pengaturan umum, sedangkan `/settings/numbering/` menampilkan tepat sepuluh rule di atas. Catatan: `____________________`
 - [ ] Draft lama yang belum mencapai checkpoint tidak memperoleh nomor resmi dari backfill. Catatan: `____________________`
 - [ ] Dokumen lama yang sudah melewati checkpoint muncul di Riwayat Penomoran. Catatan: `____________________`
 - [ ] Tidak ada nomor resmi lama yang berubah setelah migration. Catatan: `____________________`
@@ -93,12 +93,14 @@ Tanggal mulai: `____________________`
 
 Gunakan database development yang dapat direset. Catat nilai awal sebelum mengubah rule.
 
-- [ ] Superuser dapat membuka `/settings/`. Catatan: `____________________`
-- [ ] Role `ADMIN` dapat membuka `/settings/`. Catatan: `____________________`
-- [ ] Role `KEPALA` dapat membuka `/settings/`. Catatan: `____________________`
+- [ ] Superuser dapat membuka `/settings/` dan `/settings/numbering/`. Catatan: `____________________`
+- [ ] Role `ADMIN` dapat membuka `/settings/` dan `/settings/numbering/`. Catatan: `____________________`
+- [ ] Role `KEPALA` dapat membuka `/settings/` dan `/settings/numbering/`. Catatan: `____________________`
 - [ ] Role lain ditolak dengan HTTP 403 walaupun memiliki module scope tinggi. Catatan: `____________________`
 - [ ] Template, reset period, dan padding dapat disimpan tanpa HTTP 500. Catatan: `____________________`
 - [ ] Preview berubah mengikuti template dan padding tanpa mengonsumsi nomor. Catatan: `____________________`
+- [ ] Ikon informasi pada header membuka/menutup petunjuk placeholder, reset period, dan minimum digit urutan. Catatan: `____________________`
+- [ ] Petunjuk menjelaskan bahwa minimum digit menambahkan nol di depan tanpa memotong sequence yang lebih panjang. Catatan: `____________________`
 - [ ] Counter atau `last_value` tidak terlihat dan tidak dapat diedit. Catatan: `____________________`
 - [ ] Placeholder tidak dikenal ditolak dengan pesan validasi. Catatan: `____________________`
 - [ ] Rule tahunan tanpa `{year}` ditolak. Catatan: `____________________`
@@ -212,14 +214,14 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Filter rule, status, tanggal bisnis, dan pencarian nomor bekerja. Catatan: `____________________`
 - [ ] Baris `ISSUED` dan `VOID` dapat dibedakan dengan jelas. Catatan: `____________________`
 - [ ] Alasan, pelaku, dan waktu VOID tampil sesuai aksi. Catatan: `____________________`
-- [ ] Snapshot label/template/reset/padding lama tetap sama setelah rule di `/settings/` diubah. Catatan: `____________________`
+- [ ] Snapshot label/template/reset/padding lama tetap sama setelah rule di `/settings/numbering/` diubah. Catatan: `____________________`
 - [ ] Link target aktif membuka dokumen yang benar; ledger dokumen yang sudah dihapus tetap terbaca melalui label snapshot. Catatan: `____________________`
 - [ ] Export Excel menghasilkan isi/filter yang sama dengan halaman. Catatan: `____________________`
 - [ ] Nilai filter berawalan `=`, `+`, `-`, atau `@` tidak menjadi formula Excel. Catatan: `____________________`
 
 ## 9. Permission dan Audit
 
-- [ ] Hanya superuser, `ADMIN`, dan `KEPALA` yang dapat mengubah rule melalui `/settings/`. Catatan: `____________________`
+- [ ] Hanya superuser, `ADMIN`, dan `KEPALA` yang dapat mengubah rule melalui `/settings/numbering/`. Catatan: `____________________`
 - [ ] Perubahan `DocumentNumberRule` tercatat oleh django-auditlog. Catatan: `____________________`
 - [ ] Perubahan status issue menjadi `VOID` tercatat oleh django-auditlog. Catatan: `____________________`
 - [ ] User tanpa permission workflow tidak dapat memaksa issuance melalui POST langsung. Catatan: `____________________`
@@ -240,7 +242,7 @@ Pengujian manual dua-tab hanya pelengkap; tes otomatis berbasis transaksi adalah
 - [ ] Puskesmas Request tetap memakai format dan workflow nomor sebelumnya. Catatan: `____________________`
 - [ ] Puskesmas Receipt Confirmation tetap memakai format dan workflow nomor sebelumnya. Catatan: `____________________`
 - [ ] Dokumen induk LPLPO tetap memakai format dan workflow nomor sebelumnya. Catatan: `____________________`
-- [ ] Perubahan rule `/settings/` tidak mengubah nomor ketiga jenis dokumen tersebut. Catatan: `____________________`
+- [ ] Perubahan rule `/settings/numbering/` tidak mengubah nomor ketiga jenis dokumen tersebut. Catatan: `____________________`
 - [ ] LPLPO PIC review tetap dapat membuat Distribution LPLPO dan nomor Distribution diterbitkan pada checkpoint Distribution yang sesuai. Catatan: `____________________`
 
 ## 12. Perintah Reproduksi
@@ -314,4 +316,3 @@ Refactor siap digabung hanya jika:
 - Tidak ada stock mutation atau ledger transaction parsial ketika issuance gagal.
 - Puskesmas dan LPLPO parent terbukti tidak berubah.
 - `manage.py check`, migration drift check, suite inti penomoran, dan suite modul yang diperbaiki kembali hijau pada commit final.
-

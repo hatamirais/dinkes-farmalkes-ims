@@ -20,6 +20,7 @@ from apps.users.models import User
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess
 from django.urls import Resolver404, resolve, reverse, reverse_lazy
+from django.views.generic import TemplateView
 from django.views.generic.edit import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
@@ -313,12 +314,8 @@ def _can_access_administration_history(user):
     )
 
 
-class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
-    model = SystemSettings
-    form_class = SystemSettingsForm
-    template_name = "core/settings_form.html"
-    success_url = reverse_lazy('dashboard')
-    login_url = reverse_lazy('login')
+class SettingsRoleRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    login_url = reverse_lazy("login")
 
     def test_func(self):
         user = self.request.user
@@ -327,33 +324,17 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
             User.Role.KEPALA,
         }
 
+
+class SystemSettingsUpdateView(SettingsRoleRequiredMixin, UpdateView):
+    model = SystemSettings
+    form_class = SystemSettingsForm
+    template_name = "core/settings_form.html"
+    success_url = reverse_lazy("settings")
+
     def get_object(self, queryset=None):
         return SystemSettings.get_settings()
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if "numbering_formset" not in context:
-            numbering_formset_submitted = (
-                self.request.method == "POST"
-                and "numbering_rules-TOTAL_FORMS" in self.request.POST
-            )
-            context["numbering_formset"] = DocumentNumberRuleFormSet(
-                data=self.request.POST if numbering_formset_submitted else None,
-                prefix="numbering_rules",
-                queryset=DocumentNumberRule.objects.order_by("label", "key"),
-            )
-            context["numbering_formset_submitted"] = numbering_formset_submitted
-        context["numbering_preview_sample_year"] = str(timezone.now().year)
-        context["numbering_preview_sample_month"] = timezone.now().strftime("%m")
-        context["numbering_preview_sample_parent"] = "SPJ-2026-00001"
-        return context
-
     def form_valid(self, form):
-        context = self.get_context_data(form=form)
-        numbering_formset = context["numbering_formset"]
-        if context["numbering_formset_submitted"] and not numbering_formset.is_valid():
-            return self.render_to_response(context)
-
         logo = form.cleaned_data.get("logo")
         if logo and hasattr(logo, "read") and not hasattr(logo, "url"):
             security_logger.info(
@@ -369,9 +350,7 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
             )
         with transaction.atomic():
             self.object = form.save()
-            if context["numbering_formset_submitted"]:
-                numbering_formset.save()
-        messages.success(self.request, "Pengaturan sistem berhasil diperbarui.")
+        messages.success(self.request, "Pengaturan umum berhasil diperbarui.")
         return HttpResponseRedirect(self.get_success_url())
 
     def form_invalid(self, form):
@@ -388,4 +367,36 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
                 )
             )
         return super().form_invalid(form)
+
+
+class DocumentNumberSettingsUpdateView(SettingsRoleRequiredMixin, TemplateView):
+    template_name = "core/numbering_settings_form.html"
+
+    def _get_formset(self, data=None):
+        return DocumentNumberRuleFormSet(
+            data=data,
+            prefix="numbering_rules",
+            queryset=DocumentNumberRule.objects.order_by("label", "key"),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("numbering_formset", self._get_formset())
+        today = timezone.localdate()
+        context["numbering_preview_sample_year"] = str(today.year)
+        context["numbering_preview_sample_month"] = today.strftime("%m")
+        context["numbering_preview_sample_parent"] = "SPJ-2026-00001"
+        return context
+
+    def post(self, request, *args, **kwargs):
+        formset = self._get_formset(request.POST)
+        if not formset.is_valid():
+            return self.render_to_response(
+                self.get_context_data(numbering_formset=formset)
+            )
+
+        with transaction.atomic():
+            formset.save()
+        messages.success(request, "Pengaturan penomoran berhasil diperbarui.")
+        return HttpResponseRedirect(reverse("numbering_settings"))
 

@@ -33,7 +33,8 @@ Root route include map from `backend/config/urls.py`:
 - `/login/`, `/logout/`, `/password/change/`, `/password/change/done/`
   - `/login/` uses Django `LoginView` with `apps.core.forms.CrispyAuthenticationForm`, a crispy-backed subclass of Django `AuthenticationForm`
   - `/password/change/` uses a rate-limited subclass of Django's `PasswordChangeView`
-- `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
+- `/settings/` -> general system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
+- `/settings/numbering/` -> document-number rule settings (`apps.core.views.DocumentNumberSettingsUpdateView`), with the same explicit role gate
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
 - `/users/`, `/items/`, `/stock/`, `/receiving/`, `/procurement/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
 - `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`, `/mobile/approvals/`, `/mobile/approvals/distributions/<pk>/`, `/mobile/approvals/expired/<pk>/` and their POST-only approval actions
@@ -127,7 +128,7 @@ Special rule:
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 - Puskesmas receipt-confirmation create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage receipt-confirmation mutations.
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
-- `/settings/` is an explicit role-gated exception outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update system settings.
+- `/settings/` and `/settings/numbering/` are explicit role-gated exceptions outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update their respective settings.
 - Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
 - Distribution and expired verification use the same explicit approver rule: superusers or role `ADMIN` / `KEPALA` with the relevant module scope at `APPROVE` or higher. Elevated scope alone does not authorize another role.
 - `AUDITOR` retains read-only module scopes for direct authorized pages, but the global sidebar renders only the `Laporan` group for this role and the dashboard suppresses linked drill-through cards/sections that open operational menus.
@@ -149,7 +150,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `core.DocumentNumberRule` (`document_number_rules`)
   - One row per configurable non-Puskesmas document family: Allocation, Distribution LPLPO, Permintaan Khusus, SPJ, SPJ amendment, Receiving, Recall, Expired, Stock Transfer, and Stock Opname.
-  - User-editable fields on `/settings/`: `template`, `reset_period` (`NEVER`, `YEARLY`, `MONTHLY`), and `padding`; counters are intentionally not exposed.
+  - User-editable fields on `/settings/numbering/`: `template`, `reset_period` (`NEVER`, `YEARLY`, `MONTHLY`), and `padding`; counters are intentionally not exposed.
   - Templates require `{seq}` exactly once, require period tokens that match the reset policy, and may use `{parent}` only for the parent-scoped procurement-amendment rule.
 
 - `core.DocumentNumberSequence` (`document_number_sequences`)
@@ -586,7 +587,7 @@ From `backend/config/settings.py`:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` defaults to `10000` to support wide LPLPO and similar bulk forms
 - Session hardening: `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE="Lax"`, browser-close expiry
 - CSRF hardening: `CSRF_COOKIE_HTTPONLY`, `CSRF_COOKIE_SAMESITE="Lax"`
-- Additional hardening when `DEBUG=False`: secure cookies, HSTS, frame deny, SSL redirect toggle, referrer policy
+- Additional hardening when `DJANGO_DEBUG=False`: secure cookies, HSTS, frame deny, SSL redirect toggle, referrer policy. The legacy generic `DEBUG` environment variable remains a lower-priority compatibility fallback.
 
 ## 7) CSV Import Contract
 

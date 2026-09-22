@@ -20,7 +20,10 @@ load_dotenv(BASE_DIR.parent / ".env")
 # Fail-fast if missing to prevent running with an insecure key.
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
-DEBUG = os.getenv("DEBUG", "False") == "True"
+# Prefer the Django-specific name because generic DEBUG variables are commonly
+# set by unrelated developer tools. Keep DEBUG as a compatibility fallback for
+# existing deployments while they migrate their environment configuration.
+DEBUG = os.getenv("DJANGO_DEBUG", os.getenv("DEBUG", "False")) == "True"
 
 # ─── URL Trailing Slash Convention ──────────────────────────────────
 # All URL patterns in this project MUST end with a trailing slash (/).

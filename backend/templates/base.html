@@ -342,13 +342,30 @@
                 {% endif %}
                 {% endif %}
 
-                {% if user.role == 'ADMIN' or user.role == 'KEPALA' %}
+                {% if user.is_superuser or user.role == 'ADMIN' or user.role == 'KEPALA' %}
                 <div class="sidebar-section-title">Konfigurasi</div>
-                <a href="{% url 'settings' %}"
-                    class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}"
-                    data-label="Pengaturan" title="Pengaturan">
+                <button
+                    class="sidebar-link sidebar-dropdown-toggle {% if request.resolver_match.url_name == 'settings' or request.resolver_match.url_name == 'numbering_settings' %}active{% endif %}"
+                    data-label="Pengaturan" title="Pengaturan" data-bs-toggle="collapse"
+                    data-bs-target="#sidebar-settings"
+                    aria-expanded="{% if request.resolver_match.url_name == 'settings' or request.resolver_match.url_name == 'numbering_settings' %}true{% else %}false{% endif %}"
+                    type="button">
                     <i class="bi bi-sliders"></i><span>Pengaturan</span>
-                </a>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </button>
+                <div class="collapse sidebar-submenu {% if request.resolver_match.url_name == 'settings' or request.resolver_match.url_name == 'numbering_settings' %}show{% endif %}"
+                    id="sidebar-settings">
+                    <a href="{% url 'settings' %}"
+                        class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}"
+                        data-label="Umum" title="Umum">
+                        <i class="bi bi-building-gear"></i><span>Umum</span>
+                    </a>
+                    <a href="{% url 'numbering_settings' %}"
+                        class="sidebar-link {% if request.resolver_match.url_name == 'numbering_settings' %}active{% endif %}"
+                        data-label="Penomoran" title="Penomoran">
+                        <i class="bi bi-123"></i><span>Penomoran</span>
+                    </a>
+                </div>
                 {% endif %}
                 {% endif %}
             </div>

@@ -50,7 +50,7 @@ Minimal variabel yang perlu diisi:
 
 Variabel opsional yang saat ini dibaca oleh aplikasi:
 
-- `DEBUG`
+- `DJANGO_DEBUG` (`DEBUG` remains a lower-priority compatibility fallback)
 - `CSRF_TRUSTED_ORIGINS`
 - `EMAIL_BACKEND`
 - `PRIVATE_MEDIA_ROOT`
@@ -76,6 +76,7 @@ Variabel opsional yang saat ini dibaca oleh aplikasi:
 Catatan:
 
 - `manage.py`, `config/wsgi.py`, dan `config/asgi.py` sudah default ke `config.settings`, sehingga `DJANGO_SETTINGS_MODULE` tidak perlu diubah untuk setup standar.
+- Gunakan `DJANGO_DEBUG=True` untuk development lokal. Nama ini diprioritaskan di atas fallback lama `DEBUG` agar environment variable generik dari tool lain (misalnya `DEBUG=release`) tidak mengaktifkan hardening produksi dan redirect HTTPS secara tidak sengaja.
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` default `10000` untuk mengakomodasi form LPLPO dan form bulk serupa yang mengirim banyak field dalam satu request.
 - `FEATURE_ALLOCATION_UI_ENABLED` masih dibaca ke Django settings untuk kompatibilitas dan test override, tetapi route/UI runtime Allocation saat ini tidak bercabang pada flag tersebut; akses tetap dikendalikan oleh permission Django + `ModuleAccess`.
 - Endpoint POST sensitif memakai `django-ratelimit`; saat limit terlampaui aplikasi mengembalikan halaman `429` melalui handler error terpusat.
@@ -97,7 +98,7 @@ Catatan:
 
 ### Penomoran dokumen terpusat
 
-- `DocumentNumberRule` menyimpan template/reset/padding yang dapat diubah di `/settings/`; `DocumentNumberSequence` adalah counter internal dengan row lock, dan `DocumentNumberIssue` adalah ledger penerbitan/VOID. Jangan menerbitkan nomor dengan menghitung `MAX(document_number)` atau menambahkan generator pada `model.save()`.
+- `DocumentNumberRule` menyimpan template/reset/padding yang dapat diubah di `/settings/numbering/`; `/settings/` hanya memuat branding dan identitas umum. `DocumentNumberSequence` adalah counter internal dengan row lock, dan `DocumentNumberIssue` adalah ledger penerbitan/VOID. Jangan menerbitkan nomor dengan menghitung `MAX(document_number)` atau menambahkan generator pada `model.save()`.
 - Panggil `apps.core.numbering.issue_document_number()` di dalam transaksi checkpoint workflow yang sama dengan perubahan status/posting terkait. Gunakan tanggal bisnis objek untuk `business_date`; jangan memakai `timezone.now()` sebagai periode kecuali memang itu tanggal bisnis yang tersimpan.
 - Pengulangan pada target yang sama idempotent, tetapi target yang sudah memiliki nomor tanpa issue ledger ditolak. `void_document_number()` menandai ledger dan tidak mengembalikan counter.
 - Rule amendment memakai `scope_key=str(contract.pk)` dan `template_context={"parent": contract.document_number}`. Rule lain saat ini memakai scope kosong.
