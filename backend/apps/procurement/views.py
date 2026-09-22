@@ -158,6 +158,7 @@ def contract_list(request):
     if search:
         queryset = queryset.filter(
             Q(document_number__icontains=search)
+            | Q(external_document_number__icontains=search)
             | Q(supplier__name__icontains=search)
             | Q(lines__item__nama_barang__icontains=search)
         ).distinct()

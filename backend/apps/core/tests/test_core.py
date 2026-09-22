@@ -1255,7 +1255,13 @@ class SystemSettingsAccessTests(TestCase):
             ("DISTRIBUTION_LPLPO", "Distribusi LPLPO", "440/{seq}/SBBK.RF/{year}", "YEARLY", 1),
             ("DISTRIBUTION_SPECIAL_REQUEST", "Permintaan Khusus", "440/{seq}/KD.F/{year}", "YEARLY", 1),
             ("PROCUREMENT_CONTRACT", "SPJ / Kontrak", "SPJ-{year}-{seq}", "YEARLY", 5),
-            ("PROCUREMENT_AMENDMENT", "Amandemen SPJ", "{parent}-A{seq}", "NEVER", 1),
+            (
+                "PROCUREMENT_AMENDMENT",
+                "Amandemen SPJ",
+                "SPJ/{year}/{month}/{seq}",
+                "MONTHLY",
+                1,
+            ),
             ("RECEIVING", "Penerimaan", "RCV-{year}-{seq}", "YEARLY", 5),
             ("RECALL", "Recall", "REC-{year}{month}-{seq}", "MONTHLY", 5),
             ("EXPIRED", "Kedaluwarsa", "EXP-{year}{month}-{seq}", "MONTHLY", 5),
@@ -1361,11 +1367,12 @@ class SystemSettingsAccessTests(TestCase):
         self.assertContains(numbering_response, "DISTRIBUTION_LPLPO")
         self.assertContains(numbering_response, "DISTRIBUTION_SPECIAL_REQUEST")
         self.assertContains(numbering_response, "Minimum digit urutan")
+        self.assertNotContains(numbering_response, "{parent}")
         self.assertContains(numbering_response, "data-numbering-preview", count=10)
         self.assertContains(numbering_response, "bi-info-circle")
         self.assertContains(
             numbering_response,
-            f"js/system-settings.js?v={settings.APP_VERSION}-20260922a",
+            f"js/system-settings.js?v={settings.APP_VERSION}-20260922b",
         )
         self.assertNotContains(numbering_response, "facility_name")
         self.assertNotContains(numbering_response, "last_value")

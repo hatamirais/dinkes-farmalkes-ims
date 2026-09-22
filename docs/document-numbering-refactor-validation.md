@@ -40,7 +40,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 | Distribution LPLPO | `440/{seq}/SBBK.RF/{year}` | Tahunan | 1 |
 | Permintaan Khusus | `440/{seq}/KD.F/{year}` | Tahunan | 1 |
 | SPJ / Kontrak | `SPJ-{year}-{seq}` | Tahunan | 5 |
-| Amandemen SPJ | `{parent}-A{seq}` | Per kontrak, tidak reset | 1 |
+| Amandemen SPJ | `SPJ/{year}/{month}/{seq}` | Bulanan | 1 |
 | Receiving | `RCV-{year}-{seq}` | Tahunan | 5 |
 | Recall | `REC-{year}{month}-{seq}` | Bulanan | 5 |
 | Kedaluwarsa | `EXP-{year}{month}-{seq}` | Bulanan | 5 |
@@ -105,7 +105,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Placeholder tidak dikenal ditolak dengan pesan validasi. Catatan: `____________________`
 - [ ] Rule tahunan tanpa `{year}` ditolak. Catatan: `____________________`
 - [ ] Rule bulanan tanpa `{year}` atau `{month}` ditolak. Catatan: `____________________`
-- [ ] Rule amandemen tanpa `{parent}` ditolak. Catatan: `____________________`
+- [ ] Placeholder `{parent}` ditolak sebagai placeholder yang tidak didukung. Catatan: `____________________`
 - [ ] Kembalikan seluruh rule ke nilai yang ingin dipakai setelah pengujian. Catatan: `____________________`
 
 ## 3. Invariant Global
@@ -151,9 +151,9 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Submit SPJ menerbitkan nomor berdasarkan `contract_date`. Catatan: `____________________`
 - [ ] Approval SPJ membuat atau menyinkronkan planned Receiving dan menerbitkan nomor Receiving. Catatan: `____________________`
 - [ ] Nomor planned Receiving tidak berubah saat penerimaan parsial, penuh, atau close. Catatan: `____________________`
-- [ ] Dua amandemen pada kontrak yang sama menghasilkan suffix `A1`, lalu `A2`. Catatan: `____________________`
-- [ ] Amandemen pertama pada kontrak lain dimulai dari `A1`, walaupun kontrak pertama sudah memiliki `A2`. Catatan: `____________________`
-- [ ] Nomor amandemen memakai nomor parent aktual sesuai template `{parent}-A{seq}`. Catatan: `____________________`
+- [ ] Amandemen pada bulan yang sama melanjutkan counter bersama walaupun berasal dari kontrak berbeda. Catatan: `____________________`
+- [ ] Amandemen pada bulan berikutnya memulai periode counter baru sesuai rule bulanan. Catatan: `____________________`
+- [ ] Form Procurement menyimpan satu `Nomor Dokumen Eksternal` opsional, menampilkannya pada detail/daftar, dan pencarian dapat menemukannya. Catatan: `____________________`
 - [ ] Pembatalan SPJ yang diizinkan menandai nomor SPJ dan planned Receiving terkait sebagai `VOID`. Catatan: `____________________`
 
 ## 6. Receiving Reguler dan CSV

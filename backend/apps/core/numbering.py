@@ -49,16 +49,13 @@ def _period_key(rule, business_date):
     return ""
 
 
-def render_document_number(rule, sequence, business_date, *, template_context=None):
+def render_document_number(rule, sequence, business_date):
     business_date = _normalize_business_date(business_date)
-    context = dict(template_context or {})
-    context.update(
-        {
-            "seq": str(sequence).zfill(rule.padding),
-            "year": business_date.strftime("%Y"),
-            "month": business_date.strftime("%m"),
-        }
-    )
+    context = {
+        "seq": str(sequence).zfill(rule.padding),
+        "year": business_date.strftime("%Y"),
+        "month": business_date.strftime("%m"),
+    }
     try:
         number = rule.template.format(**context)
     except (KeyError, ValueError) as exc:
@@ -98,7 +95,6 @@ def issue_document_number(
     target,
     actor=None,
     scope_key="",
-    template_context=None,
 ):
     """Issue once for a saved target and assign its ``document_number`` field."""
     if target.pk is None:
@@ -146,7 +142,6 @@ def issue_document_number(
             rule,
             sequence.last_value,
             business_date,
-            template_context=template_context,
         )
         number_taken = DocumentNumberIssue.objects.filter(
             rule=rule,
@@ -220,7 +215,6 @@ def preview_document_number(
     *,
     business_date,
     scope_key="",
-    template_context=None,
 ):
     """Return a non-reserving estimate; concurrent issuance may change it."""
     business_date = _normalize_business_date(business_date)
@@ -241,5 +235,4 @@ def preview_document_number(
         rule,
         last_value + 1,
         business_date,
-        template_context=template_context,
     )

@@ -13,13 +13,7 @@ from apps.core.models import TimeStampedModel
 
 
 PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH = 100
-AMENDMENT_DOCUMENT_NUMBER_SEPARATOR = "-A"
-AMENDMENT_SEQUENCE_RESERVED_DIGITS = 3
-PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH = (
-    PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH
-    - len(AMENDMENT_DOCUMENT_NUMBER_SEPARATOR)
-    - AMENDMENT_SEQUENCE_RESERVED_DIGITS
-)
+PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH = PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH
 
 
 def _normalize_text(value, *, field_label, max_length=None, allow_blank=True):
@@ -63,6 +57,12 @@ class ProcurementContract(TimeStampedModel):
         unique=True,
         blank=True,
         null=True,
+    )
+    external_document_number = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        help_text="Nomor referensi dokumen yang diterbitkan oleh aplikasi lain.",
     )
     contract_date = models.DateField()
     supplier = models.ForeignKey(
@@ -135,6 +135,11 @@ class ProcurementContract(TimeStampedModel):
                 field_label="Nomor dokumen",
                 max_length=PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
             )
+        self.external_document_number = _normalize_text(
+            self.external_document_number,
+            field_label="Nomor dokumen eksternal",
+            max_length=100,
+        )
         self.notes = _normalize_text(self.notes, field_label="Catatan")
         self.cancel_reason = _normalize_text(
             self.cancel_reason,

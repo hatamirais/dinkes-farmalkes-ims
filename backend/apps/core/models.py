@@ -96,10 +96,7 @@ class DocumentNumberRule(TimeStampedModel):
 
     @property
     def allowed_tokens(self):
-        tokens = {"seq", "year", "month"}
-        if self.key == self.Key.PROCUREMENT_AMENDMENT:
-            tokens.add("parent")
-        return tokens
+        return {"seq", "year", "month"}
 
     def clean(self):
         super().clean()
@@ -148,22 +145,16 @@ class DocumentNumberRule(TimeStampedModel):
                     )
                 }
             )
-        if self.key == self.Key.PROCUREMENT_AMENDMENT and fields.count("parent") != 1:
-            raise ValidationError(
-                {"template": "Rule amandemen harus memuat {parent} tepat satu kali."}
-            )
-
         sample_values = {
             "seq": "9" * self.padding,
             "year": "2026",
             "month": "09",
-            "parent": "X" * 95,
         }
         try:
             sample = template.format(**sample_values)
         except (KeyError, ValueError) as exc:
             raise ValidationError({"template": "Template nomor dokumen tidak valid."}) from exc
-        max_length = 95 if self.key == self.Key.PROCUREMENT_CONTRACT else 100
+        max_length = 100
         if len(sample) > max_length:
             raise ValidationError(
                 {

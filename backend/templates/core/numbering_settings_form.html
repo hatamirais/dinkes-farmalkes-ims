@@ -19,8 +19,7 @@
 
             <div class="card shadow-sm border-primary-subtle" id="numbering-settings-card"
                  data-preview-year="{{ numbering_preview_sample_year }}"
-                 data-preview-month="{{ numbering_preview_sample_month }}"
-                 data-preview-parent="{{ numbering_preview_sample_parent }}">
+                 data-preview-month="{{ numbering_preview_sample_month }}">
                 <div class="card-header d-flex align-items-center justify-content-between gap-3 bg-primary-subtle">
                     <div>
                         <h5 class="card-title mb-0">Penomoran Dokumen</h5>
@@ -41,8 +40,8 @@
                     <div class="collapse" id="numbering-rule-help">
                         <div class="alert alert-light border mb-3 small">
                             <p class="mb-2">
-                                <code>{seq}</code> wajib. Token umum: <code>{year}</code> dan <code>{month}</code>.
-                                Rule amandemen juga memakai <code>{parent}</code>. Reset tahunan wajib memuat
+                                <code>{seq}</code> wajib tepat satu kali pada setiap rule. Token umum lainnya adalah
+                                <code>{year}</code> dan <code>{month}</code>. Reset tahunan wajib memuat
                                 <code>{year}</code>; reset bulanan wajib memuat <code>{year}</code> dan <code>{month}</code>.
                             </p>
                             <p class="mb-2">
@@ -95,5 +94,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/system-settings.js' %}?v={{ app_version }}-20260922a"></script>
+<script src="{% static 'js/system-settings.js' %}?v={{ app_version }}-20260922b"></script>
 {% endblock %}

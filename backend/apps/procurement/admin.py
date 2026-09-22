@@ -22,13 +22,18 @@ class ProcurementAmendmentLineInline(admin.TabularInline):
 class ProcurementContractAdmin(admin.ModelAdmin):
     list_display = (
         "document_number",
+        "external_document_number",
         "contract_date",
         "supplier",
         "sumber_dana",
         "status",
     )
     list_filter = ("status", "contract_date")
-    search_fields = ("document_number", "supplier__name")
+    search_fields = (
+        "document_number",
+        "external_document_number",
+        "supplier__name",
+    )
     inlines = [ProcurementContractLineInline]
     readonly_fields = ("document_number",)
 

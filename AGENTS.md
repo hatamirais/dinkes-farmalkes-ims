@@ -50,7 +50,7 @@ Update docs when the change affects schema, routes, permissions, settings, workf
 | `items` | Master data and item catalog, including item codes, barcodes, flags, therapeutic classes, expiry requirements, filtering, and XLSX export. |
 | `stock` | Stock balances, immutable transactions, stock card, location search, transfers, opening balance import, and Puskesmas stock snapshots. |
 | `receiving` | Regular/planned receiving, receiving imports, type options, quick-create lookups, and private receiving attachments. |
-| `procurement` | Authoritative SPJ/contract procurement, amendments, approval, and planned procurement receiving synchronization. |
+| `procurement` | Internal procurement records, external document-number references, amendments, approval, and planned procurement receiving synchronization. |
 | `distribution` | Outbound workflows, batch/value snapshots, reservations, preparation assignments, LPLPO/manual/special/allocation variants, and outbound reports. |
 | `allocation` | Pre-distribution planning that generates reserved facility-level child distributions. |
 | `recall` | Supplier return workflow. |
@@ -94,6 +94,8 @@ Opening balance: Stock Admin opening-balance import -> `stock.OpeningBalanceImpo
 Outbound: `allocation` approval or `lplpo` PIC review or manual/special request -> `distribution.Distribution` / `DistributionItem` -> stock reservation at verification -> stock deduction and reservation clearing at final distribution.
 
 Official document numbering for non-Puskesmas workflows is centralized in `core.DocumentNumberRule`, `DocumentNumberSequence`, `DocumentNumberIssue`, and `apps.core.numbering`. Rules are configurable on `/settings/numbering/`; sequence counters are internal. Period selection uses each workflow's business date, while issuance/void timestamps use server time for audit. Issued values are never reused. Allocation children are `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id!=NULL)`, share the normal Permintaan Khusus rule/counter, and are selected as allocation-origin records through `allocation_id`. Puskesmas documents and the LPLPO parent document remain outside this centralized numbering system.
+
+Procurement `document_number` is the internal IMS number. `external_document_number` is an optional reference copied from the separate application that issues the client document number; it is not generated, reserved, or treated as an IMS sequence. Procurement amendments use the normal configured period counter and do not embed or scope their number to the parent contract.
 
 Facility receipt/reporting: delivered distribution -> `puskesmas.PuskesmasReceiptConfirmation` / items -> same-month editable `lplpo` receiving and price sync -> reports derive Puskesmas inventory from LPLPO baseline plus confirmed receipts and detailed consumption.
 

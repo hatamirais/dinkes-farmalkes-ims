@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var year = settingsCard.getAttribute('data-preview-year') || String(new Date().getFullYear());
     var month = settingsCard.getAttribute('data-preview-month') || '01';
-    var parent = settingsCard.getAttribute('data-preview-parent') || 'SPJ-2026-00001';
 
     document.querySelectorAll('[data-numbering-rule]').forEach(function (row) {
         var templateInput = row.querySelector('input[name$="-template"]');
@@ -20,8 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
             preview.textContent = (templateInput.value || '')
                 .replaceAll('{seq}', sequence)
                 .replaceAll('{year}', year)
-                .replaceAll('{month}', month)
-                .replaceAll('{parent}', parent);
+                .replaceAll('{month}', month);
         }
         templateInput.addEventListener('input', syncPreview);
         paddingInput.addEventListener('input', syncPreview);

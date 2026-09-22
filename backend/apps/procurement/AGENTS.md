@@ -4,11 +4,12 @@ App-specific guidance for SPJ / contract procurement workflows.
 
 ## Purpose
 
-`procurement` is the authoritative SPJ / contract procurement module.
+`procurement` is the internal source of truth for procurement planning and its receiving synchronization. Official external document numbers may originate in another application and are stored only as references.
 
 ## Contract Source Of Truth
 
 - `ProcurementContract` is the contractual source of truth.
+- `document_number` is the system-issued internal IMS number. `external_document_number` is an optional, user-entered reference from another application and must never drive an IMS sequence.
 - Contract approval does not mutate stock.
 - Kepala/Admin approval synchronously creates or re-syncs the linked planned procurement receiving execution document.
 - Contract create/edit reuses supplier and funding-source quick-create modals on the SPJ form.
@@ -17,7 +18,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 ## Amendments
 
 - `ProcurementAmendment` stores formal revisions.
-- Amendment document numbers are scoped to the parent SPJ as `{SPJ}-A{seq}`, for example `SPJ-2026-00001-A1`.
+- Amendment document numbers use the configured central rule and period counter independently of the parent contract number.
 - Kepala/Admin approval of an amendment synchronously creates or re-syncs the linked planned procurement receiving execution document.
 - Amendment approval does not mutate stock.
 
@@ -25,8 +26,8 @@ App-specific guidance for SPJ / contract procurement workflows.
 
 - SPJ and amendment drafts have no official number; operational forms do not accept manual overrides.
 - SPJ numbers are issued on submit using `contract_date` and the central `PROCUREMENT_CONTRACT` rule.
-- Amendment numbers are issued on submit using `amendment_date`; their counter is scoped by parent contract id and the default template is `{parent}-A{seq}`.
-- Rule validation reserves enough output space for the amendment suffix inside the 100-character document field. Counters remain internal and issued values are never reused.
+- Amendment numbers are issued on submit using `amendment_date`; the default template is `SPJ/{year}/{month}/{seq}` with a monthly shared counter.
+- Templates support only the generic `{seq}`, `{year}`, and `{month}` tokens. Counters remain internal and issued values are never reused.
 
 ## Role Rules
 

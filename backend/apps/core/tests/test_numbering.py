@@ -51,6 +51,21 @@ class DocumentNumberRuleValidationTests(TestCase):
         with self.assertRaises(ValidationError):
             rule.full_clean()
 
+    def test_parent_placeholder_is_not_supported(self):
+        rule = DocumentNumberRule(
+            key=DocumentNumberRule.Key.PROCUREMENT_AMENDMENT,
+            label="Amandemen SPJ",
+            template="{parent}-A{seq}",
+            reset_period=DocumentNumberRule.ResetPeriod.NEVER,
+            padding=1,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Placeholder tidak didukung: parent.",
+        ):
+            rule.full_clean()
+
 
 class DocumentNumberIssuanceTests(TestCase):
     def setUp(self):

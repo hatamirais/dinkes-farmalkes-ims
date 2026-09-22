@@ -84,7 +84,22 @@ def _normalize_text_value(value, *, field_label, max_length=None, allow_blank=Tr
 class ProcurementContractForm(forms.ModelForm):
     class Meta:
         model = ProcurementContract
-        fields = ["contract_date", "supplier", "sumber_dana", "notes"]
+        fields = [
+            "contract_date",
+            "supplier",
+            "sumber_dana",
+            "external_document_number",
+            "notes",
+        ]
+        labels = {
+            "external_document_number": "Nomor Dokumen Eksternal",
+        }
+        help_texts = {
+            "external_document_number": (
+                "Nomor referensi dari aplikasi lain, misalnya 800/8766.a/KD.F. "
+                "Dokumen fisiknya dapat ditambahkan pada pengembangan berikutnya."
+            ),
+        }
         widgets = {
             "contract_date": IndonesianDateInput(
                 attrs={
@@ -97,6 +112,13 @@ class ProcurementContractForm(forms.ModelForm):
             ),
             "supplier": forms.Select(attrs={"class": "form-select"}),
             "sumber_dana": forms.Select(attrs={"class": "form-select"}),
+            "external_document_number": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                    "placeholder": "Contoh: 800/8766.a/KD.F",
+                }
+            ),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
@@ -112,11 +134,19 @@ class ProcurementContractForm(forms.ModelForm):
             Div("contract_date", css_class="mb-3"),
             Div("supplier", css_class="mb-3"),
             Div("sumber_dana", css_class="mb-3"),
+            Div("external_document_number", css_class="mb-3"),
             Div("notes", css_class="mb-0"),
         )
 
     def clean_notes(self):
         return _normalize_text_value(self.cleaned_data.get("notes"), field_label="Catatan")
+
+    def clean_external_document_number(self):
+        return _normalize_text_value(
+            self.cleaned_data.get("external_document_number"),
+            field_label="Nomor dokumen eksternal",
+            max_length=100,
+        )
 
     def clean_contract_date(self):
         value = self.cleaned_data.get("contract_date")

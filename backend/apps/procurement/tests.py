@@ -55,8 +55,8 @@ class ProcurementWorkflowTests(TestCase):
             key=DocumentNumberRule.Key.PROCUREMENT_AMENDMENT,
             defaults={
                 "label": "Amandemen SPJ",
-                "template": "{parent}-A{seq}",
-                "reset_period": DocumentNumberRule.ResetPeriod.NEVER,
+                "template": "SPJ/{year}/{month}/{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
                 "padding": 1,
             },
         )
@@ -118,11 +118,18 @@ class ProcurementWorkflowTests(TestCase):
     def setUp(self):
         self.client.force_login(self.admin)
 
-    def _create_contract(self, *, quantity="10", unit_price="5000"):
+    def _create_contract(
+        self,
+        *,
+        quantity="10",
+        unit_price="5000",
+        external_document_number="",
+    ):
         contract = ProcurementContract.objects.create(
             contract_date=date(2026, 7, 1),
             supplier=self.supplier,
             sumber_dana=self.funding,
+            external_document_number=external_document_number,
             notes="Kontrak awal",
             created_by=self.admin,
         )
@@ -149,6 +156,7 @@ class ProcurementWorkflowTests(TestCase):
                 "contract_date": "2026-07-01",
                 "supplier": self.supplier.pk,
                 "sumber_dana": self.funding.pk,
+                "external_document_number": "  800/8766.a/KD.F  ",
                 "notes": "catatan",
             }
         )
@@ -156,6 +164,10 @@ class ProcurementWorkflowTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertNotIn("document_number", form.fields)
         self.assertNotIn("document_number", form.cleaned_data)
+        self.assertEqual(
+            form.cleaned_data["external_document_number"],
+            "800/8766.a/KD.F",
+        )
 
     def test_contract_form_ignores_manual_document_number_override(self):
         form = ProcurementContractForm(
@@ -172,7 +184,21 @@ class ProcurementWorkflowTests(TestCase):
         contract = form.save(commit=False)
         self.assertIsNone(contract.document_number)
 
-    def test_contract_model_validation_reserves_amendment_suffix_space(self):
+    def test_contract_form_rejects_invalid_external_document_number(self):
+        form = ProcurementContractForm(
+            data={
+                "contract_date": "2026-07-01",
+                "supplier": self.supplier.pk,
+                "sumber_dana": self.funding.pk,
+                "external_document_number": "800/8766\x00/KD.F",
+                "notes": "catatan",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("external_document_number", form.errors)
+
+    def test_contract_model_validation_enforces_document_number_length(self):
         contract = ProcurementContract(
             document_number="S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
             contract_date=date(2026, 7, 1),
@@ -1075,6 +1101,41 @@ class ProcurementWorkflowTests(TestCase):
         self.assertContains(response, 'class="btn btn-outline-primary btn-sm formset-add"', html=False)
         self.assertContains(response, 'class="btn btn-outline-danger btn-sm formset-remove"', html=False)
         self.assertContains(response, 'id="procurement-lines-empty"')
+        self.assertContains(response, "Nomor Dokumen Eksternal")
+        self.assertContains(response, 'name="external_document_number"', html=False)
+        self.assertContains(response, "800/8766.a/KD.F")
+        content = response.content.decode()
+        self.assertLess(
+            content.index('id="id_sumber_dana"'),
+            content.index('id="id_external_document_number"'),
+        )
+        self.assertLess(
+            content.index('id="id_external_document_number"'),
+            content.index('id="id_notes"'),
+        )
+
+    def test_external_document_number_is_visible_and_searchable(self):
+        contract, _line = self._create_contract(
+            external_document_number="800/8766.a/KD.F"
+        )
+
+        detail_response = self.client.get(
+            reverse("procurement:contract_detail", args=[contract.pk]),
+            secure=True,
+        )
+        list_response = self.client.get(
+            reverse("procurement:contract_list"),
+            {"q": "8766.a"},
+            secure=True,
+        )
+
+        self.assertContains(detail_response, "Nomor Dokumen Eksternal")
+        self.assertContains(detail_response, "800/8766.a/KD.F")
+        self.assertContains(list_response, "800/8766.a/KD.F")
+        self.assertContains(
+            list_response,
+            reverse("procurement:contract_detail", args=[contract.pk]),
+        )
 
     def test_contract_form_accepts_indonesian_date_input(self):
         form = ProcurementContractForm(
@@ -1109,6 +1170,7 @@ class ProcurementWorkflowTests(TestCase):
                 "contract_date": "2026-07-01",
                 "supplier": str(self.supplier.pk),
                 "sumber_dana": str(self.funding.pk),
+                "external_document_number": "800/8766.a/KD.F",
                 "notes": "Kontrak dua baris",
                 "lines-TOTAL_FORMS": "2",
                 "lines-INITIAL_FORMS": "0",
@@ -1134,6 +1196,7 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(lines[0].original_quantity, Decimal("10"))
         self.assertEqual(lines[1].item, self.second_item)
         self.assertEqual(lines[1].original_quantity, Decimal("20"))
+        self.assertEqual(contract.external_document_number, "800/8766.a/KD.F")
 
     def test_contract_create_accepts_comma_decimal_unit_price(self):
         response = self.client.post(
@@ -1424,7 +1487,7 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(first.document_number, "SPJ-2026-00001")
         self.assertEqual(second.document_number, "SPJ-2026-00002")
 
-    def test_amendment_number_generation_uses_contract_scoped_suffix(self):
+    def test_amendment_number_generation_uses_shared_monthly_sequence(self):
         contract, line = self._approve_contract(quantity="10", unit_price="5000")
         other_contract, other_line = self._approve_contract(quantity="5", unit_price="2500")
         first = ProcurementAmendment.objects.create(
@@ -1445,10 +1508,17 @@ class ProcurementWorkflowTests(TestCase):
             notes="Amandemen kontrak lain",
             created_by=self.admin,
         )
+        next_month = ProcurementAmendment.objects.create(
+            contract=other_contract,
+            amendment_date=date(2026, 8, 1),
+            notes="Amandemen bulan berikutnya",
+            created_by=self.admin,
+        )
         for amendment, contract_line in (
             (first, line),
             (second, line),
             (other, other_line),
+            (next_month, other_line),
         ):
             ProcurementAmendmentLine.objects.create(
                 amendment=amendment,
@@ -1459,84 +1529,10 @@ class ProcurementWorkflowTests(TestCase):
             submit_amendment(amendment, self.admin)
             amendment.refresh_from_db()
 
-        self.assertEqual(first.document_number, f"{contract.document_number}-A1")
-        self.assertEqual(second.document_number, f"{contract.document_number}-A2")
-        self.assertEqual(other.document_number, f"{other_contract.document_number}-A1")
-
-    def test_amendment_number_generation_rejects_overlong_parent_number(self):
-        contract, _line = self._create_contract(quantity="10", unit_price="5000")
-        contract.document_number = "SPJ-" + ("X" * 96)
-        contract.status = ProcurementContract.Status.APPROVED
-        contract.approved_by = self.kepala
-        contract.approved_at = timezone.now()
-        contract.save(
-            update_fields=[
-                "document_number",
-                "status",
-                "approved_by",
-                "approved_at",
-                "updated_at",
-            ]
-        )
-
-        amendment = ProcurementAmendment.objects.create(
-            contract=contract,
-            amendment_date=date(2026, 7, 6),
-            notes="Auto number terlalu panjang",
-            created_by=self.admin,
-        )
-        ProcurementAmendmentLine.objects.create(
-            amendment=amendment,
-            contract_line=_line,
-            revised_quantity=_line.original_quantity,
-            revised_unit_price=_line.original_unit_price,
-        )
-
-        with self.assertRaisesMessage(
-            ValidationError,
-            "Hasil nomor dokumen kosong atau melebihi 100 karakter.",
-        ):
-            submit_amendment(amendment, self.admin)
-        amendment.refresh_from_db()
-        self.assertEqual(amendment.status, ProcurementAmendment.Status.DRAFT)
-        self.assertIsNone(amendment.document_number)
-
-    def test_amendment_create_reports_overlong_generated_number(self):
-        contract, line = self._create_contract(quantity="10", unit_price="5000")
-        contract.document_number = "SPJ-" + ("X" * 96)
-        contract.status = ProcurementContract.Status.APPROVED
-        contract.approved_by = self.kepala
-        contract.approved_at = timezone.now()
-        contract.save(
-            update_fields=[
-                "document_number",
-                "status",
-                "approved_by",
-                "approved_at",
-                "updated_at",
-            ]
-        )
-
-        response = self.client.post(
-            reverse("procurement:amendment_create", args=[contract.pk]),
-            {
-                "amendment_date": "2026-07-06",
-                "notes": "Auto number terlalu panjang",
-                "lines-TOTAL_FORMS": "1",
-                "lines-INITIAL_FORMS": "0",
-                "lines-MIN_NUM_FORMS": "0",
-                "lines-MAX_NUM_FORMS": "1000",
-                "lines-0-contract_line": str(line.pk),
-                "lines-0-revised_quantity": "10",
-                "lines-0-revised_unit_price": "5000",
-                "lines-0-notes": "Tetap",
-            },
-            secure=True,
-        )
-
-        self.assertEqual(response.status_code, 302)
-        amendment = ProcurementAmendment.objects.get(contract=contract)
-        self.assertIsNone(amendment.document_number)
+        self.assertEqual(first.document_number, "SPJ/2026/07/1")
+        self.assertEqual(second.document_number, "SPJ/2026/07/2")
+        self.assertEqual(other.document_number, "SPJ/2026/07/3")
+        self.assertEqual(next_month.document_number, "SPJ/2026/08/1")
 
     @override_settings(
         PROCUREMENT_MUTATION_RATE_LIMIT="1/m",

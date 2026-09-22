@@ -373,8 +373,6 @@ def submit_amendment(amendment, user):
             business_date=amendment.amendment_date,
             target=amendment,
             actor=user,
-            scope_key=str(contract.pk),
-            template_context={"parent": contract.document_number},
         )
         amendment.status = ProcurementAmendment.Status.SUBMITTED
         amendment.submitted_by = user

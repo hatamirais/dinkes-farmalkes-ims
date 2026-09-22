@@ -151,11 +151,11 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `core.DocumentNumberRule` (`document_number_rules`)
   - One row per configurable non-Puskesmas document family: Allocation, Distribution LPLPO, Permintaan Khusus, SPJ, SPJ amendment, Receiving, Recall, Expired, Stock Transfer, and Stock Opname.
   - User-editable fields on `/settings/numbering/`: `template`, `reset_period` (`NEVER`, `YEARLY`, `MONTHLY`), and `padding`; counters are intentionally not exposed.
-  - Templates require `{seq}` exactly once, require period tokens that match the reset policy, and may use `{parent}` only for the parent-scoped procurement-amendment rule.
+  - Templates require `{seq}` exactly once and require period tokens that match the reset policy. Supported tokens are `{seq}`, `{year}`, and `{month}` for every rule.
 
 - `core.DocumentNumberSequence` (`document_number_sequences`)
   - Internal atomic counter keyed by `(rule, period_key, scope_key)`; rows are locked during issuance.
-  - `period_key` comes from the document business date, never the server timestamp. `scope_key` is normally blank and is the parent contract id for amendments.
+  - `period_key` comes from the document business date, never the server timestamp. Current workflows use an empty `scope_key`.
 
 - `core.DocumentNumberIssue` (`document_number_issues`)
   - Authoritative issuance ledger linking one official number to one target through a generic relation.
@@ -252,7 +252,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementContract` (`procurement_contracts`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `CLOSED`, `CANCELLED`
-  - Fields: `document_number` (`NULL` in draft; issued from `PROCUREMENT_CONTRACT` on submit using `contract_date`; no manual override), `contract_date`, `notes`, `cancel_reason`
+  - Fields: `document_number` (`NULL` in draft; internal IMS number issued from `PROCUREMENT_CONTRACT` on submit using `contract_date`; no manual override), `external_document_number` (optional user-entered reference from another application), `contract_date`, `notes`, `cancel_reason`
   - FKs: `supplier`, `sumber_dana`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable), `closed_by` (nullable), `cancelled_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`, `closed_at`, `cancelled_at`
   - Index: `idx_proc_contract_status_date`
@@ -266,7 +266,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementAmendment` (`procurement_amendments`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`
-  - Fields: `document_number` (`NULL` in draft; issued on submit from the parent-scoped `PROCUREMENT_AMENDMENT` rule, default `{parent}-A{seq}`), `amendment_date`, `notes`
+  - Fields: `document_number` (`NULL` in draft; issued on submit from the configured `PROCUREMENT_AMENDMENT` period counter, default `SPJ/{year}/{month}/{seq}`), `amendment_date`, `notes`
   - FKs: `contract`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`
   - Index: `idx_proc_amend_status_date`

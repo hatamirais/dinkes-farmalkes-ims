@@ -385,7 +385,6 @@ class DocumentNumberSettingsUpdateView(SettingsRoleRequiredMixin, TemplateView):
         today = timezone.localdate()
         context["numbering_preview_sample_year"] = str(today.year)
         context["numbering_preview_sample_month"] = today.strftime("%m")
-        context["numbering_preview_sample_parent"] = "SPJ-2026-00001"
         return context
 
     def post(self, request, *args, **kwargs):

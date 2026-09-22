@@ -13,7 +13,7 @@
     </div>
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari nomor SPJ / supplier / barang..." value="{{ search }}">
+            <input type="text" name="q" class="form-control" placeholder="Cari nomor internal / eksternal / supplier / barang..." value="{{ search }}">
             <select name="status" class="form-select">
                 <option value="">Semua Status</option>
                 {% for value, label in status_choices %}
@@ -32,7 +32,8 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>Nomor SPJ</th>
+                    <th>Nomor Internal IMS</th>
+                    <th>Nomor Eksternal</th>
                     <th>Tanggal</th>
                     <th>Supplier</th>
                     <th>Sumber Dana</th>
@@ -46,6 +47,7 @@
                 {% for contract in contracts %}
                 <tr>
                     <td><a href="{% url 'procurement:contract_detail' contract.pk %}" class="fw-semibold text-decoration-none">{{ contract.document_number|default:"Belum diterbitkan" }}</a></td>
+                    <td>{{ contract.external_document_number|default:"-" }}</td>
                     <td>{{ contract.contract_date|date:"d/m/Y" }}</td>
                     <td>{{ contract.supplier.name }}</td>
                     <td>{{ contract.sumber_dana.code }}</td>
@@ -56,7 +58,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <i class="bi bi-file-earmark-text d-block"></i>
                             <p>Belum ada SPJ / Pengadaan</p>
