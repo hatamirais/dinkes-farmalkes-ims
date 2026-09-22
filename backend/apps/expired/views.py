@@ -2,8 +2,9 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseBadRequest
@@ -12,6 +13,8 @@ from django.utils import timezone
 from datetime import timedelta
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.items.models import Location
 from apps.stock.models import Stock
 from apps.users.access import can_approve_workflow, has_module_scope
@@ -103,7 +106,7 @@ def expired_create(request):
 
             messages.success(
                 request,
-                f"Dokumen expired {expired_doc.document_number} berhasil dibuat.",
+                "Draft dokumen kedaluwarsa berhasil dibuat. Nomor dokumen akan diterbitkan saat diajukan.",
             )
             return redirect("expired:expired_detail", pk=expired_doc.pk)
     else:
@@ -332,7 +335,7 @@ def expired_edit(request, pk):
             form.save()
             formset.save()
             messages.success(
-                request, f"Dokumen {expired_doc.document_number} berhasil diperbarui."
+                request, f"Dokumen {expired_doc.document_number or 'draft'} berhasil diperbarui."
             )
             return redirect("expired:expired_detail", pk=expired_doc.pk)
     else:
@@ -345,7 +348,7 @@ def expired_edit(request, pk):
         {
             "form": form,
             "formset": formset,
-            "title": f"Edit Dokumen {expired_doc.document_number}",
+            "title": f"Edit Dokumen {expired_doc.document_number or 'draft'}",
             "is_edit": True,
             "expired_doc": expired_doc,
         },
@@ -457,8 +460,20 @@ def expired_submit(request, pk):
         messages.error(request, "Tambahkan minimal 1 item sebelum mengajukan dokumen.")
         return redirect("expired:expired_detail", pk=pk)
 
-    expired_doc.status = Expired.Status.SUBMITTED
-    expired_doc.save(update_fields=["status", "updated_at"])
+    try:
+        with transaction.atomic():
+            expired_doc = Expired.objects.select_for_update().get(pk=expired_doc.pk)
+            issue_document_number(
+                DocumentNumberRule.Key.EXPIRED,
+                business_date=expired_doc.report_date,
+                target=expired_doc,
+                actor=request.user,
+            )
+            expired_doc.status = Expired.Status.SUBMITTED
+            expired_doc.save(update_fields=["status", "updated_at"])
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+        return redirect("expired:expired_detail", pk=pk)
     messages.success(
         request, f"Dokumen {expired_doc.document_number} berhasil diajukan."
     )
@@ -602,6 +617,13 @@ def expired_delete(request, pk):
         return redirect("expired:expired_detail", pk=pk)
 
     doc_number = expired_doc.document_number
-    expired_doc.delete()
+    with transaction.atomic():
+        expired_doc = Expired.objects.select_for_update().get(pk=expired_doc.pk)
+        void_document_number(
+            expired_doc,
+            actor=request.user,
+            reason="Dokumen kedaluwarsa dihapus dari status Draft.",
+        )
+        expired_doc.delete()
     messages.success(request, f"Dokumen {doc_number} berhasil dihapus.")
     return redirect("expired:expired_list")

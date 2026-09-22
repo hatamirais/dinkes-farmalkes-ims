@@ -10,6 +10,8 @@ from django.db import DatabaseError, transaction
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock
 from apps.users.access import has_module_scope
 from apps.users.models import ModuleAccess
@@ -112,7 +114,8 @@ def opname_create(request):
             opname.save()
             form.save_m2m()
             messages.success(
-                request, f"Stock Opname {opname.document_number} berhasil dibuat."
+                request,
+                "Draft Stock Opname berhasil dibuat. Nomor dokumen akan diterbitkan saat dimulai.",
             )
             return redirect("stock_opname:opname_detail", pk=opname.pk)
     else:
@@ -143,7 +146,7 @@ def opname_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(
-                request, f"Stock Opname {opname.document_number} berhasil diperbarui."
+                request, f"Stock Opname {opname.document_number or 'draft'} berhasil diperbarui."
             )
             return redirect("stock_opname:opname_detail", pk=opname.pk)
     else:
@@ -154,7 +157,7 @@ def opname_edit(request, pk):
         "stock_opname/opname_form.html",
         {
             "form": form,
-            "title": f"Edit Stock Opname — {opname.document_number}",
+            "title": f"Edit Stock Opname — {opname.document_number or 'draft'}",
         },
     )
 
@@ -260,6 +263,13 @@ def opname_start(request, pk):
                 )
                 return redirect("stock_opname:opname_detail", pk=opname.pk)
 
+            issue_document_number(
+                DocumentNumberRule.Key.STOCK_OPNAME,
+                business_date=opname.period_end,
+                target=opname,
+                actor=request.user,
+            )
+
             selected_category_ids = list(
                 opname.categories.values_list("pk", flat=True)
             )
@@ -297,6 +307,9 @@ def opname_start(request, pk):
             f"Stock Opname dimulai. {len(opname_items)} item stok berhasil di-snapshot.",
         )
         return redirect("stock_opname:opname_detail", pk=opname.pk)
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+        return redirect("stock_opname:opname_detail", pk=pk)
     except DatabaseError:
         logger.exception(
             "Failed to start stock opname snapshot",
@@ -682,7 +695,14 @@ def opname_delete(request, pk):
 
     if request.method == "POST":
         doc_num = opname.document_number
-        opname.delete()
+        with transaction.atomic():
+            opname = StockOpname.objects.select_for_update().get(pk=opname.pk)
+            void_document_number(
+                opname,
+                actor=request.user,
+                reason="Stock opname dihapus sebelum selesai.",
+            )
+            opname.delete()
         messages.success(request, f"Stock Opname {doc_num} berhasil dihapus.")
         return redirect("stock_opname:opname_list")
 

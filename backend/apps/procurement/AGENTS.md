@@ -23,8 +23,10 @@ App-specific guidance for SPJ / contract procurement workflows.
 
 ## Numbering
 
-- Manual SPJ numbers reserve amendment suffix space.
-- Manual SPJ numbers are limited to 95 characters even though the stored document field remains 100 characters.
+- SPJ and amendment drafts have no official number; operational forms do not accept manual overrides.
+- SPJ numbers are issued on submit using `contract_date` and the central `PROCUREMENT_CONTRACT` rule.
+- Amendment numbers are issued on submit using `amendment_date`; their counter is scoped by parent contract id and the default template is `{parent}-A{seq}`.
+- Rule validation reserves enough output space for the amendment suffix inside the 100-character document field. Counters remain internal and issued values are never reused.
 
 ## Role Rules
 
@@ -34,6 +36,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 ## Receiving Link
 
 - Approved SPJ contracts and amendments are responsible for keeping the linked planned procurement receiving document synchronized.
+- The planned Receiving number is issued when contract approval creates/synchronizes the plan, using the Receiving business date.
 - Procurement-linked receiving leftovers must be corrected through procurement amendments, not receiving-side close-items actions.
 - New planned procurement receiving documents must originate from approved SPJ/amendment synchronization; the receiving-side manual plan create route redirects to SPJ creation and is compatibility-only.
 - Quick-create lookup POST mutations are covered by `@item_mutation_ratelimit`, not the user-management throttle bucket.

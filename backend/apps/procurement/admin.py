@@ -30,6 +30,7 @@ class ProcurementContractAdmin(admin.ModelAdmin):
     list_filter = ("status", "contract_date")
     search_fields = ("document_number", "supplier__name")
     inlines = [ProcurementContractLineInline]
+    readonly_fields = ("document_number",)
 
 
 @admin.register(ProcurementAmendment)
@@ -43,3 +44,4 @@ class ProcurementAmendmentAdmin(admin.ModelAdmin):
     list_filter = ("status", "amendment_date")
     search_fields = ("document_number", "contract__document_number")
     inlines = [ProcurementAmendmentLineInline]
+    readonly_fields = ("document_number",)

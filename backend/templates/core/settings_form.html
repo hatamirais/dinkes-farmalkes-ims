@@ -53,22 +53,47 @@
             <div class="card shadow-sm border-primary-subtle">
                 <div class="card-header d-flex align-items-center justify-content-between bg-primary-subtle">
                     <div>
-                        <h5 class="card-title mb-0">Costumization</h5>
-                        <small class="text-muted">Atur rule penomoran dokumen distribusi</small>
+                        <h5 class="card-title mb-0">Penomoran Dokumen</h5>
+                        <small class="text-muted">Atur format, periode reset, dan minimum digit urutan</small>
                     </div>
                     <span class="badge text-bg-primary">Numbering Rule</span>
                 </div>
                 <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            {{ form.lplpo_distribution_number_template|as_crispy_field }}
+                    {{ numbering_formset.management_form }}
+                    {% if numbering_formset.non_form_errors %}
+                    <div class="alert alert-danger">{{ numbering_formset.non_form_errors }}</div>
+                    {% endif %}
+                    <div class="vstack gap-3">
+                        {% for rule_form in numbering_formset %}
+                        <div class="rounded border p-3" data-numbering-rule>
+                            {{ rule_form.id }}
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                <div>
+                                    <div class="fw-semibold">{{ rule_form.instance.label }}</div>
+                                    <code class="small">{{ rule_form.instance.key }}</code>
+                                </div>
+                                <span class="badge text-bg-light">Counter dikelola sistem</span>
+                            </div>
+                            {% if rule_form.non_field_errors %}
+                            <div class="alert alert-danger py-2">{{ rule_form.non_field_errors }}</div>
+                            {% endif %}
+                            <div class="row g-3">
+                                <div class="col-12">{{ rule_form.template|as_crispy_field }}</div>
+                                <div class="col-md-6">{{ rule_form.reset_period|as_crispy_field }}</div>
+                                <div class="col-md-6">{{ rule_form.padding|as_crispy_field }}</div>
+                            </div>
+                            <div class="mt-2 small text-muted">
+                                Contoh: <code data-numbering-preview>-</code>
+                            </div>
                         </div>
-                        <div class="col-12">
-                            {{ form.special_request_distribution_number_template|as_crispy_field }}
-                        </div>
+                        {% empty %}
+                        <div class="alert alert-warning mb-0">Rule penomoran belum tersedia. Jalankan migrasi database.</div>
+                        {% endfor %}
                     </div>
                     <div class="alert alert-light border mt-3 mb-0 small">
-                        Gunakan <code>{seq}</code> untuk nomor urut dan <code>{year}</code> untuk tahun dokumen. Placeholder lain tidak didukung.
+                        <code>{seq}</code> wajib. Token umum: <code>{year}</code> dan <code>{month}</code>.
+                        Rule amandemen juga memakai <code>{parent}</code>. Reset tahunan wajib memuat
+                        <code>{year}</code>; reset bulanan wajib memuat <code>{year}</code> dan <code>{month}</code>.
                     </div>
                 </div>
             </div>
@@ -88,7 +113,7 @@
                 <p><strong>Label Platform:</strong> Digunakan untuk branding singkat di halaman login.</p>
                 <p><strong>Logo Navbar:</strong> Logo akan diskala otomatis ke tinggi maksimal 32px.</p>
                 <p><strong>Header Laporan:</strong> Digunakan sebagai baris paling atas di kop surat cetak.</p>
-                <p><strong>Template Penomoran:</strong> Gunakan placeholder <code>{seq}</code> untuk nomor urut dan <code>{year}</code> untuk tahun dokumen.</p>
+                <p><strong>Penomoran:</strong> Nomor resmi diterbitkan pada checkpoint workflow. Draft menampilkan <em>Belum diterbitkan</em>, dan nomor yang sudah diterbitkan tidak digunakan kembali.</p>
             </div>
         </div>
         
@@ -107,29 +132,13 @@
         {% endwith %}
         {% endif %}
 
-        <div class="card shadow-sm border-primary-subtle" id="numbering-preview-card" data-preview-sequence="{{ numbering_preview_sample_sequence }}" data-preview-year="{{ numbering_preview_sample_year }}">
-            <div class="card-header d-flex align-items-center justify-content-between bg-primary-subtle">
-                <div>
-                    <h5 class="card-title mb-0">Preview Rule</h5>
-                    <small class="text-muted">Contoh hasil format nomor dokumen</small>
-                </div>
-                <span class="badge text-bg-primary">Live Example</span>
-            </div>
-            <div class="card-body">
-                <div class="vstack gap-3">
-                    {% for preview in numbering_preview_cards %}
-                    <div class="rounded border p-3 bg-light-subtle">
-                        <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                            <div>
-                                <div class="fw-semibold">{{ preview.title }}</div>
-                                <div class="small text-muted" data-preview-template="{{ preview.title }}">{{ preview.template }}</div>
-                            </div>
-                            <span class="badge text-bg-light">Seq {{ numbering_preview_sample_sequence }}</span>
-                        </div>
-                        <div class="font-monospace fs-6 text-primary-emphasis" data-preview-example="{{ preview.title }}">{{ preview.example }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
+        <div class="card shadow-sm border-primary-subtle" id="numbering-preview-card"
+             data-preview-year="{{ numbering_preview_sample_year }}"
+             data-preview-month="{{ numbering_preview_sample_month }}"
+             data-preview-parent="{{ numbering_preview_sample_parent }}">
+            <div class="card-header bg-primary-subtle"><h5 class="card-title mb-0">Preview Rule</h5></div>
+            <div class="card-body small text-muted">
+                Preview memakai urutan <strong>12</strong> dan tidak memesan nomor. Perubahan template tidak mengubah counter yang sudah berjalan.
             </div>
         </div>
     </div>

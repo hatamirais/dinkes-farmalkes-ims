@@ -3,7 +3,6 @@ import unicodedata
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils import timezone
 
 from apps.core.decimal_validation import (
     PRICE_DECIMAL_PLACES,
@@ -51,17 +50,6 @@ class ProcurementWorkflowError(ValueError):
     """Raised when a procurement workflow action violates business rules."""
 
 
-def _next_prefixed_sequence(model, prefix):
-    sequence = 0
-    for document_number in model.objects.filter(document_number__startswith=prefix).values_list(
-        "document_number", flat=True
-    ):
-        suffix = (document_number or "").removeprefix(prefix)
-        if suffix.isdigit():
-            sequence = max(sequence, int(suffix))
-    return sequence + 1
-
-
 class ProcurementContract(TimeStampedModel):
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -74,6 +62,7 @@ class ProcurementContract(TimeStampedModel):
         max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
         unique=True,
         blank=True,
+        null=True,
     )
     contract_date = models.DateField()
     supplier = models.ForeignKey(
@@ -140,11 +129,12 @@ class ProcurementContract(TimeStampedModel):
     def clean(self):
         super().clean()
         _validate_date_year(self.contract_date, field_label="Tanggal kontrak")
-        self.document_number = _normalize_text(
-            self.document_number,
-            field_label="Nomor dokumen",
-            max_length=PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
-        )
+        if self.document_number:
+            self.document_number = _normalize_text(
+                self.document_number,
+                field_label="Nomor dokumen",
+                max_length=PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
+            )
         self.notes = _normalize_text(self.notes, field_label="Catatan")
         self.cancel_reason = _normalize_text(
             self.cancel_reason,
@@ -154,19 +144,6 @@ class ProcurementContract(TimeStampedModel):
             raise ValidationError({"supplier": "Supplier harus aktif."})
         if self.sumber_dana_id and not self.sumber_dana.is_active:
             raise ValidationError({"sumber_dana": "Sumber dana harus aktif."})
-
-    @staticmethod
-    def generate_document_number():
-        year = timezone.now().year
-        prefix = f"SPJ-{year}-"
-        sequence = _next_prefixed_sequence(ProcurementContract, prefix)
-        return f"{prefix}{sequence:05d}"
-
-    def save(self, *args, **kwargs):
-        if not self.document_number:
-            self.document_number = self.generate_document_number()
-        super().save(*args, **kwargs)
-
 
 class ProcurementContractLine(TimeStampedModel):
     contract = models.ForeignKey(
@@ -260,6 +237,7 @@ class ProcurementAmendment(TimeStampedModel):
         max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
         unique=True,
         blank=True,
+        null=True,
     )
     amendment_date = models.DateField()
     notes = models.TextField(blank=True)
@@ -299,41 +277,18 @@ class ProcurementAmendment(TimeStampedModel):
     def clean(self):
         super().clean()
         _validate_date_year(self.amendment_date, field_label="Tanggal amandemen")
-        self.document_number = _normalize_text(
-            self.document_number,
-            field_label="Nomor amandemen",
-            max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
-        )
+        if self.document_number:
+            self.document_number = _normalize_text(
+                self.document_number,
+                field_label="Nomor amandemen",
+                max_length=PROCUREMENT_DOCUMENT_NUMBER_MAX_LENGTH,
+            )
         self.notes = _normalize_text(self.notes, field_label="Catatan")
         if self.contract_id and self.contract.status in {
             ProcurementContract.Status.CLOSED,
             ProcurementContract.Status.CANCELLED,
         }:
             raise ValidationError({"contract": "Kontrak yang sudah ditutup/dibatalkan tidak dapat diamandemen."})
-
-    def generate_document_number(self):
-        if not self.contract_id:
-            raise ValidationError({"contract": "Kontrak wajib diisi sebelum nomor amandemen dibuat."})
-        prefix = f"{self.contract.document_number}{AMENDMENT_DOCUMENT_NUMBER_SEPARATOR}"
-        sequence = _next_prefixed_sequence(ProcurementAmendment, prefix)
-        document_number = f"{prefix}{sequence}"
-        max_length = self._meta.get_field("document_number").max_length
-        if len(document_number) > max_length:
-            raise ValidationError(
-                {
-                    "document_number": (
-                        "Nomor amandemen otomatis melebihi batas "
-                        f"{max_length} karakter. Pendekkan nomor SPJ induk."
-                    )
-                }
-            )
-        return document_number
-
-    def save(self, *args, **kwargs):
-        if not self.document_number:
-            self.document_number = self.generate_document_number()
-        super().save(*args, **kwargs)
-
 
 class ProcurementAmendmentLine(TimeStampedModel):
     amendment = models.ForeignKey(

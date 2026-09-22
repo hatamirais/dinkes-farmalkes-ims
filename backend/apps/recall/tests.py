@@ -4,18 +4,31 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
+from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.items.models import Category, FundingSource, Item, Location, Supplier, Unit
-from apps.recall.forms import RecallItemForm
+from apps.recall.forms import RecallForm, RecallItemForm
 from apps.recall.models import Recall, RecallItem
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import User
 
 
-class RecallWorkflowTest(TestCase):
+class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
     """Tests for the recall module workflow transitions, stock posting, and edge cases."""
 
     def setUp(self):
+        super().setUp()
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.RECALL,
+            defaults={
+                "label": "Recall",
+                "template": "REC-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.user = User.objects.create_superuser(
             username="gudang_recall",
             password="secret12345",
@@ -71,19 +84,30 @@ class RecallWorkflowTest(TestCase):
                 quantity=Decimal("10"),
                 notes="Kemasan rusak",
             )
+        if status != Recall.Status.DRAFT:
+            issue_document_number(
+                DocumentNumberRule.Key.RECALL,
+                business_date=recall.recall_date,
+                target=recall,
+                actor=self.user,
+            )
+            recall.refresh_from_db()
         return recall
 
     # --- Auto-generated document number ---
 
     def test_auto_generated_document_number(self):
         recall = self._create_recall()
-        self.assertTrue(recall.document_number.startswith("REC-"))
-        now_prefix = timezone.now().strftime("%Y%m")
-        self.assertIn(now_prefix, recall.document_number)
+        self.assertIsNone(recall.document_number)
 
-    def test_custom_document_number_preserved(self):
-        recall = self._create_recall(document_number="CUSTOM-REC-001")
-        self.assertEqual(recall.document_number, "CUSTOM-REC-001")
+        self.client.post(reverse("recall:recall_submit", args=[recall.pk]))
+        recall.refresh_from_db()
+
+        self.assertEqual(recall.document_number, "REC-202603-00001")
+
+    def test_form_does_not_expose_document_number(self):
+        form = RecallForm()
+        self.assertNotIn("document_number", form.fields)
 
     # --- Submit workflow ---
 

@@ -4,6 +4,8 @@ import datetime
 
 from apps.distribution.models import Distribution
 
+ALLOCATION_ORIGIN_FILTER = "ALLOCATION"
+
 class InventoryReportFilterForm(forms.Form):
     start_date = forms.DateField(
         label='Tanggal Mulai',
@@ -41,7 +43,7 @@ class PengeluaranReportFilterForm(InventoryReportFilterForm):
         choices=[
             ('', 'Semua Distribusi'),
             (Distribution.DistributionType.SPECIAL_REQUEST, 'Permintaan Khusus'),
-            (Distribution.DistributionType.ALLOCATION, 'Alokasi'),
+            (ALLOCATION_ORIGIN_FILTER, 'Asal Alokasi'),
             (Distribution.DistributionType.LPLPO, 'LPLPO'),
         ],
         widget=forms.HiddenInput(),
@@ -67,26 +69,30 @@ class PengeluaranReportFilterForm(InventoryReportFilterForm):
 
 
 class NumberingHistoryFilterForm(forms.Form):
-    distribution_type = forms.ChoiceField(
+    rule_key = forms.ChoiceField(
         label='Jenis Dokumen',
         required=False,
-        choices=[
-            ('', 'Semua Dokumen'),
-            (Distribution.DistributionType.LPLPO, 'LPLPO'),
-            (Distribution.DistributionType.SPECIAL_REQUEST, 'Permintaan Khusus'),
-        ],
+        choices=[('', 'Semua Dokumen')],
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     year = forms.IntegerField(
         label='Tahun',
-        min_value=2000,
-        max_value=2100,
+        min_value=1000,
+        max_value=9999,
         widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '2026'}),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.core.models import DocumentNumberRule
+
+        self.fields['rule_key'].choices = [('', 'Semua Dokumen'), *list(
+            DocumentNumberRule.objects.order_by('label', 'key').values_list('key', 'label')
+        )]
 
     @classmethod
     def get_default_initial(cls):
         return {
-            'distribution_type': '',
+            'rule_key': '',
             'year': timezone.now().year,
         }

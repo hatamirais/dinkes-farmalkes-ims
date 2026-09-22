@@ -244,7 +244,10 @@ def contract_create(request):
             contract.save()
             formset.instance = contract
             formset.save()
-            messages.success(request, f"Kontrak {contract.document_number} berhasil dibuat.")
+            messages.success(
+                request,
+                "Draft kontrak berhasil dibuat. Nomor dokumen akan diterbitkan saat diajukan.",
+            )
             return redirect("procurement:contract_detail", pk=contract.pk)
     else:
         form = ProcurementContractForm(initial={"contract_date": timezone.now().date()})
@@ -291,7 +294,7 @@ def contract_edit(request, pk):
                     return _redirect_contract_detail(pk)
                 contract = form.save()
                 formset.save()
-                messages.success(request, f"Kontrak {contract.document_number} berhasil diperbarui.")
+                messages.success(request, f"Kontrak {contract.document_number or 'draft'} berhasil diperbarui.")
                 return _redirect_contract_detail(pk)
     else:
         form = ProcurementContractForm(instance=contract)
@@ -301,7 +304,7 @@ def contract_edit(request, pk):
         request,
         "procurement/contract_form.html",
         {
-            "title": f"Edit {contract.document_number}",
+            "title": f"Edit {contract.document_number or 'kontrak draft'}",
             "page_title": "Edit SPJ / Pengadaan",
             "form": form,
             "formset": formset,
@@ -322,8 +325,8 @@ def contract_submit(request, pk):
         messages.error(request, "Hanya kontrak Draft yang dapat diajukan.")
         return _redirect_contract_detail(pk)
     try:
-        submit_contract(contract, request.user)
-    except ProcurementWorkflowError as exc:
+        contract = submit_contract(contract, request.user)
+    except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_contract_detail(pk)
     messages.success(request, f"Kontrak {contract.document_number} berhasil diajukan.")
@@ -345,7 +348,7 @@ def contract_approve(request, pk):
         return _redirect_contract_detail(pk)
     try:
         approve_contract(contract, request.user)
-    except ProcurementWorkflowError as exc:
+    except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_contract_detail(pk)
     messages.success(
@@ -367,7 +370,7 @@ def contract_close(request, pk):
         return _redirect_contract_detail(pk)
     try:
         close_contract(contract, request.user)
-    except ProcurementWorkflowError as exc:
+    except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_contract_detail(pk)
     messages.success(request, f"Kontrak {contract.document_number} berhasil ditutup.")
@@ -387,7 +390,7 @@ def contract_cancel(request, pk):
 
     try:
         cancel_contract(contract, request.user, form.cleaned_data["cancel_reason"])
-    except ProcurementWorkflowError as exc:
+    except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_contract_detail(pk)
 
@@ -448,7 +451,10 @@ def amendment_create(request, pk):
                 else:
                     formset.instance = amendment
                     formset.save()
-                    messages.success(request, f"Amandemen {amendment.document_number} berhasil dibuat.")
+                    messages.success(
+                        request,
+                        "Draft amandemen berhasil dibuat. Nomor dokumen akan diterbitkan saat diajukan.",
+                    )
                     return redirect("procurement:amendment_detail", pk=amendment.pk)
     else:
         form = ProcurementAmendmentForm(initial={"amendment_date": timezone.now().date()})
@@ -566,7 +572,7 @@ def amendment_edit(request, pk):
                     return _redirect_amendment_detail(pk)
                 form.save()
                 formset.save()
-                messages.success(request, f"Amandemen {amendment.document_number} berhasil diperbarui.")
+                messages.success(request, f"Amandemen {amendment.document_number or 'draft'} berhasil diperbarui.")
                 return _redirect_amendment_detail(pk)
     else:
         form = ProcurementAmendmentForm(instance=amendment)
@@ -583,7 +589,7 @@ def amendment_edit(request, pk):
         request,
         "procurement/amendment_form.html",
         {
-            "title": f"Edit {amendment.document_number}",
+            "title": f"Edit {amendment.document_number or 'amandemen draft'}",
             "page_title": "Edit Amandemen SPJ",
             "form": form,
             "formset": formset,
@@ -606,8 +612,8 @@ def amendment_submit(request, pk):
         messages.error(request, "Hanya amandemen Draft yang dapat diajukan.")
         return _redirect_amendment_detail(pk)
     try:
-        submit_amendment(amendment, request.user)
-    except ProcurementWorkflowError as exc:
+        amendment = submit_amendment(amendment, request.user)
+    except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_amendment_detail(pk)
     messages.success(request, f"Amandemen {amendment.document_number} berhasil diajukan.")
@@ -631,7 +637,7 @@ def amendment_approve(request, pk):
         return _redirect_amendment_detail(pk)
     try:
         approve_amendment(amendment, request.user)
-    except ProcurementWorkflowError as exc:
+    except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_amendment_detail(pk)
     messages.success(

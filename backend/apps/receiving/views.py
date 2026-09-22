@@ -17,6 +17,8 @@ from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.decimal_validation import format_price_exact
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.core.rate_limits import item_mutation_ratelimit, receiving_mutation_ratelimit
 from apps.core.upload_validation import sanitize_uploaded_filename
 from apps.stock.models import Stock, Transaction
@@ -418,6 +420,12 @@ def _create_verified_receiving(request, form, formset):
         receiving.verified_by = request.user
         receiving.verified_at = timezone.now()
         receiving.save()
+        issue_document_number(
+            DocumentNumberRule.Key.RECEIVING,
+            business_date=receiving.receiving_date,
+            target=receiving,
+            actor=request.user,
+        )
 
         formset.instance = receiving
         receipt_items = formset.save(commit=False)
@@ -610,7 +618,7 @@ def receiving_create(request):
             try:
                 receiving = _create_verified_receiving(request, form, formset)
 
-            except (ValueError, ProtectedError) as exc:
+            except (ValueError, ValidationError, ProtectedError) as exc:
                 messages.error(request, str(exc))
             else:
                 messages.success(
@@ -782,6 +790,11 @@ def receiving_delete(request, pk):
                     locked_receiving.cancelled_by = request.user
                     locked_receiving.cancelled_at = timezone.now()
                     locked_receiving.cancel_reason = reason
+                    void_document_number(
+                        locked_receiving,
+                        actor=request.user,
+                        reason=reason,
+                    )
                     locked_receiving.save(
                         update_fields=[
                             "status",
@@ -944,8 +957,20 @@ def receiving_plan_submit(request, pk):
         messages.error(request, "Tambahkan minimal 1 item rencana sebelum diajukan.")
         return redirect("receiving:receiving_plan_detail", pk=pk)
 
-    receiving.status = Receiving.Status.SUBMITTED
-    receiving.save(update_fields=["status", "updated_at"])
+    try:
+        with transaction.atomic():
+            receiving = Receiving.objects.select_for_update().get(pk=receiving.pk)
+            issue_document_number(
+                DocumentNumberRule.Key.RECEIVING,
+                business_date=receiving.receiving_date,
+                target=receiving,
+                actor=request.user,
+            )
+            receiving.status = Receiving.Status.SUBMITTED
+            receiving.save(update_fields=["status", "updated_at"])
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+        return redirect("receiving:receiving_plan_detail", pk=pk)
     messages.success(
         request, f"Rencana penerimaan {receiving.document_number} berhasil diajukan."
     )

@@ -17,7 +17,8 @@ class Recall(TimeStampedModel):
         max_length=100,
         unique=True,
         blank=True,
-        help_text='Leave blank to auto-generate (e.g., REC-YYYYMM-XXXXX)'
+        null=True,
+        help_text='Diterbitkan otomatis saat recall diajukan.'
     )
     recall_date = models.DateField(default=timezone.now)
     supplier = models.ForeignKey(
@@ -59,19 +60,6 @@ class Recall(TimeStampedModel):
 
     def __str__(self):
         return f"{self.document_number} - {self.supplier}"
-
-    def save(self, *args, **kwargs):
-        if not self.document_number:
-            prefix = f"REC-{timezone.now().strftime('%Y%m')}-"
-            last_recall = Recall.objects.filter(document_number__startswith=prefix).order_by('-document_number').first()
-            if last_recall:
-                last_number = int(last_recall.document_number.split('-')[-1])
-                new_number = last_number + 1
-            else:
-                new_number = 1
-            self.document_number = f"{prefix}{str(new_number).zfill(5)}"
-        super().save(*args, **kwargs)
-
 
 class RecallItem(models.Model):
     """Line items for each recall document."""

@@ -45,7 +45,7 @@
             <tbody>
                 {% for contract in contracts %}
                 <tr>
-                    <td><a href="{% url 'procurement:contract_detail' contract.pk %}" class="fw-semibold text-decoration-none">{{ contract.document_number }}</a></td>
+                    <td><a href="{% url 'procurement:contract_detail' contract.pk %}" class="fw-semibold text-decoration-none">{{ contract.document_number|default:"Belum diterbitkan" }}</a></td>
                     <td>{{ contract.contract_date|date:"d/m/Y" }}</td>
                     <td>{{ contract.supplier.name }}</td>
                     <td>{{ contract.sumber_dana.code }}</td>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}{{ amendment.document_number }} - Healthcare IMS{% endblock %}
+{% block title %}{{ amendment.document_number|default:"Amandemen draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Amandemen SPJ{% endblock %}
 
 {% block content %}
@@ -12,7 +12,7 @@
             <div class="card-body">
                 <dl class="row mb-0">
                     <dt class="col-5 text-muted">Nomor</dt>
-                    <dd class="col-7 fw-semibold">{{ amendment.document_number }}</dd>
+                    <dd class="col-7 fw-semibold">{{ amendment.document_number|default:"Belum diterbitkan" }}</dd>
                     <dt class="col-5 text-muted">Kontrak</dt>
                     <dd class="col-7"><a href="{% url 'procurement:contract_detail' contract.pk %}">{{ contract.document_number }}</a></dd>
                     <dt class="col-5 text-muted">Tanggal</dt>

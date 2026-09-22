@@ -39,7 +39,7 @@ from apps.stock.models import (
 from apps.expired.models import Expired, ExpiredItem
 from apps.recall.models import Recall, RecallItem
 from apps.stock_opname.models import StockOpname, StockOpnameItem
-from apps.core.models import SystemSettings
+from apps.core.models import DocumentNumberRule, SystemSettings
 from apps.allocation.models import Allocation, AllocationItem
 from apps.distribution.models import Distribution, DistributionItem
 from apps.puskesmas.models import PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
@@ -5289,28 +5289,13 @@ class StockCardTest(TestCase):
 
 
 class StockTransferModelTests(SimpleTestCase):
-    def test_save_retries_when_auto_generated_document_number_conflicts(self):
+    def test_new_transfer_starts_without_document_number(self):
         transfer = StockTransfer(
             source_location_id=1,
             destination_location_id=2,
             created_by_id=1,
         )
-
-        with (
-            patch.object(
-                StockTransfer,
-                "generate_document_number",
-                side_effect=["TRF-2026-00001", "TRF-2026-00002"],
-            ),
-            patch(
-                "django.db.models.base.Model.save",
-                side_effect=[IntegrityError("duplicate key value violates unique constraint stock_transfers_document_number_key"), None],
-            ) as mock_save,
-        ):
-            transfer.save()
-
-        self.assertEqual(mock_save.call_count, 2)
-        self.assertEqual(transfer.document_number, "TRF-2026-00002")
+        self.assertIsNone(transfer.document_number)
 
     def test_stock_transfer_item_clean_rejects_non_finite_quantity(self):
         transfer_item = StockTransferItem(quantity=Decimal("-Infinity"))
@@ -5330,6 +5315,15 @@ class StockTransferModelTests(SimpleTestCase):
 )
 class StockTransferConcurrencyTests(TransactionTestCase):
     def setUp(self):
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.STOCK_TRANSFER,
+            defaults={
+                "label": "Mutasi Lokasi",
+                "template": "TRF-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.user = User.objects.create_superuser(
             username='admin_transfer_concurrency',
             password='secret12345',

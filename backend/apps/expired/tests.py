@@ -6,7 +6,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.tests.mixins import SecureClientDefaultsMixin
-from apps.expired.forms import ExpiredItemForm
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
+from apps.expired.forms import ExpiredForm, ExpiredItemForm
 from apps.expired.models import Expired, ExpiredItem
 from apps.expired.services import (
     ExpiredWorkflowError,
@@ -24,6 +26,15 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
     def setUp(self):
         super().setUp()
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.EXPIRED,
+            defaults={
+                "label": "Kedaluwarsa",
+                "template": "EXP-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.user = User.objects.create_superuser(
             username="gudang_expired",
             password="secret12345",
@@ -85,19 +96,30 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
                 quantity=Decimal("5"),
                 notes="Melewati tanggal ED",
             )
+        if status != Expired.Status.DRAFT:
+            issue_document_number(
+                DocumentNumberRule.Key.EXPIRED,
+                business_date=expired_doc.report_date,
+                target=expired_doc,
+                actor=self.user,
+            )
+            expired_doc.refresh_from_db()
         return expired_doc
 
     # --- Auto-generated document number ---
 
     def test_auto_generated_document_number(self):
         expired_doc = self._create_expired()
-        self.assertTrue(expired_doc.document_number.startswith("EXP-"))
-        now_prefix = timezone.now().strftime("%Y%m")
-        self.assertIn(now_prefix, expired_doc.document_number)
+        self.assertIsNone(expired_doc.document_number)
 
-    def test_custom_document_number_preserved(self):
-        expired_doc = self._create_expired(document_number="CUSTOM-EXP-001")
-        self.assertEqual(expired_doc.document_number, "CUSTOM-EXP-001")
+        self.client.post(reverse("expired:expired_submit", args=[expired_doc.pk]))
+        expired_doc.refresh_from_db()
+
+        self.assertEqual(expired_doc.document_number, "EXP-202603-00001")
+
+    def test_form_does_not_expose_document_number(self):
+        form = ExpiredForm()
+        self.assertNotIn("document_number", form.fields)
 
     # --- Submit workflow ---
 

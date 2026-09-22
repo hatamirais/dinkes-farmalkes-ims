@@ -17,11 +17,19 @@ App-specific guidance for pre-distribution allocation planning.
 
 ## Generated Distributions
 
-- `Distribution(distribution_type=ALLOCATION)` is system-generated from allocation approval.
+- `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id=<parent>)` is system-generated from allocation approval.
+- Children use the same `DISTRIBUTION_SPECIAL_REQUEST` numbering rule and continuing sequence as standalone Permintaan Khusus; `allocation_id` is the only origin discriminator.
+- Children are included in both the general Permintaan Khusus report and the allocation-origin report.
 - Generated child distributions start in `VERIFIED` status with selected stock already reserved.
 - Generated child distribution quantities are locked and cannot be edited.
 - Allocation-generated child distributions remain parent-managed by the Allocation module.
 - Revert generated child distributions from the parent Allocation workflow, not generic distribution reset/step-back endpoints.
+- Stepping back voids every issued child number before deleting the child rows; sequence values are not reused.
+
+## Numbering
+
+- Allocation drafts have no official number. The `ALLOCATION` rule is issued atomically on submit using `allocation_date`.
+- Templates/reset/padding are configured centrally on `/settings/`; users cannot enter official numbers or edit counters.
 
 ## Stock Behavior
 

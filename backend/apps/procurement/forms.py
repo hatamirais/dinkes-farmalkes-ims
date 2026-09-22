@@ -18,7 +18,6 @@ from apps.core.form_fields import (
 from apps.items.models import FundingSource, Item, Supplier
 
 from .models import (
-    PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
     ProcurementAmendment,
     ProcurementAmendmentLine,
     ProcurementContract,
@@ -85,9 +84,8 @@ def _normalize_text_value(value, *, field_label, max_length=None, allow_blank=Tr
 class ProcurementContractForm(forms.ModelForm):
     class Meta:
         model = ProcurementContract
-        fields = ["document_number", "contract_date", "supplier", "sumber_dana", "notes"]
+        fields = ["contract_date", "supplier", "sumber_dana", "notes"]
         widgets = {
-            "document_number": forms.TextInput(attrs={"class": "form-control"}),
             "contract_date": IndonesianDateInput(
                 attrs={
                     "class": "form-control js-date-mask",
@@ -104,11 +102,6 @@ class ProcurementContractForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["document_number"].required = False
-        self.fields["document_number"].help_text = (
-            "Kosongkan untuk generate otomatis. Nomor manual maksimal "
-            f"{PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter agar nomor amandemen tetap muat."
-        )
         self.fields["contract_date"].input_formats = INDONESIAN_DATE_INPUT_FORMATS
         self.fields["supplier"].queryset = Supplier.objects.filter(is_active=True).order_by("name")
         self.fields["sumber_dana"].queryset = FundingSource.objects.filter(is_active=True).order_by("name")
@@ -116,18 +109,10 @@ class ProcurementContractForm(forms.ModelForm):
         self.helper.form_tag = False
         self.helper.disable_csrf = True
         self.helper.layout = Layout(
-            Div("document_number", css_class="mb-3"),
             Div("contract_date", css_class="mb-3"),
             Div("supplier", css_class="mb-3"),
             Div("sumber_dana", css_class="mb-3"),
             Div("notes", css_class="mb-0"),
-        )
-
-    def clean_document_number(self):
-        return _normalize_text_value(
-            self.cleaned_data.get("document_number"),
-            field_label="Nomor dokumen",
-            max_length=PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
         )
 
     def clean_notes(self):

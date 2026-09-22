@@ -2,8 +2,6 @@ import hashlib
 import unicodedata
 
 from django.db import IntegrityError, models, transaction
-from django.db.models.signals import pre_delete
-from django.dispatch import receiver
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import F
@@ -408,8 +406,21 @@ class Receiving(TimeStampedModel):
         CANCELLED = "CANCELLED", "Dibatalkan"
 
     receiving_type = models.CharField(max_length=20)
-    document_number = models.CharField(max_length=100, unique=True, blank=True)
+    document_number = models.CharField(
+        max_length=100,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Diterbitkan otomatis pada checkpoint workflow.",
+    )
     receiving_date = models.DateField()
+    import_group = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Identitas grup dari import CSV; bukan nomor dokumen resmi.",
+    )
     is_planned = models.BooleanField(default=False)
     contract = models.ForeignKey(
         "procurement.ProcurementContract",
@@ -508,7 +519,7 @@ class Receiving(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.document_number} ({self.receiving_type_label})"
+        return f"{self.document_number or 'Belum diterbitkan'} ({self.receiving_type_label})"
 
     @property
     def receiving_type_label(self):
@@ -656,7 +667,7 @@ class Receiving(TimeStampedModel):
         )
 
     def _validate_document_number_immutable_after_movements(self):
-        if not self.pk or not self.document_number:
+        if not self.pk:
             return
 
         old_document_number = (
@@ -664,48 +675,14 @@ class Receiving(TimeStampedModel):
             .values_list("document_number", flat=True)
             .first()
         )
-        if (
-            old_document_number
-            and old_document_number != self.document_number
-            and self.has_posted_stock_movements()
-        ):
+        if old_document_number and old_document_number != self.document_number:
             raise ValidationError(
                 {
                     "document_number": (
-                        "Nomor dokumen penerimaan tidak dapat diubah setelah "
-                        "stok atau transaksi ledger dibuat."
+                        "Nomor dokumen penerimaan yang sudah diterbitkan tidak dapat diubah."
                     )
                 }
             )
-
-    @staticmethod
-    def generate_document_number():
-        year = timezone.now().year
-        prefix = f"RCV-{year}-"
-
-        from apps.stock.models import OpeningBalanceImport, SourceDocumentNumberClaim
-
-        document_numbers = list(
-            Receiving.objects.filter(document_number__startswith=prefix)
-            .values_list("document_number", flat=True)
-        )
-        document_numbers.extend(
-            OpeningBalanceImport.objects.filter(document_number__startswith=prefix)
-            .values_list("document_number", flat=True)
-        )
-        document_numbers.extend(
-            SourceDocumentNumberClaim.objects.filter(
-                document_number__startswith=prefix
-            ).values_list("document_number", flat=True)
-        )
-        max_num = 0
-        for document_number in document_numbers:
-            try:
-                max_num = max(max_num, int(document_number.split("-")[-1]))
-            except (ValueError, IndexError):
-                continue
-        num = max_num + 1
-        return f"{prefix}{num:05d}"
 
     def save(self, *args, **kwargs):
         old_document_number = None
@@ -716,8 +693,6 @@ class Receiving(TimeStampedModel):
                 .first()
             )
 
-        if not self.document_number:
-            self.document_number = self.generate_document_number()
         self._validate_document_number_not_opening_balance_collision()
         self._validate_document_number_immutable_after_movements()
 
@@ -728,20 +703,6 @@ class Receiving(TimeStampedModel):
                 claim.source_id = self.pk
                 claim.save(update_fields=["source_id", "updated_at"])
             self._release_old_document_number_claim(old_document_number)
-
-
-@receiver(pre_delete, sender=Receiving)
-def release_unposted_receiving_document_number_claim(sender, instance, **kwargs):
-    if instance.has_posted_stock_movements():
-        return
-
-    from apps.stock.models import SourceDocumentNumberClaim
-
-    SourceDocumentNumberClaim.objects.filter(
-        document_number=instance.document_number,
-        source_type=SourceDocumentNumberClaim.SourceType.RECEIVING,
-        source_id=instance.pk,
-    ).delete()
 
 
 class ReceivingItem(models.Model):

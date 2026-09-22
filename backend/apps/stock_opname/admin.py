@@ -27,6 +27,7 @@ class StockOpnameAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     list_per_page = 25
     workflow_readonly_fields = (
+        'document_number',
         'status',
         'created_by',
         'completed_by',

@@ -66,7 +66,7 @@
                             {% for o in opnames %}
                             <tr>
                                 <td><a href="{% url 'stock_opname:opname_detail' o.pk %}"
-                                        class="fw-semibold text-decoration-none">{{ o.document_number }}</a></td>
+                                        class="fw-semibold text-decoration-none">{{ o.document_number|default:"Belum diterbitkan" }}</a></td>
                                 <td><span class="badge bg-info text-dark">{{ o.get_period_type_display }}</span></td>
                                 <td>{{ o.period_start|date:'d/m/Y' }} — {{ o.period_end|date:'d/m/Y' }}</td>
                                 <td>

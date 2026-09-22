@@ -38,7 +38,8 @@ App-specific guidance for outbound distribution workflows.
 
 ## Allocation Distributions
 
-- `Distribution(distribution_type=ALLOCATION)` is system-generated from allocation approval.
+- Allocation approval generates `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id=<parent>)`.
+- Allocation children share the normal Permintaan Khusus number rule and sequence. Use `allocation_id`, never a distinct distribution type, to distinguish their origin.
 - Allocation-generated child distributions remain parent-managed by the Allocation module and do not use generic distribution reset/step-back actions.
 - Allocation-generated child distributions start in `VERIFIED` with selected stock already reserved.
 - Quantities are locked and cannot be edited.
@@ -49,12 +50,12 @@ App-specific guidance for outbound distribution workflows.
 
 - User-facing manual create paths are `special_request_create` for permintaan khusus and `manual_lplpo_create` for manual LPLPO rollout/catch-up distributions.
 - Keep the generic `distribution_create` route reserved for internal or compatibility flows tied to broader distribution orchestration.
-- Special-request numbering UI preloads the next suggested number while requiring confirmation before manual override.
-- Distribution numbering templates for `LPLPO` and `SPECIAL_REQUEST` are user-configurable through `SystemSettings`.
-- Supported numbering placeholders are `{seq}` and `{year}`.
-- Sequence counters remain scoped per distribution type and matched against the active template.
+- Distribution drafts have no official number and forms do not accept manual overrides.
+- Submission issues the LPLPO or Permintaan Khusus rule atomically using `request_date`; Allocation children are issued during parent approval from the same Permintaan Khusus rule.
+- Rule template/reset/padding are configured centrally on `/settings/`; counters remain internal and issued values are never reused.
 
 ## Reports
 
 - The combined outbound report remains on `/reports/pengeluaran/`.
 - Distribution owns dedicated route-based report variants at `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, and `/distribution/report/lplpo/`.
+- The Special Request report includes standalone and Allocation-generated children; the allocation route additionally filters `allocation_id IS NOT NULL`.

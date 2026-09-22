@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
@@ -7,6 +8,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock, Transaction
 from apps.users.models import ModuleAccess
 
@@ -62,7 +65,8 @@ def recall_create(request):
             formset.save()
 
             messages.success(
-                request, f"Recall {recall.document_number} berhasil dibuat."
+                request,
+                "Draft recall berhasil dibuat. Nomor dokumen akan diterbitkan saat diajukan.",
             )
             return redirect("recall:recall_detail", pk=recall.pk)
     else:
@@ -97,7 +101,7 @@ def recall_edit(request, pk):
             form.save()
             formset.save()
             messages.success(
-                request, f"Recall {recall.document_number} berhasil diperbarui."
+                request, f"Recall {recall.document_number or 'draft'} berhasil diperbarui."
             )
             return redirect("recall:recall_detail", pk=recall.pk)
     else:
@@ -110,7 +114,7 @@ def recall_edit(request, pk):
         {
             "form": form,
             "formset": formset,
-            "title": f"Edit Recall {recall.document_number}",
+            "title": f"Edit Recall {recall.document_number or 'draft'}",
             "is_edit": True,
             "recall": recall,
         },
@@ -156,8 +160,20 @@ def recall_submit(request, pk):
         messages.error(request, "Tambahkan minimal 1 item sebelum mengajukan recall.")
         return redirect("recall:recall_detail", pk=pk)
 
-    recall.status = Recall.Status.SUBMITTED
-    recall.save(update_fields=["status", "updated_at"])
+    try:
+        with transaction.atomic():
+            recall = Recall.objects.select_for_update().get(pk=recall.pk)
+            issue_document_number(
+                DocumentNumberRule.Key.RECALL,
+                business_date=recall.recall_date,
+                target=recall,
+                actor=request.user,
+            )
+            recall.status = Recall.Status.SUBMITTED
+            recall.save(update_fields=["status", "updated_at"])
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+        return redirect("recall:recall_detail", pk=pk)
     messages.success(request, f"Recall {recall.document_number} berhasil diajukan.")
     return redirect("recall:recall_detail", pk=pk)
 
@@ -328,6 +344,13 @@ def recall_delete(request, pk):
         return redirect("recall:recall_detail", pk=pk)
 
     doc_number = recall.document_number
-    recall.delete()
+    with transaction.atomic():
+        recall = Recall.objects.select_for_update().get(pk=recall.pk)
+        void_document_number(
+            recall,
+            actor=request.user,
+            reason="Recall dihapus dari status Draft.",
+        )
+        recall.delete()
     messages.success(request, f"Recall {doc_number} berhasil dihapus.")
     return redirect("recall:recall_list")

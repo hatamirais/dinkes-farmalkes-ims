@@ -4,6 +4,8 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
 from apps.stock.models import Stock, Transaction
 
 from .models import Distribution, DistributionStaffAssignment
@@ -214,24 +216,42 @@ def assign_default_distribution_staff(distribution, user):
 
 
 
-def execute_distribution_submission(distribution):
-    if not distribution.items.exists():
-        raise DistributionWorkflowError(
-            "Tambahkan minimal 1 item sebelum mengajukan distribusi."
-        )
+def execute_distribution_submission(distribution, user):
+    with transaction.atomic():
+        distribution = Distribution.objects.select_for_update().get(pk=distribution.pk)
+        if not distribution.items.exists():
+            raise DistributionWorkflowError(
+                "Tambahkan minimal 1 item sebelum mengajukan distribusi."
+            )
 
-    if not distribution.staff_assignments.exists():
-        raise DistributionWorkflowError(
-            "Pilih minimal 1 staf terlibat sebelum mengajukan distribusi."
-        )
+        if not distribution.staff_assignments.exists():
+            raise DistributionWorkflowError(
+                "Pilih minimal 1 staf terlibat sebelum mengajukan distribusi."
+            )
 
-    if distribution.status != Distribution.Status.PREPARED:
-        raise DistributionWorkflowError(
-            "Hanya distribusi berstatus Disiapkan yang dapat diajukan ke Kepala Instalasi."
-        )
+        if distribution.status != Distribution.Status.PREPARED:
+            raise DistributionWorkflowError(
+                "Hanya distribusi berstatus Disiapkan yang dapat diajukan ke Kepala Instalasi."
+            )
+        if distribution.allocation_id:
+            raise DistributionWorkflowError(
+                "Distribusi dari alokasi dikelola melalui alokasi induk."
+            )
 
-    distribution.status = Distribution.Status.SUBMITTED
-    _save_distribution(distribution, ["status"])
+        rule_key = (
+            DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+            if distribution.distribution_type == Distribution.DistributionType.LPLPO
+            else DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST
+        )
+        issue_document_number(
+            rule_key,
+            business_date=distribution.request_date,
+            target=distribution,
+            actor=user,
+        )
+        distribution.status = Distribution.Status.SUBMITTED
+        _save_distribution(distribution, ["status"])
+        return distribution
 
 
 
@@ -264,9 +284,11 @@ def execute_distribution_verification(distribution, user):
 
 
 def execute_distribution_preparation(distribution):
+    if distribution.allocation_id:
+        raise DistributionWorkflowError(
+            "Distribusi dari alokasi dikelola melalui alokasi induk."
+        )
     allowed_statuses = {Distribution.Status.DRAFT, Distribution.Status.REJECTED}
-    if distribution.distribution_type == Distribution.DistributionType.ALLOCATION:
-        allowed_statuses = {Distribution.Status.VERIFIED}
 
     if distribution.status not in allowed_statuses:
         raise DistributionWorkflowError(
@@ -279,6 +301,10 @@ def execute_distribution_preparation(distribution):
 
 
 def execute_stock_distribution(distribution, user):
+    if distribution.allocation_id:
+        raise DistributionWorkflowError(
+            "Distribusi dari alokasi dikelola melalui alokasi induk."
+        )
     distribution_items = _get_distribution_items(distribution, "didistribusikan")
 
     processed_at = timezone.now()
@@ -382,7 +408,7 @@ def execute_distribution_rejection(distribution):
 
 
 def execute_distribution_reset_to_draft(distribution):
-    if distribution.distribution_type == Distribution.DistributionType.ALLOCATION:
+    if distribution.allocation_id:
         raise DistributionWorkflowError(
             "Distribusi alokasi tidak dapat dikembalikan ke Draft dari modul distribusi. Gunakan step-back pada alokasi induk."
         )
@@ -421,7 +447,7 @@ def get_distribution_step_back_target(distribution):
 
 
 def execute_distribution_step_back(distribution):
-    if distribution.distribution_type == Distribution.DistributionType.ALLOCATION:
+    if distribution.allocation_id:
         raise DistributionWorkflowError(
             "Distribusi alokasi tidak dapat dikembalikan ke status sebelumnya dari modul distribusi. Gunakan step-back pada alokasi induk."
         )

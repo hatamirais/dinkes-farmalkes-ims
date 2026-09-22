@@ -6,6 +6,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.allocation.forms import AllocationItemForm
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
@@ -31,6 +33,24 @@ from .services import (
 
 def _create_test_fixtures():
     """Set up common master data, stock, and users for allocation tests."""
+    for key, label, template, padding in (
+        (DocumentNumberRule.Key.ALLOCATION, "Alokasi", "ALK-{year}-{seq}", 4),
+        (
+            DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+            "Permintaan Khusus",
+            "440/{seq}/KD.F/{year}",
+            1,
+        ),
+    ):
+        DocumentNumberRule.objects.get_or_create(
+            key=key,
+            defaults={
+                "label": label,
+                "template": template,
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": padding,
+            },
+        )
     unit = Unit.objects.create(code="PCS", name="Pcs")
     category = Category.objects.create(code="OBT", name="Obat")
     funding = FundingSource.objects.create(code="APBD", name="APBD", is_active=True)
@@ -117,13 +137,13 @@ class AllocationModelTest(TestCase):
     def setUp(self):
         self.fixtures = _create_test_fixtures()
 
-    def test_document_number_auto_generated(self):
+    def test_document_number_is_not_issued_while_draft(self):
         allocation = Allocation.objects.create(
             title="Alokasi Uji",
             allocation_date="2025-06-01",
             created_by=self.fixtures["admin"],
         )
-        self.assertTrue(allocation.document_number.startswith("ALK-"))
+        self.assertIsNone(allocation.document_number)
 
     def test_title_is_stored(self):
         allocation = Allocation.objects.create(
@@ -257,7 +277,10 @@ class AllocationApprovalTest(TestCase):
         self.assertEqual(distributions.count(), 2)
 
         for dist in distributions:
-            self.assertEqual(dist.distribution_type, Distribution.DistributionType.ALLOCATION)
+            self.assertEqual(
+                dist.distribution_type,
+                Distribution.DistributionType.SPECIAL_REQUEST,
+            )
             self.assertEqual(dist.status, Distribution.Status.VERIFIED)
             self.assertIsNotNone(dist.document_number)
             self.assertEqual(dist.verified_by, self.fixtures["kepala"])
@@ -265,6 +288,32 @@ class AllocationApprovalTest(TestCase):
 
         self.fixtures["stock"].refresh_from_db()
         self.assertEqual(self.fixtures["stock"].reserved, Decimal("50"))
+
+    def test_generated_children_continue_standalone_special_request_sequence(self):
+        standalone = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date="2025-06-01",
+            facility=self.fixtures["facility1"],
+            created_by=self.fixtures["admin"],
+        )
+        issue_document_number(
+            DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+            business_date=standalone.request_date,
+            target=standalone,
+            actor=self.fixtures["admin"],
+        )
+
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["kepala"])
+
+        child_numbers = list(
+            allocation.distributions.order_by("document_number").values_list(
+                "document_number", flat=True
+            )
+        )
+        self.assertEqual(standalone.document_number, "440/1/KD.F/2025")
+        self.assertEqual(child_numbers, ["440/2/KD.F/2025", "440/3/KD.F/2025"])
 
     def test_approve_copies_distribution_items(self):
         allocation = _create_allocation(self.fixtures)

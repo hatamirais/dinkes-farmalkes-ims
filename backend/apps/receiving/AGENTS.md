@@ -9,10 +9,11 @@ App-specific guidance for receiving workflows.
 ## Stock Mutation
 
 - Receiving admin CSV import writes `Receiving`, `ReceivingItem`, updates or creates `Stock`, and writes `Transaction(IN)`.
+- CSV rows are grouped by required `import_group`; it is import metadata, not the official document number. The official Receiving number is issued after group validation in the same transaction as stock and ledger posting.
 - Receiving stock rows use the receiving `document_number` as `Stock.source_document_number`, except migrated historical document-number collisions continue on their disambiguated existing stock source layer.
 - Receiving transactions use the same receiving source document value as the stock row they post to.
 - Receiving `document_number` values must not collide with opening-balance import document numbers; generated receiving numbers skip opening-balance-owned `RCV-YYYY-NNNNN` values.
-- Receiving `document_number` is immutable after stock rows or ledger transactions exist.
+- Receiving `document_number` is system-issued and immutable. Its `SourceDocumentNumberClaim` is retained after cancellation/deletion so issued values cannot be reused.
 - Same item/location/batch/funding can appear in different receiving documents as separate stock layers; do not average their `unit_price` values.
 - Within one receiving source-document layer, expiry date and unit price must remain exact. A same-layer mismatch is rejected instead of merged.
 - Stock mutation belongs to receiving execution/import workflow actions, not arbitrary model saves.
@@ -45,4 +46,5 @@ App-specific guidance for receiving workflows.
 
 - Keep the custom CSV import endpoint and matching CSV template download in admin aligned with the actual parser/resource behavior.
 - CSV column docs must match the receiving admin parser/resource classes.
+- The receiving CSV header is `import_group`, not `document_number`; opening-balance CSV continues to use `document_number` because it owns a separate source-document identity.
 - Quick-create lookup POST mutations are covered by `@item_mutation_ratelimit`, not the user-management throttle bucket.

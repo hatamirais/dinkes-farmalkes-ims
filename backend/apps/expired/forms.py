@@ -18,12 +18,8 @@ from .models import Expired, ExpiredItem
 class ExpiredForm(forms.ModelForm):
     class Meta:
         model = Expired
-        fields = ['document_number', 'report_date', 'notes']
+        fields = ['report_date', 'notes']
         widgets = {
-            'document_number': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Kosongkan untuk auto-generate',
-            }),
             'report_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }

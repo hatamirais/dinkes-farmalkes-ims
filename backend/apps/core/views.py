@@ -2,7 +2,7 @@ import json
 import logging
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -10,6 +10,7 @@ from django.utils.http import escape_leading_slashes
 from datetime import timedelta
 from django.views.decorators.csrf import requires_csrf_token
 
+from django.db import transaction
 from django.db.models import Count, Q
 
 from apps.lplpo.models import LPLPO
@@ -24,8 +25,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django_ratelimit.exceptions import Ratelimited
 from apps.core.client_ip import get_client_ip
-from apps.core.models import SystemSettings
-from apps.core.forms import SystemSettingsForm
+from apps.core.models import DocumentNumberRule, SystemSettings
+from apps.core.forms import DocumentNumberRuleFormSet, SystemSettingsForm
 
 security_logger = logging.getLogger("security")
 app_logger = logging.getLogger("core")
@@ -331,42 +332,28 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        form = context.get("form")
-        sample_year = str(timezone.now().year)
-        sample_sequence = "12"
-        lplpo_template = form["lplpo_distribution_number_template"].value()
-        special_request_template = form[
-            "special_request_distribution_number_template"
-        ].value()
-        context["numbering_preview_cards"] = [
-            {
-                "title": "Preview LPLPO",
-                "template": lplpo_template,
-                "example": self._render_numbering_preview(
-                    lplpo_template,
-                    sample_sequence,
-                    sample_year,
-                ),
-            },
-            {
-                "title": "Preview Permintaan Khusus",
-                "template": special_request_template,
-                "example": self._render_numbering_preview(
-                    special_request_template,
-                    sample_sequence,
-                    sample_year,
-                ),
-            },
-        ]
-        context["numbering_preview_sample_year"] = sample_year
-        context["numbering_preview_sample_sequence"] = sample_sequence
+        if "numbering_formset" not in context:
+            numbering_formset_submitted = (
+                self.request.method == "POST"
+                and "numbering_rules-TOTAL_FORMS" in self.request.POST
+            )
+            context["numbering_formset"] = DocumentNumberRuleFormSet(
+                data=self.request.POST if numbering_formset_submitted else None,
+                prefix="numbering_rules",
+                queryset=DocumentNumberRule.objects.order_by("label", "key"),
+            )
+            context["numbering_formset_submitted"] = numbering_formset_submitted
+        context["numbering_preview_sample_year"] = str(timezone.now().year)
+        context["numbering_preview_sample_month"] = timezone.now().strftime("%m")
+        context["numbering_preview_sample_parent"] = "SPJ-2026-00001"
         return context
 
-    @staticmethod
-    def _render_numbering_preview(template, sequence, year):
-        return (template or "").replace("{seq}", sequence).replace("{year}", year)
-
     def form_valid(self, form):
+        context = self.get_context_data(form=form)
+        numbering_formset = context["numbering_formset"]
+        if context["numbering_formset_submitted"] and not numbering_formset.is_valid():
+            return self.render_to_response(context)
+
         logo = form.cleaned_data.get("logo")
         if logo and hasattr(logo, "read") and not hasattr(logo, "url"):
             security_logger.info(
@@ -380,8 +367,12 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
                     sort_keys=True,
                 )
             )
+        with transaction.atomic():
+            self.object = form.save()
+            if context["numbering_formset_submitted"]:
+                numbering_formset.save()
         messages.success(self.request, "Pengaturan sistem berhasil diperbarui.")
-        return super().form_valid(form)
+        return HttpResponseRedirect(self.get_success_url())
 
     def form_invalid(self, form):
         if self.request.method == "POST" and self.request.FILES.get("logo"):

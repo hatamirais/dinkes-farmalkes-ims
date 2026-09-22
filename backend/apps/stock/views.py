@@ -29,6 +29,8 @@ from django.utils import timezone
 
 from apps.core.decimal_validation import parse_decimal_input
 from apps.core.decorators import perm_required
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
 from apps.items.models import Facility, FundingSource, Item, Location
 from apps.lplpo.models import LPLPO, LPLPOItem, normalize_whole_number
 from apps.puskesmas.models import PuskesmasConsumptionEntry, PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
@@ -1713,7 +1715,7 @@ def transfer_create(request):
 
                 messages.success(
                     request,
-                    f"Mutasi lokasi {transfer.document_number} berhasil dibuat.",
+                    "Draft mutasi lokasi berhasil dibuat. Nomor dokumen akan diterbitkan saat diselesaikan.",
                 )
                 return redirect("stock:transfer_detail", transfer_id=transfer.pk)
     else:
@@ -1771,6 +1773,13 @@ def transfer_complete(request, transfer_id):
             )
             if not transfer_items:
                 raise ValueError("Mutasi tidak memiliki item.")
+
+            issue_document_number(
+                DocumentNumberRule.Key.STOCK_TRANSFER,
+                business_date=transfer.transfer_date,
+                target=transfer,
+                actor=request.user,
+            )
 
             for line in transfer_items:
                 source_stock = Stock.objects.select_for_update().get(pk=line.stock_id)
@@ -1853,7 +1862,7 @@ def transfer_complete(request, transfer_id):
             transfer.save(
                 update_fields=["status", "completed_by", "completed_at", "updated_at"]
             )
-    except ValueError as exc:
+    except (ValueError, ValidationError) as exc:
         messages.error(request, str(exc))
         return redirect("stock:transfer_detail", transfer_id=transfer.pk)
 

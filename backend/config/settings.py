@@ -280,6 +280,14 @@ AUDITLOG_INCLUDE_TRACKING_MODELS = (
         "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
     },
     {
+        "model": "core.DocumentNumberRule",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "core.DocumentNumberIssue",
+        "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
         "model": "puskesmas.PuskesmasReceiptConfirmation",
         "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
     },

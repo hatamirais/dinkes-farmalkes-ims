@@ -1,38 +1,30 @@
 document.addEventListener('DOMContentLoaded', function () {
     var previewCard = document.getElementById('numbering-preview-card');
-    var lplpoInput = document.getElementById('id_lplpo_distribution_number_template');
-    var specialInput = document.getElementById('id_special_request_distribution_number_template');
-
-    if (!previewCard || !lplpoInput || !specialInput) {
+    if (!previewCard) {
         return;
     }
 
-    var sequence = previewCard.getAttribute('data-preview-sequence') || '12';
     var year = previewCard.getAttribute('data-preview-year') || String(new Date().getFullYear());
+    var month = previewCard.getAttribute('data-preview-month') || '01';
+    var parent = previewCard.getAttribute('data-preview-parent') || 'SPJ-2026-00001';
 
-    function renderTemplate(template) {
-        return (template || '').replaceAll('{seq}', sequence).replaceAll('{year}', year);
-    }
+    document.querySelectorAll('[data-numbering-rule]').forEach(function (row) {
+        var templateInput = row.querySelector('input[name$="-template"]');
+        var paddingInput = row.querySelector('input[name$="-padding"]');
+        var preview = row.querySelector('[data-numbering-preview]');
+        if (!templateInput || !paddingInput || !preview) return;
 
-    function updatePreview(title, value) {
-        var templateEl = document.querySelector('[data-preview-template="' + title + '"]');
-        var exampleEl = document.querySelector('[data-preview-example="' + title + '"]');
-
-        if (templateEl) {
-            templateEl.textContent = value;
+        function syncPreview() {
+            var padding = Math.max(1, Number.parseInt(paddingInput.value || '1', 10));
+            var sequence = '12'.padStart(padding, '0');
+            preview.textContent = (templateInput.value || '')
+                .replaceAll('{seq}', sequence)
+                .replaceAll('{year}', year)
+                .replaceAll('{month}', month)
+                .replaceAll('{parent}', parent);
         }
-        if (exampleEl) {
-            exampleEl.textContent = renderTemplate(value);
-        }
-    }
-
-    function syncPreviews() {
-        updatePreview('Preview LPLPO', lplpoInput.value);
-        updatePreview('Preview Permintaan Khusus', specialInput.value);
-    }
-
-    lplpoInput.addEventListener('input', syncPreviews);
-    specialInput.addEventListener('input', syncPreviews);
-
-    syncPreviews();
+        templateInput.addEventListener('input', syncPreview);
+        paddingInput.addEventListener('input', syncPreview);
+        syncPreview();
+    });
 });

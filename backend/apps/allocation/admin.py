@@ -58,6 +58,7 @@ class AllocationAdmin(admin.ModelAdmin):
         "approved_by",
     )
     readonly_fields = (
+        "document_number",
         "submitted_at",
         "approved_at",
     )

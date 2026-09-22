@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load number_format %}
 
-{% block title %}Detail Stock Opname {{ opname.document_number }} - Healthcare IMS{% endblock %}
+{% block title %}Detail Stock Opname {{ opname.document_number|default:"draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Stock Opname{% endblock %}
 
 {% block content %}
@@ -13,7 +13,7 @@
                     <div class="col-md-6">
                         <dl class="row mb-0">
                             <dt class="col-5">No. Dokumen</dt>
-                            <dd class="col-7 fw-semibold">{{ opname.document_number }}</dd>
+                            <dd class="col-7 fw-semibold">{{ opname.document_number|default:"Belum diterbitkan" }}</dd>
                             <dt class="col-5">Tipe Periode</dt>
                             <dd class="col-7"><span class="badge bg-info text-dark">{{ opname.get_period_type_display }}</span></dd>
                             <dt class="col-5">Periode</dt>

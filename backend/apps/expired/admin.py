@@ -13,7 +13,7 @@ class ExpiredAdmin(admin.ModelAdmin):
     list_display = ('document_number', 'report_date', 'status', 'created_by')
     list_filter = ('status', 'report_date')
     search_fields = ('document_number',)
-    readonly_fields = ('created_at', 'updated_at', 'verified_at')
+    readonly_fields = ('document_number', 'created_at', 'updated_at', 'verified_at')
     inlines = [ExpiredItemInline]
     autocomplete_fields = ['created_by', 'verified_by']
     actions = ['mark_disposed']

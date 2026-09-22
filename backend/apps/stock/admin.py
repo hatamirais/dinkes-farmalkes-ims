@@ -1901,3 +1901,4 @@ class StockTransferAdmin(admin.ModelAdmin):
         "destination_location__name",
     )
     inlines = [StockTransferItemInline]
+    readonly_fields = ("document_number",)

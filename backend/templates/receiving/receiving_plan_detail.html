@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}Detail Rencana {{ receiving.document_number }} - Healthcare IMS{% endblock %}
+{% block title %}Detail Rencana {{ receiving.document_number|default:"draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Rencana Penerimaan{% endblock %}
 
 {% block content %}
@@ -12,7 +12,7 @@
             <div class="card-body">
                 <dl class="row mb-0">
                     <dt class="col-5 text-muted">No. Dokumen</dt>
-                    <dd class="col-7 fw-semibold">{{ receiving.document_number }}</dd>
+                    <dd class="col-7 fw-semibold">{{ receiving.document_number|default:"Belum diterbitkan" }}</dd>
 
                     <dt class="col-5 text-muted">Tanggal</dt>
                     <dd class="col-7">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>

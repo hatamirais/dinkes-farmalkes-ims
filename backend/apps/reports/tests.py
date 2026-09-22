@@ -7,6 +7,9 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
 
+from apps.allocation.models import Allocation
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.models import ProcurementContract
@@ -16,6 +19,7 @@ from apps.reports.exports import (
 	export_pengeluaran_excel,
 	export_rekap_excel,
 )
+from apps.reports.forms import ALLOCATION_ORIGIN_FILTER
 from apps.stock.models import OpeningBalanceImport, OpeningBalanceImportItem, Stock, Transaction
 from apps.users.models import User
 
@@ -23,6 +27,19 @@ from apps.users.models import User
 class NumberingHistoryReportTests(TestCase):
 	@classmethod
 	def setUpTestData(cls):
+		for key, label, template in (
+			(DocumentNumberRule.Key.DISTRIBUTION_LPLPO, "Distribusi LPLPO", "440/{seq}/SBBK.RF/{year}"),
+			(DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST, "Permintaan Khusus", "440/{seq}/KD.F/{year}"),
+		):
+			DocumentNumberRule.objects.update_or_create(
+				key=key,
+				defaults={
+					"label": label,
+					"template": template,
+					"reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+					"padding": 1,
+				},
+			)
 		cls.user = User.objects.create_superuser(
 			username="reports-admin",
 			password="secret12345",
@@ -56,7 +73,6 @@ class NumberingHistoryReportTests(TestCase):
 	def _create_distribution(self, distribution_type, document_number=None):
 		dist = Distribution.objects.create(
 			distribution_type=distribution_type,
-			document_number=document_number or "",
 			request_date="2026-04-01",
 			facility=self.facility,
 			status=Distribution.Status.DRAFT,
@@ -69,6 +85,18 @@ class NumberingHistoryReportTests(TestCase):
 			quantity_approved=5,
 			stock=self.stock,
 		)
+		rule_key = (
+			DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+			if distribution_type == Distribution.DistributionType.LPLPO
+			else DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST
+		)
+		issue_document_number(
+			rule_key,
+			business_date=dist.request_date,
+			target=dist,
+			actor=self.user,
+		)
+		dist.refresh_from_db()
 		return dist
 
 	def test_numbering_history_page_lists_lplpo_and_special_request(self):
@@ -81,7 +109,7 @@ class NumberingHistoryReportTests(TestCase):
 		self.assertContains(response, lplpo_dist.document_number)
 		self.assertContains(response, special_dist.document_number)
 		self.assertContains(response, "Riwayat Penomoran")
-		self.assertContains(response, "Lihat Dokumen")
+		self.assertContains(response, "Buka")
 
 	def test_numbering_history_page_filters_by_document_type(self):
 		lplpo_dist = self._create_distribution(Distribution.DistributionType.LPLPO)
@@ -89,7 +117,7 @@ class NumberingHistoryReportTests(TestCase):
 
 		response = self.client.get(
 			reverse('reports:numbering_history'),
-			{'distribution_type': Distribution.DistributionType.LPLPO, 'year': 2026},
+			{'rule_key': DocumentNumberRule.Key.DISTRIBUTION_LPLPO, 'year': 2026},
 			secure=True,
 		)
 
@@ -102,7 +130,7 @@ class NumberingHistoryReportTests(TestCase):
 
 		response = self.client.get(reverse('reports:numbering_history'), secure=True)
 
-		self.assertContains(response, 'Cetak Laporan')
+		self.assertContains(response, 'Cetak')
 		self.assertContains(response, 'Export Excel')
 
 	def test_numbering_history_excel_export_returns_workbook(self):
@@ -126,13 +154,12 @@ class NumberingHistoryReportTests(TestCase):
 			[
 				{
 					"document_number": "=DOC-001",
-					"distribution_type": "+LPLPO",
-					"status": "@Draft",
-					"facility_name": "-Facility",
-					"source_label": "=LPLPO",
-					"source_document_number": "=SRC-001",
-					"created_at": None,
-					"item_count": 1,
+					"rule_label": "+LPLPO",
+					"issue_status": "@Diterbitkan",
+					"target_status": "-Draft",
+					"business_date": date(2026, 4, 1),
+					"sequence_value": 1,
+					"issued_at": None,
 				}
 			],
 			2026,
@@ -145,9 +172,9 @@ class NumberingHistoryReportTests(TestCase):
 		self.assertEqual(sheet["A2"].value, "Tahun: 2026 | Jenis Dokumen: =Semua Dokumen")
 		self.assertEqual(sheet["B5"].value, "'=DOC-001")
 		self.assertEqual(sheet["C5"].value, "'+LPLPO")
-		self.assertEqual(sheet["D5"].value, "'@Draft")
-		self.assertEqual(sheet["E5"].value, "'-Facility")
-		self.assertEqual(sheet["F5"].value, "'=LPLPO: =SRC-001")
+		self.assertEqual(sheet["D5"].value, "'@Diterbitkan")
+		self.assertEqual(sheet["E5"].value, "'-Draft")
+		self.assertEqual(sheet["F5"].value, "01/04/2026")
 		self.assertEqual(sheet["A2"].data_type, "s")
 		self.assertEqual(sheet["B5"].data_type, "s")
 
@@ -997,13 +1024,24 @@ class PengeluaranReportTests(TestCase):
 		self.client.force_login(self.user)
 
 	def _create_distribution(self, distribution_type, facility=None, document_number=None):
+		allocation = None
+		if distribution_type == ALLOCATION_ORIGIN_FILTER:
+			allocation = Allocation.objects.create(
+				document_number=f"ALLOC-PARENT-{document_number}",
+				title="Alokasi laporan",
+				allocation_date="2026-04-15",
+				status=Allocation.Status.APPROVED,
+				created_by=self.user,
+			)
+			distribution_type = Distribution.DistributionType.SPECIAL_REQUEST
 		dist = Distribution.objects.create(
 			distribution_type=distribution_type,
-			document_number=document_number or "",
+			document_number=document_number,
 			request_date="2026-04-15",
 			facility=facility or self.facility,
 			status=Distribution.Status.DISTRIBUTED,
 			created_by=self.user,
+			allocation=allocation,
 			notes="Pengeluaran terverifikasi",
 		)
 		dist.items.create(
@@ -1016,7 +1054,7 @@ class PengeluaranReportTests(TestCase):
 
 	def test_pengeluaran_report_filters_by_distribution_type(self):
 		allocation_dist = self._create_distribution(
-			Distribution.DistributionType.ALLOCATION,
+			ALLOCATION_ORIGIN_FILTER,
 			document_number="ALLOC-REP-001",
 		)
 		self._create_distribution(
@@ -1029,7 +1067,7 @@ class PengeluaranReportTests(TestCase):
 			{
 				'start_date': '2026-04-01',
 				'end_date': '2026-04-30',
-				'distribution_type': Distribution.DistributionType.ALLOCATION,
+				'distribution_type': ALLOCATION_ORIGIN_FILTER,
 			},
 			secure=True,
 		)
@@ -1040,7 +1078,7 @@ class PengeluaranReportTests(TestCase):
 
 	def test_pengeluaran_report_combined_view_remains_available(self):
 		allocation_dist = self._create_distribution(
-			Distribution.DistributionType.ALLOCATION,
+			ALLOCATION_ORIGIN_FILTER,
 			document_number="ALLOC-REP-ALL",
 		)
 		lplpo_dist = self._create_distribution(
@@ -1076,8 +1114,8 @@ class PengeluaranReportTests(TestCase):
 			facility=self.other_facility,
 			document_number="SPEC-REP-ALT",
 		)
-		self._create_distribution(
-			Distribution.DistributionType.ALLOCATION,
+		allocation_child = self._create_distribution(
+			ALLOCATION_ORIGIN_FILTER,
 			facility=self.facility,
 			document_number="ALLOC-REP-FAC",
 		)
@@ -1096,11 +1134,11 @@ class PengeluaranReportTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, matching_dist.document_number)
 		self.assertNotContains(response, 'SPEC-REP-ALT')
-		self.assertNotContains(response, 'ALLOC-REP-FAC')
+		self.assertContains(response, allocation_child.document_number)
 
 	def test_pengeluaran_report_invalid_distribution_type_keeps_report_empty(self):
 		self._create_distribution(
-			Distribution.DistributionType.ALLOCATION,
+			ALLOCATION_ORIGIN_FILTER,
 			document_number="ALLOC-REP-INVALID",
 		)
 
@@ -1121,7 +1159,7 @@ class PengeluaranReportTests(TestCase):
 
 	def test_pengeluaran_report_excel_export_uses_active_tab_label(self):
 		self._create_distribution(
-			Distribution.DistributionType.ALLOCATION,
+			ALLOCATION_ORIGIN_FILTER,
 			document_number="ALLOC-REP-EXPORT",
 		)
 
@@ -1130,7 +1168,7 @@ class PengeluaranReportTests(TestCase):
 			{
 				'start_date': '2026-04-01',
 				'end_date': '2026-04-30',
-				'distribution_type': Distribution.DistributionType.ALLOCATION,
+				'distribution_type': ALLOCATION_ORIGIN_FILTER,
 				'format': 'excel',
 			},
 			secure=True,
@@ -1142,7 +1180,7 @@ class PengeluaranReportTests(TestCase):
 			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 		)
 		self.assertIn(
-			'Laporan_Pengeluaran_Alokasi_2026-04-01_2026-04-30.xlsx',
+			'Laporan_Pengeluaran_Asal_Alokasi_2026-04-01_2026-04-30.xlsx',
 			response['Content-Disposition'],
 		)
 
@@ -1159,10 +1197,10 @@ class PengeluaranReportTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		tabs = response.context['tabs']
 		self.assertTrue(any(tab['value'] == '' for tab in tabs))
-		self.assertTrue(any(tab['value'] == Distribution.DistributionType.ALLOCATION for tab in tabs))
+		self.assertTrue(any(tab['value'] == ALLOCATION_ORIGIN_FILTER for tab in tabs))
 
 		allocation_tab = next(
-			tab for tab in tabs if tab['value'] == Distribution.DistributionType.ALLOCATION
+			tab for tab in tabs if tab['value'] == ALLOCATION_ORIGIN_FILTER
 		)
 		self.assertIn('distribution_type=ALLOCATION', allocation_tab['url'])
 		self.assertIn('start_date=2026-04-01', allocation_tab['url'])
@@ -1392,6 +1430,15 @@ class ProcurementReportTests(TestCase):
 class ProcurementReceivingReportTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.RECEIVING,
+            defaults={
+                "label": "Penerimaan",
+                "template": "RCV-{year}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 5,
+            },
+        )
         cls.user = User.objects.create_superuser(
             username="report-proc-admin",
             password="secret12345",

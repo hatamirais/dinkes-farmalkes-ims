@@ -28,10 +28,10 @@ from axes.models import AccessAttempt
 from apps.core.admin_mixins import ImportGuideMixin
 from apps.core.context_processors import nav_notifications
 from apps.core.csv_exports import SanitizedCSV, escape_csv_formula
-from apps.core.forms import SystemSettingsForm
+from apps.core.forms import DocumentNumberRuleForm, SystemSettingsForm
 from apps.core.forms import CrispyAuthenticationForm
 from apps.core.form_fields import IndonesianDateInput
-from apps.core.models import SystemSettings
+from apps.core.models import DocumentNumberRule, SystemSettings
 from apps.core.xlsx_exports import escape_xlsx_formula
 from apps.core.templatetags.number_format import plain_decimal, safe_media_url
 from apps.core.views import (
@@ -229,12 +229,12 @@ class XlsxExportSecurityTests(SimpleTestCase):
         self.assertEqual(escape_xlsx_formula(Decimal("12.50")), Decimal("12.50"))
 
 
-class SystemSettingsFormTests(SimpleTestCase):
+class SystemSettingsFormTests(TestCase):
     @staticmethod
     def _uploaded_file(name, content, content_type):
         return SimpleUploadedFile(name, content, content_type)
 
-    def test_accepts_valid_numbering_templates(self):
+    def test_accepts_valid_general_settings(self):
         form = SystemSettingsForm(
             data={
                 "platform_label": "Healthcare IMS",
@@ -242,28 +242,32 @@ class SystemSettingsFormTests(SimpleTestCase):
                 "facility_address": "",
                 "facility_phone": "",
                 "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "PK/{year}/{seq}/KD.F",
             }
         )
 
         self.assertTrue(form.is_valid(), form.errors)
 
     def test_rejects_unknown_numbering_placeholder(self):
-        form = SystemSettingsForm(
+        rule, _ = DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.ALLOCATION,
+            defaults={
+                "label": "Alokasi",
+                "template": "ALK-{year}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 4,
+            },
+        )
+        form = DocumentNumberRuleForm(
             data={
-                "platform_label": "Healthcare IMS",
-                "facility_name": "Instalasi Farmasi",
-                "facility_address": "",
-                "facility_phone": "",
-                "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/{month}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
-            }
+                "template": "ALK-{year}-{unknown}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 4,
+            },
+            instance=rule,
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn("lplpo_distribution_number_template", form.errors)
+        self.assertIn("template", form.errors)
 
     def test_rejects_non_image_logo_with_png_extension(self):
         form = SystemSettingsForm(
@@ -273,8 +277,6 @@ class SystemSettingsFormTests(SimpleTestCase):
                 "facility_address": "",
                 "facility_phone": "",
                 "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
             },
             files={
                 "logo": self._uploaded_file(
@@ -302,8 +304,6 @@ class SystemSettingsFormTests(SimpleTestCase):
                         "facility_address": "",
                         "facility_phone": "",
                         "header_title": "Dinas Kesehatan",
-                        "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                        "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
                     },
                     instance=SystemSettings(logo="settings/logo.png"),
                 )
@@ -324,8 +324,6 @@ class SystemSettingsFormTests(SimpleTestCase):
                 "facility_address": "",
                 "facility_phone": "",
                 "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
             },
             files={
                 "logo": self._uploaded_file(
@@ -343,10 +341,19 @@ class SystemSettingsFormTests(SimpleTestCase):
 
 class SystemSettingsModelTests(TestCase):
     def test_get_settings_exposes_default_numbering_templates(self):
-        settings = SystemSettings.get_settings()
-
-        self.assertEqual(settings.lplpo_distribution_number_template, "440/{seq}/SBBK.RF/{year}")
-        self.assertEqual(settings.special_request_distribution_number_template, "440/{seq}/KD.F/{year}")
+        SystemSettings.get_settings()
+        self.assertEqual(
+            DocumentNumberRule.objects.get(
+                key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+            ).template,
+            "440/{seq}/SBBK.RF/{year}",
+        )
+        self.assertEqual(
+            DocumentNumberRule.objects.get(
+                key=DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST
+            ).template,
+            "440/{seq}/KD.F/{year}",
+        )
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -1241,6 +1248,31 @@ class AuthenticationAuditClientIpTests(TestCase):
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class SystemSettingsAccessTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        defaults = (
+            ("ALLOCATION", "Alokasi", "ALK-{year}-{seq}", "YEARLY", 4),
+            ("DISTRIBUTION_LPLPO", "Distribusi LPLPO", "440/{seq}/SBBK.RF/{year}", "YEARLY", 1),
+            ("DISTRIBUTION_SPECIAL_REQUEST", "Permintaan Khusus", "440/{seq}/KD.F/{year}", "YEARLY", 1),
+            ("PROCUREMENT_CONTRACT", "SPJ / Kontrak", "SPJ-{year}-{seq}", "YEARLY", 5),
+            ("PROCUREMENT_AMENDMENT", "Amandemen SPJ", "{parent}-A{seq}", "NEVER", 1),
+            ("RECEIVING", "Penerimaan", "RCV-{year}-{seq}", "YEARLY", 5),
+            ("RECALL", "Recall", "REC-{year}{month}-{seq}", "MONTHLY", 5),
+            ("EXPIRED", "Kedaluwarsa", "EXP-{year}{month}-{seq}", "MONTHLY", 5),
+            ("STOCK_TRANSFER", "Mutasi Lokasi", "TRF-{year}-{seq}", "YEARLY", 5),
+            ("STOCK_OPNAME", "Stock Opname", "SO-{year}{month}-{seq}", "MONTHLY", 5),
+        )
+        for key, label, template, reset_period, padding in defaults:
+            DocumentNumberRule.objects.get_or_create(
+                key=key,
+                defaults={
+                    "label": label,
+                    "template": template,
+                    "reset_period": reset_period,
+                    "padding": padding,
+                },
+            )
+
     def test_anonymous_user_is_redirected_to_login(self):
         response = self.client.get(reverse("settings"))
 
@@ -1307,8 +1339,46 @@ class SystemSettingsAccessTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Preview Rule")
-        self.assertContains(response, "440/12/SBBK.RF/2026")
-        self.assertContains(response, "440/12/KD.F/2026")
+        self.assertContains(response, "DISTRIBUTION_LPLPO")
+        self.assertContains(response, "DISTRIBUTION_SPECIAL_REQUEST")
+        self.assertNotContains(response, "last_value")
+
+    def test_admin_can_update_rule_format_without_exposing_counter(self):
+        user = User.objects.create_superuser(
+            username="settings-numbering-admin",
+            email="settings-numbering-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(user)
+        rules = list(DocumentNumberRule.objects.order_by("label", "key"))
+        data = {
+            "platform_label": "Healthcare IMS",
+            "facility_name": "Instalasi Farmasi",
+            "facility_address": "",
+            "facility_phone": "",
+            "header_title": "Dinas Kesehatan",
+            "numbering_rules-TOTAL_FORMS": str(len(rules)),
+            "numbering_rules-INITIAL_FORMS": str(len(rules)),
+            "numbering_rules-MIN_NUM_FORMS": "0",
+            "numbering_rules-MAX_NUM_FORMS": "1000",
+        }
+        for index, rule in enumerate(rules):
+            data[f"numbering_rules-{index}-id"] = str(rule.pk)
+            data[f"numbering_rules-{index}-template"] = (
+                "SBBK/{year}/{seq}"
+                if rule.key == DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+                else rule.template
+            )
+            data[f"numbering_rules-{index}-reset_period"] = rule.reset_period
+            data[f"numbering_rules-{index}-padding"] = str(rule.padding)
+
+        response = self.client.post(reverse("settings"), data)
+
+        self.assertEqual(response.status_code, 302)
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+        )
+        self.assertEqual(rule.template, "SBBK/{year}/{seq}")
 
     def test_admin_user_logo_upload_is_audit_logged(self):
         user = User.objects.create_superuser(
@@ -1333,8 +1403,6 @@ class SystemSettingsAccessTests(TestCase):
                     "facility_address": "",
                     "facility_phone": "",
                     "header_title": "Dinas Kesehatan",
-                    "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                    "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
                     "logo": SimpleUploadedFile(
                         "audit-logo.png",
                         image_buffer.read(),
@@ -1364,8 +1432,6 @@ class SystemSettingsAccessTests(TestCase):
                     "facility_address": "",
                     "facility_phone": "",
                     "header_title": "Dinas Kesehatan",
-                    "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                    "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
                     "logo": SimpleUploadedFile(
                         'bad"\nlogo.png',
                         b"not-a-real-image",

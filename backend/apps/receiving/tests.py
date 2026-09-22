@@ -21,6 +21,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.distribution.models import Distribution, DistributionItem
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.models import ProcurementContract
 from apps.receiving.admin import (
@@ -57,8 +59,21 @@ from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
 
+def _ensure_receiving_number_rule():
+    DocumentNumberRule.objects.get_or_create(
+        key=DocumentNumberRule.Key.RECEIVING,
+        defaults={
+            "label": "Penerimaan",
+            "template": "RCV-{year}-{seq}",
+            "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+            "padding": 5,
+        },
+    )
+
+
 class ReceivingItemModelExpiryValidationTests(TestCase):
     def setUp(self):
+        _ensure_receiving_number_rule()
         self.user = User.objects.create_superuser(
             username="receiving-model-admin",
             password="secret12345",
@@ -303,6 +318,7 @@ class ReceivingTypeOptionAdminTests(TestCase):
 
 class ReceivingModelDocumentNumberCollisionTests(TestCase):
     def setUp(self):
+        _ensure_receiving_number_rule()
         self.user = User.objects.create_superuser(
             username="receiving-docnum-admin",
             password="secret12345",
@@ -386,7 +402,7 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
         )
         self.assertEqual(claim.source_id, receiving.pk)
 
-    def test_queryset_delete_releases_unposted_receiving_document_number_claim(self):
+    def test_queryset_delete_retains_issued_receiving_document_number_claim(self):
         receiving = Receiving.objects.create(
             document_number="RCV-DELETE-UNPOSTED",
             receiving_type=Receiving.ReceivingType.GRANT,
@@ -405,7 +421,7 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
 
         Receiving.objects.filter(pk=receiving.pk).delete()
 
-        self.assertFalse(
+        self.assertTrue(
             SourceDocumentNumberClaim.objects.filter(
                 document_number="RCV-DELETE-UNPOSTED",
                 source_type=SourceDocumentNumberClaim.SourceType.RECEIVING,
@@ -495,6 +511,13 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
             status=Receiving.Status.DRAFT,
             created_by=self.user,
         )
+        issue_document_number(
+            DocumentNumberRule.Key.RECEIVING,
+            business_date=receiving.receiving_date,
+            target=receiving,
+            actor=self.user,
+        )
+        receiving.refresh_from_db()
 
         self.assertEqual(receiving.document_number, f"RCV-{year}-00002")
 
@@ -513,6 +536,13 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
             status=Receiving.Status.DRAFT,
             created_by=self.user,
         )
+        issue_document_number(
+            DocumentNumberRule.Key.RECEIVING,
+            business_date=receiving.receiving_date,
+            target=receiving,
+            actor=self.user,
+        )
+        receiving.refresh_from_db()
 
         self.assertEqual(receiving.document_number, f"RCV-{year}-00002")
 
@@ -729,6 +759,7 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
 
 class ReceivingCSVImportTest(TestCase):
     def setUp(self):
+        _ensure_receiving_number_rule()
         self.user = User.objects.create_superuser(
             username="admin_receiving",
             password="secret12345",
@@ -796,7 +827,7 @@ class ReceivingCSVImportTest(TestCase):
             files={
                 "csv_file": self._uploaded_file(
                     "receiving.csv",
-                    b"document_number,receiving_type\nRCV-1,GRANT\n",
+                    b"import_group,receiving_type\nGROUP-1,GRANT\n",
                     content_type="application/octet-stream",
                 )
             },
@@ -809,7 +840,7 @@ class ReceivingCSVImportTest(TestCase):
         self.item.requires_expiry_date = False
         self.item.save(update_fields=["requires_expiry_date", "updated_at"])
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,,,\n"
         )
@@ -829,8 +860,9 @@ class ReceivingCSVImportTest(TestCase):
         self.assertEqual(receiving_item.posted_sumber_dana, self.funding)
         self.assertEqual(
             receiving_item.posted_source_document_number,
-            "RCV-2026-00001",
+            receiving_item.receiving.document_number,
         )
+        self.assertEqual(receiving_item.receiving.import_group, "RCV-2026-00001")
 
         stock = Stock.objects.get()
         self.assertEqual(stock.quantity, Decimal("10"))
@@ -839,7 +871,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_preserves_high_precision_unit_price(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,8893.31985\n"
         )
@@ -854,32 +886,27 @@ class ReceivingCSVImportTest(TestCase):
         transaction = Transaction.objects.get()
         self.assertEqual(transaction.unit_price, Decimal("8893.31985"))
 
-    def test_process_csv_rejects_opening_balance_document_number_collision(self):
+    def test_process_csv_skips_opening_balance_official_number_collision(self):
         OpeningBalanceImport.objects.create(
-            document_number="RCV-2026-OB-COLLISION",
+            document_number="RCV-2026-00001",
             effective_date=date(2026, 1, 1),
             created_by=self.user,
         )
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
-            "RCV-2026-OB-COLLISION,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
+            "GROUP-OB-COLLISION,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
         )
 
-        with self.assertRaisesMessage(
-            ValueError,
-            "sudah digunakan oleh dokumen saldo awal",
-        ):
-            self.admin._process_csv(self._csv_file(csv_content), self.user)
+        self.admin._process_csv(self._csv_file(csv_content), self.user)
 
-        self.assertEqual(Receiving.objects.count(), 0)
-        self.assertEqual(ReceivingItem.objects.count(), 0)
-        self.assertEqual(Stock.objects.count(), 0)
-        self.assertEqual(Transaction.objects.count(), 0)
+        receiving = Receiving.objects.get()
+        self.assertEqual(receiving.import_group, "GROUP-OB-COLLISION")
+        self.assertEqual(receiving.document_number, "RCV-2026-00002")
 
     def test_process_csv_rejects_blank_expiry_for_items_that_require_it(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,,,\n"
         )
@@ -892,7 +919,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_rejects_blank_quantity(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,,B-001,01/01/2030,1000\n"
         )
@@ -907,7 +934,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_rejects_zero_quantity(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,0,B-001,01/01/2030,1000\n"
         )
@@ -922,7 +949,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_rejects_negative_quantity(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,-5,B-001,01/01/2030,1000\n"
         )
@@ -937,7 +964,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_handles_missing_cell_without_strip_crash(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,,10,B-001,01/01/2030,1000\n"
         )
@@ -947,7 +974,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_invalid_foreign_key_has_clear_message(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-NOT-FOUND,10,B-001,01/01/2030,1000\n"
         )
@@ -959,7 +986,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_invalid_decimal_has_clear_message(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,sepuluh,B-001,01/01/2030,1000\n"
         )
@@ -976,7 +1003,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_rejects_null_byte_in_later_row(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,BAD\x00BATCH,01/01/2030,1000\n"
@@ -996,14 +1023,14 @@ class ReceivingCSVImportTest(TestCase):
     def test_process_csv_rejects_overlong_text_fields_before_save(self):
         cases = [
             (
-                "document_number",
+                "import_group",
                 "D" * 101,
                 "GRANT",
                 "APBD",
                 "GUDANG",
                 "ITM-TEST-0001",
                 "B-001",
-                "Baris 2: document_number maksimal 100 karakter",
+                "Baris 2: import_group maksimal 100 karakter",
             ),
             (
                 "receiving_type",
@@ -1059,7 +1086,7 @@ class ReceivingCSVImportTest(TestCase):
         ) in cases:
             with self.subTest(field_name=field_name):
                 csv_content = (
-                    "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+                    "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
                     "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
                     f"{doc},{receiving_type},12/03/2026,,{funding},{location},{item_code},10,{batch},01/01/2030,1000\n"
                 )
@@ -1101,7 +1128,7 @@ class ReceivingCSVImportTest(TestCase):
                 expiry_date=expiry_date,
             ):
                 csv_content = (
-                    "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+                    "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
                     "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
                     f"RCV-2026-00001,GRANT,{receiving_date},,APBD,GUDANG,ITM-TEST-0001,10,B-001,{expiry_date},1000\n"
                 )
@@ -1117,7 +1144,7 @@ class ReceivingCSVImportTest(TestCase):
     def test_process_csv_normalizes_and_strips_headers_and_values(self):
         decomposed_doc_number = "RCV-2026-A\u0301"
         csv_content = (
-            " document_number , receiving_type , receiving_date , supplier_code , sumber_dana_code ,"
+            " import_group , receiving_type , receiving_date , supplier_code , sumber_dana_code ,"
             " location_code , item_code , quantity , batch_lot , expiry_date , unit_price \n"
             f" {decomposed_doc_number} , GRANT , 12/03/2026 , , APBD , GUDANG , ITM-TEST-0001 , 10 , B-001 , 01/01/2030 , 1000 \n"
         )
@@ -1126,13 +1153,14 @@ class ReceivingCSVImportTest(TestCase):
 
         self.assertEqual(result["receivings"], 1)
         receiving = Receiving.objects.get()
-        self.assertEqual(receiving.document_number, "RCV-2026-Á")
+        self.assertEqual(receiving.import_group, "RCV-2026-Á")
+        self.assertNotEqual(receiving.document_number, receiving.import_group)
         receiving_item = ReceivingItem.objects.get()
         self.assertEqual(receiving_item.batch_lot, "B-001")
 
     def test_process_csv_rejects_nan_decimal(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,NaN,B-001,01/01/2030,1000\n"
         )
@@ -1162,7 +1190,7 @@ class ReceivingCSVImportTest(TestCase):
     def test_import_view_logs_success(self):
         self.client.force_login(self.user)
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
         )
@@ -1181,7 +1209,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_missing_required_header_rejected(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,10,B-001,01/01/2030,1000\n"
         )
@@ -1193,7 +1221,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_invalid_date_has_clear_message(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,notadate,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
         )
@@ -1206,7 +1234,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_rolls_back_on_error(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
             "RCV-2026-00001,GRANT,12/03/2026,,APBD,GUDANG,ITM-NOT-FOUND,10,B-002,01/01/2030,1000\n"
@@ -1222,7 +1250,7 @@ class ReceivingCSVImportTest(TestCase):
 
     def test_process_csv_rejects_invalid_receiving_type(self):
         csv_content = (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             "RCV-2026-00001,FOO,12/03/2026,,APBD,GUDANG,ITM-TEST-0001,10,B-001,01/01/2030,1000\n"
         )
@@ -1301,6 +1329,7 @@ class ReceivingCSVImportTest(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class ReceivingWorkflowCleanupTest(TestCase):
     def setUp(self):
+        _ensure_receiving_number_rule()
         self.user = User.objects.create_superuser(
             username="admin_workflow",
             password="secret12345",
@@ -1563,9 +1592,9 @@ class ReceivingWorkflowCleanupTest(TestCase):
         transaction = Transaction.objects.get(reference_id=receiving_item.receiving_id)
         self.assertEqual(transaction.batch_lot, "-")
 
-    def test_regular_receiving_create_rejects_opening_balance_document_number_collision(self):
+    def test_regular_receiving_create_skips_opening_balance_number_collision(self):
         OpeningBalanceImport.objects.create(
-            document_number="RCV-2026-WF-COLLISION",
+            document_number="RCV-2026-00001",
             effective_date=date(2026, 1, 1),
             created_by=self.user,
         )
@@ -1573,7 +1602,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.post(
             reverse("receiving:receiving_create"),
             {
-                "document_number": "RCV-2026-WF-COLLISION",
+                "document_number": "IGNORED-MANUAL-NUMBER",
                 "receiving_type": Receiving.ReceivingType.GRANT,
                 "receiving_date": "2026-03-16",
                 "supplier": "",
@@ -1593,11 +1622,11 @@ class ReceivingWorkflowCleanupTest(TestCase):
             secure=True,
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "sudah digunakan oleh dokumen saldo awal")
-        self.assertEqual(Receiving.objects.count(), 0)
-        self.assertEqual(Stock.objects.count(), 0)
-        self.assertEqual(Transaction.objects.count(), 0)
+        self.assertEqual(response.status_code, 302)
+        receiving = Receiving.objects.get()
+        self.assertEqual(receiving.document_number, "RCV-2026-00002")
+        self.assertEqual(Stock.objects.count(), 1)
+        self.assertEqual(Transaction.objects.count(), 1)
 
     def test_regular_receiving_create_requires_expiry_for_expiring_item(self):
         response = self.client.post(
@@ -3081,7 +3110,11 @@ class ReceivingWorkflowCleanupTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'name="facility"', html=False)
-        self.assertContains(response, 'placeholder="Kosongkan untuk generate otomatis"', html=False)
+        self.assertNotContains(response, 'name="document_number"', html=False)
+        self.assertContains(
+            response,
+            "Nomor dokumen resmi diterbitkan otomatis ketika stok penerimaan diposting.",
+        )
         self.assertContains(response, 'name="receiving_date"', html=False)
         self.assertContains(response, 'placeholder="DD/MM/YYYY"', html=False)
         self.assertContains(response, 'data-native-date-picker="true"', html=False)
@@ -4261,6 +4294,7 @@ class PlannedReceivingConcurrencyTest(TransactionTestCase):
 
 class ReceivingStockConcurrencyTest(TransactionTestCase):
     def setUp(self):
+        _ensure_receiving_number_rule()
         self.user = User.objects.create_superuser(
             username="admin_receiving_stock_concurrency",
             password="secret12345",
@@ -4289,7 +4323,6 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
 
     def _regular_payload(self, document_number, quantity):
         return {
-            "document_number": document_number,
             "receiving_type": Receiving.ReceivingType.GRANT,
             "receiving_date": "2026-03-16",
             "supplier": "",
@@ -4323,7 +4356,7 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
 
     def _csv_content(self, document_number, quantity):
         return (
-            "document_number,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
+            "import_group,receiving_type,receiving_date,supplier_code,sumber_dana_code,"
             "location_code,item_code,quantity,batch_lot,expiry_date,unit_price\n"
             f"{document_number},GRANT,12/03/2026,,{self.funding.code},{self.location.code},"
             f"{self.item.kode_barang},{quantity},{self.batch_lot},01/01/2030,1000\n"
@@ -4366,47 +4399,34 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
             connections.close_all()
 
     def test_regular_receiving_concurrent_posts_create_source_document_layers(self):
-        from apps.receiving import models as receiving_models
-
-        barrier = threading.Barrier(2)
-        original_create = receiving_models._create_receiving_stock_row
-
-        def synchronized_create(**kwargs):
-            barrier.wait(timeout=5)
-            return original_create(**kwargs)
-
         client_one = Client()
         client_two = Client()
         client_one.force_login(self.user)
         client_two.force_login(self.user)
         results = {}
 
-        with patch(
-            "apps.receiving.models._create_receiving_stock_row",
-            side_effect=synchronized_create,
-        ):
-            thread_one = threading.Thread(
-                target=self._post_regular_receiving,
-                args=(
-                    client_one,
-                    self._regular_payload("RCV-2026-RACE-REG-1", Decimal("3")),
-                    results,
-                    "one",
-                ),
-            )
-            thread_two = threading.Thread(
-                target=self._post_regular_receiving,
-                args=(
-                    client_two,
-                    self._regular_payload("RCV-2026-RACE-REG-2", Decimal("4")),
-                    results,
-                    "two",
-                ),
-            )
-            thread_one.start()
-            thread_two.start()
-            thread_one.join(timeout=10)
-            thread_two.join(timeout=10)
+        thread_one = threading.Thread(
+            target=self._post_regular_receiving,
+            args=(
+                client_one,
+                self._regular_payload("RCV-2026-RACE-REG-1", Decimal("3")),
+                results,
+                "one",
+            ),
+        )
+        thread_two = threading.Thread(
+            target=self._post_regular_receiving,
+            args=(
+                client_two,
+                self._regular_payload("RCV-2026-RACE-REG-2", Decimal("4")),
+                results,
+                "two",
+            ),
+        )
+        thread_one.start()
+        thread_two.start()
+        thread_one.join(timeout=10)
+        thread_two.join(timeout=10)
 
         self.assertFalse(thread_one.is_alive())
         self.assertFalse(thread_two.is_alive())
@@ -4416,21 +4436,21 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
             sorted(result["status_code"] for result in results.values()),
             [302, 302],
         )
+        stock_layers = list(
+            Stock.objects.filter(
+                item=self.item,
+                location=self.location,
+                batch_lot=self.batch_lot,
+                sumber_dana=self.funding,
+            ).values_list("source_document_number", "quantity")
+        )
+        self.assertEqual(len({number for number, _quantity in stock_layers}), 2)
+        self.assertTrue(
+            all(number.startswith("RCV-2026-") for number, _quantity in stock_layers)
+        )
         self.assertEqual(
-            list(
-                Stock.objects.filter(
-                    item=self.item,
-                    location=self.location,
-                    batch_lot=self.batch_lot,
-                    sumber_dana=self.funding,
-                )
-                .order_by("source_document_number")
-                .values_list("source_document_number", "quantity")
-            ),
-            [
-                ("RCV-2026-RACE-REG-1", Decimal("3.00")),
-                ("RCV-2026-RACE-REG-2", Decimal("4.00")),
-            ],
+            {quantity for _number, quantity in stock_layers},
+            {Decimal("3.00"), Decimal("4.00")},
         )
         self.assertEqual(Receiving.objects.count(), 2)
         self.assertEqual(ReceivingItem.objects.count(), 2)
@@ -4732,41 +4752,28 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
         )
 
     def test_csv_import_concurrent_runs_create_source_document_layers(self):
-        from apps.receiving import models as receiving_models
-
-        barrier = threading.Barrier(2)
-        original_create = receiving_models._create_receiving_stock_row
-
-        def synchronized_create(**kwargs):
-            barrier.wait(timeout=5)
-            return original_create(**kwargs)
-
         results = {}
 
-        with patch(
-            "apps.receiving.models._create_receiving_stock_row",
-            side_effect=synchronized_create,
-        ):
-            thread_one = threading.Thread(
-                target=self._run_csv_import,
-                args=(
-                    self._csv_content("RCV-2026-RACE-CSV-1", Decimal("6")),
-                    results,
-                    "one",
-                ),
-            )
-            thread_two = threading.Thread(
-                target=self._run_csv_import,
-                args=(
-                    self._csv_content("RCV-2026-RACE-CSV-2", Decimal("8")),
-                    results,
-                    "two",
-                ),
-            )
-            thread_one.start()
-            thread_two.start()
-            thread_one.join(timeout=10)
-            thread_two.join(timeout=10)
+        thread_one = threading.Thread(
+            target=self._run_csv_import,
+            args=(
+                self._csv_content("RCV-2026-RACE-CSV-1", Decimal("6")),
+                results,
+                "one",
+            ),
+        )
+        thread_two = threading.Thread(
+            target=self._run_csv_import,
+            args=(
+                self._csv_content("RCV-2026-RACE-CSV-2", Decimal("8")),
+                results,
+                "two",
+            ),
+        )
+        thread_one.start()
+        thread_two.start()
+        thread_one.join(timeout=10)
+        thread_two.join(timeout=10)
 
         self.assertFalse(thread_one.is_alive())
         self.assertFalse(thread_two.is_alive())
@@ -4774,21 +4781,21 @@ class ReceivingStockConcurrencyTest(TransactionTestCase):
         self.assertNotIn("error", results.get("two", {}))
         self.assertEqual(results["one"]["counts"]["stock"], 1)
         self.assertEqual(results["two"]["counts"]["stock"], 1)
+        stock_layers = list(
+            Stock.objects.filter(
+                item=self.item,
+                location=self.location,
+                batch_lot=self.batch_lot,
+                sumber_dana=self.funding,
+            ).values_list("source_document_number", "quantity")
+        )
+        self.assertEqual(len({number for number, _quantity in stock_layers}), 2)
+        self.assertTrue(
+            all(number.startswith("RCV-2026-") for number, _quantity in stock_layers)
+        )
         self.assertEqual(
-            list(
-                Stock.objects.filter(
-                    item=self.item,
-                    location=self.location,
-                    batch_lot=self.batch_lot,
-                    sumber_dana=self.funding,
-                )
-                .order_by("source_document_number")
-                .values_list("source_document_number", "quantity")
-            ),
-            [
-                ("RCV-2026-RACE-CSV-1", Decimal("6.00")),
-                ("RCV-2026-RACE-CSV-2", Decimal("8.00")),
-            ],
+            {quantity for _number, quantity in stock_layers},
+            {Decimal("6.00"), Decimal("8.00")},
         )
         self.assertEqual(Receiving.objects.count(), 2)
         self.assertEqual(ReceivingItem.objects.count(), 2)

@@ -40,7 +40,7 @@ Use `/admin/receiving/receiving/export-csv-template/` to download a blank `recei
 
 Import behavior summary:
 
-- Rows are grouped by `document_number` into one `Receiving` header plus multiple `ReceivingItem` rows.
+- Rows are grouped by `import_group` into one `Receiving` header plus multiple `ReceivingItem` rows. The official Receiving number is issued by the central numbering service after the group validates.
 - The first row supplies header-level values such as `supplier_code`, `receiving_date`, and default `sumber_dana_code` or `location_code`.
 - Imported receivings are created in status `VERIFIED`, with `Stock` and `Transaction(IN)` posted immediately.
 - `sumber_dana_code` and `location_code` can still be overridden per row when a document mixes line-level values.
@@ -162,12 +162,12 @@ Notes:
 
 Expected columns for custom receiving import:
 
-- `document_number` (required)
+- `import_group` (required; grouping identity only, not the official document number)
 - `receiving_type` (optional; defaults to `GRANT` in import handler; must match an active `ReceivingTypeOption.code`)
 - `receiving_date` (required)
 - `supplier_code` (optional; applied from the first row of each grouped document)
-- `sumber_dana_code` (required on the first row of each `document_number`; later rows may inherit or override it)
-- `location_code` (required on the first row of each `document_number`; later rows may inherit or override it)
+- `sumber_dana_code` (required on the first row of each `import_group`; later rows may inherit or override it)
+- `location_code` (required on the first row of each `import_group`; later rows may inherit or override it)
 - `item_code` (required, maps to `Item.kode_barang`)
 - `quantity` (required; must be a finite decimal greater than `0`)
 - `batch_lot` (optional; auto-generated if blank)
@@ -176,8 +176,8 @@ Expected columns for custom receiving import:
 
 Import notes:
 
-- Baris pertama per `document_number` menjadi sumber data header `Receiving`.
-- `document_number` tidak boleh sama dengan dokumen saldo awal yang sudah diposting karena nomor dokumen receiving menjadi identitas source layer stok.
+- Baris pertama per `import_group` menjadi sumber data header `Receiving`.
+- `import_group` tidak dibandingkan dengan nomor Saldo Awal dan tidak disalin ke `Receiving.document_number`. Setelah grup lolos validasi, sistem menerbitkan nomor resmi dan melewati kandidat yang sudah diklaim Saldo Awal/Receiving agar source layer tetap unik.
 - `sumber_dana_code` dan `location_code` pada baris item akan override nilai header bila diisi.
 - Baris dengan `quantity` kosong, `0`, negatif, `NaN`, atau `Infinity` akan ditolak pada validasi import.
 - Import menormalisasi spasi dan Unicode NFC pada header/sel teks, menolak null byte, serta menolak nilai teks yang melampaui panjang kolom model sebelum data disimpan.

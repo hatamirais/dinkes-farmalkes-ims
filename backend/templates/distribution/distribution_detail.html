@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}{{ page_title|default:"Detail Distribusi" }} {{ distribution.document_number }} — Healthcare IMS{% endblock %}
+{% block title %}{{ page_title|default:"Detail Distribusi" }} {{ distribution.document_number|default:"draft" }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title|default:"Detail Distribusi" }}{% endblock %}
 
 {% block extra_css %}
@@ -137,7 +137,7 @@
                         <div class="col-12 col-xl-8">
                             <dl class="row mb-0">
                                 <dt class="col-5 text-muted">No. Dokumen</dt>
-                                <dd class="col-7 fw-semibold">{{ distribution.document_number }}</dd>
+                                <dd class="col-7 fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</dd>
 
                                 <dt class="col-5 text-muted">Tanggal</dt>
                                 <dd class="col-7">{{ distribution.request_date|date:"d/m/Y" }}</dd>
@@ -397,7 +397,7 @@
                 <div class="modal-body">
                     <p class="mb-2">Anda akan mendistribusikan barang untuk:</p>
                     <div class="border rounded p-3 bg-light mb-3">
-                        <div class="fw-semibold">{{ distribution.document_number }}</div>
+                        <div class="fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</div>
                         <div class="text-muted small">{{ distribution.facility }}</div>
                         <div class="text-muted small">{{ distribution.items.count }} item</div>
                     </div>
@@ -458,7 +458,7 @@
     </div>
 
     <div class="sbbk-print-meta">
-        <div><span class="label">Nomor Dokumen</span>: {{ distribution.document_number }}</div>
+        <div><span class="label">Nomor Dokumen</span>: {{ distribution.document_number|default:"Belum diterbitkan" }}</div>
         <div><span class="label">Unit Penerima</span>: {{ distribution.facility.name|upper }}</div>
         <div><span class="label">Bulan</span>: {{ distribution.request_date|date:"F Y"|upper }}</div>
         {% if distribution.program %}

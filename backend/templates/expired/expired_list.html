@@ -58,7 +58,7 @@
             <tbody>
                 {% for e in expired_items %}
                 <tr>
-                    <td><a href="{% url 'expired:expired_detail' e.pk %}" class="fw-semibold text-decoration-none">{{ e.document_number|default:"[Draft]" }}</a></td>
+                    <td><a href="{% url 'expired:expired_detail' e.pk %}" class="fw-semibold text-decoration-none">{{ e.document_number|default:"Belum diterbitkan" }}</a></td>
                     <td>{{ e.report_date|date:"d/m/Y" }}</td>
                     <td>
                         <span class="badge-status badge-{{ e.status|lower }}">{{ e.get_status_display }}</span>

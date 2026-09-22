@@ -161,8 +161,8 @@ Prioritas: Kritis
 
 Skenario:
 
-1. `generate_document_number()` menghasilkan format `TRF-YYYY-NNNNN`.
-2. Save tanpa nomor dokumen menghasilkan nomor otomatis.
+1. Draft tersimpan tanpa nomor dokumen; rule `STOCK_TRANSFER` menerbitkan nomor sesuai konfigurasi saat completion.
+2. Penerbitan menggunakan tanggal bisnis transfer dan aman terhadap completion konkuren.
 3. Source dan destination location tidak boleh sama.
 4. `StockTransferItem.clean()` menolak quantity `<= 0`.
 5. `StockTransferItem.clean()` menolak item yang tidak cocok dengan stock source.
