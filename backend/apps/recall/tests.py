@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from django.test import TestCase
+from django.contrib import admin
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +14,8 @@ from apps.recall.models import Recall, RecallItem
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import User
+
+from .admin import RecallAdmin, RecallItemInline
 
 
 class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
@@ -108,6 +111,30 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
     def test_form_does_not_expose_document_number(self):
         form = RecallForm()
         self.assertNotIn("document_number", form.fields)
+
+    def test_admin_locks_workflow_and_items_after_draft(self):
+        recall = self._create_recall(status=Recall.Status.SUBMITTED)
+        request = RequestFactory().get("/admin/recall/")
+        request.user = self.user
+        recall_admin = RecallAdmin(Recall, admin.site)
+        item_inline = RecallItemInline(Recall, admin.site)
+        form = RecallAdmin(Recall, admin.site).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "verified_by",
+            "verified_at",
+            "completed_by",
+            "completed_at",
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+        self.assertNotIn("mark_completed", recall_admin.get_actions(request))
+        self.assertFalse(recall_admin.has_change_permission(request, recall))
+        self.assertFalse(recall_admin.has_delete_permission(request, recall))
+        self.assertFalse(item_inline.has_add_permission(request, recall))
+        self.assertFalse(item_inline.has_change_permission(request, recall))
+        self.assertFalse(item_inline.has_delete_permission(request, recall))
 
     # --- Submit workflow ---
 

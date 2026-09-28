@@ -1,7 +1,8 @@
 from decimal import Decimal
 from pathlib import Path
 
-from django.test import TestCase
+from django.contrib import admin
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -19,6 +20,8 @@ from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
+
+from .admin import ExpiredAdmin, ExpiredItemInline
 
 
 class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
@@ -120,6 +123,30 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
     def test_form_does_not_expose_document_number(self):
         form = ExpiredForm()
         self.assertNotIn("document_number", form.fields)
+
+    def test_admin_locks_workflow_and_items_after_draft(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        request = RequestFactory().get("/admin/expired/")
+        request.user = self.user
+        expired_admin = ExpiredAdmin(Expired, admin.site)
+        item_inline = ExpiredItemInline(Expired, admin.site)
+        form = ExpiredAdmin(Expired, admin.site).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "verified_by",
+            "verified_at",
+            "disposed_by",
+            "disposed_at",
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+        self.assertNotIn("mark_disposed", expired_admin.get_actions(request))
+        self.assertFalse(expired_admin.has_change_permission(request, expired_doc))
+        self.assertFalse(expired_admin.has_delete_permission(request, expired_doc))
+        self.assertFalse(item_inline.has_add_permission(request, expired_doc))
+        self.assertFalse(item_inline.has_change_permission(request, expired_doc))
+        self.assertFalse(item_inline.has_delete_permission(request, expired_doc))
 
     # --- Submit workflow ---
 

@@ -23,6 +23,7 @@ App-specific guidance for stock balances and ledger behavior.
 - Do not replace stock movement reporting with auditlog entries.
 - Stock transfer completion writes paired `OUT` and `IN` transactions.
 - Stock Transfer drafts have no official number; completion issues the central `STOCK_TRANSFER` rule atomically using `transfer_date` before writing the paired ledger rows.
+- Django Admin keeps Stock Transfer lifecycle/completion fields read-only and locks transfer lines after Draft; completion must use the workflow so numbering and paired `OUT` / `IN` ledger writes remain atomic.
 - Source-layer migrations must keep paired transfer `OUT` and `IN` movements on the same source document layer.
 - Source-layer migrations must disambiguate historical receiving/opening-balance document-number collisions.
 

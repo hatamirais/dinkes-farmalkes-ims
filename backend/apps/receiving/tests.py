@@ -29,6 +29,8 @@ from apps.receiving.admin import (
     RECEIVING_CSV_HEADERS,
     ReceivingAdmin,
     ReceivingCSVImportForm,
+    ReceivingItemInline,
+    ReceivingOrderItemInline,
     ReceivingTypeOptionAdmin,
 )
 from apps.receiving.apps import ensure_system_receiving_types
@@ -767,6 +769,41 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
         admin = ReceivingAdmin(Receiving, AdminSite())
 
         self.assertIn("document_number", admin.get_readonly_fields(None, receiving))
+
+    def test_receiving_admin_locks_workflow_and_stock_rows_after_draft(self):
+        receiving = Receiving.objects.create(
+            document_number="RCV-ADMIN-WORKFLOW-001",
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 1, 15),
+            sumber_dana=self.funding,
+            status=Receiving.Status.VERIFIED,
+            created_by=self.user,
+            verified_by=self.user,
+            verified_at=timezone.now(),
+        )
+        request = RequestFactory().get("/admin/receiving/")
+        request.user = self.user
+        receiving_admin = ReceivingAdmin(Receiving, AdminSite())
+        readonly_fields = receiving_admin.get_readonly_fields(request, receiving)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "receiving_type",
+            "receiving_date",
+            "verified_by",
+            "verified_at",
+            "cancelled_by",
+            "cancelled_at",
+        }:
+            self.assertIn(field_name, readonly_fields)
+
+        for inline_class in (ReceivingItemInline, ReceivingOrderItemInline):
+            inline = inline_class(Receiving, AdminSite())
+            self.assertFalse(inline.has_add_permission(request, receiving))
+            self.assertFalse(inline.has_change_permission(request, receiving))
+            self.assertFalse(inline.has_delete_permission(request, receiving))
+        self.assertFalse(receiving_admin.has_delete_permission(request, receiving))
 
 
 class ReceivingCSVImportTest(TestCase):

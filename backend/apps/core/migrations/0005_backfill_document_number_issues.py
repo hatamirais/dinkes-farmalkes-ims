@@ -44,10 +44,6 @@ def backfill_document_number_issues(apps, schema_editor):
     Transfer = apps.get_model('stock', 'StockTransfer')
     Opname = apps.get_model('stock_opname', 'StockOpname')
 
-    Allocation.objects.using(database).filter(status='DRAFT').update(document_number=None)
-    Distribution.objects.using(database).filter(
-        status__in=['DRAFT', 'PREPARED']
-    ).update(document_number=None)
     Contract.objects.using(database).filter(status='DRAFT').update(document_number=None)
     Amendment.objects.using(database).filter(status='DRAFT').update(document_number=None)
 
@@ -64,20 +60,18 @@ def backfill_document_number_issues(apps, schema_editor):
             source_id=receiving_id,
         ).delete()
     Receiving.objects.using(database).filter(status='DRAFT').update(document_number=None)
-    Recall.objects.using(database).filter(status='DRAFT').update(document_number=None)
-    Expired.objects.using(database).filter(status='DRAFT').update(document_number=None)
     Transfer.objects.using(database).filter(status='DRAFT').update(document_number=None)
     Opname.objects.using(database).filter(status='DRAFT').update(document_number=None)
 
     configs = [
-        (Allocation, 'ALLOCATION', 'allocation_date', '', 'submitted_by_id', {'SUBMITTED', 'APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED', 'REJECTED'}, set()),
-        (Distribution, 'DISTRIBUTION_LPLPO', 'request_date', '', '', {'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
-        (Distribution, 'DISTRIBUTION_SPECIAL_REQUEST', 'request_date', '', '', {'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
+        (Allocation, 'ALLOCATION', 'allocation_date', '', 'submitted_by_id', {'DRAFT', 'SUBMITTED', 'APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED', 'REJECTED'}, set()),
+        (Distribution, 'DISTRIBUTION_LPLPO', 'request_date', '', '', {'DRAFT', 'PREPARED', 'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
+        (Distribution, 'DISTRIBUTION_SPECIAL_REQUEST', 'request_date', '', '', {'DRAFT', 'PREPARED', 'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
         (Contract, 'PROCUREMENT_CONTRACT', 'contract_date', '', 'submitted_by_id', {'SUBMITTED', 'APPROVED', 'CLOSED', 'CANCELLED'}, {'CANCELLED'}),
         (Amendment, 'PROCUREMENT_AMENDMENT', 'amendment_date', 'contract_id', 'submitted_by_id', {'SUBMITTED', 'APPROVED'}, set()),
         (Receiving, 'RECEIVING', 'receiving_date', '', '', {'SUBMITTED', 'APPROVED', 'PARTIAL', 'RECEIVED', 'CLOSED', 'VERIFIED', 'CANCELLED'}, {'CANCELLED'}),
-        (Recall, 'RECALL', 'recall_date', '', '', {'SUBMITTED', 'VERIFIED', 'COMPLETED'}, set()),
-        (Expired, 'EXPIRED', 'report_date', '', '', {'SUBMITTED', 'VERIFIED', 'DISPOSED'}, set()),
+        (Recall, 'RECALL', 'recall_date', '', '', {'DRAFT', 'SUBMITTED', 'VERIFIED', 'COMPLETED'}, set()),
+        (Expired, 'EXPIRED', 'report_date', '', '', {'DRAFT', 'SUBMITTED', 'VERIFIED', 'DISPOSED'}, set()),
         (Transfer, 'STOCK_TRANSFER', 'transfer_date', '', 'completed_by_id', {'COMPLETED'}, set()),
         (Opname, 'STOCK_OPNAME', 'period_end', '', '', {'IN_PROGRESS', 'COMPLETED'}, set()),
     ]

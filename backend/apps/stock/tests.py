@@ -14,7 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, connection, connections
 from django.test import Client
 from django.test import SimpleTestCase
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.test import TransactionTestCase
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
@@ -23,7 +23,12 @@ from django.utils import timezone
 
 from apps.core.csv_exports import SanitizedCSV
 from apps.users.models import ModuleAccess, User
-from apps.stock.admin import StockAdmin, StockResource
+from apps.stock.admin import (
+    StockAdmin,
+    StockResource,
+    StockTransferAdmin,
+    StockTransferItemInline,
+)
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.receiving.models import Receiving, ReceivingItem
 from apps.stock import views as stock_views
@@ -5550,6 +5555,35 @@ class StockTransferCreateValidationTests(TestCase):
             'stock_id': [str(stock_id if stock_id is not None else self.stock.pk)],
             'quantity': [quantity],
         }
+
+    def test_admin_locks_completion_fields_and_items_after_draft(self):
+        transfer = StockTransfer.objects.create(
+            transfer_date=date(2026, 7, 13),
+            source_location=self.source_location,
+            destination_location=self.destination_location,
+            status=StockTransfer.Status.COMPLETED,
+            created_by=self.user,
+            completed_by=self.user,
+            completed_at=timezone.now(),
+        )
+        request = RequestFactory().get('/admin/stock/stocktransfer/')
+        request.user = self.user
+        transfer_admin = StockTransferAdmin(StockTransfer, AdminSite())
+        item_inline = StockTransferItemInline(StockTransfer, AdminSite())
+        form = transfer_admin.get_form(request)
+
+        for field_name in {
+            'document_number',
+            'status',
+            'completed_by',
+            'completed_at',
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+        self.assertFalse(transfer_admin.has_change_permission(request, transfer))
+        self.assertFalse(transfer_admin.has_delete_permission(request, transfer))
+        self.assertFalse(item_inline.has_add_permission(request, transfer))
+        self.assertFalse(item_inline.has_change_permission(request, transfer))
+        self.assertFalse(item_inline.has_delete_permission(request, transfer))
 
     def test_transfer_create_rejects_nan_quantity_without_creating_transfer(self):
         response = self.client.post(self.url, self._payload(quantity='NaN'))

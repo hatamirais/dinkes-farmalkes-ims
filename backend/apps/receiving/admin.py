@@ -72,14 +72,28 @@ RECEIVING_CSV_HEADERS = (
 # ── Inlines ────────────────────────────────────────────────
 
 
-class ReceivingItemInline(admin.TabularInline):
+class DraftReceivingInlineMixin:
+    def _parent_is_draft(self, obj):
+        return obj is None or obj.status == Receiving.Status.DRAFT
+
+    def has_add_permission(self, request, obj=None):
+        return super().has_add_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and self._parent_is_draft(obj)
+
+
+class ReceivingItemInline(DraftReceivingInlineMixin, admin.TabularInline):
     model = ReceivingItem
     extra = 1
     fields = ("item", "quantity", "batch_lot", "expiry_date", "unit_price", "location")
     raw_id_fields = ("item",)
 
 
-class ReceivingOrderItemInline(admin.TabularInline):
+class ReceivingOrderItemInline(DraftReceivingInlineMixin, admin.TabularInline):
     model = ReceivingOrderItem
     extra = 1
     fields = (
@@ -200,17 +214,38 @@ class ReceivingAdmin(admin.ModelAdmin):
     search_fields = ("document_number", "supplier__name")
     date_hierarchy = "receiving_date"
     inlines = [ReceivingOrderItemInline, ReceivingItemInline, ReceivingDocumentInline]
-    raw_id_fields = ("supplier", "created_by", "verified_by", "cancelled_by")
-    readonly_fields = ("verified_at", "cancelled_at")
+    raw_id_fields = ("supplier", "created_by")
+    readonly_fields = (
+        "document_number",
+        "status",
+        "verified_by",
+        "verified_at",
+        "approved_by",
+        "approved_at",
+        "closed_by",
+        "closed_at",
+        "closed_reason",
+        "cancelled_by",
+        "cancelled_at",
+        "cancel_reason",
+    )
+    actions = []
     list_per_page = 25
 
     change_list_template = "admin/receiving/receiving_changelist.html"
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
-        if "document_number" not in readonly_fields:
-            readonly_fields.append("document_number")
-        return readonly_fields
+        if obj is not None and obj.status != Receiving.Status.DRAFT:
+            readonly_fields.extend(
+                field.name for field in self.model._meta.fields if field.editable
+            )
+        return tuple(dict.fromkeys(readonly_fields))
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.status != Receiving.Status.DRAFT:
+            return False
+        return super().has_delete_permission(request, obj)
 
     def save_formset(self, request, form, formset, change):
         if formset.model is not ReceivingDocument:

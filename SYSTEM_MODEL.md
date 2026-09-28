@@ -161,6 +161,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Authoritative issuance ledger linking one official number to one target through a generic relation.
   - Stores rule/template/reset/padding snapshots, business date, sequence value, nullable issuance actor/time, and `ISSUED` / `VOID` state with void actor/time/reason. Live issuance records server time; migrated timestamps remain null when the original checkpoint is not reconstructable.
   - Migrated non-planned Receiving issues reconstruct issuance from the verification checkpoint (`verified_by`, `verified_at`); contract-linked plans use their approval checkpoint (`approved_by`, `approved_at`), while legacy manual plans without an exact checkpoint remain unknown.
+  - Legacy nonblank Allocation, Distribution, Recall, and Expired numbers remain consumed and are backfilled even when the current row is Draft/Prepared after a workflow step-back; unnumbered drafts are excluded.
   - Issued numbers and consumed sequence values are never reused. Deletion/cancellation paths mark the issue `VOID` where the workflow invalidates the official document.
 
 ### 4.2 Users and authorization

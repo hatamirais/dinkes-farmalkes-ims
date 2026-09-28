@@ -1,10 +1,14 @@
 from datetime import date, datetime
 from decimal import Decimal
+from importlib import import_module
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.apps import apps as django_apps
 from django.contrib import admin
 from django.contrib.messages import get_messages
 from django.contrib.staticfiles import finders
+from django.db import connection
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -146,6 +150,55 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertFalse(item_inline.has_add_permission(request, distribution))
         self.assertFalse(item_inline.has_change_permission(request, distribution))
         self.assertFalse(item_inline.has_delete_permission(request, distribution))
+
+    def test_numbering_backfill_preserves_numbered_step_back_states(self):
+        for rule_key, label in DocumentNumberRule.Key.choices:
+            DocumentNumberRule.objects.get_or_create(
+                key=rule_key,
+                defaults={
+                    "label": label,
+                    "template": "{seq}",
+                    "reset_period": DocumentNumberRule.ResetPeriod.NEVER,
+                    "padding": 1,
+                },
+            )
+        prepared = self._create_distribution(status=Distribution.Status.PREPARED)
+        prepared.document_number = "440/900/SBBK.RF/2026"
+        prepared.save(update_fields=["document_number", "updated_at"])
+        numbered_draft = self._create_distribution(status=Distribution.Status.DRAFT)
+        numbered_draft.document_number = "440/901/SBBK.RF/2026"
+        numbered_draft.save(update_fields=["document_number", "updated_at"])
+        unnumbered_draft = self._create_distribution(status=Distribution.Status.DRAFT)
+
+        migration = import_module(
+            "apps.core.migrations.0005_backfill_document_number_issues"
+        )
+        migration.backfill_document_number_issues(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        prepared.refresh_from_db()
+        numbered_draft.refresh_from_db()
+        self.assertEqual(prepared.document_number, "440/900/SBBK.RF/2026")
+        self.assertEqual(numbered_draft.document_number, "440/901/SBBK.RF/2026")
+        self.assertTrue(
+            DocumentNumberIssue.objects.filter(object_id=prepared.pk).exists()
+        )
+        self.assertTrue(
+            DocumentNumberIssue.objects.filter(object_id=numbered_draft.pk).exists()
+        )
+        self.assertFalse(
+            DocumentNumberIssue.objects.filter(object_id=unnumbered_draft.pk).exists()
+        )
+
+        repeated_issue = issue_document_number(
+            DocumentNumberRule.Key.DISTRIBUTION_LPLPO,
+            business_date=prepared.request_date,
+            target=prepared,
+            actor=self.user,
+        )
+        self.assertEqual(repeated_issue.document_number, prepared.document_number)
 
     def _create_distribution(
         self,
