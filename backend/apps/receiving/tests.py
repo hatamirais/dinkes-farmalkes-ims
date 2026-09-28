@@ -402,6 +402,18 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
         )
         self.assertEqual(claim.source_id, receiving.pk)
 
+    def test_save_without_document_number_does_not_create_claim(self):
+        receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.GRANT,
+            receiving_date=date(2026, 1, 15),
+            sumber_dana=self.funding,
+            status=Receiving.Status.DRAFT,
+            created_by=self.user,
+        )
+
+        self.assertIsNone(receiving.document_number)
+        self.assertEqual(SourceDocumentNumberClaim.objects.count(), 0)
+
     def test_queryset_delete_retains_issued_receiving_document_number_claim(self):
         receiving = Receiving.objects.create(
             document_number="RCV-DELETE-UNPOSTED",

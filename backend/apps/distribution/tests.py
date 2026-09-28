@@ -2,9 +2,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib import admin
 from django.contrib.messages import get_messages
 from django.contrib.staticfiles import finders
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -25,6 +26,8 @@ from apps.lplpo.models import LPLPO
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
+
+from .admin import DistributionAdmin, DistributionItemInline
 
 
 class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
@@ -113,6 +116,36 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
     def setUp(self):
         super().setUp()
         self.client.force_login(self.user)
+
+    def test_admin_does_not_expose_workflow_managed_fields(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        form = DistributionAdmin(Distribution, admin.site).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "verified_by",
+            "verified_at",
+            "approved_by",
+            "approved_at",
+            "distributed_date",
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+
+    def test_admin_locks_distribution_and_items_after_draft(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        distribution = self._create_distribution(status=Distribution.Status.PREPARED)
+        distribution_admin = DistributionAdmin(Distribution, admin.site)
+        item_inline = DistributionItemInline(Distribution, admin.site)
+
+        self.assertFalse(
+            distribution_admin.has_change_permission(request, distribution)
+        )
+        self.assertFalse(item_inline.has_add_permission(request, distribution))
+        self.assertFalse(item_inline.has_change_permission(request, distribution))
+        self.assertFalse(item_inline.has_delete_permission(request, distribution))
 
     def _create_distribution(
         self,

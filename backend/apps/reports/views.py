@@ -346,10 +346,12 @@ def reports_numbering_history(request):
         ids_by_content_type = {}
         for issue in issues:
             ids_by_content_type.setdefault(issue.content_type_id, []).append(issue.object_id)
+        processed_content_type_ids = set()
         for issue in issues:
             content_type_id = issue.content_type_id
-            if any(key[0] == content_type_id for key in targets_by_key):
+            if content_type_id in processed_content_type_ids:
                 continue
+            processed_content_type_ids.add(content_type_id)
             model_class = issue.content_type.model_class()
             if model_class is None:
                 continue

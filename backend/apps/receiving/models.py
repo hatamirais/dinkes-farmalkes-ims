@@ -619,7 +619,7 @@ class Receiving(TimeStampedModel):
         ).exists()
 
     def _claim_document_number(self, old_document_number=None):
-        if old_document_number == self.document_number:
+        if not self.document_number or old_document_number == self.document_number:
             return None
 
         from apps.stock.models import SourceDocumentNumberClaim

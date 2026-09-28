@@ -109,6 +109,11 @@ def backfill_document_number_issues(apps, schema_editor):
             counters[bucket] = sequence_value
             is_void = obj.status in void_statuses
             void_reason = getattr(obj, 'cancel_reason', '') if is_void else ''
+            issued_by_id = getattr(obj, actor_field, None) if actor_field else None
+            if model is Receiving and not obj.is_planned:
+                issued_by_id = obj.verified_by_id
+            elif model is Receiving and obj.contract_id:
+                issued_by_id = obj.approved_by_id
             Issue.objects.using(database).create(
                 rule_id=rule.pk,
                 document_number=obj.document_number,
@@ -124,7 +129,7 @@ def backfill_document_number_issues(apps, schema_editor):
                 template_snapshot=rule.template,
                 reset_period_snapshot=rule.reset_period,
                 padding_snapshot=rule.padding,
-                issued_by_id=getattr(obj, actor_field, None) if actor_field else None,
+                issued_by_id=issued_by_id,
                 voided_by_id=getattr(obj, 'cancelled_by_id', None) if is_void else None,
                 voided_at=getattr(obj, 'cancelled_at', None) if is_void else None,
                 void_reason=(

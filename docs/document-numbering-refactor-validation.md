@@ -27,6 +27,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 - `DocumentNumberRule` menyimpan konfigurasi format yang dapat diubah pengguna.
 - `DocumentNumberSequence` menyimpan counter internal per rule, period, dan scope. Counter tidak ditampilkan atau dapat diedit dari `/settings/numbering/`.
 - `DocumentNumberIssue` adalah ledger nomor resmi, termasuk status `ISSUED` dan `VOID`, snapshot konfigurasi saat penerbitan, tanggal bisnis, serta `issued_at` server untuk penerbitan baru. Riwayat migrasi menampilkan waktu tidak diketahui bila checkpoint lama tidak dapat direkonstruksi.
+- Riwayat penerimaan non-rencana yang dimigrasikan memakai checkpoint verifikasi (`verified_by` / `verified_at`); rencana tertaut SPJ memakai checkpoint persetujuan (`approved_by` / `approved_at`), sedangkan rencana manual tanpa checkpoint penerbitan yang pasti tetap ditandai tidak diketahui.
 - Nomor diterbitkan di dalam transaksi database yang sama dengan checkpoint workflow.
 - Nomor yang pernah diterbitkan tidak boleh digunakan kembali, termasuk setelah dokumen dihapus atau dibatalkan.
 - Draft baru tidak memperoleh nomor sebelum checkpoint yang ditentukan.

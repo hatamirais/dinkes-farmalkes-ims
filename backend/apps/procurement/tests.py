@@ -254,6 +254,8 @@ class ProcurementWorkflowTests(TestCase):
             sumber_dana=self.funding,
             status=Receiving.Status.CANCELLED,
             created_by=self.admin,
+            verified_by=self.kepala,
+            verified_at=submitted_at,
             cancelled_by=self.kepala,
             cancelled_at=cancelled_at,
             cancel_reason="Penerimaan dibatalkan",
@@ -278,6 +280,34 @@ class ProcurementWorkflowTests(TestCase):
             issued_by=self.admin,
             void_reason="Dokumen sudah dibatalkan sebelum migrasi.",
         )
+        planned_receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            document_number="RCV-2026-00002",
+            receiving_date=date(2026, 7, 1),
+            is_planned=True,
+            contract=contract,
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            created_by=self.admin,
+            approved_by=self.admin,
+            approved_at=submitted_at,
+        )
+        planned_issue = DocumentNumberIssue.objects.create(
+            rule=receiving_rule,
+            document_number=planned_receiving.document_number,
+            sequence_value=2,
+            period_key="2026",
+            business_date=planned_receiving.receiving_date,
+            content_type=ContentType.objects.get_for_model(Receiving),
+            object_id=planned_receiving.pk,
+            target_label=f"receiving.Receiving #{planned_receiving.pk}",
+            rule_label_snapshot=receiving_rule.label,
+            template_snapshot=receiving_rule.template,
+            reset_period_snapshot=receiving_rule.reset_period,
+            padding_snapshot=receiving_rule.padding,
+            issued_by=self.kepala,
+        )
 
         migration = import_module(
             "apps.core.migrations.0007_repair_backfilled_void_metadata"
@@ -293,6 +323,13 @@ class ProcurementWorkflowTests(TestCase):
             django_apps,
             SimpleNamespace(connection=connection),
         )
+        receiving_migration = import_module(
+            "apps.core.migrations.0009_repair_receiving_issuance_metadata"
+        )
+        receiving_migration.repair_receiving_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
 
         issue.refresh_from_db()
         self.assertEqual(issue.issued_by, self.kepala)
@@ -304,8 +341,11 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(receiving_issue.voided_by, self.kepala)
         self.assertEqual(receiving_issue.voided_at, cancelled_at)
         self.assertEqual(receiving_issue.void_reason, receiving.cancel_reason)
-        self.assertIsNone(receiving_issue.issued_by)
-        self.assertIsNone(receiving_issue.issued_at)
+        self.assertEqual(receiving_issue.issued_by, self.kepala)
+        self.assertEqual(receiving_issue.issued_at, submitted_at)
+        planned_issue.refresh_from_db()
+        self.assertEqual(planned_issue.issued_by, self.admin)
+        self.assertEqual(planned_issue.issued_at, submitted_at)
 
     def _create_contract(
         self,
