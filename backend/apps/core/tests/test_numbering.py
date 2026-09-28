@@ -108,6 +108,8 @@ class DocumentNumberIssuanceTests(TestCase):
 
         self.assertEqual(first_issue.document_number, "ALK-2025-0001")
         self.assertEqual(second_issue.document_number, "ALK-2026-0001")
+        self.assertIsNotNone(first_issue.issued_at)
+        self.assertIsNotNone(second_issue.issued_at)
 
     def test_issue_is_idempotent_and_voided_number_is_not_reused(self):
         first = self._allocation(date(2026, 4, 1))

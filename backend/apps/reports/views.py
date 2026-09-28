@@ -331,7 +331,11 @@ def reports_numbering_history(request):
                 'rule', 'content_type', 'issued_by', 'voided_by'
             )
             .filter(business_date__year=year)
-            .order_by('-business_date', '-created_at', '-id')
+            .order_by(
+                '-business_date',
+                F('issued_at').desc(nulls_last=True),
+                '-id',
+            )
         )
 
         if rule_key:
@@ -374,7 +378,7 @@ def reports_numbering_history(request):
                     'business_date': issue.business_date,
                     'period_key': issue.period_key or '-',
                     'sequence_value': issue.sequence_value,
-                    'issued_at': issue.created_at,
+                    'issued_at': issue.issued_at,
                     'issued_by': actor_name,
                     'voided_at': issue.voided_at,
                     'void_reason': issue.void_reason or '-',

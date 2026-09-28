@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from importlib import import_module
 from types import SimpleNamespace
@@ -205,9 +205,12 @@ class ProcurementWorkflowTests(TestCase):
 
     def test_repair_migration_restores_backfilled_void_metadata(self):
         cancelled_at = timezone.now()
+        submitted_at = cancelled_at - timedelta(days=2)
         contract, _line = self._create_contract()
         contract.status = ProcurementContract.Status.CANCELLED
         contract.document_number = "SPJ-2026-00001"
+        contract.submitted_by = self.kepala
+        contract.submitted_at = submitted_at
         contract.cancelled_by = self.admin
         contract.cancelled_at = cancelled_at
         contract.cancel_reason = "Dibatalkan oleh pengelola"
@@ -215,6 +218,8 @@ class ProcurementWorkflowTests(TestCase):
             update_fields=[
                 "status",
                 "document_number",
+                "submitted_by",
+                "submitted_at",
                 "cancelled_by",
                 "cancelled_at",
                 "cancel_reason",
@@ -281,8 +286,17 @@ class ProcurementWorkflowTests(TestCase):
             django_apps,
             SimpleNamespace(connection=connection),
         )
+        issuance_migration = import_module(
+            "apps.core.migrations.0008_document_number_issue_issued_at"
+        )
+        issuance_migration.repair_backfilled_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
 
         issue.refresh_from_db()
+        self.assertEqual(issue.issued_by, self.kepala)
+        self.assertEqual(issue.issued_at, submitted_at)
         self.assertEqual(issue.voided_by, self.admin)
         self.assertEqual(issue.voided_at, cancelled_at)
         self.assertEqual(issue.void_reason, contract.cancel_reason)
@@ -290,6 +304,8 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(receiving_issue.voided_by, self.kepala)
         self.assertEqual(receiving_issue.voided_at, cancelled_at)
         self.assertEqual(receiving_issue.void_reason, receiving.cancel_reason)
+        self.assertIsNone(receiving_issue.issued_by)
+        self.assertIsNone(receiving_issue.issued_at)
 
     def _create_contract(
         self,

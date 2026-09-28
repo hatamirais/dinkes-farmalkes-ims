@@ -178,6 +178,7 @@ def issue_document_number(
         reset_period_snapshot=rule.reset_period,
         padding_snapshot=rule.padding,
         issued_by=actor,
+        issued_at=timezone.now(),
     )
     target.document_number = document_number
     update_fields = ["document_number"]

@@ -64,6 +64,7 @@ erDiagram
         bigint content_type_id FK
         bigint object_id
         bigint issued_by_id FK
+        datetime issued_at
         bigint voided_by_id FK
         datetime voided_at
         text void_reason
@@ -583,7 +584,7 @@ erDiagram
 - Reports app has no bespoke database models; it aggregates data from other apps.
 - Official non-Puskesmas document numbers are issued by the centralized numbering service at workflow commitment checkpoints; draft model saves do not generate them.
 - `DocumentNumberSequence` unique tuple is `(rule, period_key, scope_key)`. Counter rows are internal and are not user-editable.
-- `DocumentNumberIssue` is the issuance/void ledger. It is unique per `(rule, document_number)` and per generic target `(content_type, object_id)`.
+- `DocumentNumberIssue` is the issuance/void ledger. It is unique per `(rule, document_number)` and per generic target `(content_type, object_id)`. `issued_at` is nullable for migrated records whose original issuance checkpoint cannot be reconstructed.
 - Puskesmas-owned document numbering remains outside the centralized numbering subsystem.
 - `ModuleAccess` unique tuple is `(user, module)`.
 - `Stock` unique tuple is `(item, location, batch_lot, sumber_dana, source_document_number)`.

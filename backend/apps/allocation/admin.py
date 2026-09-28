@@ -9,7 +9,21 @@ from .models import (
 )
 
 
-class AllocationFacilityInline(admin.TabularInline):
+class DraftAllocationInlineMixin:
+    def _parent_is_draft(self, obj):
+        return obj is None or obj.status == Allocation.Status.DRAFT
+
+    def has_add_permission(self, request, obj=None):
+        return super().has_add_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and self._parent_is_draft(obj)
+
+
+class AllocationFacilityInline(DraftAllocationInlineMixin, admin.TabularInline):
     model = AllocationFacility
     extra = 1
     raw_id_fields = ("facility",)
@@ -20,14 +34,26 @@ class AllocationItemFacilityInline(admin.TabularInline):
     extra = 1
     raw_id_fields = ("facility",)
 
+    def _parent_is_draft(self, obj):
+        return obj is None or obj.allocation.status == Allocation.Status.DRAFT
 
-class AllocationItemInline(admin.TabularInline):
+    def has_add_permission(self, request, obj=None):
+        return super().has_add_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and self._parent_is_draft(obj)
+
+
+class AllocationItemInline(DraftAllocationInlineMixin, admin.TabularInline):
     model = AllocationItem
     extra = 1
     raw_id_fields = ("item", "stock")
 
 
-class AllocationStaffAssignmentInline(admin.TabularInline):
+class AllocationStaffAssignmentInline(DraftAllocationInlineMixin, admin.TabularInline):
     model = AllocationStaffAssignment
     extra = 1
     raw_id_fields = ("user",)
@@ -52,15 +78,15 @@ class AllocationAdmin(admin.ModelAdmin):
         "created_by__full_name",
     )
     date_hierarchy = "allocation_date"
-    raw_id_fields = (
-        "created_by",
-        "submitted_by",
-        "approved_by",
-    )
+    raw_id_fields = ("created_by",)
     readonly_fields = (
         "document_number",
+        "status",
+        "submitted_by",
         "submitted_at",
+        "approved_by",
         "approved_at",
+        "rejection_reason",
     )
     inlines = [
         AllocationStaffAssignmentInline,
@@ -68,9 +94,28 @@ class AllocationAdmin(admin.ModelAdmin):
         AllocationItemInline,
     ]
 
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.status != Allocation.Status.DRAFT:
+            return False
+        return super().has_change_permission(request, obj)
+
 
 @admin.register(AllocationItem)
 class AllocationItemAdmin(admin.ModelAdmin):
     list_display = ("allocation", "item", "total_qty_available")
-    raw_id_fields = ("allocation", "item", "stock")
+    raw_id_fields = ("item", "stock")
+    readonly_fields = ("allocation",)
     inlines = [AllocationItemFacilityInline]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.allocation.status != Allocation.Status.DRAFT:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.allocation.status != Allocation.Status.DRAFT:
+            return False
+        return super().has_delete_permission(request, obj)

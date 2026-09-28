@@ -30,6 +30,7 @@ App-specific guidance for pre-distribution allocation planning.
 
 - Allocation drafts have no official number. The `ALLOCATION` rule is issued atomically on submit using `allocation_date`.
 - Templates/reset/padding are configured centrally on `/settings/numbering/`; users cannot enter official numbers or edit counters.
+- Django Admin keeps lifecycle fields read-only and locks the Allocation plus all related rows after Draft; submission and approval must use the application workflow services.
 
 ## Stock Behavior
 

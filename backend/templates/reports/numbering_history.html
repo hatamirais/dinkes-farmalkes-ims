@@ -77,7 +77,11 @@
                         <td>{{ row.business_date|date:"d/m/Y" }}</td>
                         <td><code>{{ row.period_key }} / {{ row.sequence_value }}</code></td>
                         <td>
+                            {% if row.issued_at %}
                             <div>{{ row.issued_at|date:"d/m/Y H:i" }}</div>
+                            {% else %}
+                            <div class="text-muted">Tidak diketahui</div>
+                            {% endif %}
                             <div class="small text-muted">{{ row.issued_by }}</div>
                         </td>
                         <td class="d-print-none">

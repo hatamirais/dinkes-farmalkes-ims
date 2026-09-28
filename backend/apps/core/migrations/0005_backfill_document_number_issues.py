@@ -70,16 +70,16 @@ def backfill_document_number_issues(apps, schema_editor):
     Opname.objects.using(database).filter(status='DRAFT').update(document_number=None)
 
     configs = [
-        (Allocation, 'ALLOCATION', 'allocation_date', '', 'created_by_id', {'SUBMITTED', 'APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED', 'REJECTED'}, set()),
-        (Distribution, 'DISTRIBUTION_LPLPO', 'request_date', '', 'created_by_id', {'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
-        (Distribution, 'DISTRIBUTION_SPECIAL_REQUEST', 'request_date', '', 'created_by_id', {'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
-        (Contract, 'PROCUREMENT_CONTRACT', 'contract_date', '', 'created_by_id', {'SUBMITTED', 'APPROVED', 'CLOSED', 'CANCELLED'}, {'CANCELLED'}),
-        (Amendment, 'PROCUREMENT_AMENDMENT', 'amendment_date', 'contract_id', 'created_by_id', {'SUBMITTED', 'APPROVED'}, set()),
-        (Receiving, 'RECEIVING', 'receiving_date', '', 'created_by_id', {'SUBMITTED', 'APPROVED', 'PARTIAL', 'RECEIVED', 'CLOSED', 'VERIFIED', 'CANCELLED'}, {'CANCELLED'}),
-        (Recall, 'RECALL', 'recall_date', '', 'created_by_id', {'SUBMITTED', 'VERIFIED', 'COMPLETED'}, set()),
-        (Expired, 'EXPIRED', 'report_date', '', 'created_by_id', {'SUBMITTED', 'VERIFIED', 'DISPOSED'}, set()),
-        (Transfer, 'STOCK_TRANSFER', 'transfer_date', '', 'created_by_id', {'COMPLETED'}, set()),
-        (Opname, 'STOCK_OPNAME', 'period_end', '', 'created_by_id', {'IN_PROGRESS', 'COMPLETED'}, set()),
+        (Allocation, 'ALLOCATION', 'allocation_date', '', 'submitted_by_id', {'SUBMITTED', 'APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED', 'REJECTED'}, set()),
+        (Distribution, 'DISTRIBUTION_LPLPO', 'request_date', '', '', {'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
+        (Distribution, 'DISTRIBUTION_SPECIAL_REQUEST', 'request_date', '', '', {'SUBMITTED', 'VERIFIED', 'DISTRIBUTED', 'REJECTED'}, set()),
+        (Contract, 'PROCUREMENT_CONTRACT', 'contract_date', '', 'submitted_by_id', {'SUBMITTED', 'APPROVED', 'CLOSED', 'CANCELLED'}, {'CANCELLED'}),
+        (Amendment, 'PROCUREMENT_AMENDMENT', 'amendment_date', 'contract_id', 'submitted_by_id', {'SUBMITTED', 'APPROVED'}, set()),
+        (Receiving, 'RECEIVING', 'receiving_date', '', '', {'SUBMITTED', 'APPROVED', 'PARTIAL', 'RECEIVED', 'CLOSED', 'VERIFIED', 'CANCELLED'}, {'CANCELLED'}),
+        (Recall, 'RECALL', 'recall_date', '', '', {'SUBMITTED', 'VERIFIED', 'COMPLETED'}, set()),
+        (Expired, 'EXPIRED', 'report_date', '', '', {'SUBMITTED', 'VERIFIED', 'DISPOSED'}, set()),
+        (Transfer, 'STOCK_TRANSFER', 'transfer_date', '', 'completed_by_id', {'COMPLETED'}, set()),
+        (Opname, 'STOCK_OPNAME', 'period_end', '', '', {'IN_PROGRESS', 'COMPLETED'}, set()),
     ]
 
     counters = {}
@@ -124,7 +124,7 @@ def backfill_document_number_issues(apps, schema_editor):
                 template_snapshot=rule.template,
                 reset_period_snapshot=rule.reset_period,
                 padding_snapshot=rule.padding,
-                issued_by_id=getattr(obj, actor_field, None),
+                issued_by_id=getattr(obj, actor_field, None) if actor_field else None,
                 voided_by_id=getattr(obj, 'cancelled_by_id', None) if is_void else None,
                 voided_at=getattr(obj, 'cancelled_at', None) if is_void else None,
                 void_reason=(

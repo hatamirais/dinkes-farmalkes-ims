@@ -231,6 +231,7 @@ class DocumentNumberIssue(TimeStampedModel):
         blank=True,
         related_name="document_numbers_issued",
     )
+    issued_at = models.DateTimeField(null=True, blank=True)
     voided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

@@ -1,8 +1,9 @@
 from decimal import Decimal
 from pathlib import Path
 
+from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
 from apps.allocation.forms import AllocationItemForm
@@ -13,6 +14,14 @@ from apps.items.models import Category, Facility, FundingSource, Item, Location,
 from apps.stock.models import Stock, Transaction
 from apps.users.models import User
 
+from .admin import (
+    AllocationAdmin,
+    AllocationFacilityInline,
+    AllocationItemAdmin,
+    AllocationItemFacilityInline,
+    AllocationItemInline,
+    AllocationStaffAssignmentInline,
+)
 from .models import (
     Allocation,
     AllocationFacility,
@@ -190,6 +199,57 @@ class AllocationModelTest(TestCase):
             exc.exception.message_dict["qty_allocated"],
             ["Jumlah alokasi tidak boleh NaN atau Infinity."],
         )
+
+
+@override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
+class AllocationAdminTest(TestCase):
+    def setUp(self):
+        self.fixtures = _create_test_fixtures()
+        self.request = RequestFactory().get("/admin/allocation/")
+        self.request.user = self.fixtures["admin"]
+
+    def test_workflow_fields_are_not_editable(self):
+        form = AllocationAdmin(Allocation, admin.site).get_form(self.request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "submitted_by",
+            "submitted_at",
+            "approved_by",
+            "approved_at",
+            "rejection_reason",
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+
+    def test_allocation_and_related_rows_are_locked_after_draft(self):
+        allocation = _create_allocation(
+            self.fixtures,
+            status=Allocation.Status.SUBMITTED,
+        )
+        allocation_item = allocation.items.get()
+        allocation_admin = AllocationAdmin(Allocation, admin.site)
+        item_admin = AllocationItemAdmin(AllocationItem, admin.site)
+
+        self.assertFalse(allocation_admin.has_change_permission(self.request, allocation))
+        self.assertFalse(item_admin.has_add_permission(self.request))
+        self.assertFalse(item_admin.has_change_permission(self.request, allocation_item))
+        self.assertFalse(item_admin.has_delete_permission(self.request, allocation_item))
+
+        for inline_class in (
+            AllocationFacilityInline,
+            AllocationItemInline,
+            AllocationStaffAssignmentInline,
+        ):
+            inline = inline_class(Allocation, admin.site)
+            self.assertFalse(inline.has_add_permission(self.request, allocation))
+            self.assertFalse(inline.has_change_permission(self.request, allocation))
+            self.assertFalse(inline.has_delete_permission(self.request, allocation))
+
+        facility_inline = AllocationItemFacilityInline(AllocationItem, admin.site)
+        self.assertFalse(facility_inline.has_add_permission(self.request, allocation_item))
+        self.assertFalse(facility_inline.has_change_permission(self.request, allocation_item))
+        self.assertFalse(facility_inline.has_delete_permission(self.request, allocation_item))
 
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)

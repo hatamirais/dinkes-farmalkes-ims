@@ -8,7 +8,7 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from apps.allocation.models import Allocation
-from apps.core.models import DocumentNumberRule
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule
 from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
@@ -132,6 +132,16 @@ class NumberingHistoryReportTests(TestCase):
 
 		self.assertContains(response, 'Cetak')
 		self.assertContains(response, 'Export Excel')
+
+	def test_numbering_history_marks_unknown_issuance_time_explicitly(self):
+		distribution = self._create_distribution(Distribution.DistributionType.LPLPO)
+		DocumentNumberIssue.objects.filter(object_id=distribution.pk).update(
+			issued_at=None
+		)
+
+		response = self.client.get(reverse('reports:numbering_history'), secure=True)
+
+		self.assertContains(response, 'Tidak diketahui')
 
 	def test_numbering_history_excel_export_returns_workbook(self):
 		self._create_distribution(Distribution.DistributionType.LPLPO)

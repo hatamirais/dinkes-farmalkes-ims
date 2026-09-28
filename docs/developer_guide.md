@@ -98,7 +98,7 @@ Catatan:
 
 ### Penomoran dokumen terpusat
 
-- `DocumentNumberRule` menyimpan template/reset/padding yang dapat diubah di `/settings/numbering/`; `/settings/` hanya memuat branding dan identitas umum. `DocumentNumberSequence` adalah counter internal dengan row lock, dan `DocumentNumberIssue` adalah ledger penerbitan/VOID. Jangan menerbitkan nomor dengan menghitung `MAX(document_number)` atau menambahkan generator pada `model.save()`.
+- `DocumentNumberRule` menyimpan template/reset/padding yang dapat diubah di `/settings/numbering/`; `/settings/` hanya memuat branding dan identitas umum. `DocumentNumberSequence` adalah counter internal dengan row lock, dan `DocumentNumberIssue` adalah ledger penerbitan/VOID dengan `issued_at` eksplisit. Timestamp riwayat migrasi dibiarkan kosong bila checkpoint aslinya tidak dapat direkonstruksi; waktu migrasi tidak boleh dipakai sebagai waktu penerbitan. Jangan menerbitkan nomor dengan menghitung `MAX(document_number)` atau menambahkan generator pada `model.save()`.
 - Panggil `apps.core.numbering.issue_document_number()` di dalam transaksi checkpoint workflow yang sama dengan perubahan status/posting terkait. Gunakan tanggal bisnis objek untuk `business_date`; jangan memakai `timezone.now()` sebagai periode kecuali memang itu tanggal bisnis yang tersimpan.
 - Pengulangan pada target yang sama idempotent, tetapi target yang sudah memiliki nomor tanpa issue ledger ditolak. `void_document_number()` menandai ledger dan tidak mengembalikan counter.
 - Seluruh workflow saat ini memakai `scope_key` kosong dan token generik `{seq}`, `{year}`, serta `{month}`. Amandemen Procurement memakai counter periodenya sendiri dan tidak menurunkan nomor dari kontrak induk.
