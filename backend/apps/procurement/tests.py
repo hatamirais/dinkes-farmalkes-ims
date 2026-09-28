@@ -1,21 +1,33 @@
 from datetime import date
-from unittest.mock import patch
 from decimal import Decimal
+from importlib import import_module
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from django.contrib.messages import get_messages
+from django.apps import apps as django_apps
+from django.contrib import admin
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.core.models import DocumentNumberRule
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule
 from apps.items.models import Category, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.forms import (
     ProcurementAmendmentForm,
     ProcurementAmendmentLineForm,
     ProcurementContractForm,
     ProcurementContractLineForm,
+)
+from apps.procurement.admin import (
+    ProcurementAmendmentAdmin,
+    ProcurementAmendmentLineInline,
+    ProcurementContractAdmin,
+    ProcurementContractLineInline,
 )
 from apps.procurement.models import (
     PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
@@ -117,6 +129,167 @@ class ProcurementWorkflowTests(TestCase):
 
     def setUp(self):
         self.client.force_login(self.admin)
+
+    def test_admin_forms_do_not_expose_workflow_managed_fields(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+
+        contract_form = ProcurementContractAdmin(
+            ProcurementContract,
+            admin.site,
+        ).get_form(request)
+        amendment_form = ProcurementAmendmentAdmin(
+            ProcurementAmendment,
+            admin.site,
+        ).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "submitted_by",
+            "submitted_at",
+            "approved_by",
+            "approved_at",
+            "closed_by",
+            "closed_at",
+            "cancelled_by",
+            "cancelled_at",
+            "cancel_reason",
+        }:
+            self.assertNotIn(field_name, contract_form.base_fields)
+        for field_name in {
+            "document_number",
+            "status",
+            "submitted_by",
+            "submitted_at",
+            "approved_by",
+            "approved_at",
+        }:
+            self.assertNotIn(field_name, amendment_form.base_fields)
+
+    def test_admin_inlines_are_editable_only_while_parent_is_draft(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+        contract, contract_line = self._create_contract()
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 2),
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=contract_line,
+            revised_quantity=Decimal("11"),
+            revised_unit_price=Decimal("5000"),
+        )
+        contract_inline = ProcurementContractLineInline(
+            ProcurementContract,
+            admin.site,
+        )
+        amendment_inline = ProcurementAmendmentLineInline(
+            ProcurementAmendment,
+            admin.site,
+        )
+
+        self.assertTrue(contract_inline.has_change_permission(request, contract))
+        self.assertTrue(amendment_inline.has_change_permission(request, amendment))
+
+        contract.status = ProcurementContract.Status.SUBMITTED
+        amendment.status = ProcurementAmendment.Status.SUBMITTED
+        self.assertFalse(contract_inline.has_add_permission(request, contract))
+        self.assertFalse(contract_inline.has_change_permission(request, contract))
+        self.assertFalse(contract_inline.has_delete_permission(request, contract))
+        self.assertFalse(amendment_inline.has_add_permission(request, amendment))
+        self.assertFalse(amendment_inline.has_change_permission(request, amendment))
+        self.assertFalse(amendment_inline.has_delete_permission(request, amendment))
+
+    def test_repair_migration_restores_backfilled_void_metadata(self):
+        cancelled_at = timezone.now()
+        contract, _line = self._create_contract()
+        contract.status = ProcurementContract.Status.CANCELLED
+        contract.document_number = "SPJ-2026-00001"
+        contract.cancelled_by = self.admin
+        contract.cancelled_at = cancelled_at
+        contract.cancel_reason = "Dibatalkan oleh pengelola"
+        contract.save(
+            update_fields=[
+                "status",
+                "document_number",
+                "cancelled_by",
+                "cancelled_at",
+                "cancel_reason",
+                "updated_at",
+            ]
+        )
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.PROCUREMENT_CONTRACT
+        )
+        issue = DocumentNumberIssue.objects.create(
+            rule=rule,
+            document_number=contract.document_number,
+            sequence_value=1,
+            period_key="2026",
+            business_date=contract.contract_date,
+            status=DocumentNumberIssue.Status.VOID,
+            content_type=ContentType.objects.get_for_model(ProcurementContract),
+            object_id=contract.pk,
+            target_label=f"procurement.ProcurementContract #{contract.pk}",
+            rule_label_snapshot=rule.label,
+            template_snapshot=rule.template,
+            reset_period_snapshot=rule.reset_period,
+            padding_snapshot=rule.padding,
+            issued_by=self.admin,
+            void_reason="Dokumen sudah dibatalkan sebelum migrasi.",
+        )
+        receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            document_number="RCV-2026-00001",
+            receiving_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.CANCELLED,
+            created_by=self.admin,
+            cancelled_by=self.kepala,
+            cancelled_at=cancelled_at,
+            cancel_reason="Penerimaan dibatalkan",
+        )
+        receiving_rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.RECEIVING
+        )
+        receiving_issue = DocumentNumberIssue.objects.create(
+            rule=receiving_rule,
+            document_number=receiving.document_number,
+            sequence_value=1,
+            period_key="2026",
+            business_date=receiving.receiving_date,
+            status=DocumentNumberIssue.Status.VOID,
+            content_type=ContentType.objects.get_for_model(Receiving),
+            object_id=receiving.pk,
+            target_label=f"receiving.Receiving #{receiving.pk}",
+            rule_label_snapshot=receiving_rule.label,
+            template_snapshot=receiving_rule.template,
+            reset_period_snapshot=receiving_rule.reset_period,
+            padding_snapshot=receiving_rule.padding,
+            issued_by=self.admin,
+            void_reason="Dokumen sudah dibatalkan sebelum migrasi.",
+        )
+
+        migration = import_module(
+            "apps.core.migrations.0007_repair_backfilled_void_metadata"
+        )
+        migration.repair_backfilled_void_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        issue.refresh_from_db()
+        self.assertEqual(issue.voided_by, self.admin)
+        self.assertEqual(issue.voided_at, cancelled_at)
+        self.assertEqual(issue.void_reason, contract.cancel_reason)
+        receiving_issue.refresh_from_db()
+        self.assertEqual(receiving_issue.voided_by, self.kepala)
+        self.assertEqual(receiving_issue.voided_at, cancelled_at)
+        self.assertEqual(receiving_issue.void_reason, receiving.cancel_reason)
 
     def _create_contract(
         self,

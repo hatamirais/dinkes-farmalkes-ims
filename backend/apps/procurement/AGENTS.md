@@ -28,6 +28,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 - SPJ numbers are issued on submit using `contract_date` and the central `PROCUREMENT_CONTRACT` rule.
 - Amendment numbers are issued on submit using `amendment_date`; the default template is `SPJ/{year}/{month}/{seq}` with a monthly shared counter.
 - Templates support only the generic `{seq}`, `{year}`, and `{month}` tokens. Counters remain internal and issued values are never reused.
+- Django Admin exposes workflow state and audit fields as read-only. Contract and amendment line inlines may be changed only while their parent remains Draft; all lifecycle transitions must use the application workflow services.
 
 ## Role Rules
 

@@ -108,6 +108,7 @@ def backfill_document_number_issues(apps, schema_editor):
             sequence_value = parsed_value if parsed_value and parsed_value > last_value else last_value + 1
             counters[bucket] = sequence_value
             is_void = obj.status in void_statuses
+            void_reason = getattr(obj, 'cancel_reason', '') if is_void else ''
             Issue.objects.using(database).create(
                 rule_id=rule.pk,
                 document_number=obj.document_number,
@@ -124,7 +125,13 @@ def backfill_document_number_issues(apps, schema_editor):
                 reset_period_snapshot=rule.reset_period,
                 padding_snapshot=rule.padding,
                 issued_by_id=getattr(obj, actor_field, None),
-                void_reason='Dokumen sudah dibatalkan sebelum migrasi.' if is_void else '',
+                voided_by_id=getattr(obj, 'cancelled_by_id', None) if is_void else None,
+                voided_at=getattr(obj, 'cancelled_at', None) if is_void else None,
+                void_reason=(
+                    void_reason or 'Dokumen sudah dibatalkan sebelum migrasi.'
+                    if is_void
+                    else ''
+                ),
             )
 
     for (rule_id, period_key, scope_key), last_value in counters.items():
