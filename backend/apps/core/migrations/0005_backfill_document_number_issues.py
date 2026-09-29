@@ -91,16 +91,33 @@ def backfill_document_number_issues(apps, schema_editor):
                 'LPLPO' if rule_key == 'DISTRIBUTION_LPLPO' else 'SPECIAL_REQUEST'
             ))
 
+        parsed_values = {}
+        bucket_maxima = {}
+        for obj in queryset.iterator():
+            business_date = getattr(obj, date_field)
+            scope_key = str(getattr(obj, scope_field)) if scope_field else ''
+            period_key = _period_key(rule.reset_period, business_date)
+            bucket = (rule.pk, period_key, scope_key)
+            parsed_value = _sequence_from_number(rule.template, obj.document_number)
+            if parsed_value and parsed_value > 0:
+                parsed_values[obj.pk] = parsed_value
+                bucket_maxima[bucket] = max(
+                    bucket_maxima.get(bucket, 0),
+                    parsed_value,
+                )
+
+        fallback_counters = dict(bucket_maxima)
         content_type = ContentType.objects.db_manager(database).get_for_model(model)
         for obj in queryset.iterator():
             business_date = getattr(obj, date_field)
             scope_key = str(getattr(obj, scope_field)) if scope_field else ''
             period_key = _period_key(rule.reset_period, business_date)
             bucket = (rule.pk, period_key, scope_key)
-            last_value = counters.get(bucket, 0)
-            parsed_value = _sequence_from_number(rule.template, obj.document_number)
-            sequence_value = parsed_value if parsed_value and parsed_value > last_value else last_value + 1
-            counters[bucket] = sequence_value
+            sequence_value = parsed_values.get(obj.pk)
+            if sequence_value is None:
+                sequence_value = fallback_counters.get(bucket, 0) + 1
+                fallback_counters[bucket] = sequence_value
+            counters[bucket] = max(counters.get(bucket, 0), sequence_value)
             is_void = obj.status in void_statuses
             void_reason = getattr(obj, 'cancel_reason', '') if is_void else ''
             issued_by_id = getattr(obj, actor_field, None) if actor_field else None

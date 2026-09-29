@@ -229,7 +229,7 @@ class ReceivingAdmin(admin.ModelAdmin):
         "cancelled_at",
         "cancel_reason",
     )
-    actions = []
+    actions = None
     list_per_page = 25
 
     change_list_template = "admin/receiving/receiving_changelist.html"

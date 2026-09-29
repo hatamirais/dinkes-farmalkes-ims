@@ -130,7 +130,9 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
         }:
             self.assertNotIn(field_name, form.base_fields)
         self.assertNotIn("mark_completed", recall_admin.get_actions(request))
+        self.assertNotIn("delete_selected", recall_admin.get_actions(request))
         self.assertFalse(recall_admin.has_change_permission(request, recall))
+        self.assertFalse(recall_admin.has_delete_permission(request))
         self.assertFalse(recall_admin.has_delete_permission(request, recall))
         self.assertFalse(item_inline.has_add_permission(request, recall))
         self.assertFalse(item_inline.has_change_permission(request, recall))

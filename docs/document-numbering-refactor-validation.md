@@ -89,6 +89,7 @@ Tanggal mulai: `____________________`
 - [ ] `/settings/` hanya menampilkan pengaturan umum, sedangkan `/settings/numbering/` menampilkan tepat sepuluh rule di atas. Catatan: `____________________`
 - [ ] Draft lama yang belum mencapai checkpoint tidak memperoleh nomor resmi dari backfill. Catatan: `____________________`
 - [ ] Dokumen lama yang sudah melewati checkpoint muncul di Riwayat Penomoran. Catatan: `____________________`
+- [ ] Nomor lama yang urutan tanggal bisnisnya berbeda dari urutan penerbitan mempertahankan nilai `{seq}` yang tertulis, dan counter memakai nilai maksimum bucket. Catatan: `____________________`
 - [ ] Tidak ada nomor resmi lama yang berubah setelah migration. Catatan: `____________________`
 
 ## 2. Pengaturan Rule
@@ -122,6 +123,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Nomor resmi tidak dapat diketik atau diubah melalui form operasional. Catatan: `____________________`
 - [ ] Nomor resmi read-only pada Django Admin untuk model dalam cakupan. Catatan: `____________________`
 - [ ] Distribusi tidak dapat dihapus melalui Django Admin; penghapusan memakai workflow aplikasi agar nomor diterbitkan menjadi VOID. Catatan: `____________________`
+- [ ] Allocation, Procurement, Recall, dan Expired tidak dapat dihapus melalui Django Admin; Receiving dan Stock Transfer tidak menyediakan bulk delete. Catatan: `____________________`
 
 ## 4. Distribution dan Allocation
 

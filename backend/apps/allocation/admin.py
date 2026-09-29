@@ -93,11 +93,15 @@ class AllocationAdmin(admin.ModelAdmin):
         AllocationFacilityInline,
         AllocationItemInline,
     ]
+    actions = None
 
     def has_change_permission(self, request, obj=None):
         if obj is not None and obj.status != Allocation.Status.DRAFT:
             return False
         return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AllocationItem)
@@ -106,6 +110,7 @@ class AllocationItemAdmin(admin.ModelAdmin):
     raw_id_fields = ("item", "stock")
     readonly_fields = ("allocation",)
     inlines = [AllocationItemFacilityInline]
+    actions = None
 
     def has_add_permission(self, request):
         return False

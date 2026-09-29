@@ -142,7 +142,9 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
         }:
             self.assertNotIn(field_name, form.base_fields)
         self.assertNotIn("mark_disposed", expired_admin.get_actions(request))
+        self.assertNotIn("delete_selected", expired_admin.get_actions(request))
         self.assertFalse(expired_admin.has_change_permission(request, expired_doc))
+        self.assertFalse(expired_admin.has_delete_permission(request))
         self.assertFalse(expired_admin.has_delete_permission(request, expired_doc))
         self.assertFalse(item_inline.has_add_permission(request, expired_doc))
         self.assertFalse(item_inline.has_change_permission(request, expired_doc))

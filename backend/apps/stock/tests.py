@@ -5579,6 +5579,7 @@ class StockTransferCreateValidationTests(TestCase):
             'completed_at',
         }:
             self.assertNotIn(field_name, form.base_fields)
+        self.assertNotIn('delete_selected', transfer_admin.get_actions(request))
         self.assertFalse(transfer_admin.has_change_permission(request, transfer))
         self.assertFalse(transfer_admin.has_delete_permission(request, transfer))
         self.assertFalse(item_inline.has_add_permission(request, transfer))

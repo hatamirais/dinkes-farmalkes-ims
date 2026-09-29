@@ -31,7 +31,7 @@ class RecallAdmin(admin.ModelAdmin):
     )
     inlines = [RecallItemInline]
     autocomplete_fields = ['supplier', 'created_by']
-    actions = []
+    actions = None
 
     fieldsets = (
         ('Informasi Recall', {
@@ -64,6 +64,4 @@ class RecallAdmin(admin.ModelAdmin):
         return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and obj.status != Recall.Status.DRAFT:
-            return False
-        return super().has_delete_permission(request, obj)
+        return False

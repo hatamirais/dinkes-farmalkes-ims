@@ -804,6 +804,7 @@ class ReceivingModelDocumentNumberCollisionTests(TestCase):
             self.assertFalse(inline.has_change_permission(request, receiving))
             self.assertFalse(inline.has_delete_permission(request, receiving))
         self.assertFalse(receiving_admin.has_delete_permission(request, receiving))
+        self.assertNotIn("delete_selected", receiving_admin.get_actions(request))
 
 
 class ReceivingCSVImportTest(TestCase):

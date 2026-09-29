@@ -576,22 +576,22 @@ def allocation_delete(request, pk):
     if request.method != "POST":
         return _redirect_allocation_detail(pk)
 
-    if allocation.status not in {
-        Allocation.Status.DRAFT,
-        Allocation.Status.REJECTED,
-    }:
-        messages.error(
-            request,
-            "Hanya alokasi berstatus Draft atau Ditolak yang dapat dihapus.",
-        )
-        return _redirect_allocation_detail(pk)
-
-    document_number = allocation.document_number
     with transaction.atomic():
         allocation = get_object_or_404(
             Allocation.objects.select_for_update(),
             pk=pk,
         )
+        if allocation.status not in {
+            Allocation.Status.DRAFT,
+            Allocation.Status.REJECTED,
+        }:
+            messages.error(
+                request,
+                "Hanya alokasi berstatus Draft atau Ditolak yang dapat dihapus.",
+            )
+            return _redirect_allocation_detail(pk)
+
+        document_number = allocation.document_number
         void_document_number(
             allocation,
             actor=request.user,

@@ -251,6 +251,18 @@ class AllocationAdminTest(TestCase):
         self.assertFalse(facility_inline.has_change_permission(self.request, allocation_item))
         self.assertFalse(facility_inline.has_delete_permission(self.request, allocation_item))
 
+    def test_admin_disables_allocation_deletion_and_bulk_delete(self):
+        allocation = _create_allocation(self.fixtures)
+        allocation_admin = AllocationAdmin(Allocation, admin.site)
+        item_admin = AllocationItemAdmin(AllocationItem, admin.site)
+
+        self.assertFalse(allocation_admin.has_delete_permission(self.request))
+        self.assertFalse(
+            allocation_admin.has_delete_permission(self.request, allocation)
+        )
+        self.assertNotIn("delete_selected", allocation_admin.get_actions(self.request))
+        self.assertNotIn("delete_selected", item_admin.get_actions(self.request))
+
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
 class AllocationSubmissionTest(TestCase):

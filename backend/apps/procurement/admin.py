@@ -78,6 +78,10 @@ class ProcurementContractAdmin(admin.ModelAdmin):
         "cancelled_at",
         "cancel_reason",
     )
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ProcurementAmendment)
@@ -99,3 +103,7 @@ class ProcurementAmendmentAdmin(admin.ModelAdmin):
         "approved_by",
         "approved_at",
     )
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False

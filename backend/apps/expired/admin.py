@@ -31,7 +31,7 @@ class ExpiredAdmin(admin.ModelAdmin):
     )
     inlines = [ExpiredItemInline]
     autocomplete_fields = ['created_by']
-    actions = []
+    actions = None
 
     fieldsets = (
         ('Informasi Expired', {
@@ -63,6 +63,4 @@ class ExpiredAdmin(admin.ModelAdmin):
         return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and obj.status != Expired.Status.DRAFT:
-            return False
-        return super().has_delete_permission(request, obj)
+        return False

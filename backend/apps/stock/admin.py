@@ -1914,7 +1914,7 @@ class StockTransferAdmin(admin.ModelAdmin):
     )
     inlines = [StockTransferItemInline]
     readonly_fields = ("document_number", "status", "completed_by", "completed_at")
-    actions = []
+    actions = None
 
     def has_change_permission(self, request, obj=None):
         if obj is not None and obj.status != StockTransfer.Status.DRAFT:

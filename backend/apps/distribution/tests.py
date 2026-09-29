@@ -23,7 +23,11 @@ from apps.distribution.services import (
     execute_distribution_submission,
     execute_distribution_verification,
 )
-from apps.core.models import DocumentNumberIssue, DocumentNumberRule
+from apps.core.models import (
+    DocumentNumberIssue,
+    DocumentNumberRule,
+    DocumentNumberSequence,
+)
 from apps.core.numbering import issue_document_number
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.lplpo.models import LPLPO
@@ -211,6 +215,75 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             actor=self.user,
         )
         self.assertEqual(repeated_issue.document_number, prepared.document_number)
+
+    def test_numbering_backfill_preserves_parsed_values_out_of_date_order(self):
+        for rule_key, label in DocumentNumberRule.Key.choices:
+            DocumentNumberRule.objects.get_or_create(
+                key=rule_key,
+                defaults={
+                    "label": label,
+                    "template": "{seq}",
+                    "reset_period": DocumentNumberRule.ResetPeriod.NEVER,
+                    "padding": 1,
+                },
+            )
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+        )
+        number_one = self._create_distribution(status=Distribution.Status.PREPARED)
+        number_one.request_date = date(2026, 3, 20)
+        number_one.document_number = "440/1/SBBK.RF/2026"
+        number_one.save(
+            update_fields=["request_date", "document_number", "updated_at"]
+        )
+        number_two = self._create_distribution(status=Distribution.Status.PREPARED)
+        number_two.request_date = date(2026, 3, 10)
+        number_two.document_number = "440/2/SBBK.RF/2026"
+        number_two.save(
+            update_fields=["request_date", "document_number", "updated_at"]
+        )
+
+        backfill = import_module(
+            "apps.core.migrations.0005_backfill_document_number_issues"
+        )
+        backfill.backfill_document_number_issues(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        issue_one = DocumentNumberIssue.objects.get(
+            rule=rule,
+            object_id=number_one.pk,
+        )
+        issue_two = DocumentNumberIssue.objects.get(
+            rule=rule,
+            object_id=number_two.pk,
+        )
+        sequence = DocumentNumberSequence.objects.get(
+            rule=rule,
+            period_key="2026",
+            scope_key="",
+        )
+        self.assertEqual(issue_one.sequence_value, 1)
+        self.assertEqual(issue_two.sequence_value, 2)
+        self.assertEqual(sequence.last_value, 2)
+
+        issue_one.sequence_value = 3
+        issue_one.save(update_fields=["sequence_value", "updated_at"])
+        sequence.last_value = 3
+        sequence.save(update_fields=["last_value", "updated_at"])
+        repair = import_module(
+            "apps.core.migrations.0010_repair_document_number_sequences"
+        )
+        repair.repair_document_number_sequences(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        issue_one.refresh_from_db()
+        sequence.refresh_from_db()
+        self.assertEqual(issue_one.sequence_value, 1)
+        self.assertEqual(sequence.last_value, 2)
 
     def _create_distribution(
         self,

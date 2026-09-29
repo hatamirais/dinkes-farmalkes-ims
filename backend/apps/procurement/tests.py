@@ -167,6 +167,35 @@ class ProcurementWorkflowTests(TestCase):
         }:
             self.assertNotIn(field_name, amendment_form.base_fields)
 
+    def test_admin_disables_contract_and_amendment_deletion(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+        contract, contract_line = self._create_contract()
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 2),
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=contract_line,
+            revised_quantity=Decimal("11"),
+            revised_unit_price=Decimal("5000"),
+        )
+        contract_admin = ProcurementContractAdmin(ProcurementContract, admin.site)
+        amendment_admin = ProcurementAmendmentAdmin(
+            ProcurementAmendment,
+            admin.site,
+        )
+
+        for model_admin, obj in (
+            (contract_admin, contract),
+            (amendment_admin, amendment),
+        ):
+            self.assertFalse(model_admin.has_delete_permission(request))
+            self.assertFalse(model_admin.has_delete_permission(request, obj))
+            self.assertNotIn("delete_selected", model_admin.get_actions(request))
+
     def test_admin_inlines_are_editable_only_while_parent_is_draft(self):
         request = RequestFactory().get("/admin/procurement/")
         request.user = self.admin
