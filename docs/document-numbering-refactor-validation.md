@@ -219,6 +219,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 
 - [ ] Riwayat Penomoran membaca `DocumentNumberIssue`, bukan menebak dari tabel workflow. Catatan: `____________________`
 - [ ] Export Excel untuk nomor VOID menampilkan waktu, pengguna, dan alasan pembatalan. Catatan: `____________________`
+- [ ] Export Excel menampilkan pengguna penerbit serta waktu penerbitan dan pembatalan dalam zona waktu aplikasi (`Asia/Jakarta`). Catatan: `____________________`
 - [ ] Filter rule, status, tanggal bisnis, dan pencarian nomor bekerja. Catatan: `____________________`
 - [ ] Baris `ISSUED` dan `VOID` dapat dibedakan dengan jelas. Catatan: `____________________`
 - [ ] Alasan, pelaku, dan waktu VOID tampil sesuai aksi. Catatan: `____________________`

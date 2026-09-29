@@ -176,16 +176,23 @@ class NumberingHistoryReportTests(TestCase):
 		workbook = load_workbook(BytesIO(response.content))
 		sheet = workbook.active
 
-		self.assertEqual(sheet['I4'].value, 'Dibatalkan')
-		self.assertEqual(sheet['J4'].value, 'Dibatalkan Oleh')
-		self.assertEqual(sheet['K4'].value, 'Alasan Pembatalan')
+		self.assertEqual(sheet['H4'].value, 'Diterbitkan')
+		self.assertEqual(sheet['I4'].value, 'Diterbitkan Oleh')
+		self.assertEqual(sheet['J4'].value, 'Dibatalkan')
+		self.assertEqual(sheet['K4'].value, 'Dibatalkan Oleh')
+		self.assertEqual(sheet['L4'].value, 'Alasan Pembatalan')
 		self.assertEqual(
-			sheet['I5'].value,
-			issue.voided_at.strftime('%d/%m/%Y %H:%M'),
+			sheet['H5'].value,
+			timezone.localtime(issue.issued_at).strftime('%d/%m/%Y %H:%M'),
 		)
-		self.assertEqual(sheet['J5'].value, self.user.username)
+		self.assertEqual(sheet['I5'].value, self.user.username)
 		self.assertEqual(
-			sheet['K5'].value,
+			sheet['J5'].value,
+			timezone.localtime(issue.voided_at).strftime('%d/%m/%Y %H:%M'),
+		)
+		self.assertEqual(sheet['K5'].value, self.user.username)
+		self.assertEqual(
+			sheet['L5'].value,
 			'Dibatalkan karena dokumen pengganti',
 		)
 
@@ -200,6 +207,7 @@ class NumberingHistoryReportTests(TestCase):
 					"business_date": date(2026, 4, 1),
 					"sequence_value": 1,
 					"issued_at": None,
+					"issued_by": "@Penerbit",
 					"voided_at": datetime(2026, 4, 2, 9, 30),
 					"voided_by": "=Pembatal",
 					"void_reason": "+Alasan",
@@ -218,8 +226,9 @@ class NumberingHistoryReportTests(TestCase):
 		self.assertEqual(sheet["D5"].value, "'@Diterbitkan")
 		self.assertEqual(sheet["E5"].value, "'-Draft")
 		self.assertEqual(sheet["F5"].value, "01/04/2026")
-		self.assertEqual(sheet["J5"].value, "'=Pembatal")
-		self.assertEqual(sheet["K5"].value, "'+Alasan")
+		self.assertEqual(sheet["I5"].value, "'@Penerbit")
+		self.assertEqual(sheet["K5"].value, "'=Pembatal")
+		self.assertEqual(sheet["L5"].value, "'+Alasan")
 		self.assertEqual(sheet["A2"].data_type, "s")
 		self.assertEqual(sheet["B5"].data_type, "s")
 
