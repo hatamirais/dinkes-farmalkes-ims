@@ -1,13 +1,18 @@
 from decimal import Decimal
+from importlib import import_module
 from pathlib import Path
+from types import SimpleNamespace
 
+from django.apps import apps as django_apps
 from django.contrib import admin
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
 from apps.allocation.forms import AllocationItemForm
-from apps.core.models import DocumentNumberRule
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule
 from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
@@ -386,6 +391,52 @@ class AllocationApprovalTest(TestCase):
         )
         self.assertEqual(standalone.document_number, "440/1/KD.F/2025")
         self.assertEqual(child_numbers, ["440/2/KD.F/2025", "440/3/KD.F/2025"])
+
+    def test_migration_repairs_only_allocation_child_issuance_metadata(self):
+        standalone = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date="2025-06-01",
+            facility=self.fixtures["facility1"],
+            created_by=self.fixtures["admin"],
+        )
+        issue_document_number(
+            DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+            business_date=standalone.request_date,
+            target=standalone,
+            actor=self.fixtures["admin"],
+        )
+
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["kepala"])
+        child = allocation.distributions.order_by("pk").first()
+        distribution_content_type = ContentType.objects.get_for_model(Distribution)
+        child_issue = DocumentNumberIssue.objects.get(
+            content_type=distribution_content_type,
+            object_id=child.pk,
+        )
+        standalone_issue = DocumentNumberIssue.objects.get(
+            content_type=distribution_content_type,
+            object_id=standalone.pk,
+        )
+        DocumentNumberIssue.objects.filter(
+            pk__in=[child_issue.pk, standalone_issue.pk]
+        ).update(issued_by=None, issued_at=None)
+
+        migration = import_module(
+            "apps.core.migrations.0011_repair_allocation_child_issuance_metadata"
+        )
+        migration.repair_allocation_child_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        child_issue.refresh_from_db()
+        standalone_issue.refresh_from_db()
+        self.assertEqual(child_issue.issued_by, child.verified_by)
+        self.assertEqual(child_issue.issued_at, child.verified_at)
+        self.assertIsNone(standalone_issue.issued_by)
+        self.assertIsNone(standalone_issue.issued_at)
 
     def test_approve_copies_distribution_items(self):
         allocation = _create_allocation(self.fixtures)

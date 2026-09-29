@@ -142,6 +142,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Submit Allocation menerbitkan nomor parent dari rule Allocation. Catatan: `____________________`
 - [ ] Approval membuat satu child per fasilitas dengan `distribution_type=SPECIAL_REQUEST`. Catatan: `____________________`
 - [ ] Setiap child memiliki `allocation_id` dan langsung berada pada status `VERIFIED`. Catatan: `____________________`
+- [ ] Riwayat nomor child legacy mempertahankan penerbit dan waktu dari `verified_by` / `verified_at`; Distribution standalone yang checkpoint lamanya tidak dapat dipastikan tetap menampilkan metadata penerbitan tidak diketahui. Catatan: `____________________`
 - [ ] Buat Permintaan Khusus standalone lebih dulu, lalu approve Allocation; nomor child melanjutkan sequence yang sama tanpa mulai dari awal. Catatan: `____________________`
 - [ ] Child tampil pada laporan umum Permintaan Khusus. Catatan: `____________________`
 - [ ] Child yang sama tampil pada laporan asal Allocation. Catatan: `____________________`
