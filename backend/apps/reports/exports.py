@@ -276,7 +276,7 @@ def export_numbering_history_excel(history_rows, year, rule_label):
     ws = wb.active
     ws.title = "Riwayat Penomoran"
 
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:K1")
     title_cell = ws.cell(
         row=1,
         column=1,
@@ -285,7 +285,7 @@ def export_numbering_history_excel(history_rows, year, rule_label):
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
-    ws.merge_cells("A2:H2")
+    ws.merge_cells("A2:K2")
     filter_text = f"Tahun: {year}"
     if rule_label:
         filter_text += f" | Jenis Dokumen: {rule_label}"
@@ -302,8 +302,11 @@ def export_numbering_history_excel(history_rows, year, rule_label):
         "Tanggal Bisnis",
         "Urutan",
         "Diterbitkan",
+        "Dibatalkan",
+        "Dibatalkan Oleh",
+        "Alasan Pembatalan",
     ]
-    col_widths = [6, 24, 24, 18, 28, 26, 22, 12]
+    col_widths = [6, 24, 24, 18, 28, 26, 22, 20, 20, 24, 40]
     _apply_header_row(ws, 4, headers, col_widths)
 
     row_num = 5
@@ -317,11 +320,14 @@ def export_numbering_history_excel(history_rows, year, rule_label):
             row.get("business_date").strftime("%d/%m/%Y") if row.get("business_date") else "-",
             row.get("sequence_value", ""),
             row.get("issued_at").strftime("%d/%m/%Y %H:%M") if row.get("issued_at") else "-",
+            row.get("voided_at").strftime("%d/%m/%Y %H:%M") if row.get("voided_at") else "-",
+            row.get("voided_by", "-"),
+            row.get("void_reason", "-"),
         ]
         for col_idx, val in enumerate(values, 1):
             cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
-            if col_idx in (1, 8):
+            if col_idx in (1, 8, 9):
                 cell.alignment = Alignment(horizontal="center")
         row_num += 1
 

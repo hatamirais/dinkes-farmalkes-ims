@@ -47,3 +47,8 @@ class DistributionAdmin(admin.ModelAdmin):
         if obj is not None and obj.status != Distribution.Status.DRAFT:
             return False
         return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        # Distribution deletion must use the application workflow so status,
+        # assignment, reservation, and document-number safeguards all run.
+        return False

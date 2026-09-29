@@ -121,6 +121,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Nomor yang di-VOID tidak digunakan kembali oleh dokumen berikutnya. Catatan: `____________________`
 - [ ] Nomor resmi tidak dapat diketik atau diubah melalui form operasional. Catatan: `____________________`
 - [ ] Nomor resmi read-only pada Django Admin untuk model dalam cakupan. Catatan: `____________________`
+- [ ] Distribusi tidak dapat dihapus melalui Django Admin; penghapusan memakai workflow aplikasi agar nomor diterbitkan menjadi VOID. Catatan: `____________________`
 
 ## 4. Distribution dan Allocation
 
@@ -213,6 +214,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 ## 8. Riwayat Penomoran dan Export
 
 - [ ] Riwayat Penomoran membaca `DocumentNumberIssue`, bukan menebak dari tabel workflow. Catatan: `____________________`
+- [ ] Export Excel untuk nomor VOID menampilkan waktu, pengguna, dan alasan pembatalan. Catatan: `____________________`
 - [ ] Filter rule, status, tanggal bisnis, dan pencarian nomor bekerja. Catatan: `____________________`
 - [ ] Baris `ISSUED` dan `VOID` dapat dibedakan dengan jelas. Catatan: `____________________`
 - [ ] Alasan, pelaku, dan waktu VOID tampil sesuai aksi. Catatan: `____________________`

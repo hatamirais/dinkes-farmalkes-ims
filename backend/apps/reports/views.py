@@ -366,6 +366,10 @@ def reports_numbering_history(request):
             actor_name = '-'
             if actor is not None:
                 actor_name = actor.full_name or actor.username
+            void_actor = issue.voided_by
+            void_actor_name = '-'
+            if void_actor is not None:
+                void_actor_name = void_actor.full_name or void_actor.username
             target_status = '-'
             if target is not None and hasattr(target, 'get_status_display'):
                 target_status = target.get_status_display()
@@ -383,6 +387,7 @@ def reports_numbering_history(request):
                     'issued_at': issue.issued_at,
                     'issued_by': actor_name,
                     'voided_at': issue.voided_at,
+                    'voided_by': void_actor_name,
                     'void_reason': issue.void_reason or '-',
                     'target_label': issue.target_label,
                     'workflow_url': _numbering_workflow_url(target),

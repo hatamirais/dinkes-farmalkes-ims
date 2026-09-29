@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 
 from apps.allocation.models import Allocation
 from apps.core.models import DocumentNumberIssue, DocumentNumberRule
-from apps.core.numbering import issue_document_number
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.models import ProcurementContract
@@ -159,6 +159,36 @@ class NumberingHistoryReportTests(TestCase):
 		)
 		self.assertIn('Riwayat_Penomoran_2026.xlsx', response['Content-Disposition'])
 
+	def test_numbering_history_excel_includes_void_audit_details(self):
+		distribution = self._create_distribution(Distribution.DistributionType.LPLPO)
+		void_document_number(
+			distribution,
+			actor=self.user,
+			reason="Dibatalkan karena dokumen pengganti",
+		)
+		issue = DocumentNumberIssue.objects.get(object_id=distribution.pk)
+
+		response = self.client.get(
+			reverse('reports:numbering_history'),
+			{'year': 2026, 'format': 'excel'},
+			secure=True,
+		)
+		workbook = load_workbook(BytesIO(response.content))
+		sheet = workbook.active
+
+		self.assertEqual(sheet['I4'].value, 'Dibatalkan')
+		self.assertEqual(sheet['J4'].value, 'Dibatalkan Oleh')
+		self.assertEqual(sheet['K4'].value, 'Alasan Pembatalan')
+		self.assertEqual(
+			sheet['I5'].value,
+			issue.voided_at.strftime('%d/%m/%Y %H:%M'),
+		)
+		self.assertEqual(sheet['J5'].value, self.user.username)
+		self.assertEqual(
+			sheet['K5'].value,
+			'Dibatalkan karena dokumen pengganti',
+		)
+
 	def test_numbering_history_excel_neutralizes_formula_prefixed_strings(self):
 		response = export_numbering_history_excel(
 			[
@@ -170,6 +200,9 @@ class NumberingHistoryReportTests(TestCase):
 					"business_date": date(2026, 4, 1),
 					"sequence_value": 1,
 					"issued_at": None,
+					"voided_at": datetime(2026, 4, 2, 9, 30),
+					"voided_by": "=Pembatal",
+					"void_reason": "+Alasan",
 				}
 			],
 			2026,
@@ -185,6 +218,8 @@ class NumberingHistoryReportTests(TestCase):
 		self.assertEqual(sheet["D5"].value, "'@Diterbitkan")
 		self.assertEqual(sheet["E5"].value, "'-Draft")
 		self.assertEqual(sheet["F5"].value, "01/04/2026")
+		self.assertEqual(sheet["J5"].value, "'=Pembatal")
+		self.assertEqual(sheet["K5"].value, "'+Alasan")
 		self.assertEqual(sheet["A2"].data_type, "s")
 		self.assertEqual(sheet["B5"].data_type, "s")
 

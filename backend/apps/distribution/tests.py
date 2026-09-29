@@ -151,6 +151,18 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertFalse(item_inline.has_change_permission(request, distribution))
         self.assertFalse(item_inline.has_delete_permission(request, distribution))
 
+    def test_admin_disables_distribution_deletion_and_bulk_delete(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        distribution = self._create_distribution(status=Distribution.Status.DRAFT)
+        distribution_admin = DistributionAdmin(Distribution, admin.site)
+
+        self.assertFalse(distribution_admin.has_delete_permission(request))
+        self.assertFalse(
+            distribution_admin.has_delete_permission(request, distribution)
+        )
+        self.assertNotIn("delete_selected", distribution_admin.get_actions(request))
+
     def test_numbering_backfill_preserves_numbered_step_back_states(self):
         for rule_key, label in DocumentNumberRule.Key.choices:
             DocumentNumberRule.objects.get_or_create(
