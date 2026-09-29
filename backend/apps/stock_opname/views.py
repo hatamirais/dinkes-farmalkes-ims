@@ -696,7 +696,14 @@ def opname_delete(request, pk):
     if request.method == "POST":
         doc_num = opname.document_number
         with transaction.atomic():
-            opname = StockOpname.objects.select_for_update().get(pk=opname.pk)
+            opname = get_object_or_404(
+                StockOpname.objects.select_for_update(),
+                pk=opname.pk,
+                status__in=[
+                    StockOpname.Status.DRAFT,
+                    StockOpname.Status.IN_PROGRESS,
+                ],
+            )
             void_document_number(
                 opname,
                 actor=request.user,

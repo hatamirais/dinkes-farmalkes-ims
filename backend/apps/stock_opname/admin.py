@@ -33,6 +33,7 @@ class StockOpnameAdmin(admin.ModelAdmin):
         'completed_by',
         'completed_at',
     )
+    actions = None
 
     @admin.display(description='Ditugaskan Kepada')
     def get_assigned_to(self, obj):
@@ -53,6 +54,9 @@ class StockOpnameAdmin(admin.ModelAdmin):
         readonly_fields = list(super().get_readonly_fields(request, obj))
         readonly_fields.extend(self.workflow_readonly_fields)
         return tuple(dict.fromkeys(readonly_fields))
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     def save_model(self, request, obj, form, change):
         if not change:

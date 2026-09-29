@@ -164,7 +164,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Legacy nonblank Allocation, Distribution, Recall, and Expired numbers remain consumed and are backfilled even when the current row is Draft/Prepared after a workflow step-back; unnumbered drafts are excluded.
   - Legacy backfill preserves a sequence parsed from the document number even when editable business-date ordering differs from issuance ordering; each sequence counter is rebuilt from the maximum value in its rule/period/scope bucket.
   - Issued numbers and consumed sequence values are never reused. Deletion/cancellation paths mark the issue `VOID` where the workflow invalidates the official document.
-  - Django Admin disables hard deletion for Allocation, Distribution, Procurement, Recall, and Expired parents. Receiving and Stock Transfer disable global bulk actions and retain only their object-level safe Draft deletion behavior.
+  - Django Admin disables hard deletion for Allocation, Distribution, Procurement, Recall, Expired, and Stock Opname parents. Receiving and Stock Transfer disable global bulk actions and retain only their object-level safe Draft deletion behavior.
 
 ### 4.2 Users and authorization
 

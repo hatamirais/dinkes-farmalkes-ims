@@ -11,7 +11,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.core.models import DocumentNumberRule, SystemSettings
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule, SystemSettings
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
 from apps.stock_opname.models import StockOpname, StockOpnameItem
@@ -945,6 +945,30 @@ class StockOpnamePresentationAndAuditTests(StockOpnameTestMixin, TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_delete_in_progress_opname_voids_issued_number(self):
+        opname = self.create_opname()
+        self.client.force_login(self.admin)
+        start_response = self.client.post(
+            reverse("stock_opname:opname_start", args=[opname.pk]),
+            secure=True,
+        )
+        self.assertEqual(start_response.status_code, 302)
+        opname.refresh_from_db()
+        self.assertEqual(opname.status, StockOpname.Status.IN_PROGRESS)
+        issue = DocumentNumberIssue.objects.get(object_id=opname.pk)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_delete", args=[opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(StockOpname.objects.filter(pk=opname.pk).exists())
+        issue.refresh_from_db()
+        self.assertEqual(issue.status, DocumentNumberIssue.Status.VOID)
+        self.assertEqual(issue.voided_by, self.admin)
+        self.assertIsNotNone(issue.voided_at)
+
     def test_stock_opname_item_has_timestamps(self):
         opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
         item = StockOpnameItem.objects.create(
@@ -1219,6 +1243,18 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         self.assertIn("created_by", readonly_fields)
         self.assertIn("completed_by", readonly_fields)
         self.assertIn("completed_at", readonly_fields)
+
+    def test_admin_disables_object_and_bulk_deletion(self):
+        from django.contrib.admin.sites import AdminSite
+        from apps.stock_opname.admin import StockOpnameAdmin
+
+        ma = StockOpnameAdmin(StockOpname, AdminSite())
+        request = mock.Mock(user=self.admin)
+        draft = self.create_opname()
+
+        self.assertFalse(ma.has_delete_permission(request))
+        self.assertFalse(ma.has_delete_permission(request, draft))
+        self.assertNotIn("delete_selected", ma.get_actions(request))
 
     def test_admin_new_opname_forces_draft_workflow_state(self):
         from django.contrib.admin.sites import AdminSite

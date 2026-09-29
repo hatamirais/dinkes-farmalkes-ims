@@ -97,7 +97,7 @@ Official document numbering for non-Puskesmas workflows is centralized in `core.
 
 Legacy numbered Allocation, Distribution, Recall, and Expired rows that currently sit in a step-back Draft/Prepared state still own their consumed number; numbering backfills must retain the value, issue ledger row, and sequence position. An unnumbered draft remains outside the issuance ledger.
 
-Django Admin must not hard-delete Allocation, Distribution, Procurement, Recall, or Expired parent documents because deletion must preserve workflow audit and explicitly void issued numbers. Receiving and Stock Transfer may retain safe Draft object deletion, but their Admins must disable the global bulk-delete action so object-level status checks cannot be bypassed.
+Django Admin must not hard-delete Allocation, Distribution, Procurement, Recall, Expired, or Stock Opname parent documents because deletion must preserve workflow audit and explicitly void issued numbers. Receiving and Stock Transfer may retain safe Draft object deletion, but their Admins must disable the global bulk-delete action so object-level status checks cannot be bypassed.
 
 Procurement `document_number` is the internal IMS number. `external_document_number` is an optional reference copied from the separate application that issues the client document number; it is not generated, reserved, or treated as an IMS sequence. Procurement amendments use the normal configured period counter and do not embed or scope their number to the parent contract.
 
