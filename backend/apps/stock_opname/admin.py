@@ -53,7 +53,14 @@ class StockOpnameAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
         readonly_fields.extend(self.workflow_readonly_fields)
+        if obj is not None and obj.document_number:
+            readonly_fields.append('period_end')
         return tuple(dict.fromkeys(readonly_fields))
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.status != StockOpname.Status.DRAFT:
+            return False
+        return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
         return False

@@ -80,6 +80,7 @@ Distribution and expired verification checkpoints are also explicitly role-gated
 `AUDITOR` keeps read-only module scopes for direct authorized pages; its sidebar is report-focused and only renders the `Laporan` group. Its dashboard hides linked drill-through components that open operational menu pages.
 
 Stock opname completion is split by current discrepancy state: `GUDANG` / operate-scope users may complete when refreshed current stock matches the physical count for all rows, while completion with any remaining discrepancy requires stock-opname approve scope (`KEPALA`/Admin/superuser by default). Completion stores each row's refreshed stock quantity so completed detail and print reports do not drift when later workflows change live `Stock.quantity`.
+Stock Opname headers are editable only while Draft. Starting an opname issues its number from `period_end` and freezes the counting scope, so Django Admin must keep the entire header view-only after Draft and must keep `period_end` read-only for any numbered record.
 
 ## Cross-App Data Flow
 

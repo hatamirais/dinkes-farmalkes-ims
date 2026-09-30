@@ -213,6 +213,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 
 - [ ] Draft belum bernomor. Catatan: `____________________`
 - [ ] Start menerbitkan nomor berdasarkan `period_end`, bukan `created_at`. Catatan: `____________________`
+- [ ] Setelah opname dimulai, header menjadi view-only di Django Admin dan `period_end` tidak dapat diubah melalui form maupun POST buatan. Catatan: `____________________`
 - [ ] Pergantian bulan `period_end` memulai sequence baru. Catatan: `____________________`
 - [ ] Penghapusan opname yang sudah dimulai mencatat `VOID`. Catatan: `____________________`
 - [ ] Stock Opname tidak dapat dihapus melalui Django Admin; penghapusan Draft/Sedang Berjalan hanya memakai workflow aplikasi. Catatan: `____________________`

@@ -1235,7 +1235,10 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         from apps.stock_opname.admin import StockOpnameAdmin
 
         ma = StockOpnameAdmin(StockOpname, AdminSite())
-        opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        opname = self.create_opname(
+            status=StockOpname.Status.IN_PROGRESS,
+            document_number="SO-202603-00001",
+        )
 
         readonly_fields = ma.get_readonly_fields(mock.Mock(), opname)
 
@@ -1243,6 +1246,50 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         self.assertIn("created_by", readonly_fields)
         self.assertIn("completed_by", readonly_fields)
         self.assertIn("completed_at", readonly_fields)
+        self.assertIn("period_end", readonly_fields)
+
+    def test_admin_locks_entire_header_after_draft(self):
+        from django.contrib.admin.sites import AdminSite
+        from apps.stock_opname.admin import StockOpnameAdmin
+
+        ma = StockOpnameAdmin(StockOpname, AdminSite())
+        request = mock.Mock(user=self.admin)
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        in_progress = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        completed = self.create_opname(status=StockOpname.Status.COMPLETED)
+
+        self.assertTrue(ma.has_change_permission(request, draft))
+        self.assertFalse(ma.has_change_permission(request, in_progress))
+        self.assertFalse(ma.has_change_permission(request, completed))
+
+    def test_numbered_form_ignores_changed_period_end(self):
+        from apps.stock_opname.forms import StockOpnameForm
+
+        opname = self.create_opname(
+            status=StockOpname.Status.DRAFT,
+            document_number="SO-202603-00001",
+        )
+        original_period_end = opname.period_end
+        form = StockOpnameForm(
+            data={
+                "period_type": StockOpname.PeriodType.MONTHLY,
+                "period_start": "2026-03-01",
+                "period_end": "2026-04-30",
+                "categories": [self.category.pk],
+                "assigned_to": [self.gudang.pk],
+                "notes": "Catatan diperbarui",
+            },
+            instance=opname,
+        )
+
+        self.assertTrue(form.fields["period_end"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        opname.refresh_from_db()
+        self.assertEqual(opname.period_end, original_period_end)
+
+        draft_form = StockOpnameForm(instance=self.create_opname())
+        self.assertFalse(draft_form.fields["period_end"].disabled)
 
     def test_admin_disables_object_and_bulk_deletion(self):
         from django.contrib.admin.sites import AdminSite
