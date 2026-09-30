@@ -362,12 +362,13 @@ def reports_numbering_history(request):
 
         for issue in issues:
             target = targets_by_key.get((issue.content_type_id, issue.object_id))
+            is_void = issue.status == DocumentNumberIssue.Status.VOID
             actor = issue.issued_by
             actor_name = '-'
             if actor is not None:
                 actor_name = actor.full_name or actor.username
             void_actor = issue.voided_by
-            void_actor_name = '-'
+            void_actor_name = 'Pelaku tidak diketahui' if is_void else '-'
             if void_actor is not None:
                 void_actor_name = void_actor.full_name or void_actor.username
             target_status = '-'
@@ -379,6 +380,7 @@ def reports_numbering_history(request):
                     'document_number': issue.document_number,
                     'rule_label': issue.rule_label_snapshot,
                     'issue_status': issue.get_status_display(),
+                    'is_void': is_void,
                     'status_badge_class': _numbering_status_badge(issue.status),
                     'target_status': target_status,
                     'business_date': issue.business_date,
@@ -388,7 +390,9 @@ def reports_numbering_history(request):
                     'issued_by': actor_name,
                     'voided_at': issue.voided_at,
                     'voided_by': void_actor_name,
-                    'void_reason': issue.void_reason or '-',
+                    'void_reason': issue.void_reason or (
+                        'Alasan tidak diketahui' if is_void else '-'
+                    ),
                     'target_label': issue.target_label,
                     'workflow_url': _numbering_workflow_url(target),
                 }

@@ -6,12 +6,17 @@ from django.db import connection, connections, transaction
 from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
 
 from apps.allocation.models import Allocation
+from apps.core.forms import DocumentNumberRuleForm
 from apps.core.models import (
     DocumentNumberIssue,
     DocumentNumberRule,
     DocumentNumberSequence,
 )
-from apps.core.numbering import issue_document_number, void_document_number
+from apps.core.numbering import (
+    issue_document_number,
+    render_document_number,
+    void_document_number,
+)
 from apps.users.models import User
 
 
@@ -65,6 +70,44 @@ class DocumentNumberRuleValidationTests(TestCase):
             "Placeholder tidak didukung: parent.",
         ):
             rule.full_clean()
+
+    def test_template_reserves_space_for_maximum_sequence_width(self):
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.PROCUREMENT_AMENDMENT,
+        )
+        rule.template = ("X" * 81) + "{seq}"
+        rule.reset_period = DocumentNumberRule.ResetPeriod.NEVER
+        rule.padding = 1
+        rule.full_clean()
+        rendered = render_document_number(
+            rule,
+            9223372036854775807,
+            date(2026, 1, 1),
+        )
+        self.assertEqual(len(rendered), 100)
+
+        rule.template = ("X" * 82) + "{seq}"
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Hasil template pada urutan maksimum melebihi batas 100 karakter.",
+        ):
+            rule.full_clean()
+
+    def test_rule_form_rejects_template_that_only_fits_at_minimum_padding(self):
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.PROCUREMENT_AMENDMENT,
+        )
+        form = DocumentNumberRuleForm(
+            data={
+                "template": ("X" * 99) + "{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.NEVER,
+                "padding": 1,
+            },
+            instance=rule,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("urutan maksimum", str(form.errors))
 
 
 class DocumentNumberIssuanceTests(TestCase):

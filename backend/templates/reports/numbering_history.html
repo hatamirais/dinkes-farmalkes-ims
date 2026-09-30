@@ -59,6 +59,7 @@
                         <th>Tanggal Bisnis</th>
                         <th>Urutan</th>
                         <th>Diterbitkan</th>
+                        <th>Dibatalkan</th>
                         <th class="d-print-none">Aksi</th>
                     </tr>
                 </thead>
@@ -69,7 +70,7 @@
                         <td>
                             <div class="fw-semibold">{{ row.document_number }}</div>
                             <div class="small text-muted">{{ row.target_label }}</div>
-                            {% if row.voided_at %}<div class="small text-danger">{{ row.void_reason }}</div>{% endif %}
+                            {% if row.is_void %}<div class="small text-danger">Alasan: {{ row.void_reason }}</div>{% endif %}
                         </td>
                         <td>{{ row.rule_label }}</td>
                         <td><span class="badge rounded-pill {{ row.status_badge_class }}">{{ row.issue_status }}</span></td>
@@ -84,6 +85,18 @@
                             {% endif %}
                             <div class="small text-muted">{{ row.issued_by }}</div>
                         </td>
+                        <td>
+                            {% if row.is_void %}
+                                {% if row.voided_at %}
+                                <div>{{ row.voided_at|date:"d/m/Y H:i" }}</div>
+                                {% else %}
+                                <div class="text-muted">Waktu tidak diketahui</div>
+                                {% endif %}
+                                <div class="small text-muted">{{ row.voided_by }}</div>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td class="d-print-none">
                             {% if row.workflow_url %}
                             <a href="{{ row.workflow_url }}" class="btn btn-outline-primary btn-sm">Buka</a>
@@ -93,7 +106,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="9" class="text-center text-muted py-5">Tidak ada riwayat penomoran untuk filter yang dipilih.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-5">Tidak ada riwayat penomoran untuk filter yang dipilih.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

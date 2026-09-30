@@ -10,6 +10,7 @@ from apps.core.models import (
     DocumentNumberIssue,
     DocumentNumberRule,
     DocumentNumberSequence,
+    MAX_DOCUMENT_NUMBER_LENGTH,
 )
 
 
@@ -62,9 +63,10 @@ def render_document_number(rule, sequence, business_date):
         raise DocumentNumberingError(
             f"Template rule {rule.key} tidak dapat dirender."
         ) from exc
-    if not number or len(number) > 100:
+    if not number or len(number) > MAX_DOCUMENT_NUMBER_LENGTH:
         raise DocumentNumberingError(
-            "Hasil nomor dokumen kosong atau melebihi 100 karakter."
+            "Hasil nomor dokumen kosong atau melebihi "
+            f"{MAX_DOCUMENT_NUMBER_LENGTH} karakter."
         )
     return number
 

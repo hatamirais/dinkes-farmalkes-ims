@@ -9,6 +9,10 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
+MAX_DOCUMENT_NUMBER_LENGTH = 100
+MAX_DOCUMENT_SEQUENCE_VALUE = (2**63) - 1
+
+
 class TimeStampedModel(models.Model):
     """Abstract base model with created_at and updated_at timestamps."""
     created_at = models.DateTimeField(auto_now_add=True)
@@ -145,8 +149,12 @@ class DocumentNumberRule(TimeStampedModel):
                     )
                 }
             )
+        sequence_width = max(
+            self.padding,
+            len(str(MAX_DOCUMENT_SEQUENCE_VALUE)),
+        )
         sample_values = {
-            "seq": "9" * self.padding,
+            "seq": "9" * sequence_width,
             "year": "2026",
             "month": "09",
         }
@@ -154,12 +162,13 @@ class DocumentNumberRule(TimeStampedModel):
             sample = template.format(**sample_values)
         except (KeyError, ValueError) as exc:
             raise ValidationError({"template": "Template nomor dokumen tidak valid."}) from exc
-        max_length = 100
+        max_length = MAX_DOCUMENT_NUMBER_LENGTH
         if len(sample) > max_length:
             raise ValidationError(
                 {
                     "template": (
-                        f"Hasil template contoh melebihi batas {max_length} karakter."
+                        "Hasil template pada urutan maksimum melebihi batas "
+                        f"{max_length} karakter."
                     )
                 }
             )
@@ -206,7 +215,7 @@ class DocumentNumberIssue(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="issues",
     )
-    document_number = models.CharField(max_length=100)
+    document_number = models.CharField(max_length=MAX_DOCUMENT_NUMBER_LENGTH)
     sequence_value = models.PositiveBigIntegerField()
     period_key = models.CharField(max_length=6, blank=True)
     scope_key = models.CharField(max_length=191, blank=True)

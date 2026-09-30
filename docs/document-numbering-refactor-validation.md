@@ -106,6 +106,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Petunjuk menjelaskan bahwa minimum digit menambahkan nol di depan tanpa memotong sequence yang lebih panjang. Catatan: `____________________`
 - [ ] Counter atau `last_value` tidak terlihat dan tidak dapat diedit. Catatan: `____________________`
 - [ ] Placeholder tidak dikenal ditolak dengan pesan validasi. Catatan: `____________________`
+- [ ] Template ditolak bila hanya muat dengan minimum digit saat ini tetapi akan melewati 100 karakter ketika urutan bertambah hingga lebar maksimum. Catatan: `____________________`
 - [ ] Rule tahunan tanpa `{year}` ditolak. Catatan: `____________________`
 - [ ] Rule bulanan tanpa `{year}` atau `{month}` ditolak. Catatan: `____________________`
 - [ ] Placeholder `{parent}` ditolak sebagai placeholder yang tidak didukung. Catatan: `____________________`
@@ -223,6 +224,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Filter rule, status, tanggal bisnis, dan pencarian nomor bekerja. Catatan: `____________________`
 - [ ] Baris `ISSUED` dan `VOID` dapat dibedakan dengan jelas. Catatan: `____________________`
 - [ ] Alasan, pelaku, dan waktu VOID tampil sesuai aksi. Catatan: `____________________`
+- [ ] VOID hasil migrasi tanpa waktu/pelaku tetap menampilkan alasan dan fallback `Tidak diketahui` pada halaman serta hasil cetak. Catatan: `____________________`
 - [ ] Snapshot label/template/reset/padding lama tetap sama setelah rule di `/settings/numbering/` diubah. Catatan: `____________________`
 - [ ] Link target aktif membuka dokumen yang benar; ledger dokumen yang sudah dihapus tetap terbaca melalui label snapshot. Catatan: `____________________`
 - [ ] Export Excel menghasilkan isi/filter yang sama dengan halaman. Catatan: `____________________`

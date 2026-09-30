@@ -143,6 +143,42 @@ class NumberingHistoryReportTests(TestCase):
 
 		self.assertContains(response, 'Tidak diketahui')
 
+	def test_numbering_history_page_shows_complete_void_audit(self):
+		distribution = self._create_distribution(Distribution.DistributionType.LPLPO)
+		void_document_number(
+			distribution,
+			actor=self.user,
+			reason="Dibatalkan karena dokumen pengganti",
+		)
+		issue = DocumentNumberIssue.objects.get(object_id=distribution.pk)
+
+		response = self.client.get(reverse('reports:numbering_history'), secure=True)
+
+		self.assertContains(
+			response,
+			timezone.localtime(issue.voided_at).strftime('%d/%m/%Y %H:%M'),
+		)
+		self.assertContains(response, self.user.username)
+		self.assertContains(response, 'Alasan: Dibatalkan karena dokumen pengganti')
+
+	def test_numbering_history_page_keeps_void_reason_when_audit_is_unknown(self):
+		distribution = self._create_distribution(Distribution.DistributionType.LPLPO)
+		void_document_number(
+			distribution,
+			actor=self.user,
+			reason="Migrasi tanpa metadata pembatalan",
+		)
+		DocumentNumberIssue.objects.filter(object_id=distribution.pk).update(
+			voided_at=None,
+			voided_by=None,
+		)
+
+		response = self.client.get(reverse('reports:numbering_history'), secure=True)
+
+		self.assertContains(response, 'Alasan: Migrasi tanpa metadata pembatalan')
+		self.assertContains(response, 'Waktu tidak diketahui')
+		self.assertContains(response, 'Pelaku tidak diketahui')
+
 	def test_numbering_history_excel_export_returns_workbook(self):
 		self._create_distribution(Distribution.DistributionType.LPLPO)
 
