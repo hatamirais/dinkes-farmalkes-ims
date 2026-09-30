@@ -235,11 +235,14 @@ class ProcurementWorkflowTests(TestCase):
     def test_repair_migration_restores_backfilled_void_metadata(self):
         cancelled_at = timezone.now()
         submitted_at = cancelled_at - timedelta(days=2)
+        contract_approved_at = submitted_at + timedelta(hours=1)
         contract, _line = self._create_contract()
         contract.status = ProcurementContract.Status.CANCELLED
         contract.document_number = "SPJ-2026-00001"
         contract.submitted_by = self.kepala
         contract.submitted_at = submitted_at
+        contract.approved_by = self.kepala
+        contract.approved_at = contract_approved_at
         contract.cancelled_by = self.admin
         contract.cancelled_at = cancelled_at
         contract.cancel_reason = "Dibatalkan oleh pengelola"
@@ -249,6 +252,8 @@ class ProcurementWorkflowTests(TestCase):
                 "document_number",
                 "submitted_by",
                 "submitted_at",
+                "approved_by",
+                "approved_at",
                 "cancelled_by",
                 "cancelled_at",
                 "cancel_reason",
@@ -320,7 +325,7 @@ class ProcurementWorkflowTests(TestCase):
             status=Receiving.Status.APPROVED,
             created_by=self.admin,
             approved_by=self.admin,
-            approved_at=submitted_at,
+            approved_at=cancelled_at,
         )
         planned_issue = DocumentNumberIssue.objects.create(
             rule=receiving_rule,
@@ -359,6 +364,17 @@ class ProcurementWorkflowTests(TestCase):
             django_apps,
             SimpleNamespace(connection=connection),
         )
+        planned_issue.refresh_from_db()
+        self.assertEqual(planned_issue.issued_by, self.admin)
+        self.assertEqual(planned_issue.issued_at, cancelled_at)
+
+        contract_plan_migration = import_module(
+            "apps.core.migrations.0012_repair_contract_plan_issuance_metadata"
+        )
+        contract_plan_migration.repair_contract_plan_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
 
         issue.refresh_from_db()
         self.assertEqual(issue.issued_by, self.kepala)
@@ -373,8 +389,8 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(receiving_issue.issued_by, self.kepala)
         self.assertEqual(receiving_issue.issued_at, submitted_at)
         planned_issue.refresh_from_db()
-        self.assertEqual(planned_issue.issued_by, self.admin)
-        self.assertEqual(planned_issue.issued_at, submitted_at)
+        self.assertEqual(planned_issue.issued_by, self.kepala)
+        self.assertEqual(planned_issue.issued_at, contract_approved_at)
 
     def _create_contract(
         self,
