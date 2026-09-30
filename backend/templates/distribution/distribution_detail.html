@@ -207,7 +207,7 @@
                                     {% endif %}
                                     {% if distribution.status == 'VERIFIED' %}
                                     <form method="post"
-                                        action="{% url 'distribution:distribution_prepare' distribution.pk %}">
+                                        action="{% url 'allocation:allocation_distribution_prepare' distribution.allocation.pk distribution.pk %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-info btn-sm w-100">
                                             <i class="bi bi-box-seam me-1"></i>Siapkan Barang
@@ -386,7 +386,11 @@
 <div class="modal fade" id="distributeModal" tabindex="-1" aria-labelledby="distributeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
+            {% if is_allocation %}
+            <form method="post" action="{% url 'allocation:allocation_distribution_deliver' distribution.allocation.pk distribution.pk %}">
+            {% else %}
             <form method="post" action="{% url 'distribution:distribution_distribute' distribution.pk %}">
+            {% endif %}
                 {% csrf_token %}
                 <div class="modal-header bg-success-subtle">
                     <h6 class="modal-title" id="distributeModalLabel">

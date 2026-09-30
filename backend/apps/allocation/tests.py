@@ -679,6 +679,51 @@ class AllocationRouteTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_distribution_detail_routes_prepare_through_parent_allocation(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["kepala"])
+        distribution = allocation.distributions.first()
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[distribution.pk]),
+            secure=True,
+        )
+
+        allocation_prepare_url = reverse(
+            "allocation:allocation_distribution_prepare",
+            args=[allocation.pk, distribution.pk],
+        )
+        generic_prepare_url = reverse(
+            "distribution:distribution_prepare", args=[distribution.pk]
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'action="{allocation_prepare_url}"')
+        self.assertNotContains(response, f'action="{generic_prepare_url}"')
+
+    def test_distribution_detail_routes_delivery_through_parent_allocation(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["kepala"])
+        distribution = allocation.distributions.first()
+        execute_distribution_preparation(distribution, self.fixtures["operator"])
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[distribution.pk]),
+            secure=True,
+        )
+
+        allocation_delivery_url = reverse(
+            "allocation:allocation_distribution_deliver",
+            args=[allocation.pk, distribution.pk],
+        )
+        generic_delivery_url = reverse(
+            "distribution:distribution_distribute", args=[distribution.pk]
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'action="{allocation_delivery_url}"')
+        self.assertNotContains(response, f'action="{generic_delivery_url}"')
+
     def test_edit_page_loads(self):
         allocation = _create_allocation(self.fixtures)
         response = self.client.get(
