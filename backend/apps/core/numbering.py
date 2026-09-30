@@ -115,6 +115,14 @@ def issue_document_number(
             raise DocumentNumberingError(
                 "Dokumen ini sudah memakai rule penomoran yang berbeda."
             )
+        if existing.business_date != business_date:
+            raise DocumentNumberingError(
+                "Tanggal bisnis dokumen bernomor tidak boleh diubah."
+            )
+        if existing.scope_key != scope_key:
+            raise DocumentNumberingError(
+                "Scope dokumen bernomor tidak boleh diubah."
+            )
         if target.document_number != existing.document_number:
             target.document_number = existing.document_number
             update_fields = ["document_number"]

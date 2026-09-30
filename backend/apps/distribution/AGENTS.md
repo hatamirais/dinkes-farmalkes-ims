@@ -52,6 +52,7 @@ App-specific guidance for outbound distribution workflows.
 - Keep the generic `distribution_create` route reserved for internal or compatibility flows tied to broader distribution orchestration.
 - Distribution drafts have no official number and forms do not accept manual overrides.
 - Submission issues the LPLPO or Permintaan Khusus rule atomically using `request_date`; Allocation children are issued during parent approval from the same Permintaan Khusus rule.
+- Once issued, `request_date` remains locked through rejection/reset/step-back states so the workflow cannot diverge from its numbering-ledger business date.
 - Rule template/reset/padding are configured centrally on `/settings/numbering/`; counters remain internal and issued values are never reused.
 - Django Admin keeps lifecycle fields read-only, locks Distribution headers/items after Draft, and disables deletion; workflow transitions and deletion must use the application services.
 - Numbering migration must preserve nonblank numbers on legacy `DRAFT` / `PREPARED` rows because submitted documents can be stepped back without voiding their issued number; genuinely unnumbered drafts remain unissued.

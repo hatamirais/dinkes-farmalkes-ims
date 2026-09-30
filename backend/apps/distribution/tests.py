@@ -167,6 +167,22 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
         self.assertNotIn("delete_selected", distribution_admin.get_actions(request))
 
+    def test_admin_locks_business_date_after_number_issuance(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        distribution = self._create_distribution(
+            status=Distribution.Status.SUBMITTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+        distribution.status = Distribution.Status.DRAFT
+        distribution.save(update_fields=["status", "updated_at"])
+        distribution_admin = DistributionAdmin(Distribution, admin.site)
+
+        self.assertIn(
+            "request_date",
+            distribution_admin.get_readonly_fields(request, distribution),
+        )
+
     def test_numbering_backfill_preserves_numbered_step_back_states(self):
         for rule_key, label in DocumentNumberRule.Key.choices:
             DocumentNumberRule.objects.get_or_create(
@@ -391,6 +407,41 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist.refresh_from_db()
 
         self.assertEqual(dist.document_number, "440/1/SBBK.RF/2027")
+
+    def test_numbered_distribution_form_ignores_changed_business_date(self):
+        distribution = self._create_distribution(
+            status=Distribution.Status.REJECTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+        distribution.refresh_from_db()
+        original_date = distribution.request_date
+        form = DistributionForm(
+            data={
+                "distribution_type": Distribution.DistributionType.SPECIAL_REQUEST,
+                "request_date": "2026-04-10",
+                "facility": self.facility.pk,
+                "program": "Program uji",
+                "notes": "Catatan diperbarui",
+            },
+            instance=distribution,
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+
+        self.assertTrue(form.fields["request_date"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.request_date, original_date)
+
+        draft_form = DistributionForm(
+            instance=self._create_distribution(
+                distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            ),
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+        self.assertFalse(draft_form.fields["request_date"].disabled)
 
     def test_custom_rule_template_is_used_on_submit(self):
         rule = DocumentNumberRule.objects.get(

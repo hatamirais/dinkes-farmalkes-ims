@@ -112,6 +112,27 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
         form = RecallForm()
         self.assertNotIn("document_number", form.fields)
 
+    def test_numbered_recall_form_ignores_changed_business_date(self):
+        recall = self._create_recall(status=Recall.Status.SUBMITTED)
+        original_date = recall.recall_date
+        form = RecallForm(
+            data={
+                "recall_date": "2026-04-10",
+                "supplier": self.supplier.pk,
+                "notes": "Catatan diperbarui",
+            },
+            instance=recall,
+        )
+
+        self.assertTrue(form.fields["recall_date"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        recall.refresh_from_db()
+        self.assertEqual(recall.recall_date, original_date)
+
+        draft_form = RecallForm(instance=self._create_recall())
+        self.assertFalse(draft_form.fields["recall_date"].disabled)
+
     def test_admin_locks_workflow_and_items_after_draft(self):
         recall = self._create_recall(status=Recall.Status.SUBMITTED)
         request = RequestFactory().get("/admin/recall/")
@@ -131,6 +152,10 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
             self.assertNotIn(field_name, form.base_fields)
         self.assertNotIn("mark_completed", recall_admin.get_actions(request))
         self.assertNotIn("delete_selected", recall_admin.get_actions(request))
+        self.assertIn(
+            "recall_date",
+            recall_admin.get_readonly_fields(request, recall),
+        )
         self.assertFalse(recall_admin.has_change_permission(request, recall))
         self.assertFalse(recall_admin.has_delete_permission(request))
         self.assertFalse(recall_admin.has_delete_permission(request, recall))

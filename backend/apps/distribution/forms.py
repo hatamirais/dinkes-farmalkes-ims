@@ -60,6 +60,11 @@ class DistributionForm(forms.ModelForm):
         self.forced_distribution_type = kwargs.pop("forced_distribution_type", None)
         super().__init__(*args, **kwargs)
         self.fields["program"].required = False
+        if self.instance.pk and self.instance.document_number:
+            self.fields["request_date"].disabled = True
+            self.fields["request_date"].help_text = (
+                "Tanggal permintaan dikunci setelah nomor dokumen diterbitkan."
+            )
         if self.instance.pk:
             self.fields["distribution_type"].required = False
         # Remove LPLPO from manual selection unless this is a generated LPLPO distribution

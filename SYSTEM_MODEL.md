@@ -537,6 +537,7 @@ Operational mutation points (from app behavior and admin import logic):
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
   - verify phase locks and re-checks the submitted distribution plus selected stock rows, then increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`; rejection also locks and re-checks submitted state
   - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, and delete release `reserved` using `DistributionItem.reserved_quantity` for standalone distributions, while allocation-generated child distributions release reservations only through parent allocation step-back
+  - once a document number is issued, its exact business date and numbering scope remain immutable across editable step-back states; repeated issuance rejects a binding mismatch
   - generated-LPLPO reversal uses the same object-level assignee/fallback authorization as preparation actions and requires LPLPO module scope `OPERATE`
   - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`

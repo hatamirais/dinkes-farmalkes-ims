@@ -124,6 +124,26 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
         form = ExpiredForm()
         self.assertNotIn("document_number", form.fields)
 
+    def test_numbered_expired_form_ignores_changed_business_date(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        original_date = expired_doc.report_date
+        form = ExpiredForm(
+            data={
+                "report_date": "2026-04-10",
+                "notes": "Catatan diperbarui",
+            },
+            instance=expired_doc,
+        )
+
+        self.assertTrue(form.fields["report_date"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.report_date, original_date)
+
+        draft_form = ExpiredForm(instance=self._create_expired())
+        self.assertFalse(draft_form.fields["report_date"].disabled)
+
     def test_admin_locks_workflow_and_items_after_draft(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
         request = RequestFactory().get("/admin/expired/")
@@ -143,6 +163,10 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
             self.assertNotIn(field_name, form.base_fields)
         self.assertNotIn("mark_disposed", expired_admin.get_actions(request))
         self.assertNotIn("delete_selected", expired_admin.get_actions(request))
+        self.assertIn(
+            "report_date",
+            expired_admin.get_readonly_fields(request, expired_doc),
+        )
         self.assertFalse(expired_admin.has_change_permission(request, expired_doc))
         self.assertFalse(expired_admin.has_delete_permission(request))
         self.assertFalse(expired_admin.has_delete_permission(request, expired_doc))

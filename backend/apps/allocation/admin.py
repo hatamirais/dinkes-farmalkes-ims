@@ -95,6 +95,12 @@ class AllocationAdmin(admin.ModelAdmin):
     ]
     actions = None
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.document_number:
+            readonly_fields.append("allocation_date")
+        return tuple(readonly_fields)
+
     def has_change_permission(self, request, obj=None):
         if obj is not None and obj.status != Allocation.Status.DRAFT:
             return False

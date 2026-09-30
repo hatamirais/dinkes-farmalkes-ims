@@ -34,6 +34,14 @@ class RecallForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.document_number:
+            self.fields['recall_date'].disabled = True
+            self.fields['recall_date'].help_text = (
+                'Tanggal recall dikunci setelah nomor dokumen diterbitkan.'
+            )
+
 
 class RecallItemForm(forms.ModelForm):
     class Meta:

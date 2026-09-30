@@ -119,6 +119,8 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Nomor diterbitkan tepat pada checkpoint, bukan pada `save()` biasa. Catatan: `____________________`
 - [ ] Mengulangi request checkpoint tidak menerbitkan nomor kedua untuk objek yang sama. Catatan: `____________________`
 - [ ] Tahun/bulan nomor mengikuti tanggal bisnis dokumen, bukan tanggal komputer saat aksi dilakukan. Catatan: `____________________`
+- [ ] Setelah nomor diterbitkan, tanggal bisnis terkunci pada form operasional dan Django Admin meskipun dokumen dikembalikan ke status yang dapat diedit. Catatan: `____________________`
+- [ ] Pemanggilan ulang penerbitan dengan tanggal bisnis atau scope berbeda ditolak tanpa mengubah issue maupun counter. Catatan: `____________________`
 - [ ] Dokumen dengan tanggal bisnis pada period berbeda mulai kembali dari sequence pertama untuk rule yang reset. Catatan: `____________________`
 - [ ] Nomor yang di-VOID tidak digunakan kembali oleh dokumen berikutnya. Catatan: `____________________`
 - [ ] Nomor resmi tidak dapat diketik atau diubah melalui form operasional. Catatan: `____________________`

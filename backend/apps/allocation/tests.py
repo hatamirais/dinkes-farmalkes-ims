@@ -11,7 +11,7 @@ from django.db import connection
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
-from apps.allocation.forms import AllocationItemForm
+from apps.allocation.forms import AllocationForm, AllocationItemForm
 from apps.core.models import DocumentNumberIssue, DocumentNumberRule
 from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
@@ -38,6 +38,7 @@ from .services import (
     AllocationWorkflowError,
     execute_allocation_approval,
     execute_allocation_rejection,
+    execute_allocation_reset_to_draft,
     execute_allocation_submission,
     execute_allocation_step_back_to_submitted,
     execute_distribution_delivery,
@@ -268,6 +269,18 @@ class AllocationAdminTest(TestCase):
         self.assertNotIn("delete_selected", allocation_admin.get_actions(self.request))
         self.assertNotIn("delete_selected", item_admin.get_actions(self.request))
 
+    def test_admin_locks_business_date_after_number_issuance(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_reset_to_draft(allocation)
+        allocation.refresh_from_db()
+        allocation_admin = AllocationAdmin(Allocation, admin.site)
+
+        self.assertIn(
+            "allocation_date",
+            allocation_admin.get_readonly_fields(self.request, allocation),
+        )
+
 
 @override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
 class AllocationSubmissionTest(TestCase):
@@ -280,6 +293,31 @@ class AllocationSubmissionTest(TestCase):
         allocation.refresh_from_db()
         self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
         self.assertIsNotNone(allocation.submitted_at)
+
+    def test_numbered_allocation_form_ignores_changed_business_date(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_reset_to_draft(allocation)
+        allocation.refresh_from_db()
+        original_date = allocation.allocation_date
+        form = AllocationForm(
+            data={
+                "title": allocation.title,
+                "referensi": allocation.referensi,
+                "allocation_date": "2025-07-01",
+                "notes": allocation.notes,
+            },
+            instance=allocation,
+        )
+
+        self.assertTrue(form.fields["allocation_date"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        allocation.refresh_from_db()
+        self.assertEqual(allocation.allocation_date, original_date)
+
+        draft_form = AllocationForm(instance=_create_allocation(self.fixtures))
+        self.assertFalse(draft_form.fields["allocation_date"].disabled)
 
     def test_submit_no_items_fails(self):
         allocation = Allocation.objects.create(

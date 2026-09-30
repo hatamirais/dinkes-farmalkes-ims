@@ -24,6 +24,14 @@ class ExpiredForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.document_number:
+            self.fields['report_date'].disabled = True
+            self.fields['report_date'].help_text = (
+                'Tanggal laporan dikunci setelah nomor dokumen diterbitkan.'
+            )
+
 
 class ExpiredItemForm(forms.ModelForm):
     class Meta:

@@ -13,6 +13,7 @@ from apps.core.models import (
     DocumentNumberSequence,
 )
 from apps.core.numbering import (
+    DocumentNumberingError,
     issue_document_number,
     render_document_number,
     void_document_number,
@@ -182,6 +183,58 @@ class DocumentNumberIssuanceTests(TestCase):
         self.assertEqual(repeated.pk, first_issue.pk)
         self.assertEqual(first_issue.status, DocumentNumberIssue.Status.VOID)
         self.assertEqual(second_issue.document_number, "ALK-2026-0002")
+
+    def test_existing_issue_rejects_changed_business_date(self):
+        allocation = self._allocation(date(2026, 4, 1))
+        issue = issue_document_number(
+            DocumentNumberRule.Key.ALLOCATION,
+            business_date=allocation.allocation_date,
+            target=allocation,
+            actor=self.user,
+        )
+        allocation.allocation_date = date(2026, 4, 2)
+        allocation.save(update_fields=["allocation_date", "updated_at"])
+
+        with self.assertRaisesMessage(
+            DocumentNumberingError,
+            "Tanggal bisnis dokumen bernomor tidak boleh diubah.",
+        ):
+            issue_document_number(
+                DocumentNumberRule.Key.ALLOCATION,
+                business_date=allocation.allocation_date,
+                target=allocation,
+                actor=self.user,
+            )
+
+        issue.refresh_from_db()
+        self.assertEqual(issue.business_date, date(2026, 4, 1))
+        self.assertEqual(DocumentNumberIssue.objects.count(), 1)
+
+    def test_existing_issue_rejects_changed_scope(self):
+        allocation = self._allocation(date(2026, 4, 1))
+        issue_document_number(
+            DocumentNumberRule.Key.ALLOCATION,
+            business_date=allocation.allocation_date,
+            target=allocation,
+            actor=self.user,
+            scope_key="scope-a",
+        )
+
+        with self.assertRaisesMessage(
+            DocumentNumberingError,
+            "Scope dokumen bernomor tidak boleh diubah.",
+        ):
+            issue_document_number(
+                DocumentNumberRule.Key.ALLOCATION,
+                business_date=allocation.allocation_date,
+                target=allocation,
+                actor=self.user,
+                scope_key="scope-b",
+            )
+
+        issue = DocumentNumberIssue.objects.get(object_id=allocation.pk)
+        self.assertEqual(issue.scope_key, "scope-a")
+        self.assertEqual(DocumentNumberIssue.objects.count(), 1)
 
     def test_outer_transaction_rollback_does_not_publish_number(self):
         allocation = self._allocation(date(2026, 6, 1))

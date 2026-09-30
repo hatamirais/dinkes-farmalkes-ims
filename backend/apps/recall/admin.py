@@ -58,6 +58,12 @@ class RecallAdmin(admin.ModelAdmin):
         }),
     )
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.document_number:
+            readonly_fields.append('recall_date')
+        return tuple(readonly_fields)
+
     def has_change_permission(self, request, obj=None):
         if obj is not None and obj.status != Recall.Status.DRAFT:
             return False
