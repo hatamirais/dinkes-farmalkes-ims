@@ -21,7 +21,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.distribution.models import Distribution, DistributionItem
-from apps.core.models import DocumentNumberRule
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule
 from apps.core.numbering import issue_document_number
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.models import ProcurementContract
@@ -1869,6 +1869,25 @@ class ReceivingWorkflowCleanupTest(TestCase):
             verified_by=self.user,
             verified_at=timezone.now(),
         )
+        receiving_rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.RECEIVING
+        )
+        DocumentNumberIssue.objects.create(
+            rule=receiving_rule,
+            document_number=document_number,
+            sequence_value=1,
+            period_key="2026",
+            business_date=receiving.receiving_date,
+            content_type=ContentType.objects.get_for_model(Receiving),
+            object_id=receiving.pk,
+            target_label=f"receiving.Receiving #{receiving.pk}",
+            rule_label_snapshot=receiving_rule.label,
+            template_snapshot=receiving_rule.template,
+            reset_period_snapshot=receiving_rule.reset_period,
+            padding_snapshot=receiving_rule.padding,
+            issued_by=self.user,
+            issued_at=receiving.verified_at,
+        )
         ReceivingItem.objects.create(
             receiving=receiving,
             item=self.item,
@@ -1945,6 +1964,12 @@ class ReceivingWorkflowCleanupTest(TestCase):
         receiving = self._create_posted_regular_receiving()
         new_funding = FundingSource.objects.create(code="BLUD", name="BLUD")
 
+        edit_response = self.client.get(
+            reverse("receiving:receiving_edit", args=[receiving.pk]),
+            secure=True,
+        )
+        self.assertTrue(edit_response.context["form"].fields["receiving_date"].disabled)
+
         response = self.client.post(
             reverse("receiving:receiving_edit", args=[receiving.pk]),
             self._regular_edit_payload(receiving, funding=new_funding),
@@ -1958,7 +1983,12 @@ class ReceivingWorkflowCleanupTest(TestCase):
         )
         receiving.refresh_from_db()
         self.assertEqual(receiving.sumber_dana, new_funding)
-        self.assertEqual(receiving.receiving_date, date(2026, 3, 17))
+        self.assertEqual(receiving.receiving_date, date(2026, 3, 16))
+        issue = DocumentNumberIssue.objects.get(
+            content_type=ContentType.objects.get_for_model(Receiving),
+            object_id=receiving.pk,
+        )
+        self.assertEqual(issue.business_date, receiving.receiving_date)
         self.assertEqual(receiving.items.get().quantity, Decimal("7"))
         reversed_stock = Stock.objects.get(
             source_document_number=receiving.document_number,
@@ -2152,7 +2182,7 @@ class ReceivingWorkflowCleanupTest(TestCase):
         self.assertEqual(response.status_code, 302)
         corrected_item = receiving.items.get()
         local_received_at = timezone.localtime(corrected_item.received_at)
-        self.assertEqual(local_received_at.date(), date(2026, 3, 17))
+        self.assertEqual(local_received_at.date(), date(2026, 3, 16))
         self.assertEqual(local_received_at.time().replace(tzinfo=None), time(8, 30, 0))
 
     def test_regular_receiving_edit_reports_stock_layer_mismatch_as_form_error(self):

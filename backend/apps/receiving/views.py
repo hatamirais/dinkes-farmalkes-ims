@@ -692,6 +692,11 @@ def receiving_edit(request, pk):
                     )
 
                     for field_name in ReceivingForm.Meta.fields:
+                        if (
+                            field_name == "receiving_date"
+                            and locked_receiving.document_number
+                        ):
+                            continue
                         setattr(
                             locked_receiving,
                             field_name,

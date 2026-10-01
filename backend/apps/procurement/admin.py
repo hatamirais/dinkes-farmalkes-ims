@@ -80,6 +80,12 @@ class ProcurementContractAdmin(admin.ModelAdmin):
     )
     actions = None
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.document_number:
+            readonly_fields.append("contract_date")
+        return tuple(readonly_fields)
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -104,6 +110,12 @@ class ProcurementAmendmentAdmin(admin.ModelAdmin):
         "approved_at",
     )
     actions = None
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.document_number:
+            readonly_fields.append("amendment_date")
+        return tuple(readonly_fields)
 
     def has_delete_permission(self, request, obj=None):
         return False

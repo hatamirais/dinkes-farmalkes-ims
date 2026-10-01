@@ -167,6 +167,50 @@ class ProcurementWorkflowTests(TestCase):
         }:
             self.assertNotIn(field_name, amendment_form.base_fields)
 
+    def test_admin_locks_numbered_procurement_business_dates(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+        contract, contract_line = self._create_contract()
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 2),
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=contract_line,
+            revised_quantity=Decimal("11"),
+            revised_unit_price=Decimal("5000"),
+        )
+        contract_admin = ProcurementContractAdmin(ProcurementContract, admin.site)
+        amendment_admin = ProcurementAmendmentAdmin(
+            ProcurementAmendment,
+            admin.site,
+        )
+
+        self.assertIn(
+            "contract_date",
+            contract_admin.get_form(request, contract).base_fields,
+        )
+        self.assertIn(
+            "amendment_date",
+            amendment_admin.get_form(request, amendment).base_fields,
+        )
+
+        contract.document_number = "SPJ-2026-LOCKED"
+        contract.save(update_fields=["document_number", "updated_at"])
+        amendment.document_number = "SPJ/2026/07/LOCKED"
+        amendment.save(update_fields=["document_number", "updated_at"])
+
+        self.assertNotIn(
+            "contract_date",
+            contract_admin.get_form(request, contract).base_fields,
+        )
+        self.assertNotIn(
+            "amendment_date",
+            amendment_admin.get_form(request, amendment).base_fields,
+        )
+
     def test_admin_disables_contract_and_amendment_deletion(self):
         request = RequestFactory().get("/admin/procurement/")
         request.user = self.admin

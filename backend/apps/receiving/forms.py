@@ -336,6 +336,9 @@ class ReceivingEditForm(ReceivingForm):
             list(self.fields["receiving_type"].widget.choices),
             current_type,
         )
+        if getattr(self.instance, "document_number", None):
+            self.fields["receiving_date"].disabled = True
+
     def clean_receiving_type(self):
         try:
             return super().clean_receiving_type()
