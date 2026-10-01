@@ -31,6 +31,8 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 - Nomor lama yang masih terisi pada Alokasi, Distribusi, Recall, atau Kedaluwarsa berstatus Draft/Disiapkan setelah step-back tetap dianggap terpakai dan wajib masuk ledger/counter; Draft tanpa nomor tetap tidak diterbitkan.
 - Nomor diterbitkan di dalam transaksi database yang sama dengan checkpoint workflow.
 - Nomor yang pernah diterbitkan tidak boleh digunakan kembali, termasuk setelah dokumen dihapus atau dibatalkan.
+- Nilai nomor dokumen unik secara global lintas rule. Jika dua rule merender kandidat yang sama, penerbitan berikutnya melewati nilai yang sudah tercatat, termasuk issue berstatus `VOID`; constraint database dan retry melindungi penerbitan konkuren.
+- Template Distribusi lama yang masih valid dipertahankan saat migrasi. Template lama yang tidak memenuhi kontrak token atau batas panjang saat urutan mencapai 19 digit diganti dengan default aman untuk rule terkait.
 - Draft baru tidak memperoleh nomor sebelum checkpoint yang ditentukan.
 - Form operasional dan Django Admin tidak menerima override nomor resmi untuk workflow yang masuk cakupan.
 

@@ -256,8 +256,8 @@ class DocumentNumberIssue(TimeStampedModel):
         ordering = ["-created_at", "-id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["rule", "document_number"],
-                name="uq_doc_number_issue_rule_number",
+                fields=["document_number"],
+                name="uq_doc_number_issue_number",
             ),
             models.UniqueConstraint(
                 fields=["content_type", "object_id"],

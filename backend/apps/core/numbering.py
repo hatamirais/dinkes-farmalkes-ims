@@ -89,6 +89,53 @@ def _locked_sequence(rule, period_key, scope_key):
     )
 
 
+def _reuse_existing_issue(
+    existing,
+    *,
+    rule_key,
+    business_date,
+    scope_key,
+    target,
+):
+    if existing.rule.key != rule_key:
+        raise DocumentNumberingError(
+            "Dokumen ini sudah memakai rule penomoran yang berbeda."
+        )
+    if existing.business_date != business_date:
+        raise DocumentNumberingError(
+            "Tanggal bisnis dokumen bernomor tidak boleh diubah."
+        )
+    if existing.scope_key != scope_key:
+        raise DocumentNumberingError(
+            "Scope dokumen bernomor tidak boleh diubah."
+        )
+    if target.document_number != existing.document_number:
+        target.document_number = existing.document_number
+        update_fields = ["document_number"]
+        if hasattr(target, "updated_at"):
+            update_fields.append("updated_at")
+        target.save(update_fields=update_fields)
+    return existing
+
+
+def _document_number_taken(rule_key, document_number):
+    number_taken = DocumentNumberIssue.objects.filter(
+        document_number=document_number,
+    ).exists()
+    if rule_key == DocumentNumberRule.Key.RECEIVING:
+        from apps.stock.models import OpeningBalanceImport, SourceDocumentNumberClaim
+
+        number_taken = number_taken or (
+            SourceDocumentNumberClaim.objects.filter(
+                document_number=document_number
+            ).exists()
+            or OpeningBalanceImport.objects.filter(
+                document_number=document_number
+            ).exists()
+        )
+    return number_taken
+
+
 @transaction.atomic
 def issue_document_number(
     rule_key,
@@ -111,25 +158,13 @@ def issue_document_number(
         .first()
     )
     if existing:
-        if existing.rule.key != rule_key:
-            raise DocumentNumberingError(
-                "Dokumen ini sudah memakai rule penomoran yang berbeda."
-            )
-        if existing.business_date != business_date:
-            raise DocumentNumberingError(
-                "Tanggal bisnis dokumen bernomor tidak boleh diubah."
-            )
-        if existing.scope_key != scope_key:
-            raise DocumentNumberingError(
-                "Scope dokumen bernomor tidak boleh diubah."
-            )
-        if target.document_number != existing.document_number:
-            target.document_number = existing.document_number
-            update_fields = ["document_number"]
-            if hasattr(target, "updated_at"):
-                update_fields.append("updated_at")
-            target.save(update_fields=update_fields)
-        return existing
+        return _reuse_existing_issue(
+            existing,
+            rule_key=rule_key,
+            business_date=business_date,
+            scope_key=scope_key,
+            target=target,
+        )
 
     if getattr(target, "document_number", None):
         raise DocumentNumberingError(
@@ -153,43 +188,49 @@ def issue_document_number(
             sequence.last_value,
             business_date,
         )
-        number_taken = DocumentNumberIssue.objects.filter(
-            rule=rule,
-            document_number=document_number,
-        ).exists()
-        if rule_key == DocumentNumberRule.Key.RECEIVING:
-            from apps.stock.models import OpeningBalanceImport, SourceDocumentNumberClaim
-
-            number_taken = number_taken or (
-                SourceDocumentNumberClaim.objects.filter(
-                    document_number=document_number
-                ).exists()
-                or OpeningBalanceImport.objects.filter(
-                    document_number=document_number
-                ).exists()
+        if _document_number_taken(rule_key, document_number):
+            sequence.last_value += 1
+            continue
+        try:
+            with transaction.atomic():
+                issue = DocumentNumberIssue.objects.create(
+                    rule=rule,
+                    document_number=document_number,
+                    sequence_value=sequence.last_value,
+                    period_key=period_key,
+                    scope_key=scope_key,
+                    business_date=business_date,
+                    content_type=content_type,
+                    object_id=target.pk,
+                    target_label=f"{target._meta.label} #{target.pk}",
+                    rule_label_snapshot=rule.label,
+                    template_snapshot=rule.template,
+                    reset_period_snapshot=rule.reset_period,
+                    padding_snapshot=rule.padding,
+                    issued_by=actor,
+                    issued_at=timezone.now(),
+                )
+        except IntegrityError:
+            concurrent_existing = (
+                DocumentNumberIssue.objects.select_for_update()
+                .filter(content_type=content_type, object_id=target.pk)
+                .first()
             )
-        if not number_taken:
-            break
-        sequence.last_value += 1
+            if concurrent_existing:
+                return _reuse_existing_issue(
+                    concurrent_existing,
+                    rule_key=rule_key,
+                    business_date=business_date,
+                    scope_key=scope_key,
+                    target=target,
+                )
+            if _document_number_taken(rule_key, document_number):
+                sequence.last_value += 1
+                continue
+            raise
+        break
     sequence.save(update_fields=["last_value", "updated_at"])
 
-    issue = DocumentNumberIssue.objects.create(
-        rule=rule,
-        document_number=document_number,
-        sequence_value=sequence.last_value,
-        period_key=period_key,
-        scope_key=scope_key,
-        business_date=business_date,
-        content_type=content_type,
-        object_id=target.pk,
-        target_label=f"{target._meta.label} #{target.pk}",
-        rule_label_snapshot=rule.label,
-        template_snapshot=rule.template,
-        reset_period_snapshot=rule.reset_period,
-        padding_snapshot=rule.padding,
-        issued_by=actor,
-        issued_at=timezone.now(),
-    )
     target.document_number = document_number
     update_fields = ["document_number"]
     if hasattr(target, "updated_at"):
@@ -242,8 +283,13 @@ def preview_document_number(
         .first()
         or 0
     )
-    return render_document_number(
-        rule,
-        last_value + 1,
-        business_date,
-    )
+    sequence_value = last_value + 1
+    while True:
+        document_number = render_document_number(
+            rule,
+            sequence_value,
+            business_date,
+        )
+        if not _document_number_taken(rule_key, document_number):
+            return document_number
+        sequence_value += 1
