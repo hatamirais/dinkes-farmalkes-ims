@@ -7,6 +7,30 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-10-01
+
+### Added
+
+- Added centralized, configurable document-number rules under `/settings/numbering/` for non-Puskesmas Allocation, Distribution, Procurement, Receiving, Recall, Expired, Stock Transfer, and Stock Opname workflows.
+- Added an immutable document-number issuance ledger, history page, and spreadsheet export with issuance, void, actor, business-date, and rule-snapshot metadata.
+- Added an optional external document-number reference to SPJ / Pengadaan for numbers issued by the client's separate application.
+
+### Changed
+
+- Split system settings navigation into `Umum` for general settings and `Penomoran` for document-number configuration.
+- Unified number issuance around workflow business dates, atomic per-rule counters, globally unique rendered numbers, collision retry, and permanent non-reuse after voiding.
+- Allocation-generated child distributions now use the normal Permintaan Khusus rule and sequence while remaining managed through their parent Allocation.
+- Procurement amendments now use their own configured sequence instead of deriving numbers from a parent-number token.
+- Locked issuance-bound dates and protected audit-critical parent documents from Django Admin hard deletion or post-issuance field changes.
+- Kept Puskesmas documents and the LPLPO parent document outside centralized numbering.
+
+### Fixed
+
+- Preserved legacy issued numbers, counter positions, original issuers, timestamps, business dates, and void metadata during numbering backfills where that history can be reconstructed.
+- Prevented repeated issuance with a different business date or scope, cross-rule rendered-number collisions, and templates that could overflow when sequence counters exceed their configured padding.
+- Preserved original procurement approval metadata when reconstructing planned-receiving issuance history.
+- Routed Allocation child actions through the parent workflow and prevented direct child mutations from bypassing Allocation controls.
+
 ## [1.33.0] - 2026-09-15
 
 ### Added
