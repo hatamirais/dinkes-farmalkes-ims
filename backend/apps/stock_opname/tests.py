@@ -1197,6 +1197,41 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_edit_reloads_row_after_concurrent_start(self):
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        stale_draft = StockOpname.objects.get(pk=draft.pk)
+        self.client.force_login(self.admin)
+
+        self.client.post(
+            reverse("stock_opname:opname_start", args=[draft.pk]),
+            secure=True,
+        )
+        draft.refresh_from_db()
+        issued_number = draft.document_number
+
+        with mock.patch(
+            "apps.stock_opname.views.get_object_or_404", return_value=stale_draft
+        ):
+            response = self.client.post(
+                reverse("stock_opname:opname_edit", args=[draft.pk]),
+                {
+                    "period_type": StockOpname.PeriodType.MONTHLY,
+                    "period_start": "2026-04-01",
+                    "period_end": "2026-04-30",
+                    "categories": [str(self.category.pk)],
+                    "assigned_to": [str(self.gudang.pk)],
+                    "notes": "Tidak boleh tersimpan",
+                },
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, StockOpname.Status.IN_PROGRESS)
+        self.assertEqual(draft.document_number, issued_number)
+        self.assertEqual(draft.period_end, date(2026, 3, 31))
+        self.assertEqual(draft.notes, "")
+
     # ------------------------------------------------------------------
     # F13 — pagination must preserve query filters
     # ------------------------------------------------------------------

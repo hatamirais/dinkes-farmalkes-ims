@@ -2,6 +2,7 @@ from decimal import Decimal
 from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.apps import apps as django_apps
 from django.contrib import admin
@@ -739,6 +740,50 @@ class AllocationRouteTest(TestCase):
             secure=True,
         )
         self.assertEqual(response.status_code, 302)
+
+    def test_edit_reloads_row_after_concurrent_submission(self):
+        allocation = _create_allocation(self.fixtures)
+        alloc_item = allocation.items.get()
+        stale_draft = Allocation.objects.get(pk=allocation.pk)
+
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        allocation.refresh_from_db()
+        issued_number = allocation.document_number
+
+        with patch("apps.allocation.views.get_object_or_404", return_value=stale_draft):
+            response = self.client.post(
+                reverse("allocation:allocation_edit", args=[allocation.pk]),
+                {
+                    "title": "Perubahan yang terlambat",
+                    "referensi": "REF-LATE",
+                    "allocation_date": "2025-07-01",
+                    "notes": "Tidak boleh tersimpan",
+                    "selected_facilities": [
+                        str(self.fixtures["facility1"].pk),
+                        str(self.fixtures["facility2"].pk),
+                    ],
+                    "assigned_staff": [str(self.fixtures["operator"].pk)],
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-id": str(alloc_item.pk),
+                    "items-0-item": str(self.fixtures["item"].pk),
+                    "items-0-stock": str(self.fixtures["stock"].pk),
+                    "items-0-total_qty_available": "100",
+                    "items-0-notes": "",
+                    f"alloc_{alloc_item.pk}_{self.fixtures['facility1'].pk}": "30",
+                    f"alloc_{alloc_item.pk}_{self.fixtures['facility2'].pk}": "20",
+                },
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        allocation.refresh_from_db()
+        self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
+        self.assertEqual(allocation.document_number, issued_number)
+        self.assertEqual(allocation.title, "Alokasi Buffer Gudang April 2026")
+        self.assertEqual(str(allocation.allocation_date), "2025-06-01")
 
     def test_delete_draft(self):
         allocation = _create_allocation(self.fixtures)

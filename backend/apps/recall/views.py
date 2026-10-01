@@ -89,22 +89,29 @@ def recall_create(request):
 @perm_required("recall.change_recall")
 def recall_edit(request, pk):
     recall = get_object_or_404(Recall, pk=pk)
-    if recall.status not in (Recall.Status.DRAFT, Recall.Status.SUBMITTED):
-        messages.error(request, "Hanya recall Draft/Diajukan yang dapat diubah.")
-        return redirect("recall:recall_detail", pk=recall.pk)
 
     if request.method == "POST":
-        form = RecallForm(request.POST, instance=recall)
-        formset = RecallItemFormSet(request.POST, instance=recall, prefix="items")
+        with transaction.atomic():
+            recall = Recall.objects.select_for_update().get(pk=pk)
+            if recall.status not in (Recall.Status.DRAFT, Recall.Status.SUBMITTED):
+                messages.error(request, "Hanya recall Draft/Diajukan yang dapat diubah.")
+                return redirect("recall:recall_detail", pk=recall.pk)
 
-        if form.is_valid() and formset.is_valid():
-            form.save()
-            formset.save()
-            messages.success(
-                request, f"Recall {recall.document_number or 'draft'} berhasil diperbarui."
-            )
-            return redirect("recall:recall_detail", pk=recall.pk)
+            form = RecallForm(request.POST, instance=recall)
+            formset = RecallItemFormSet(request.POST, instance=recall, prefix="items")
+
+            if form.is_valid() and formset.is_valid():
+                form.save()
+                formset.save()
+                messages.success(
+                    request,
+                    f"Recall {recall.document_number or 'draft'} berhasil diperbarui.",
+                )
+                return redirect("recall:recall_detail", pk=recall.pk)
     else:
+        if recall.status not in (Recall.Status.DRAFT, Recall.Status.SUBMITTED):
+            messages.error(request, "Hanya recall Draft/Diajukan yang dapat diubah.")
+            return redirect("recall:recall_detail", pk=recall.pk)
         form = RecallForm(instance=recall)
         formset = RecallItemFormSet(instance=recall, prefix="items")
 

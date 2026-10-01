@@ -30,6 +30,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Prevented repeated issuance with a different business date or scope, cross-rule rendered-number collisions, and templates that could overflow when sequence counters exceed their configured padding.
 - Preserved original procurement approval metadata when reconstructing planned-receiving issuance history.
 - Routed Allocation child actions through the parent workflow and prevented direct child mutations from bypassing Allocation controls.
+- Serialized Recall, Expired, Allocation, and Stock Opname edits against number-issuing workflow transitions so stale form submissions cannot overwrite newly issued numbers, statuses, or business dates.
 
 ## [1.33.0] - 2026-09-15
 

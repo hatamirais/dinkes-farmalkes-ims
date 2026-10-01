@@ -323,22 +323,34 @@ def expired_alerts(request):
 @perm_required("expired.change_expired")
 def expired_edit(request, pk):
     expired_doc = get_object_or_404(Expired, pk=pk)
-    if expired_doc.status not in (Expired.Status.DRAFT, Expired.Status.SUBMITTED):
-        messages.error(request, "Hanya dokumen Draft/Diajukan yang dapat diubah.")
-        return redirect("expired:expired_detail", pk=expired_doc.pk)
 
     if request.method == "POST":
-        form = ExpiredForm(request.POST, instance=expired_doc)
-        formset = ExpiredItemFormSet(request.POST, instance=expired_doc, prefix="items")
+        with transaction.atomic():
+            expired_doc = Expired.objects.select_for_update().get(pk=pk)
+            if expired_doc.status not in (
+                Expired.Status.DRAFT,
+                Expired.Status.SUBMITTED,
+            ):
+                messages.error(request, "Hanya dokumen Draft/Diajukan yang dapat diubah.")
+                return redirect("expired:expired_detail", pk=expired_doc.pk)
 
-        if form.is_valid() and formset.is_valid():
-            form.save()
-            formset.save()
-            messages.success(
-                request, f"Dokumen {expired_doc.document_number or 'draft'} berhasil diperbarui."
+            form = ExpiredForm(request.POST, instance=expired_doc)
+            formset = ExpiredItemFormSet(
+                request.POST, instance=expired_doc, prefix="items"
             )
-            return redirect("expired:expired_detail", pk=expired_doc.pk)
+
+            if form.is_valid() and formset.is_valid():
+                form.save()
+                formset.save()
+                messages.success(
+                    request,
+                    f"Dokumen {expired_doc.document_number or 'draft'} berhasil diperbarui.",
+                )
+                return redirect("expired:expired_detail", pk=expired_doc.pk)
     else:
+        if expired_doc.status not in (Expired.Status.DRAFT, Expired.Status.SUBMITTED):
+            messages.error(request, "Hanya dokumen Draft/Diajukan yang dapat diubah.")
+            return redirect("expired:expired_detail", pk=expired_doc.pk)
         form = ExpiredForm(instance=expired_doc)
         formset = ExpiredItemFormSet(instance=expired_doc, prefix="items")
 

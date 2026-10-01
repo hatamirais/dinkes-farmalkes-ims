@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib import admin
 from django.test import RequestFactory, TestCase
@@ -317,6 +318,41 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
         recall = self._create_recall(status=Recall.Status.SUBMITTED)
         response = self.client.get(reverse("recall:recall_edit", args=[recall.pk]))
         self.assertEqual(response.status_code, 200)
+
+    def test_edit_reloads_row_after_concurrent_submission(self):
+        recall = self._create_recall(status=Recall.Status.DRAFT)
+        recall_item = recall.items.get()
+        stale_draft = Recall.objects.get(pk=recall.pk)
+
+        self.client.post(reverse("recall:recall_submit", args=[recall.pk]))
+        recall.refresh_from_db()
+        issued_number = recall.document_number
+
+        with patch("apps.recall.views.get_object_or_404", return_value=stale_draft):
+            response = self.client.post(
+                reverse("recall:recall_edit", args=[recall.pk]),
+                {
+                    "recall_date": "2026-04-10",
+                    "supplier": str(self.supplier.pk),
+                    "notes": "Catatan setelah pengajuan",
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-id": str(recall_item.pk),
+                    "items-0-item": str(self.item.pk),
+                    "items-0-stock": str(self.stock.pk),
+                    "items-0-quantity": "10",
+                    "items-0-notes": "Kemasan rusak",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        recall.refresh_from_db()
+        self.assertEqual(recall.status, Recall.Status.SUBMITTED)
+        self.assertEqual(recall.document_number, issued_number)
+        self.assertEqual(str(recall.recall_date), "2026-03-10")
+        self.assertEqual(recall.notes, "Catatan setelah pengajuan")
 
     def test_edit_blocked_for_verified(self):
         recall = self._create_recall(status=Recall.Status.VERIFIED)

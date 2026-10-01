@@ -167,6 +167,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Legacy backfill preserves a sequence parsed from the document number even when editable business-date ordering differs from issuance ordering; each sequence counter is rebuilt from the maximum value in its rule/period/scope bucket.
   - Issued numbers and consumed sequence values are never reused. Deletion/cancellation paths mark the issue `VOID` where the workflow invalidates the official document.
   - Django Admin disables hard deletion for Allocation, Distribution, Procurement, Recall, Expired, and Stock Opname parents. Receiving and Stock Transfer disable global bulk actions and retain only their object-level safe Draft deletion behavior.
+  - Recall, Expired, Allocation, and Stock Opname edit POSTs lock and reload the parent before binding forms and recheck its live status in the same transaction, serializing edits with number-issuing submission/start actions.
 
 ### 4.2 Users and authorization
 

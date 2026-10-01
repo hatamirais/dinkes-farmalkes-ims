@@ -360,18 +360,20 @@ def allocation_create(request):
 def allocation_edit(request, pk):
 
     allocation = get_object_or_404(Allocation, pk=pk)
-    if allocation.status != Allocation.Status.DRAFT:
-        messages.error(request, "Hanya alokasi Draft yang dapat diubah.")
-        return redirect("allocation:allocation_detail", pk=allocation.pk)
 
     if request.method == "POST":
-        form = AllocationForm(request.POST, instance=allocation)
-        formset = AllocationItemFormSet(
-            request.POST, instance=allocation, prefix="items"
-        )
+        with transaction.atomic():
+            allocation = Allocation.objects.select_for_update().get(pk=pk)
+            if allocation.status != Allocation.Status.DRAFT:
+                messages.error(request, "Hanya alokasi Draft yang dapat diubah.")
+                return redirect("allocation:allocation_detail", pk=allocation.pk)
 
-        if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
+            form = AllocationForm(request.POST, instance=allocation)
+            formset = AllocationItemFormSet(
+                request.POST, instance=allocation, prefix="items"
+            )
+
+            if form.is_valid() and formset.is_valid():
                 form.save()
                 sync_allocation_selected_facilities(
                     allocation,
@@ -386,12 +388,15 @@ def allocation_edit(request, pk):
                 # Save facility allocation matrix
                 _save_facility_allocations(allocation, request)
 
-            messages.success(
-                request,
-                f"Alokasi {allocation.document_number or 'draft'} berhasil diperbarui.",
-            )
-            return redirect("allocation:allocation_detail", pk=allocation.pk)
+                messages.success(
+                    request,
+                    f"Alokasi {allocation.document_number or 'draft'} berhasil diperbarui.",
+                )
+                return redirect("allocation:allocation_detail", pk=allocation.pk)
     else:
+        if allocation.status != Allocation.Status.DRAFT:
+            messages.error(request, "Hanya alokasi Draft yang dapat diubah.")
+            return redirect("allocation:allocation_detail", pk=allocation.pk)
         form = AllocationForm(instance=allocation)
         formset = AllocationItemFormSet(instance=allocation, prefix="items")
 

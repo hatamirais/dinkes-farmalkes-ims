@@ -135,21 +135,32 @@ def opname_create(request):
 @perm_required("stock_opname.change_stockopname")
 def opname_edit(request, pk):
     opname = get_object_or_404(StockOpname, pk=pk)
-    # F14: Only DRAFT opnames may have their header edited; once a snapshot
-    # has been taken (IN_PROGRESS) the category list is locked to match it.
-    if opname.status != StockOpname.Status.DRAFT:
-        messages.error(request, "Hanya Stock Opname berstatus Draft yang dapat diubah.")
-        return redirect("stock_opname:opname_detail", pk=opname.pk)
 
     if request.method == "POST":
-        form = StockOpnameForm(request.POST, instance=opname)
-        if form.is_valid():
-            form.save()
-            messages.success(
-                request, f"Stock Opname {opname.document_number or 'draft'} berhasil diperbarui."
+        with transaction.atomic():
+            opname = StockOpname.objects.select_for_update().get(pk=pk)
+            # Only DRAFT opnames may have their header edited; once a snapshot
+            # has been taken (IN_PROGRESS) the category list is locked to match it.
+            if opname.status != StockOpname.Status.DRAFT:
+                messages.error(
+                    request, "Hanya Stock Opname berstatus Draft yang dapat diubah."
+                )
+                return redirect("stock_opname:opname_detail", pk=opname.pk)
+
+            form = StockOpnameForm(request.POST, instance=opname)
+            if form.is_valid():
+                form.save()
+                messages.success(
+                    request,
+                    f"Stock Opname {opname.document_number or 'draft'} berhasil diperbarui.",
+                )
+                return redirect("stock_opname:opname_detail", pk=opname.pk)
+    else:
+        if opname.status != StockOpname.Status.DRAFT:
+            messages.error(
+                request, "Hanya Stock Opname berstatus Draft yang dapat diubah."
             )
             return redirect("stock_opname:opname_detail", pk=opname.pk)
-    else:
         form = StockOpnameForm(instance=opname)
 
     return render(

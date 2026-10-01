@@ -1,5 +1,6 @@
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from django.contrib import admin
 from django.test import RequestFactory, TestCase
@@ -355,6 +356,40 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
             reverse("expired:expired_edit", args=[expired_doc.pk])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_edit_reloads_row_after_concurrent_submission(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT)
+        expired_item = expired_doc.items.get()
+        stale_draft = Expired.objects.get(pk=expired_doc.pk)
+
+        self.client.post(reverse("expired:expired_submit", args=[expired_doc.pk]))
+        expired_doc.refresh_from_db()
+        issued_number = expired_doc.document_number
+
+        with patch("apps.expired.views.get_object_or_404", return_value=stale_draft):
+            response = self.client.post(
+                reverse("expired:expired_edit", args=[expired_doc.pk]),
+                {
+                    "report_date": "2026-04-10",
+                    "notes": "Catatan setelah pengajuan",
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-id": str(expired_item.pk),
+                    "items-0-item": str(self.item.pk),
+                    "items-0-stock": str(self.stock.pk),
+                    "items-0-quantity": "5",
+                    "items-0-notes": "Melewati tanggal ED",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.SUBMITTED)
+        self.assertEqual(expired_doc.document_number, issued_number)
+        self.assertEqual(str(expired_doc.report_date), "2026-03-10")
+        self.assertEqual(expired_doc.notes, "Catatan setelah pengajuan")
 
     def test_edit_blocked_for_verified(self):
         expired_doc = self._create_expired(status=Expired.Status.VERIFIED)
