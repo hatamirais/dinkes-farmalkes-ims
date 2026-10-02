@@ -7,7 +7,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
-## [1.34.0] - 2026-10-01
+## [1.34.0] - 2026-10-02
 
 ### Added
 
