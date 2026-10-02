@@ -1,4 +1,39 @@
 from django.db import migrations, models
+from django.db.models import Count
+
+
+def mark_legacy_duplicate_numbers(apps, schema_editor):
+    database = schema_editor.connection.alias
+    Issue = apps.get_model("core", "DocumentNumberIssue")
+
+    duplicate_numbers = (
+        Issue.objects.using(database)
+        .values("document_number")
+        .annotate(total=Count("id"))
+        .filter(total__gt=1)
+        .order_by("document_number")
+    )
+    for duplicate in duplicate_numbers.iterator():
+        issue_ids = list(
+            Issue.objects.using(database)
+            .filter(document_number=duplicate["document_number"])
+            .order_by("id")
+            .values_list("id", flat=True)
+        )
+        Issue.objects.using(database).filter(id=issue_ids[0]).update(
+            is_legacy_duplicate=False
+        )
+        Issue.objects.using(database).filter(id__in=issue_ids[1:]).update(
+            is_legacy_duplicate=True
+        )
+
+
+def unmark_legacy_duplicate_numbers(apps, schema_editor):
+    database = schema_editor.connection.alias
+    Issue = apps.get_model("core", "DocumentNumberIssue")
+    Issue.objects.using(database).filter(is_legacy_duplicate=True).update(
+        is_legacy_duplicate=False
+    )
 
 
 class Migration(migrations.Migration):
@@ -8,15 +43,19 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveConstraint(
+        migrations.AddField(
             model_name="documentnumberissue",
-            name="uq_doc_number_issue_rule_number",
-        ),
-        migrations.AddConstraint(
-            model_name="documentnumberissue",
-            constraint=models.UniqueConstraint(
-                fields=("document_number",),
-                name="uq_doc_number_issue_number",
+            name="is_legacy_duplicate",
+            field=models.BooleanField(
+                default=False,
+                help_text=(
+                    "Menandai konflik lintas workflow yang sudah ada sebelum "
+                    "keunikan nomor global diberlakukan."
+                ),
             ),
+        ),
+        migrations.RunPython(
+            mark_legacy_duplicate_numbers,
+            unmark_legacy_duplicate_numbers,
         ),
     ]

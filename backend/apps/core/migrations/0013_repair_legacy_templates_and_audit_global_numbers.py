@@ -71,21 +71,24 @@ def repair_legacy_templates_and_audit_global_numbers(apps, schema_editor):
             update_fields=["template", "reset_period", "padding", "updated_at"]
         )
 
-    duplicates = list(
+    duplicate_group_count = (
         Issue.objects.using(database)
         .values("document_number")
         .annotate(total=Count("id"))
         .filter(total__gt=1)
-        .order_by("document_number")[:20]
+        .count()
     )
-    if duplicates:
-        summary = ", ".join(
-            f"{row['document_number']} ({row['total']}x)" for row in duplicates
-        )
-        raise RuntimeError(
-            "Tidak dapat mengaktifkan keunikan global nomor dokumen karena ledger "
-            f"memuat nomor duplikat: {summary}. Selesaikan konflik audit sebelum "
-            "menjalankan migrasi kembali."
+    # This migration is the audit step. Existing cross-rule conflicts were valid
+    # under the former per-model constraints, so they must not block deployment or
+    # be silently renumbered. Migration 0014 explicitly marks every non-canonical
+    # row in each audited group before migration 0015 adds the new constraint.
+    # Persist the per-row marker in 0014; emit the audited group count here so
+    # upgrade logs retain the installation-specific result.
+    if duplicate_group_count:
+        print(
+            "Document-number migration audit found "
+            f"{duplicate_group_count} legacy duplicate group(s); "
+            "migration 0014 will preserve and mark them."
         )
 
 

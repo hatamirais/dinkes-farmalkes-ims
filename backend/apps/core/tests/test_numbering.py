@@ -1,11 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stdout
 from datetime import date
 from importlib import import_module
+from io import StringIO
 from types import SimpleNamespace
 
 from django.apps import apps as django_apps
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db import connection, connections, transaction
+from django.db import IntegrityError, connection, connections, transaction
 from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
 
 from apps.allocation.models import Allocation
@@ -138,6 +141,71 @@ class DocumentNumberRuleValidationTests(TestCase):
         self.assertEqual(lplpo_rule.template, "CUSTOM/{year}/{seq}")
         self.assertEqual(special_rule.template, "440/{seq}/KD.F/{year}")
         special_rule.full_clean()
+
+    def test_migration_marks_legacy_cross_rule_duplicates_without_renumbering(self):
+        allocation_content_type = ContentType.objects.get_for_model(Allocation)
+        allocation_rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.ALLOCATION
+        )
+        recall_rule = DocumentNumberRule.objects.get(key=DocumentNumberRule.Key.RECALL)
+        common = {
+            "document_number": "LEGACY-CROSS-RULE-001",
+            "sequence_value": 1,
+            "period_key": "2026",
+            "scope_key": "",
+            "business_date": date(2026, 1, 1),
+            "rule_label_snapshot": "Legacy",
+            "template_snapshot": "LEGACY-{seq}",
+            "reset_period_snapshot": "YEARLY",
+            "padding_snapshot": 1,
+            "is_legacy_duplicate": True,
+        }
+        first = DocumentNumberIssue.objects.create(
+            rule=allocation_rule,
+            content_type=allocation_content_type,
+            object_id=990001,
+            **common,
+        )
+        second = DocumentNumberIssue.objects.create(
+            rule=recall_rule,
+            content_type=allocation_content_type,
+            object_id=990002,
+            **common,
+        )
+
+        audit_migration = import_module(
+            "apps.core.migrations.0013_repair_legacy_templates_and_audit_global_numbers"
+        )
+        audit_output = StringIO()
+        with redirect_stdout(audit_output):
+            audit_migration.repair_legacy_templates_and_audit_global_numbers(
+                django_apps,
+                SimpleNamespace(connection=connection),
+            )
+        self.assertIn("1 legacy duplicate group(s)", audit_output.getvalue())
+
+        migration = import_module(
+            "apps.core.migrations.0014_global_document_number_issue_uniqueness"
+        )
+        migration.mark_legacy_duplicate_numbers(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertFalse(first.is_legacy_duplicate)
+        self.assertTrue(second.is_legacy_duplicate)
+        self.assertEqual(first.document_number, "LEGACY-CROSS-RULE-001")
+        self.assertEqual(second.document_number, "LEGACY-CROSS-RULE-001")
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            DocumentNumberIssue.objects.create(
+                rule=recall_rule,
+                content_type=allocation_content_type,
+                object_id=990003,
+                **{**common, "is_legacy_duplicate": False},
+            )
 
 
 class DocumentNumberIssuanceTests(TestCase):

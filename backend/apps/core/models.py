@@ -216,6 +216,13 @@ class DocumentNumberIssue(TimeStampedModel):
         related_name="issues",
     )
     document_number = models.CharField(max_length=MAX_DOCUMENT_NUMBER_LENGTH)
+    is_legacy_duplicate = models.BooleanField(
+        default=False,
+        help_text=(
+            "Menandai konflik lintas workflow yang sudah ada sebelum keunikan "
+            "nomor global diberlakukan."
+        ),
+    )
     sequence_value = models.PositiveBigIntegerField()
     period_key = models.CharField(max_length=6, blank=True)
     scope_key = models.CharField(max_length=191, blank=True)
@@ -257,6 +264,7 @@ class DocumentNumberIssue(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["document_number"],
+                condition=models.Q(is_legacy_duplicate=False),
                 name="uq_doc_number_issue_number",
             ),
             models.UniqueConstraint(

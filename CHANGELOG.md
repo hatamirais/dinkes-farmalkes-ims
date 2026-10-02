@@ -26,6 +26,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Preserved legal cross-workflow legacy document-number collisions during migration by explicitly marking grandfathered ledger rows instead of blocking deployment or rewriting official history, while retaining global uniqueness enforcement for all new issuance.
 - Preserved legacy issued numbers, counter positions, original issuers, timestamps, business dates, and void metadata during numbering backfills where that history can be reconstructed.
 - Prevented repeated issuance with a different business date or scope, cross-rule rendered-number collisions, and templates that could overflow when sequence counters exceed their configured padding.
 - Preserved original procurement approval metadata when reconstructing planned-receiving issuance history.

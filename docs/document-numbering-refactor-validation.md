@@ -31,7 +31,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 - Nomor lama yang masih terisi pada Alokasi, Distribusi, Recall, atau Kedaluwarsa berstatus Draft/Disiapkan setelah step-back tetap dianggap terpakai dan wajib masuk ledger/counter; Draft tanpa nomor tetap tidak diterbitkan.
 - Nomor diterbitkan di dalam transaksi database yang sama dengan checkpoint workflow.
 - Nomor yang pernah diterbitkan tidak boleh digunakan kembali, termasuk setelah dokumen dihapus atau dibatalkan.
-- Nilai nomor dokumen unik secara global lintas rule. Jika dua rule merender kandidat yang sama, penerbitan berikutnya melewati nilai yang sudah tercatat, termasuk issue berstatus `VOID`; constraint database dan retry melindungi penerbitan konkuren.
+- Nilai nomor dokumen baru unik secara global lintas rule. Jika dua rule merender kandidat yang sama, penerbitan berikutnya melewati nilai yang sudah tercatat, termasuk issue berstatus `VOID`; constraint database dan retry melindungi penerbitan konkuren. Konflik lintas workflow yang sudah sah pada skema lama tidak menghalangi migrasi atau diubah diam-diam: satu issue dipertahankan sebagai canonical, salinan berikutnya ditandai `is_legacy_duplicate`, dan semua nilainya tetap dianggap terpakai.
 - Template Distribusi lama yang masih valid dipertahankan saat migrasi. Template lama yang tidak memenuhi kontrak token atau batas panjang saat urutan mencapai 19 digit diganti dengan default aman untuk rule terkait.
 - Draft baru tidak memperoleh nomor sebelum checkpoint yang ditentukan.
 - Form operasional dan Django Admin tidak menerima override nomor resmi untuk workflow yang masuk cakupan.
@@ -93,6 +93,7 @@ Tanggal mulai: `____________________`
 - [ ] Dokumen lama yang sudah melewati checkpoint muncul di Riwayat Penomoran. Catatan: `____________________`
 - [ ] Nomor lama yang urutan tanggal bisnisnya berbeda dari urutan penerbitan mempertahankan nilai `{seq}` yang tertulis, dan counter memakai nilai maksimum bucket. Catatan: `____________________`
 - [ ] Tidak ada nomor resmi lama yang berubah setelah migration. Catatan: `____________________`
+- [ ] Jika nomor yang sama sudah ada pada workflow lama yang berbeda, migration selesai tanpa mengubah nilainya; satu issue menjadi canonical, issue tambahan bertanda `is_legacy_duplicate`, dan penerbitan baru tetap tidak dapat memakai nomor tersebut. Catatan: `____________________`
 
 ## 2. Pengaturan Rule
 
