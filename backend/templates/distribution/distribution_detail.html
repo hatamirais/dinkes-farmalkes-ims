@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}{{ page_title|default:"Detail Distribusi" }} {{ distribution.document_number }} — Healthcare IMS{% endblock %}
+{% block title %}{{ page_title|default:"Detail Distribusi" }} {{ distribution.document_number|default:"draft" }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title|default:"Detail Distribusi" }}{% endblock %}
 
 {% block extra_css %}
@@ -137,7 +137,7 @@
                         <div class="col-12 col-xl-8">
                             <dl class="row mb-0">
                                 <dt class="col-5 text-muted">No. Dokumen</dt>
-                                <dd class="col-7 fw-semibold">{{ distribution.document_number }}</dd>
+                                <dd class="col-7 fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</dd>
 
                                 <dt class="col-5 text-muted">Tanggal</dt>
                                 <dd class="col-7">{{ distribution.request_date|date:"d/m/Y" }}</dd>
@@ -199,15 +199,16 @@
                                 <div class="d-grid gap-2">
                                     {% if is_allocation %}
                                     {# Allocation-generated: limited actions, managed by parent allocation #}
-                                    {% if distribution.allocation %}
+                                    {% if distribution.allocation and can_view_allocation_parent %}
                                     <a href="{% url 'allocation:allocation_detail' distribution.allocation.pk %}"
                                         class="btn btn-outline-primary btn-sm">
                                         <i class="bi bi-diagram-3 me-1"></i>Lihat Alokasi Induk
                                     </a>
                                     {% endif %}
+                                    {% if can_manage_allocation_distribution %}
                                     {% if distribution.status == 'VERIFIED' %}
                                     <form method="post"
-                                        action="{% url 'distribution:distribution_prepare' distribution.pk %}">
+                                        action="{% url 'allocation:allocation_distribution_prepare' distribution.allocation.pk distribution.pk %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-info btn-sm w-100">
                                             <i class="bi bi-box-seam me-1"></i>Siapkan Barang
@@ -218,6 +219,7 @@
                                         data-bs-target="#distributeModal">
                                         <i class="bi bi-truck me-1"></i>Distribusikan
                                     </button>
+                                    {% endif %}
                                     {% endif %}
                                     {% if can_print_sbbk %}
                                     <button type="button" class="btn btn-dark btn-sm" data-action="print">
@@ -255,7 +257,7 @@
                                         action="{% url 'distribution:distribution_prepare' distribution.pk %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-info btn-sm w-100">
-                                            <i class="bi bi-box-seam me-1"></i>Barang Sudah Disiapkan
+                                            <i class="bi bi-box-seam me-1"></i>Siap untuk Diajukan
                                         </button>
                                     </form>
                                     {% endif %}
@@ -382,11 +384,15 @@
 </div>
 
 {# ─── Distribute Confirmation Modal ─── #}
-{% if can_distribute_distribution or is_allocation and distribution.status == 'PREPARED' %}
+{% if can_distribute_distribution or is_allocation and can_manage_allocation_distribution and distribution.status == 'PREPARED' %}
 <div class="modal fade" id="distributeModal" tabindex="-1" aria-labelledby="distributeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
+            {% if is_allocation %}
+            <form method="post" action="{% url 'allocation:allocation_distribution_deliver' distribution.allocation.pk distribution.pk %}">
+            {% else %}
             <form method="post" action="{% url 'distribution:distribution_distribute' distribution.pk %}">
+            {% endif %}
                 {% csrf_token %}
                 <div class="modal-header bg-success-subtle">
                     <h6 class="modal-title" id="distributeModalLabel">
@@ -397,7 +403,7 @@
                 <div class="modal-body">
                     <p class="mb-2">Anda akan mendistribusikan barang untuk:</p>
                     <div class="border rounded p-3 bg-light mb-3">
-                        <div class="fw-semibold">{{ distribution.document_number }}</div>
+                        <div class="fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</div>
                         <div class="text-muted small">{{ distribution.facility }}</div>
                         <div class="text-muted small">{{ distribution.items.count }} item</div>
                     </div>
@@ -458,7 +464,7 @@
     </div>
 
     <div class="sbbk-print-meta">
-        <div><span class="label">Nomor Dokumen</span>: {{ distribution.document_number }}</div>
+        <div><span class="label">Nomor Dokumen</span>: {{ distribution.document_number|default:"Belum diterbitkan" }}</div>
         <div><span class="label">Unit Penerima</span>: {{ distribution.facility.name|upper }}</div>
         <div><span class="label">Bulan</span>: {{ distribution.request_date|date:"F Y"|upper }}</div>
         {% if distribution.program %}

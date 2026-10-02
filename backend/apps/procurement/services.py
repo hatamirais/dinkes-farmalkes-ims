@@ -3,6 +3,8 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.decimal_validation import multiply_decimals
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.receiving.models import Receiving, ReceivingItem, ReceivingOrderItem
 
 from .models import (
@@ -164,6 +166,13 @@ def synchronize_contract_receiving_plan(contract, *, approved_by):
             ]
         )
 
+    issue_document_number(
+        DocumentNumberRule.Key.RECEIVING,
+        business_date=receiving.receiving_date,
+        target=receiving,
+        actor=approved_by,
+    )
+
     existing_order_items = {
         item.contract_line_id: item
         for item in ReceivingOrderItem.objects.select_for_update(of=("self",))
@@ -219,10 +228,17 @@ def submit_contract(contract, user):
         if contract.status != ProcurementContract.Status.DRAFT:
             raise ProcurementWorkflowError("Hanya kontrak Draft yang dapat diajukan.")
         _validate_contract_lines(contract)
+        issue_document_number(
+            DocumentNumberRule.Key.PROCUREMENT_CONTRACT,
+            business_date=contract.contract_date,
+            target=contract,
+            actor=user,
+        )
         contract.status = ProcurementContract.Status.SUBMITTED
         contract.submitted_by = user
         contract.submitted_at = timezone.now()
         _save_model(contract, ["status", "submitted_by", "submitted_at"])
+        return contract
 
 
 def approve_contract(contract, user):
@@ -310,6 +326,7 @@ def cancel_contract(contract, user, reason):
         contract.cancelled_by = user
         contract.cancelled_at = now
         contract.cancel_reason = reason
+        void_document_number(contract, actor=user, reason=reason)
         _save_model(
             contract,
             ["status", "cancelled_by", "cancelled_at", "cancel_reason"],
@@ -320,6 +337,7 @@ def cancel_contract(contract, user, reason):
             receiving.cancelled_by = user
             receiving.cancelled_at = now
             receiving.cancel_reason = reason
+            void_document_number(receiving, actor=user, reason=reason)
             receiving.save(
                 update_fields=[
                     "status",
@@ -350,10 +368,17 @@ def submit_amendment(amendment, user):
             raise ProcurementWorkflowError("Tambahkan minimal 1 baris amandemen sebelum diajukan.")
         if contract.status != ProcurementContract.Status.APPROVED:
             raise ProcurementWorkflowError("Hanya kontrak yang sudah disetujui yang dapat diajukan amandemennya.")
+        issue_document_number(
+            DocumentNumberRule.Key.PROCUREMENT_AMENDMENT,
+            business_date=amendment.amendment_date,
+            target=amendment,
+            actor=user,
+        )
         amendment.status = ProcurementAmendment.Status.SUBMITTED
         amendment.submitted_by = user
         amendment.submitted_at = timezone.now()
         _save_model(amendment, ["status", "submitted_by", "submitted_at"])
+        return amendment
 
 
 def approve_amendment(amendment, user):

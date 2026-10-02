@@ -1,13 +1,12 @@
 {% extends 'base.html' %}
-{% load static %}
 {% load crispy_forms_tags %}
 {% load number_format %}
 
-{% block title %}Pengaturan Sistem - {{ system_settings.facility_name }}{% endblock %}
+{% block title %}Pengaturan Umum - {{ system_settings.facility_name }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Pengaturan Sistem</h1>
+    <h1 class="h2">Pengaturan Umum</h1>
 </div>
 
 <div class="row">
@@ -50,31 +49,8 @@
                 </div>
             </div>
 
-            <div class="card shadow-sm border-primary-subtle">
-                <div class="card-header d-flex align-items-center justify-content-between bg-primary-subtle">
-                    <div>
-                        <h5 class="card-title mb-0">Costumization</h5>
-                        <small class="text-muted">Atur rule penomoran dokumen distribusi</small>
-                    </div>
-                    <span class="badge text-bg-primary">Numbering Rule</span>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            {{ form.lplpo_distribution_number_template|as_crispy_field }}
-                        </div>
-                        <div class="col-12">
-                            {{ form.special_request_distribution_number_template|as_crispy_field }}
-                        </div>
-                    </div>
-                    <div class="alert alert-light border mt-3 mb-0 small">
-                        Gunakan <code>{seq}</code> untuk nomor urut dan <code>{year}</code> untuk tahun dokumen. Placeholder lain tidak didukung.
-                    </div>
-                </div>
-            </div>
-
             <div class="mt-4 d-flex justify-content-end">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Simpan Pengaturan</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Simpan Pengaturan Umum</button>
             </div>
         </form>
     </div>
@@ -84,14 +60,13 @@
                 <h5 class="card-title mb-0">Informasi</h5>
             </div>
             <div class="card-body text-muted small">
-                <p>Pengaturan ini akan digunakan di seluruh aplikasi, termasuk saat mencetak dokumen (Stock Opname, LPLPO, dll).</p>
+                <p>Pengaturan umum digunakan untuk identitas aplikasi dan kop dokumen.</p>
                 <p><strong>Label Platform:</strong> Digunakan untuk branding singkat di halaman login.</p>
                 <p><strong>Logo Navbar:</strong> Logo akan diskala otomatis ke tinggi maksimal 32px.</p>
-                <p><strong>Header Laporan:</strong> Digunakan sebagai baris paling atas di kop surat cetak.</p>
-                <p><strong>Template Penomoran:</strong> Gunakan placeholder <code>{seq}</code> untuk nomor urut dan <code>{year}</code> untuk tahun dokumen.</p>
+                <p class="mb-0"><strong>Header Laporan:</strong> Digunakan sebagai baris paling atas di kop surat cetak.</p>
             </div>
         </div>
-        
+
         {% if system_settings.logo %}
         {% with logo_url=system_settings.logo.url|safe_media_url %}
         {% if logo_url %}
@@ -106,36 +81,6 @@
         {% endif %}
         {% endwith %}
         {% endif %}
-
-        <div class="card shadow-sm border-primary-subtle" id="numbering-preview-card" data-preview-sequence="{{ numbering_preview_sample_sequence }}" data-preview-year="{{ numbering_preview_sample_year }}">
-            <div class="card-header d-flex align-items-center justify-content-between bg-primary-subtle">
-                <div>
-                    <h5 class="card-title mb-0">Preview Rule</h5>
-                    <small class="text-muted">Contoh hasil format nomor dokumen</small>
-                </div>
-                <span class="badge text-bg-primary">Live Example</span>
-            </div>
-            <div class="card-body">
-                <div class="vstack gap-3">
-                    {% for preview in numbering_preview_cards %}
-                    <div class="rounded border p-3 bg-light-subtle">
-                        <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                            <div>
-                                <div class="fw-semibold">{{ preview.title }}</div>
-                                <div class="small text-muted" data-preview-template="{{ preview.title }}">{{ preview.template }}</div>
-                            </div>
-                            <span class="badge text-bg-light">Seq {{ numbering_preview_sample_sequence }}</span>
-                        </div>
-                        <div class="font-monospace fs-6 text-primary-emphasis" data-preview-example="{{ preview.title }}">{{ preview.example }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'js/system-settings.js' %}"></script>
 {% endblock %}

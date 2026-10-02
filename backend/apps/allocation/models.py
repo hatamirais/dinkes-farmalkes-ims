@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils import timezone
 
 from apps.core.decimal_validation import validate_finite_decimal
 from apps.core.models import TimeStampedModel
@@ -27,7 +26,8 @@ class Allocation(TimeStampedModel):
         max_length=100,
         unique=True,
         blank=True,
-        help_text="Leave blank to auto-generate (e.g., ALK-2025-0042)",
+        null=True,
+        help_text="Diterbitkan otomatis saat alokasi diajukan.",
     )
     title = models.CharField(
         max_length=255,
@@ -86,23 +86,6 @@ class Allocation(TimeStampedModel):
 
     def __str__(self):
         return self.document_number or "Alokasi baru"
-
-    def save(self, *args, **kwargs):
-        if not self.document_number:
-            year = timezone.now().year
-            prefix = f"ALK-{year}-"
-            last = (
-                Allocation.objects.filter(document_number__startswith=prefix)
-                .order_by("-document_number")
-                .first()
-            )
-            if last:
-                last_number = int(last.document_number.split("-")[-1])
-                next_number = last_number + 1
-            else:
-                next_number = 1
-            self.document_number = f"{prefix}{str(next_number).zfill(4)}"
-        super().save(*args, **kwargs)
 
     @property
     def generated_distributions(self):

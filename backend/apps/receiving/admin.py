@@ -24,6 +24,8 @@ from apps.core.decimal_validation import (
     parse_decimal_input,
     validate_decimal_precision,
 )
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
 from .models import (
     Receiving,
     ReceivingItem,
@@ -43,7 +45,7 @@ CSV_IMPORT_MAX_SIZE_BYTES = 2 * 1024 * 1024
 RECEIVING_DOCUMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 CSV_TEXT_LIMITS = {
-    "document_number": 100,
+    "import_group": 100,
     "receiving_type": 20,
     "supplier_code": 20,
     "sumber_dana_code": 20,
@@ -53,7 +55,7 @@ CSV_TEXT_LIMITS = {
 }
 
 RECEIVING_CSV_HEADERS = (
-    "document_number",
+    "import_group",
     "receiving_type",
     "receiving_date",
     "supplier_code",
@@ -70,14 +72,28 @@ RECEIVING_CSV_HEADERS = (
 # ── Inlines ────────────────────────────────────────────────
 
 
-class ReceivingItemInline(admin.TabularInline):
+class DraftReceivingInlineMixin:
+    def _parent_is_draft(self, obj):
+        return obj is None or obj.status == Receiving.Status.DRAFT
+
+    def has_add_permission(self, request, obj=None):
+        return super().has_add_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and self._parent_is_draft(obj)
+
+
+class ReceivingItemInline(DraftReceivingInlineMixin, admin.TabularInline):
     model = ReceivingItem
     extra = 1
     fields = ("item", "quantity", "batch_lot", "expiry_date", "unit_price", "location")
     raw_id_fields = ("item",)
 
 
-class ReceivingOrderItemInline(admin.TabularInline):
+class ReceivingOrderItemInline(DraftReceivingInlineMixin, admin.TabularInline):
     model = ReceivingOrderItem
     extra = 1
     fields = (
@@ -166,7 +182,7 @@ class ReceivingTypeOptionAdmin(admin.ModelAdmin):
 class ReceivingCSVImportForm(forms.Form):
     csv_file = forms.FileField(
         label="File CSV",
-        help_text="Format: document_number, receiving_type, receiving_date, "
+        help_text="Format: import_group, receiving_type, receiving_date, "
         "supplier_code, sumber_dana_code, location_code, item_code, "
         "quantity, batch_lot, expiry_date, unit_price",
     )
@@ -186,6 +202,7 @@ class ReceivingCSVImportForm(forms.Form):
 class ReceivingAdmin(admin.ModelAdmin):
     list_display = (
         "document_number",
+        "import_group",
         "receiving_type",
         "receiving_date",
         "supplier",
@@ -197,17 +214,38 @@ class ReceivingAdmin(admin.ModelAdmin):
     search_fields = ("document_number", "supplier__name")
     date_hierarchy = "receiving_date"
     inlines = [ReceivingOrderItemInline, ReceivingItemInline, ReceivingDocumentInline]
-    raw_id_fields = ("supplier", "created_by", "verified_by", "cancelled_by")
-    readonly_fields = ("verified_at", "cancelled_at")
+    raw_id_fields = ("supplier", "created_by")
+    readonly_fields = (
+        "document_number",
+        "status",
+        "verified_by",
+        "verified_at",
+        "approved_by",
+        "approved_at",
+        "closed_by",
+        "closed_at",
+        "closed_reason",
+        "cancelled_by",
+        "cancelled_at",
+        "cancel_reason",
+    )
+    actions = None
     list_per_page = 25
 
     change_list_template = "admin/receiving/receiving_changelist.html"
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
-        if obj and obj.has_posted_stock_movements() and "document_number" not in readonly_fields:
-            readonly_fields.append("document_number")
-        return readonly_fields
+        if obj is not None and obj.status != Receiving.Status.DRAFT:
+            readonly_fields.extend(
+                field.name for field in self.model._meta.fields if field.editable
+            )
+        return tuple(dict.fromkeys(readonly_fields))
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.status != Receiving.Status.DRAFT:
+            return False
+        return super().has_delete_permission(request, obj)
 
     def save_formset(self, request, form, formset, change):
         if formset.model is not ReceivingDocument:
@@ -325,7 +363,7 @@ class ReceivingAdmin(admin.ModelAdmin):
                         f"{result['transactions']} transaksi dibuat.",
                     )
                     return redirect("..")
-                except (UnicodeDecodeError, CSVError, ValueError) as exc:
+                except (UnicodeDecodeError, CSVError, ValueError, ValidationError) as exc:
                     logger.warning(
                         json.dumps(
                             {
@@ -378,7 +416,7 @@ class ReceivingAdmin(admin.ModelAdmin):
         ]
 
         required_columns = {
-            "document_number",
+            "import_group",
             "receiving_date",
             "item_code",
             "sumber_dana_code",
@@ -391,7 +429,7 @@ class ReceivingAdmin(admin.ModelAdmin):
                 "Kolom wajib tidak ditemukan: " + ", ".join(missing_columns)
             )
 
-        # Group rows by document_number
+        # Group rows by import_group; official numbers are issued on commit.
         grouped = defaultdict(list)
         for row_num, row in enumerate(reader, start=2):
             row = {
@@ -403,18 +441,18 @@ class ReceivingAdmin(admin.ModelAdmin):
                 for k, v in row.items()
                 if k is not None
             }
-            if not row.get("document_number"):
-                raise ValueError(f"Baris {row_num}: document_number kosong")
+            if not row.get("import_group"):
+                raise ValueError(f"Baris {row_num}: import_group kosong")
             self._validate_text_length(
-                row["document_number"],
-                "document_number",
+                row["import_group"],
+                "import_group",
                 row_num,
             )
-            grouped[row["document_number"]].append((row_num, row))
+            grouped[row["import_group"]].append((row_num, row))
 
         counts = {"receivings": 0, "items": 0, "stock": 0, "transactions": 0}
 
-        for doc_number, rows in grouped.items():
+        for import_group, rows in grouped.items():
             # Use first row for header-level data
             first_row_num, first_row = rows[0]
 
@@ -486,7 +524,7 @@ class ReceivingAdmin(admin.ModelAdmin):
 
             # Create Receiving (parent)
             receiving = Receiving(
-                document_number=doc_number,
+                import_group=import_group,
                 receiving_type=receiving_type,
                 receiving_date=receiving_date,
                 supplier=supplier,
@@ -495,7 +533,10 @@ class ReceivingAdmin(admin.ModelAdmin):
                 created_by=user,
                 verified_by=user,
                 verified_at=timezone.now(),
-                notes=f"Imported via CSV on {timezone.now().strftime('%Y-%m-%d %H:%M')}",
+                notes=(
+                    f"Imported via CSV (group {import_group}) on "
+                    f"{timezone.now().strftime('%Y-%m-%d %H:%M')}"
+                ),
             )
             try:
                 receiving.full_clean()
@@ -506,6 +547,12 @@ class ReceivingAdmin(admin.ModelAdmin):
                 detail = "; ".join(messages) if messages else "tipe penerimaan tidak valid"
                 raise ValueError(f"Baris {first_row_num}: {detail}") from exc
             receiving.save()
+            issue_document_number(
+                DocumentNumberRule.Key.RECEIVING,
+                business_date=receiving.receiving_date,
+                target=receiving,
+                actor=user,
+            )
             counts["receivings"] += 1
 
             # Create ReceivingItem + Stock + Transaction for each row
@@ -648,7 +695,7 @@ class ReceivingAdmin(admin.ModelAdmin):
                     reference_type=Transaction.ReferenceType.RECEIVING,
                     reference_id=receiving.pk,
                     user=user,
-                    notes=f"Import saldo awal: {doc_number}",
+                    notes=f"Import penerimaan: {receiving.document_number}",
                 )
                 counts["transactions"] += 1
 

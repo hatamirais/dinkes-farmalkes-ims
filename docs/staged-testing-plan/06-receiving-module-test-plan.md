@@ -14,7 +14,7 @@ Komponen dalam cakupan plan ini:
 - model `ReceivingDocument`
 - model `ReceivingTypeOption`
 - properti turunan seperti `receiving_type_label`, `remaining_quantity`, dan `total_price`
-- `generate_document_number()` pada `Receiving`
+- layanan penomoran terpusat untuk rule `RECEIVING`
 - view `receiving_list`
 - view `receiving_create`
 - view `receiving_detail`
@@ -130,14 +130,15 @@ Fokus:
 
 ## Matriks Skenario
 
-### A. Document Number Generation
+### A. Document Number Issuance
 
 Prioritas: Tinggi
 
-1. `generate_document_number()` menghasilkan format `RCV-YYYY-NNNNN`.
-2. Save tanpa `document_number` mengisi otomatis dengan nomor yang benar.
-3. `document_number` kedua dalam tahun yang sama menginkrementasi sekuensial.
-4. Nomor tidak duplikat meskipun dua receiving dibuat dalam satu request bersamaan.
+1. Draft tersimpan tanpa `document_number`; nomor resmi diterbitkan hanya pada checkpoint komitmen workflow.
+2. Rule `RECEIVING` menghasilkan format sesuai konfigurasi aktif dan tanggal bisnis `receiving_date`.
+3. Nomor berikutnya dalam period/scope yang sama menginkrementasi sekuensial.
+4. Penerbitan konkuren tidak menghasilkan nomor duplikat, dan kandidat yang sudah diklaim sebagai source document dilewati.
+5. Nomor yang sudah diterbitkan tidak dipakai ulang setelah dokumen dibatalkan.
 
 ### B. Receiving Model Properties
 
@@ -207,7 +208,7 @@ Prioritas: Tinggi
 1. Import CSV valid membuat `Receiving`, `ReceivingItem`, menginkrementasi `Stock`, dan menulis `Transaction(IN)`.
 2. Import CSV dengan baris quantity kosong menghasilkan error pada baris tersebut.
 3. Import CSV dengan kode item tidak dikenal ditolak dengan pesan error yang jelas.
-4. Import CSV dengan `document_number` duplikat ditolak.
+4. Baris dikelompokkan dengan `import_group`, lalu setiap grup valid memperoleh nomor resmi yang berbeda saat konfirmasi.
 5. Dry-run mode menampilkan preview tanpa menyimpan data.
 6. Import admin hanya dapat diakses oleh superuser atau user dengan scope `MANAGE`.
 

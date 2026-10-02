@@ -1,7 +1,6 @@
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
-from apps.core.numbering import generate_document_number
 from django.utils import timezone
 
 
@@ -18,7 +17,8 @@ class Expired(TimeStampedModel):
         max_length=100,
         unique=True,
         blank=True,
-        help_text='Leave blank to auto-generate (e.g., EXP-YYYYMM-XXXXX)'
+        null=True,
+        help_text='Diterbitkan otomatis saat dokumen diajukan.'
     )
     report_date = models.DateField(default=timezone.now)
     status = models.CharField(
@@ -54,17 +54,7 @@ class Expired(TimeStampedModel):
         ordering = ['-report_date']
 
     def __str__(self):
-        return self.document_number
-
-    def save(self, *args, **kwargs):
-        if not self.document_number:
-            year_month = timezone.now().strftime('%Y%m')
-            self.document_number = generate_document_number(
-                Expired,
-                fallback_prefix=f"EXP-{year_month}",
-            )
-        super().save(*args, **kwargs)
-
+        return self.document_number or "Dokumen kedaluwarsa baru"
 
 class ExpiredItem(models.Model):
     """Line items for each expired document."""

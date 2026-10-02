@@ -33,7 +33,8 @@ Root route include map from `backend/config/urls.py`:
 - `/login/`, `/logout/`, `/password/change/`, `/password/change/done/`
   - `/login/` uses Django `LoginView` with `apps.core.forms.CrispyAuthenticationForm`, a crispy-backed subclass of Django `AuthenticationForm`
   - `/password/change/` uses a rate-limited subclass of Django's `PasswordChangeView`
-- `/settings/` -> system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
+- `/settings/` -> general system settings (`apps.core.views.SystemSettingsUpdateView`), restricted to superusers plus roles `ADMIN` and `KEPALA`
+- `/settings/numbering/` -> document-number rule settings (`apps.core.views.DocumentNumberSettingsUpdateView`), with the same explicit role gate
 - `/maintenance/` -> maintenance preview / service unavailable page (`apps.core.views.maintenance_mode`, HTTP 503)
 - `/users/`, `/items/`, `/stock/`, `/receiving/`, `/procurement/`, `/distribution/`, `/allocation/`, `/recall/`, `/expired/`, `/reports/`, `/stock-opname/`, `/puskesmas/`, `/lplpo/`
 - `/mobile/`, `/mobile/stocks/`, `/mobile/stocks/<item_id>/card/`, `/mobile/approvals/`, `/mobile/approvals/distributions/<pk>/`, `/mobile/approvals/expired/<pk>/` and their POST-only approval actions
@@ -127,7 +128,7 @@ Special rule:
 - Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
 - Puskesmas receipt-confirmation create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage receipt-confirmation mutations.
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
-- `/settings/` is an explicit role-gated exception outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update system settings.
+- `/settings/` and `/settings/numbering/` are explicit role-gated exceptions outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update their respective settings.
 - Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
 - Distribution and expired verification use the same explicit approver rule: superusers or role `ADMIN` / `KEPALA` with the relevant module scope at `APPROVE` or higher. Elevated scope alone does not authorize another role.
 - `AUDITOR` retains read-only module scopes for direct authorized pages, but the global sidebar renders only the `Laporan` group for this role and the dashboard suppresses linked drill-through cards/sections that open operational menus.
@@ -145,7 +146,28 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `core.SystemSettings` (`system_settings`)
   - Singleton model (forced `id=1`) for global dynamic settings.
-  - Fields: `platform_label`, `facility_name`, `facility_address`, `facility_phone`, `header_title`, `lplpo_distribution_number_template`, `special_request_distribution_number_template`, `logo`
+  - Fields: `platform_label`, `facility_name`, `facility_address`, `facility_phone`, `header_title`, `logo`
+
+- `core.DocumentNumberRule` (`document_number_rules`)
+  - One row per configurable non-Puskesmas document family: Allocation, Distribution LPLPO, Permintaan Khusus, SPJ, SPJ amendment, Receiving, Recall, Expired, Stock Transfer, and Stock Opname.
+  - User-editable fields on `/settings/numbering/`: `template`, `reset_period` (`NEVER`, `YEARLY`, `MONTHLY`), and `padding`; counters are intentionally not exposed.
+  - Templates require `{seq}` exactly once and require period tokens that match the reset policy. Supported tokens are `{seq}`, `{year}`, and `{month}` for every rule.
+
+- `core.DocumentNumberSequence` (`document_number_sequences`)
+  - Internal atomic counter keyed by `(rule, period_key, scope_key)`; rows are locked during issuance.
+  - `period_key` comes from the document business date, never the server timestamp. Current workflows use an empty `scope_key`.
+
+- `core.DocumentNumberIssue` (`document_number_issues`)
+  - Authoritative issuance ledger linking one official number to one target through a generic relation.
+  - Stores rule/template/reset/padding snapshots, business date, sequence value, nullable issuance actor/time, and `ISSUED` / `VOID` state with void actor/time/reason. Live issuance records server time; migrated timestamps remain null when the original checkpoint is not reconstructable.
+  - `document_number` is globally unique for all normal and newly issued rows across centralized rules. Issuance checks every ledger row, retains VOID values as consumed, and relies on the database constraint plus retry to resolve concurrent cross-rule collisions. Historical cross-workflow duplicates that predate centralization retain their exact numbers; the first ledger row is canonical and additional rows are marked `is_legacy_duplicate`, excluded only from the conditional uniqueness constraint, and still treated as consumed by issuance.
+  - Legacy Distribution rule templates are preserved when valid; migrated templates that cannot satisfy the current token and maximum-length contract are replaced with the corresponding safe default before numbering becomes operational.
+  - Migrated non-planned Receiving issues reconstruct issuance from the verification checkpoint (`verified_by`, `verified_at`); contract-linked plans use the original contract approval checkpoint (`contract.approved_by`, `contract.approved_at`) because amendment synchronization overwrites the Receiving plan's own approval metadata, while legacy manual plans without an exact checkpoint remain unknown.
+  - Legacy nonblank Allocation, Distribution, Recall, and Expired numbers remain consumed and are backfilled even when the current row is Draft/Prepared after a workflow step-back; unnumbered drafts are excluded.
+  - Legacy backfill preserves a sequence parsed from the document number even when editable business-date ordering differs from issuance ordering; each sequence counter is rebuilt from the maximum value in its rule/period/scope bucket.
+  - Issued numbers and consumed sequence values are never reused. Deletion/cancellation paths mark the issue `VOID` where the workflow invalidates the official document.
+  - Django Admin disables hard deletion for Allocation, Distribution, Procurement, Recall, Expired, and Stock Opname parents. Receiving and Stock Transfer disable global bulk actions and retain only their object-level safe Draft deletion behavior.
+  - Distribution, Recall, Expired, Allocation, and Stock Opname edit POSTs lock and reload the parent before binding forms and recheck its live status in the same transaction, serializing edits with number-issuing submission/start actions. Allocation submission also rechecks `DRAFT` after locking so repeated requests cannot replace the original submission audit metadata.
 
 ### 4.2 Users and authorization
 
@@ -222,7 +244,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `stock.StockTransfer` (`stock_transfers`):
   - Status: `DRAFT`, `COMPLETED`
-  - `document_number` auto-generated `TRF-YYYY-NNNNN` when blank
+  - `document_number` remains `NULL` in draft and is issued from the `STOCK_TRANSFER` rule at successful completion, using `transfer_date`
   - FKs: `source_location`, `destination_location`, `created_by`, `completed_by` (nullable)
   - Fields: `transfer_date`, `notes`, `completed_at`
   - Validation: source and destination locations must differ
@@ -237,11 +259,12 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementContract` (`procurement_contracts`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `CLOSED`, `CANCELLED`
-  - Fields: `document_number` (auto-generated `SPJ-YYYY-NNNNN` when blank; manual input is limited to 95 characters to reserve `{SPJ}-A{seq}` amendment suffix space inside the 100-character storage field), `contract_date`, `notes`, `cancel_reason`
+  - Fields: `document_number` (`NULL` in draft; internal IMS number issued from `PROCUREMENT_CONTRACT` on submit using `contract_date`; no manual override), `external_document_number` (optional user-entered reference from another application), `contract_date`, `notes`, `cancel_reason`
   - FKs: `supplier`, `sumber_dana`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable), `closed_by` (nullable), `cancelled_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`, `closed_at`, `cancelled_at`
   - Index: `idx_proc_contract_status_date`
   - Contract create/edit templates expose authenticated quick-create modals for `Supplier` and `FundingSource` through procurement-scoped POST endpoints that reuse receiving lookup validation
+  - Django Admin keeps `contract_date` read-only once `document_number` exists because the issued number is bound to that business date.
   - Approval is restricted to Admin/Superuser or `KEPALA` with procurement approval scope and atomically creates or updates exactly one linked planned `receiving.Receiving(contract=this, is_planned=True)` document
 
 - `procurement.ProcurementContractLine` (`procurement_contract_lines`):
@@ -251,10 +274,11 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `procurement.ProcurementAmendment` (`procurement_amendments`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`
-  - Fields: `document_number` (auto-generated from the parent SPJ as `{contract.document_number}-A{seq}` when blank, for example `SPJ-2026-00001-A1`), `amendment_date`, `notes`
+  - Fields: `document_number` (`NULL` in draft; issued on submit from the configured `PROCUREMENT_AMENDMENT` period counter, default `SPJ/{year}/{month}/{seq}`), `amendment_date`, `notes`
   - FKs: `contract`, `created_by`, `submitted_by` (nullable), `approved_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`
   - Index: `idx_proc_amend_status_date`
+  - Django Admin keeps `amendment_date` read-only once `document_number` exists because the issued number is bound to that business date.
   - Approval is restricted to Admin/Superuser or `KEPALA` with procurement approval scope, re-syncs the linked planned procurement receiving against the newly effective contract state, and rejects revised quantities below already received quantities
 
 - `procurement.ProcurementAmendmentLine` (`procurement_amendment_lines`):
@@ -270,7 +294,8 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `receiving.Receiving` (`receivings`):
   - Type code stored in `receiving_type`, validated against active `ReceivingTypeOption.code`
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIAL`, `RECEIVED`, `CLOSED`, `VERIFIED`, `CANCELLED`
-  - Fields: `document_number` (auto-generated `RCV-YYYY-NNNNN` when blank), `receiving_date`, `is_planned`, `grant_origin`, `program`, `closed_reason`, `cancel_reason`, `notes`
+  - Fields: `document_number` (system-issued, no manual override), `import_group` (nullable unique CSV grouping identity), `receiving_date`, `is_planned`, `grant_origin`, `program`, `closed_reason`, `cancel_reason`, `notes`
+  - Regular/manual CSV receiving gets its official number atomically with stock posting; procurement-linked plans get it when the approved contract creates the plan; legacy manual plans get it on submit.
   - FKs: `contract` (nullable FK to `procurement.ProcurementContract`), `supplier` (nullable), `facility` (nullable), `sumber_dana`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `closed_by` (nullable), `cancelled_by` (nullable)
   - Timestamps: `verified_at`, `approved_at`, `closed_at`, `cancelled_at`
   - Index: `idx_recv_status_date`
@@ -296,16 +321,15 @@ This section reflects model code in `backend/apps/*/models.py`.
 ### 4.6 Distribution
 
 - `distribution.Distribution` (`distributions`):
-  - Type: `LPLPO`, `ALLOCATION`, `SPECIAL_REQUEST`
-  - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `GENERATED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
-  - Current allocation workflow auto-generates child distributions directly in `VERIFIED`; `GENERATED` remains in the enum for compatibility with older rows and migrations, but is not emitted by the active services
+  - Type: `LPLPO`, `SPECIAL_REQUEST`; `ALLOCATION` is no longer a document type
+  - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `PREPARED`, `DISTRIBUTED`, `REJECTED`
+  - Allocation workflow auto-generates child distributions directly in `VERIFIED`; historical `GENERATED` rows were migrated to `VERIFIED`
   - Current regular/special-request workflow is `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`
   - Generated LPLPO draft distributions keep the reviewed LPLPO quantities immutable on the distribution edit screen; that edit step is limited to batch selection, notes, staff, and other header metadata
   - Manual LPLPO distributions can also be created from `/distribution/lplpo/create/` as an operational fallback when monthly LPLPO documents are not yet available. These records still use `distribution_type=LPLPO` and the same numbering/reporting bucket, but they do not have an `lplpo_source` document and therefore remain editable like normal draft distributions.
-  - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED` or compatibility-only `GENERATED`)
+  - Workflow includes manual reset action back to `DRAFT` from `SUBMITTED`, `VERIFIED`, `PREPARED`, and `REJECTED` (but not from `DISTRIBUTED`)
   - Provides `kepala_instalasi` and `petugas` assignments logic for print outputs
-  - Fields: `document_number` (auto-generated `DIST-YYYYMM-XXXXX` when blank for non-rule types; `LPLPO` and `SPECIAL_REQUEST` use the templates stored in `SystemSettings`), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
-  - Special-request create/edit form preloads the currently suggested document number, keeps automatic generation when the suggestion is left unchanged, and requires explicit UI confirmation before manual edits are enabled.
+  - Fields: `document_number` (`NULL` before commitment; system-issued on submit from the LPLPO or Permintaan Khusus rule using `request_date`; no manual override), `request_date`, `program`, `distributed_date`, `notes`, `ocr_text`
   - FKs: `facility`, `created_by`, `verified_by` (nullable), `approved_by` (nullable), `allocation` (nullable, links to parent `allocation.Allocation` for auto-generated distributions)
   - Indexes: `idx_dist_status_date`, `idx_dist_facility_date`
 
@@ -324,11 +348,12 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `allocation.Allocation` (`allocations`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIALLY_FULFILLED`, `FULFILLED`, `REJECTED`
-  - Fields: `document_number` (auto-generated `ALK-YYYY-NNNN` when blank), `title`, `allocation_date`, `referensi`, `notes`, `rejection_reason`
+  - Fields: `document_number` (`NULL` in draft; issued from the Allocation rule on submit using `allocation_date`), `title`, `allocation_date`, `referensi`, `notes`, `rejection_reason`
   - FKs: `created_by`, `submitted_by` (nullable), `approved_by` (nullable)
   - Timestamps: `submitted_at`, `approved_at`
   - Index: `idx_alloc_status_date` on `(status, allocation_date)`
-  - Approval triggers atomic auto-generation of one `Distribution` per facility (type=ALLOCATION, status=VERIFIED)
+  - Approval atomically generates one `Distribution(type=SPECIAL_REQUEST, allocation=this, status=VERIFIED)` per facility and issues each child from the normal Permintaan Khusus counter.
+  - `allocation_id`, not a separate distribution type, identifies origin. Children appear in both the general Permintaan Khusus report and the allocation-origin report and remain parent-managed.
   - `title` is an optional document header field intended for display and future print/report output
   - Funding source is derived from each selected stock batch rather than stored on the allocation header
   - Stock deduction occurs at each child Distribution's delivery confirmation, not on the Allocation itself
@@ -358,7 +383,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `recall.Recall` (`recalls`):
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `COMPLETED`
-  - Fields: `document_number` (auto-generated `REC-YYYYMM-XXXXX` when blank), `recall_date`, `notes`
+  - Fields: `document_number` (`NULL` in draft; issued from the Recall rule on submit using `recall_date`), `recall_date`, `notes`
   - FKs: `supplier`, `created_by`, `verified_by` (nullable), `completed_by` (nullable)
   - Timestamps: `verified_at`, `completed_at`
 
@@ -370,7 +395,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `expired.Expired` (`expired_docs`):
   - Status: `DRAFT`, `SUBMITTED`, `VERIFIED`, `DISPOSED`
-  - Fields: `document_number` (auto-generated `EXP-YYYYMM-XXXXX` when blank), `report_date`, `notes`
+  - Fields: `document_number` (`NULL` in draft; issued from the Expired rule on submit using `report_date`), `report_date`, `notes`
   - FKs: `created_by`, `verified_by` (nullable), `disposed_by` (nullable)
   - Timestamps: `verified_at`, `disposed_at`
 
@@ -383,7 +408,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `stock_opname.StockOpname` (`stock_opnames`):
   - Period type: `MONTHLY`, `QUARTERLY`, `SEMESTER`, `YEARLY`
   - Status: `DRAFT`, `IN_PROGRESS`, `COMPLETED`
-  - Fields: `document_number` (auto-generated `SO-YYYYMM-XXXXX` when blank), `period_start`, `period_end`, `notes`, `completed_at`
+  - Fields: `document_number` (`NULL` in draft; issued from the Stock Opname rule on start using `period_end`), `period_start`, `period_end`, `notes`, `completed_at`
   - FK: `created_by`, `completed_by` (nullable)
   - M2M: `categories` -> `items.Category`, `assigned_to` -> `users.User`
 
@@ -395,7 +420,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 ### 4.11 Reports
 
-- `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. The procurement receiving report now includes `Receiving.contract.document_number` so realized receipts can be traced back to SPJ contracts. The combined outbound recap remains available on `/reports/pengeluaran/`, while the distribution module exposes route-based filtered variants for `SPECIAL_REQUEST`, `ALLOCATION`, and `LPLPO` under `/distribution/report/*`. Reporting aggregates data from other apps. `reports.ReportPermission` is an unmanaged permission marker used to provision the `reports.view_reports` Django permission.
+- `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. Numbering history reads the immutable `DocumentNumberIssue` ledger, including complete VOID reason/actor/time metadata with explicit unknown fallbacks, rather than inferring issuance from current workflow tables. The procurement receiving report includes `Receiving.contract.document_number` so realized receipts can be traced back to SPJ contracts. The combined outbound recap remains available on `/reports/pengeluaran/`; the distribution module exposes route-based variants for all distributions, `SPECIAL_REQUEST`, allocation origin (`allocation_id IS NOT NULL`), and `LPLPO` under `/distribution/report/*`. Reporting aggregates data from other apps. `reports.ReportPermission` is an unmanaged permission marker used to provision the `reports.view_reports` Django permission.
 - `stock` also exposes an Instalasi Farmasi-facing read-only `/stock/puskesmas-stock/` page that computes current Puskesmas stock from the latest usable yearly LPLPO baseline plus later same-year `CONFIRMED` receipt confirmations minus later same-year detailed consumption. The page is intentionally non-CRUD and hidden from `PUSKESMAS` role users.
   The Puskesmas-side `Rincian Persediaan` report uses the same source model within the selected period: latest usable LPLPO up to the period end month, plus later same-year `CONFIRMED` receipt confirmations up to the period end month, minus later same-year detailed consumption up to the period end month. Facilities without a usable LPLPO baseline are skipped rather than using distribution-only fallback stock.
   The Puskesmas-side rekap persediaan view now also aggregates valuation data from `lplpo.LPLPOItem.harga_satuan` into category-level summary rows.
@@ -490,15 +515,15 @@ Operational mutation points (from app behavior and admin import logic):
 - Procurement contract cancellation is a soft-cancel workflow, not a delete. `DRAFT` and `SUBMITTED` SPJ can be cancelled with a required reason. `APPROVED` SPJ can be cancelled only while the linked planned receiving is still unused: not `PARTIAL` / `RECEIVED` / `CLOSED`, with no `ReceivingItem` rows and no received quantity; unused linked receiving plans are marked `CANCELLED` with the same reason/user/time. Once procurement receiving has any realization or completed receiving status, cancellation is blocked and users must use amendment/close workflow.
 - Procurement-linked receiving leftovers are closed audit-first through procurement amendments; direct receiving-side close-items cancellation is reserved for non-contract planned receivings.
 - Receiving verify/receive path posts `Transaction(IN)` and updates/creates `Stock` with the receiving source document number. This is normally `Receiving.document_number`; migrated historical collisions continue on their existing disambiguated receiving stock layer. Manual regular receiving normalizes blank Batch/Lot input to `"-"` before posting the receiving item, stock row, and ledger transaction.
-- Regular receiving edit/delete is an auditable correction workflow for `VERIFIED` documents, restricted to superusers/Admin plus roles `GUDANG` and `KEPALA` with receiving operate access. It never deletes historical ledger rows: edit atomically reverses the current receiving stock effect with `Transaction(OUT)` rows, rewrites the current `ReceivingItem` rows, and posts corrected `Transaction(IN)` rows; delete marks the header `CANCELLED` and appends reversal `Transaction(OUT)` rows. Both actions are blocked when reversing would make stock quantity fall below reserved stock or below zero, and reversal preserves zero-quantity `Stock` rows instead of deleting them so draft workflows with protected stock references remain valid. Corrected reposting may reuse an unreserved zero-quantity receiving stock row with updated expiry or unit price; normal receiving and planned receiving execution still reject same-source metadata mismatches. Correction forms preserve an existing expiry date for a non-expiring item when the browser omits the optional expiry field. When a CSV-imported receiving item used a row-level `sumber_dana_code` override, `ReceivingItem.posted_sumber_dana` and `posted_source_document_number` record the actual stock layer so reversal writes the correction `OUT` against that layer rather than assuming the header `Receiving.sumber_dana`.
-- Receiving `document_number` values are validated and claimed against posted opening-balance import document numbers, and generated receiving numbers skip opening-balance-owned `RCV-YYYY-NNNNN` values so source-layer identifiers remain workflow-unique.
-- Receiving `document_number` becomes immutable once stock rows or ledger transactions exist.
+- Regular receiving edit/delete is an auditable correction workflow for `VERIFIED` documents, restricted to superusers/Admin plus roles `GUDANG` and `KEPALA` with receiving operate access. It never deletes historical ledger rows: edit atomically reverses the current receiving stock effect with `Transaction(OUT)` rows, rewrites the current `ReceivingItem` rows, and posts corrected `Transaction(IN)` rows; delete marks the header `CANCELLED` and appends reversal `Transaction(OUT)` rows. Once numbered, `receiving_date` is immutable because it is bound to `DocumentNumberIssue.business_date`; both the correction form and the locked update preserve it against forged POST values. Both actions are blocked when reversing would make stock quantity fall below reserved stock or below zero, and reversal preserves zero-quantity `Stock` rows instead of deleting them so draft workflows with protected stock references remain valid. Corrected reposting may reuse an unreserved zero-quantity receiving stock row with updated expiry or unit price; normal receiving and planned receiving execution still reject same-source metadata mismatches. Correction forms preserve an existing expiry date for a non-expiring item when the browser omits the optional expiry field. When a CSV-imported receiving item used a row-level `sumber_dana_code` override, `ReceivingItem.posted_sumber_dana` and `posted_source_document_number` record the actual stock layer so reversal writes the correction `OUT` against that layer rather than assuming the header `Receiving.sumber_dana`.
+- Receiving `document_number` values are system-issued and claimed against opening-balance import document numbers; candidate numbers already owned by `SourceDocumentNumberClaim` or `OpeningBalanceImport` are skipped so source-layer identifiers remain workflow-unique.
+- An issued Receiving `document_number` is immutable and its source-document claim survives cancellation/deletion so the number cannot be reused.
 - Receiving CSV admin import (`import-csv/`) posts:
   - `Receiving(status=VERIFIED)`
   - `ReceivingItem` with `posted_sumber_dana` / `posted_source_document_number` set to the effective row stock layer
   - `Stock(source_document_number=document_number)` update/create
   - `Transaction(IN, source_document_number=document_number)`
-  - Rows are grouped by `document_number`; the first row supplies header-level values, while row-level `sumber_dana_code` and `location_code` can override header defaults
+  - Rows are grouped by `import_group`; the first row supplies header-level values, while row-level `sumber_dana_code` and `location_code` can override header defaults. The official `document_number` is issued only after the group has passed validation, in the same transaction as stock posting.
 - Receiving CSV admin template download (`export-csv-template/`) returns a blank `receiving_template.csv` with the exact columns accepted by the dedicated importer and does not mutate data.
 - Opening balance CSV admin import (`/admin/stock/stock/opening-balance/import-csv/`) is restricted to superuser / role `ADMIN`. Generic Stock admin import plus direct Stock add/change/delete mutations are disabled so stock cannot be written without ledger transactions. Upload first validates and renders a preview; only the explicit `Konfirmasi Import` submit posts:
   - `OpeningBalanceImport`
@@ -517,14 +542,17 @@ Operational mutation points (from app behavior and admin import logic):
   - reset-to-draft, step-back, and delete use that same object-level assignee/fallback authorization rule before their status guards run
   - verify phase locks and re-checks the submitted distribution plus selected stock rows, then increments `Stock.reserved` while copying the same amount into `DistributionItem.reserved_quantity`; rejection also locks and re-checks submitted state
   - reset-to-draft, step-back from `VERIFIED`, generated-LPLPO reversal, and delete release `reserved` using `DistributionItem.reserved_quantity` for standalone distributions, while allocation-generated child distributions release reservations only through parent allocation step-back
+  - once a document number is issued, its exact business date and numbering scope remain immutable across editable step-back states; repeated issuance rejects a binding mismatch
   - generated-LPLPO reversal uses the same object-level assignee/fallback authorization as preparation actions and requires LPLPO module scope `OPERATE`
   - distribute phase decreases `Stock.quantity`, clears the matching reserved balance, snapshots the issued batch/value fields, and posts `Transaction(OUT)`
 - Recall verify decreases stock and posts `Transaction(OUT, reference_type=RECALL)`
 - Expired verify is restricted to Kepala/Admin approvers, locks and re-checks the submitted document plus affected stock rows, decreases stock exactly once, and posts `Transaction(OUT, reference_type=EXPIRED)`. After verification, Gudang/Kepala/Admin users with expired operate scope may mark the document `DISPOSED` to finalize the physical disposal audit stamp without another stock mutation.
 - Stock transfer complete posts paired `OUT` and `IN` transfer transactions and adjusts source/destination stock
-- Stock opname completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, `completed_at`, and each row's `completion_stock_quantity`, and does not mutate `Stock` or write `Transaction` rows. `GUDANG` / operate-scope users may complete only when the physical count matches the current refreshed stock quantity for every counted row; if any current discrepancy remains, completion requires stock-opname approve scope (`KEPALA`/Admin/superuser by default). In-progress views compare `Stok Fisik` to live refreshed `Stock.quantity`; completed views and reports compare against the frozen `completion_stock_quantity`.
+- Stock opname start issues the number from `period_end`, freezes the counting scope, and makes the header view-only after Draft in both the operational workflow and Django Admin. Completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, `completed_at`, and each row's `completion_stock_quantity`, and does not mutate `Stock` or write `Transaction` rows. `GUDANG` / operate-scope users may complete only when the physical count matches the current refreshed stock quantity for every counted row; if any current discrepancy remains, completion requires stock-opname approve scope (`KEPALA`/Admin/superuser by default). In-progress views compare `Stok Fisik` to live refreshed `Stock.quantity`; completed views and reports compare against the frozen `completion_stock_quantity`.
 - Allocation:
-  - Approval phase auto-generates `Distribution(type=ALLOCATION, status=VERIFIED)` per facility and reserves the selected stock for each child distribution row
+  - Approval phase auto-generates `Distribution(type=SPECIAL_REQUEST, allocation_id=<parent>, status=VERIFIED)` per facility, issues each child from the shared Permintaan Khusus sequence, and reserves the selected stock for each child row
+  - Generated children remain included in Permintaan Khusus and Allocation reports, but the standalone Permintaan Khusus operational queue and notification count require `allocation IS NULL`; direct Distribution detail hides parent links and Allocation actions when the user lacks the corresponding Allocation permission
+  - For legacy generated children, the initial `verified_by` / `verified_at` values identify the same create-and-number checkpoint and are retained as migrated `DocumentNumberIssue` issuance metadata
   - Stepping an approved allocation back releases those child reservations before deleting the generated distributions
   - Per-distribution delivery confirmation decreases `Stock.quantity`, clears the child's reserved balance, and posts `Transaction(OUT, reference_type=ALLOCATION, reference_id=allocation.pk)`
   - Parent Allocation auto-transitions to `PARTIALLY_FULFILLED` / `FULFILLED` based on child distribution delivery progress
@@ -571,7 +599,7 @@ From `backend/config/settings.py`:
 - `DATA_UPLOAD_MAX_NUMBER_FIELDS` defaults to `10000` to support wide LPLPO and similar bulk forms
 - Session hardening: `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE="Lax"`, browser-close expiry
 - CSRF hardening: `CSRF_COOKIE_HTTPONLY`, `CSRF_COOKIE_SAMESITE="Lax"`
-- Additional hardening when `DEBUG=False`: secure cookies, HSTS, frame deny, SSL redirect toggle, referrer policy
+- Additional hardening when `DJANGO_DEBUG=False`: secure cookies, HSTS, frame deny, SSL redirect toggle, referrer policy. The legacy generic `DEBUG` environment variable remains a lower-priority compatibility fallback.
 
 ## 7) CSV Import Contract
 
@@ -587,9 +615,9 @@ Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 
 - Endpoint: `/admin/receiving/receiving/import-csv/`
 - Template endpoint: `/admin/receiving/receiving/export-csv-template/`, returning `receiving_template.csv` with the importer headers only
-- Required columns: `document_number`, `receiving_date`, `item_code`, `sumber_dana_code`, `location_code`, `quantity` (`quantity` must be a finite decimal greater than `0`)
+- Required columns: `import_group`, `receiving_date`, `item_code`, `sumber_dana_code`, `location_code`, `quantity` (`quantity` must be a finite decimal greater than `0`)
 - Optional columns: `receiving_type` (defaults to `GRANT`), `supplier_code`, `batch_lot`, `expiry_date`, `unit_price`
-- Rows are grouped by `document_number`; first-row supplier and header values seed the parent `Receiving`
+- Rows are grouped by `import_group`; first-row supplier and header values seed the parent `Receiving`. `import_group` is never copied into the official number field.
 - Row-level `sumber_dana_code` and `location_code` may override the first-row values for each line item; the effective row funding/source layer is retained on `ReceivingItem` for later correction reversal.
 - Blank `expiry_date` values in the dedicated receiving import are accepted only for items with `requires_expiry_date=False`; older sentinel `2099-12-31` values are normalized by follow-up data migrations rather than being generated for new imports
 - The follow-up item backfill migration marks legacy catalog items with null-expiry stock/receiving history as `requires_expiry_date=False`, and stock admin import follows the same conditional blank-expiry rule

@@ -116,6 +116,7 @@ class RedirectBehaviorTests(TestCase):
         url_names = [
             'dashboard',
             'settings',
+            'numbering_settings',
             'users:user_list',
             'items:item_list',
             'stock:stock_list',
@@ -140,6 +141,7 @@ class RedirectBehaviorTests(TestCase):
         # These URLs should NOT redirect from /path/ to /path
         urls_to_check = [
             '/settings/',
+            '/settings/numbering/',
             '/users/',
             '/items/',
         ]

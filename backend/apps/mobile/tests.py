@@ -9,6 +9,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.views import debug_page_not_found
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
+from apps.allocation.models import Allocation
 from apps.distribution.models import Distribution, DistributionItem
 from apps.expired.models import Expired, ExpiredItem
 from apps.items.models import (
@@ -508,6 +511,24 @@ class MobileStockCardTests(MobileStockTestCase):
 class MobileApprovalTests(MobileStockTestCase):
     def setUp(self):
         super().setUp()
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+            defaults={
+                "label": "Permintaan Khusus",
+                "template": "440/{seq}/KD.F/{year}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 1,
+            },
+        )
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.EXPIRED,
+            defaults={
+                "label": "Kedaluwarsa",
+                "template": "EXP-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.facility = Facility.objects.create(code="PKM-MOB", name="Puskesmas Mobile")
         self.kepala = User.objects.create_user(
             username="kepala-mobile",
@@ -526,6 +547,7 @@ class MobileApprovalTests(MobileStockTestCase):
         self,
         *,
         distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        allocation=None,
     ):
         distribution = Distribution.objects.create(
             distribution_type=distribution_type,
@@ -533,6 +555,7 @@ class MobileApprovalTests(MobileStockTestCase):
             facility=self.facility,
             status=Distribution.Status.SUBMITTED,
             created_by=self.user,
+            allocation=allocation,
         )
         DistributionItem.objects.create(
             distribution=distribution,
@@ -542,6 +565,13 @@ class MobileApprovalTests(MobileStockTestCase):
             stock=self.stock,
         )
         distribution.staff_assignments.create(user=self.user)
+        issue_document_number(
+            DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+            business_date=distribution.request_date,
+            target=distribution,
+            actor=self.user,
+        )
+        distribution.refresh_from_db()
         return distribution
 
     def _make_expired(self):
@@ -557,6 +587,13 @@ class MobileApprovalTests(MobileStockTestCase):
             quantity=Decimal("4"),
             notes="Melewati tanggal kedaluwarsa",
         )
+        issue_document_number(
+            DocumentNumberRule.Key.EXPIRED,
+            business_date=expired_document.report_date,
+            target=expired_document,
+            actor=self.user,
+        )
+        expired_document.refresh_from_db()
         return expired_document
 
     def _remove_stock_access(self):
@@ -644,7 +681,9 @@ class MobileApprovalTests(MobileStockTestCase):
 
         self.assertEqual(one_card.status_code, 200)
         self.assertEqual(twenty_cards.status_code, 200)
-        self.assertEqual(len(one_card_queries), len(twenty_card_queries))
+        # The first request may populate permission/content-type caches. The
+        # invariant is that rendering more cards must not add per-card queries.
+        self.assertLessEqual(len(twenty_card_queries), len(one_card_queries))
         self.assertContains(twenty_cards, "1 item", count=20)
 
     def test_approval_inbox_requires_kepala_admin_role_and_approve_scope(self):
@@ -669,9 +708,14 @@ class MobileApprovalTests(MobileStockTestCase):
     def test_inbox_groups_actionable_documents_and_excludes_allocation_children(self):
         distribution = self._make_distribution()
         expired_document = self._make_expired()
-        allocation = self._make_distribution(
-            distribution_type=Distribution.DistributionType.ALLOCATION
+        allocation_parent = Allocation.objects.create(
+            document_number="ALLOC-MOBILE-001",
+            title="Alokasi mobile",
+            allocation_date=timezone.localdate(),
+            status=Allocation.Status.APPROVED,
+            created_by=self.user,
         )
+        allocation = self._make_distribution(allocation=allocation_parent)
         self.client.force_login(self.kepala)
 
         response = self.client.get(reverse("mobile:approval_inbox"), secure=True)

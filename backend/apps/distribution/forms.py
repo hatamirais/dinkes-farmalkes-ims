@@ -1,17 +1,11 @@
 from django import forms
 from django.db.models import F
 from django.forms import BaseInlineFormSet, inlineformset_factory
-from django.utils import timezone
 
 from apps.core.decimal_validation import validate_finite_decimal
 from apps.users.models import User
 
 from .models import Distribution, DistributionItem
-from .numbering import (
-    generate_distribution_document_number,
-    get_distribution_document_number_template,
-    render_distribution_document_number_preview,
-)
 from apps.stock.models import Stock
 
 
@@ -29,8 +23,6 @@ class StockByItemSelect(forms.Select):
 
 
 class DistributionForm(forms.ModelForm):
-    document_number_preview = forms.CharField(required=False, widget=forms.HiddenInput())
-
     assigned_staff = forms.ModelMultipleChoiceField(
         queryset=User.objects.filter(is_active=True).order_by("full_name", "username"),
         required=False,
@@ -42,7 +34,6 @@ class DistributionForm(forms.ModelForm):
     class Meta:
         model = Distribution
         fields = [
-            "document_number",
             "distribution_type",
             "request_date",
             "facility",
@@ -50,12 +41,6 @@ class DistributionForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "document_number": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Kosongkan untuk auto-generate",
-                }
-            ),
             "distribution_type": forms.Select(attrs={"class": "form-select"}),
             "request_date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}
@@ -75,6 +60,11 @@ class DistributionForm(forms.ModelForm):
         self.forced_distribution_type = kwargs.pop("forced_distribution_type", None)
         super().__init__(*args, **kwargs)
         self.fields["program"].required = False
+        if self.instance.pk and self.instance.document_number:
+            self.fields["request_date"].disabled = True
+            self.fields["request_date"].help_text = (
+                "Tanggal permintaan dikunci setelah nomor dokumen diterbitkan."
+            )
         if self.instance.pk:
             self.fields["distribution_type"].required = False
         # Remove LPLPO from manual selection unless this is a generated LPLPO distribution
@@ -84,17 +74,9 @@ class DistributionForm(forms.ModelForm):
                 for choice in self.fields["distribution_type"].choices
                 if choice[0] != Distribution.DistributionType.LPLPO
             ]
-        # Also remove ALLOCATION from the manual distribution create/edit form
-        # Allocations generate distributions automatically; prevent manual selection here.
-        self.fields["distribution_type"].choices = [
-            choice
-            for choice in self.fields["distribution_type"].choices
-            if choice[0] != Distribution.DistributionType.ALLOCATION
-        ]
         if self.forced_distribution_type:
             self.fields["distribution_type"].required = False
             self.fields["distribution_type"].initial = self.forced_distribution_type
-        self._configure_document_number_field()
         if self.instance.pk:
             self.fields[
                 "assigned_staff"
@@ -125,61 +107,6 @@ class DistributionForm(forms.ModelForm):
         if self.instance.pk:
             return self.instance.distribution_type
         return None
-
-    def _configure_document_number_field(self):
-        distribution_type = self._get_effective_distribution_type()
-        template = get_distribution_document_number_template(distribution_type)
-        if template is None:
-            return
-
-        example = render_distribution_document_number_preview(
-            distribution_type,
-            sequence="12",
-            year=timezone.now().year,
-        )
-        field = self.fields["document_number"]
-        field.required = False
-
-        if distribution_type == Distribution.DistributionType.SPECIAL_REQUEST:
-            preview_number = self.instance.document_number or generate_distribution_document_number(
-                Distribution,
-                distribution_type,
-            )
-            self.fields["document_number_preview"].initial = preview_number
-            field.initial = preview_number
-            field.help_text = (
-                f"Nomor berikutnya saat ini: {preview_number}. Template aktif: {template} "
-                f"(contoh format: {example})."
-            )
-            field.widget.attrs["placeholder"] = "Nomor dokumen permintaan khusus"
-            field.widget.attrs["readonly"] = True
-            return
-
-        field.disabled = True
-        field.help_text = (
-            f"Nomor dokumen dibuat otomatis sesuai template {template} "
-            f"(contoh: {example})."
-        )
-        field.widget.attrs["placeholder"] = "Nomor dokumen dibuat otomatis"
-        field.widget.attrs["readonly"] = True
-
-    def clean_document_number(self):
-        document_number = (self.cleaned_data.get("document_number") or "").strip()
-        preview_number = (
-            self.data.get(self.add_prefix("document_number_preview"), "") or ""
-        ).strip()
-        distribution_type = self._get_effective_distribution_type()
-
-        if distribution_type != Distribution.DistributionType.SPECIAL_REQUEST:
-            return document_number
-
-        if self.instance.pk:
-            return document_number or self.instance.document_number
-
-        if document_number and preview_number and document_number == preview_number:
-            return ""
-
-        return document_number
 
     def clean(self):
         cleaned_data = super().clean()

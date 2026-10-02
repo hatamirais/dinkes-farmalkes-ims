@@ -18,15 +18,19 @@ from .models import Expired, ExpiredItem
 class ExpiredForm(forms.ModelForm):
     class Meta:
         model = Expired
-        fields = ['document_number', 'report_date', 'notes']
+        fields = ['report_date', 'notes']
         widgets = {
-            'document_number': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Kosongkan untuk auto-generate',
-            }),
             'report_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.document_number:
+            self.fields['report_date'].disabled = True
+            self.fields['report_date'].help_text = (
+                'Tanggal laporan dikunci setelah nomor dokumen diterbitkan.'
+            )
 
 
 class ExpiredItemForm(forms.ModelForm):

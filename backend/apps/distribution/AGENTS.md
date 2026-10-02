@@ -38,8 +38,11 @@ App-specific guidance for outbound distribution workflows.
 
 ## Allocation Distributions
 
-- `Distribution(distribution_type=ALLOCATION)` is system-generated from allocation approval.
+- Allocation approval generates `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id=<parent>)`.
+- Allocation children share the normal Permintaan Khusus number rule and sequence. Use `allocation_id`, never a distinct distribution type, to distinguish their origin.
 - Allocation-generated child distributions remain parent-managed by the Allocation module and do not use generic distribution reset/step-back actions.
+- Standalone Permintaan Khusus operational lists and notifications exclude Allocation children with `allocation__isnull=True`; Permintaan Khusus and Allocation reports keep them included.
+- Distribution detail may remain readable through Distribution access, but parent links and prepare/deliver controls render only when the user also has the matching Allocation permission.
 - Allocation-generated child distributions start in `VERIFIED` with selected stock already reserved.
 - Quantities are locked and cannot be edited.
 - Stock deduction is deferred to per-distribution delivery confirmation.
@@ -49,12 +52,16 @@ App-specific guidance for outbound distribution workflows.
 
 - User-facing manual create paths are `special_request_create` for permintaan khusus and `manual_lplpo_create` for manual LPLPO rollout/catch-up distributions.
 - Keep the generic `distribution_create` route reserved for internal or compatibility flows tied to broader distribution orchestration.
-- Special-request numbering UI preloads the next suggested number while requiring confirmation before manual override.
-- Distribution numbering templates for `LPLPO` and `SPECIAL_REQUEST` are user-configurable through `SystemSettings`.
-- Supported numbering placeholders are `{seq}` and `{year}`.
-- Sequence counters remain scoped per distribution type and matched against the active template.
+- Distribution drafts have no official number and forms do not accept manual overrides.
+- Submission issues the LPLPO or Permintaan Khusus rule atomically using `request_date`; Allocation children are issued during parent approval from the same Permintaan Khusus rule.
+- Edit POSTs lock and reload the parent before binding forms, then recheck the live status, Allocation restriction, and object-level preparation authorization in the same transaction so stale Draft edits cannot overwrite a concurrent submission.
+- Once issued, `request_date` remains locked through rejection/reset/step-back states so the workflow cannot diverge from its numbering-ledger business date.
+- Rule template/reset/padding are configured centrally on `/settings/numbering/`; counters remain internal and issued values are never reused.
+- Django Admin keeps lifecycle fields read-only, locks Distribution headers/items after Draft, and disables deletion; workflow transitions and deletion must use the application services.
+- Numbering migration must preserve nonblank numbers on legacy `DRAFT` / `PREPARED` rows because submitted documents can be stepped back without voiding their issued number; genuinely unnumbered drafts remain unissued.
 
 ## Reports
 
 - The combined outbound report remains on `/reports/pengeluaran/`.
 - Distribution owns dedicated route-based report variants at `/distribution/report/`, `/distribution/report/special-requests/`, `/distribution/report/allocation/`, and `/distribution/report/lplpo/`.
+- The Special Request report includes standalone and Allocation-generated children; the allocation route additionally filters `allocation_id IS NOT NULL`.

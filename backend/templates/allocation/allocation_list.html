@@ -48,7 +48,7 @@
                 {% for allocation in allocations %}
                 <tr>
                     <td>
-                        <a href="{% url 'allocation:allocation_detail' allocation.pk %}" class="fw-semibold text-decoration-none">{{ allocation.document_number }}</a>
+                        <a href="{% url 'allocation:allocation_detail' allocation.pk %}" class="fw-semibold text-decoration-none">{{ allocation.document_number|default:"Belum diterbitkan" }}</a>
                     </td>
                     <td>{{ allocation.allocation_date|date:"d/m/Y" }}</td>
                     <td>{{ allocation.facility_count }} fasilitas</td>

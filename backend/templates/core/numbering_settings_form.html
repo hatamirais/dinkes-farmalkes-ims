@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Pengaturan Penomoran - {{ system_settings.facility_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Pengaturan Penomoran</h1>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    {{ numbering_formset.management_form }}
+
+    {% if numbering_formset.non_form_errors %}
+    <div class="alert alert-danger shadow-sm">{{ numbering_formset.non_form_errors }}</div>
+    {% endif %}
+
+            <div class="card shadow-sm border-primary-subtle" id="numbering-settings-card"
+                 data-preview-year="{{ numbering_preview_sample_year }}"
+                 data-preview-month="{{ numbering_preview_sample_month }}">
+                <div class="card-header d-flex align-items-center justify-content-between gap-3 bg-primary-subtle">
+                    <div>
+                        <h5 class="card-title mb-0">Penomoran Dokumen</h5>
+                        <small class="text-muted">Atur format, periode reset, dan minimum digit urutan</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#numbering-rule-help"
+                                aria-expanded="false" aria-controls="numbering-rule-help"
+                                title="Tampilkan petunjuk rule penomoran">
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                            <span class="visually-hidden">Tampilkan petunjuk rule penomoran</span>
+                        </button>
+                        <span class="badge text-bg-primary">Numbering Rule</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="collapse" id="numbering-rule-help">
+                        <div class="alert alert-light border mb-3 small">
+                            <p class="mb-2">
+                                <code>{seq}</code> wajib tepat satu kali pada setiap rule. Token umum lainnya adalah
+                                <code>{year}</code> dan <code>{month}</code>. Reset tahunan wajib memuat
+                                <code>{year}</code>; reset bulanan wajib memuat <code>{year}</code> dan <code>{month}</code>.
+                            </p>
+                            <p class="mb-2">
+                                <strong>Minimum digit urutan</strong> menentukan lebar minimum <code>{seq}</code> dengan
+                                menambahkan nol di depan. Contoh: nilai <strong>5</strong> menampilkan urutan 12 sebagai
+                                <code>00012</code>. Nilai ini tidak membatasi urutan; urutan 123456 tetap ditampilkan
+                                sebagai <code>123456</code>.
+                            </p>
+                            <p class="mb-0">
+                                <strong>Contoh</strong> pada setiap rule memakai urutan simulasi <strong>12</strong>.
+                                Preview tidak memesan nomor dan perubahan template tidak mengubah counter yang sudah berjalan.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="vstack gap-3">
+                        {% for rule_form in numbering_formset %}
+                        <div class="rounded border p-3" data-numbering-rule>
+                            {{ rule_form.id }}
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                <div>
+                                    <div class="fw-semibold">{{ rule_form.instance.label }}</div>
+                                    <code class="small">{{ rule_form.instance.key }}</code>
+                                </div>
+                                <span class="badge text-bg-light">Counter dikelola sistem</span>
+                            </div>
+                            {% if rule_form.non_field_errors %}
+                            <div class="alert alert-danger py-2">{{ rule_form.non_field_errors }}</div>
+                            {% endif %}
+                            <div class="row g-3">
+                                <div class="col-12">{{ rule_form.template|as_crispy_field }}</div>
+                                <div class="col-md-6">{{ rule_form.reset_period|as_crispy_field }}</div>
+                                <div class="col-md-6">{{ rule_form.padding|as_crispy_field }}</div>
+                            </div>
+                            <div class="mt-2 small text-muted">
+                                Contoh: <code data-numbering-preview>-</code>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="alert alert-warning mb-0">Rule penomoran belum tersedia. Jalankan migrasi database.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Simpan Pengaturan Penomoran</button>
+            </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/system-settings.js' %}?v={{ app_version }}-20260922b"></script>
+{% endblock %}

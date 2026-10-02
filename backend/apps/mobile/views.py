@@ -46,8 +46,10 @@ def _mobile_navigation_context(user):
     pending_count = 0
     if access["distribution"]:
         pending_count += (
-            Distribution.objects.filter(status=Distribution.Status.SUBMITTED)
-            .exclude(distribution_type=Distribution.DistributionType.ALLOCATION)
+            Distribution.objects.filter(
+                status=Distribution.Status.SUBMITTED,
+                allocation__isnull=True,
+            )
             .count()
         )
     if access["expired"]:
@@ -181,8 +183,10 @@ def approval_inbox(request):
     distribution_queryset = Distribution.objects.none()
     if access["distribution"]:
         distribution_queryset = (
-            Distribution.objects.filter(status=Distribution.Status.SUBMITTED)
-            .exclude(distribution_type=Distribution.DistributionType.ALLOCATION)
+            Distribution.objects.filter(
+                status=Distribution.Status.SUBMITTED,
+                allocation__isnull=True,
+            )
             .select_related("facility", "created_by")
             .annotate(item_count=Count("items"))
             .order_by("created_at", "pk")
@@ -213,9 +217,7 @@ def approval_inbox(request):
 
 def _distribution_approval_queryset():
     return (
-        Distribution.objects.exclude(
-            distribution_type=Distribution.DistributionType.ALLOCATION
-        )
+        Distribution.objects.filter(allocation__isnull=True)
         .select_related("facility", "created_by", "verified_by")
         .prefetch_related(
             "staff_assignments__user",

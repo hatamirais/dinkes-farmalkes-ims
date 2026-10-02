@@ -1,6 +1,7 @@
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, F, Q
@@ -9,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.numbering import void_document_number
 from apps.stock.models import Stock
 from apps.users.models import ModuleAccess
 
@@ -322,7 +324,7 @@ def allocation_create(request):
 
             messages.success(
                 request,
-                f"Alokasi {allocation.document_number} berhasil dibuat.",
+                "Draft alokasi berhasil dibuat. Nomor dokumen akan diterbitkan saat diajukan.",
             )
             return redirect("allocation:allocation_detail", pk=allocation.pk)
     else:
@@ -358,18 +360,20 @@ def allocation_create(request):
 def allocation_edit(request, pk):
 
     allocation = get_object_or_404(Allocation, pk=pk)
-    if allocation.status != Allocation.Status.DRAFT:
-        messages.error(request, "Hanya alokasi Draft yang dapat diubah.")
-        return redirect("allocation:allocation_detail", pk=allocation.pk)
 
     if request.method == "POST":
-        form = AllocationForm(request.POST, instance=allocation)
-        formset = AllocationItemFormSet(
-            request.POST, instance=allocation, prefix="items"
-        )
+        with transaction.atomic():
+            allocation = Allocation.objects.select_for_update().get(pk=pk)
+            if allocation.status != Allocation.Status.DRAFT:
+                messages.error(request, "Hanya alokasi Draft yang dapat diubah.")
+                return redirect("allocation:allocation_detail", pk=allocation.pk)
 
-        if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
+            form = AllocationForm(request.POST, instance=allocation)
+            formset = AllocationItemFormSet(
+                request.POST, instance=allocation, prefix="items"
+            )
+
+            if form.is_valid() and formset.is_valid():
                 form.save()
                 sync_allocation_selected_facilities(
                     allocation,
@@ -384,12 +388,15 @@ def allocation_edit(request, pk):
                 # Save facility allocation matrix
                 _save_facility_allocations(allocation, request)
 
-            messages.success(
-                request,
-                f"Alokasi {allocation.document_number} berhasil diperbarui.",
-            )
-            return redirect("allocation:allocation_detail", pk=allocation.pk)
+                messages.success(
+                    request,
+                    f"Alokasi {allocation.document_number or 'draft'} berhasil diperbarui.",
+                )
+                return redirect("allocation:allocation_detail", pk=allocation.pk)
     else:
+        if allocation.status != Allocation.Status.DRAFT:
+            messages.error(request, "Hanya alokasi Draft yang dapat diubah.")
+            return redirect("allocation:allocation_detail", pk=allocation.pk)
         form = AllocationForm(instance=allocation)
         formset = AllocationItemFormSet(instance=allocation, prefix="items")
 
@@ -407,7 +414,7 @@ def allocation_edit(request, pk):
         request,
         "allocation/allocation_form.html",
         {
-            "title": f"Edit Alokasi {allocation.document_number}",
+            "title": f"Edit Alokasi {allocation.document_number or 'draft'}",
             "page_title": "Edit Alokasi",
             "allocation": allocation,
             "form": form,
@@ -439,7 +446,7 @@ def allocation_submit(request, pk):
 
     try:
         execute_allocation_submission(allocation, request.user)
-    except AllocationWorkflowError as exc:
+    except (AllocationWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_allocation_detail(pk)
 
@@ -466,7 +473,7 @@ def allocation_approve(request, pk):
 
     try:
         execute_allocation_approval(allocation, request.user)
-    except AllocationWorkflowError as exc:
+    except (AllocationWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_allocation_detail(pk)
 
@@ -522,7 +529,7 @@ def allocation_step_back(request, pk):
         return _redirect_allocation_detail(pk)
 
     try:
-        execute_allocation_step_back_to_submitted(allocation)
+        execute_allocation_step_back_to_submitted(allocation, request.user)
     except AllocationWorkflowError as exc:
         messages.error(request, str(exc))
         return _redirect_allocation_detail(pk)
@@ -574,18 +581,28 @@ def allocation_delete(request, pk):
     if request.method != "POST":
         return _redirect_allocation_detail(pk)
 
-    if allocation.status not in {
-        Allocation.Status.DRAFT,
-        Allocation.Status.REJECTED,
-    }:
-        messages.error(
-            request,
-            "Hanya alokasi berstatus Draft atau Ditolak yang dapat dihapus.",
+    with transaction.atomic():
+        allocation = get_object_or_404(
+            Allocation.objects.select_for_update(),
+            pk=pk,
         )
-        return _redirect_allocation_detail(pk)
+        if allocation.status not in {
+            Allocation.Status.DRAFT,
+            Allocation.Status.REJECTED,
+        }:
+            messages.error(
+                request,
+                "Hanya alokasi berstatus Draft atau Ditolak yang dapat dihapus.",
+            )
+            return _redirect_allocation_detail(pk)
 
-    document_number = allocation.document_number
-    allocation.delete()
+        document_number = allocation.document_number
+        void_document_number(
+            allocation,
+            actor=request.user,
+            reason="Alokasi dihapus dari status Draft/Ditolak.",
+        )
+        allocation.delete()
     messages.success(request, f"Alokasi {document_number} berhasil dihapus.")
     return redirect("allocation:allocation_list")
 

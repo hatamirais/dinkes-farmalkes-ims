@@ -62,7 +62,7 @@
             <tbody>
                 {% for r in receivings %}
                 <tr>
-                    <td><a href="{% url 'receiving:receiving_plan_detail' r.pk %}" class="fw-semibold text-decoration-none">{{ r.document_number }}</a></td>
+                    <td><a href="{% url 'receiving:receiving_plan_detail' r.pk %}" class="fw-semibold text-decoration-none">{{ r.document_number|default:"Belum diterbitkan" }}</a></td>
                     <td>{{ r.receiving_date|date:"d/m/Y" }}</td>
                     <td>
                         {% if r.contract_id %}

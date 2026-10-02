@@ -1,20 +1,33 @@
-from datetime import date
-from unittest.mock import patch
+from datetime import date, timedelta
 from decimal import Decimal
+from importlib import import_module
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from django.contrib.messages import get_messages
+from django.apps import apps as django_apps
+from django.contrib import admin
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule
 from apps.items.models import Category, FundingSource, Item, Location, Supplier, Unit
 from apps.procurement.forms import (
     ProcurementAmendmentForm,
     ProcurementAmendmentLineForm,
     ProcurementContractForm,
     ProcurementContractLineForm,
+)
+from apps.procurement.admin import (
+    ProcurementAmendmentAdmin,
+    ProcurementAmendmentLineInline,
+    ProcurementContractAdmin,
+    ProcurementContractLineInline,
 )
 from apps.procurement.models import (
     PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
@@ -29,6 +42,7 @@ from apps.procurement.services import (
     approve_contract,
     close_contract,
     contract_is_cancellable,
+    submit_amendment,
     submit_contract,
 )
 from apps.receiving.models import Receiving, ReceivingItem, ReceivingOrderItem
@@ -40,6 +54,33 @@ from apps.users.models import ModuleAccess, User
 class ProcurementWorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.PROCUREMENT_CONTRACT,
+            defaults={
+                "label": "SPJ / Kontrak",
+                "template": "SPJ-{year}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 5,
+            },
+        )
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.PROCUREMENT_AMENDMENT,
+            defaults={
+                "label": "Amandemen SPJ",
+                "template": "SPJ/{year}/{month}/{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 1,
+            },
+        )
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.RECEIVING,
+            defaults={
+                "label": "Penerimaan",
+                "template": "RCV-{year}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 5,
+            },
+        )
         cls.admin = User.objects.create_superuser(
             username="proc-admin",
             password="secret12345",
@@ -89,12 +130,324 @@ class ProcurementWorkflowTests(TestCase):
     def setUp(self):
         self.client.force_login(self.admin)
 
-    def _create_contract(self, *, quantity="10", unit_price="5000"):
+    def test_admin_forms_do_not_expose_workflow_managed_fields(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+
+        contract_form = ProcurementContractAdmin(
+            ProcurementContract,
+            admin.site,
+        ).get_form(request)
+        amendment_form = ProcurementAmendmentAdmin(
+            ProcurementAmendment,
+            admin.site,
+        ).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "submitted_by",
+            "submitted_at",
+            "approved_by",
+            "approved_at",
+            "closed_by",
+            "closed_at",
+            "cancelled_by",
+            "cancelled_at",
+            "cancel_reason",
+        }:
+            self.assertNotIn(field_name, contract_form.base_fields)
+        for field_name in {
+            "document_number",
+            "status",
+            "submitted_by",
+            "submitted_at",
+            "approved_by",
+            "approved_at",
+        }:
+            self.assertNotIn(field_name, amendment_form.base_fields)
+
+    def test_admin_locks_numbered_procurement_business_dates(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+        contract, contract_line = self._create_contract()
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 2),
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=contract_line,
+            revised_quantity=Decimal("11"),
+            revised_unit_price=Decimal("5000"),
+        )
+        contract_admin = ProcurementContractAdmin(ProcurementContract, admin.site)
+        amendment_admin = ProcurementAmendmentAdmin(
+            ProcurementAmendment,
+            admin.site,
+        )
+
+        self.assertIn(
+            "contract_date",
+            contract_admin.get_form(request, contract).base_fields,
+        )
+        self.assertIn(
+            "amendment_date",
+            amendment_admin.get_form(request, amendment).base_fields,
+        )
+
+        contract.document_number = "SPJ-2026-LOCKED"
+        contract.save(update_fields=["document_number", "updated_at"])
+        amendment.document_number = "SPJ/2026/07/LOCKED"
+        amendment.save(update_fields=["document_number", "updated_at"])
+
+        self.assertNotIn(
+            "contract_date",
+            contract_admin.get_form(request, contract).base_fields,
+        )
+        self.assertNotIn(
+            "amendment_date",
+            amendment_admin.get_form(request, amendment).base_fields,
+        )
+
+    def test_admin_disables_contract_and_amendment_deletion(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+        contract, contract_line = self._create_contract()
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 2),
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=contract_line,
+            revised_quantity=Decimal("11"),
+            revised_unit_price=Decimal("5000"),
+        )
+        contract_admin = ProcurementContractAdmin(ProcurementContract, admin.site)
+        amendment_admin = ProcurementAmendmentAdmin(
+            ProcurementAmendment,
+            admin.site,
+        )
+
+        for model_admin, obj in (
+            (contract_admin, contract),
+            (amendment_admin, amendment),
+        ):
+            self.assertFalse(model_admin.has_delete_permission(request))
+            self.assertFalse(model_admin.has_delete_permission(request, obj))
+            self.assertNotIn("delete_selected", model_admin.get_actions(request))
+
+    def test_admin_inlines_are_editable_only_while_parent_is_draft(self):
+        request = RequestFactory().get("/admin/procurement/")
+        request.user = self.admin
+        contract, contract_line = self._create_contract()
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 2),
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=contract_line,
+            revised_quantity=Decimal("11"),
+            revised_unit_price=Decimal("5000"),
+        )
+        contract_inline = ProcurementContractLineInline(
+            ProcurementContract,
+            admin.site,
+        )
+        amendment_inline = ProcurementAmendmentLineInline(
+            ProcurementAmendment,
+            admin.site,
+        )
+
+        self.assertTrue(contract_inline.has_change_permission(request, contract))
+        self.assertTrue(amendment_inline.has_change_permission(request, amendment))
+
+        contract.status = ProcurementContract.Status.SUBMITTED
+        amendment.status = ProcurementAmendment.Status.SUBMITTED
+        self.assertFalse(contract_inline.has_add_permission(request, contract))
+        self.assertFalse(contract_inline.has_change_permission(request, contract))
+        self.assertFalse(contract_inline.has_delete_permission(request, contract))
+        self.assertFalse(amendment_inline.has_add_permission(request, amendment))
+        self.assertFalse(amendment_inline.has_change_permission(request, amendment))
+        self.assertFalse(amendment_inline.has_delete_permission(request, amendment))
+
+    def test_repair_migration_restores_backfilled_void_metadata(self):
+        cancelled_at = timezone.now()
+        submitted_at = cancelled_at - timedelta(days=2)
+        contract_approved_at = submitted_at + timedelta(hours=1)
+        contract, _line = self._create_contract()
+        contract.status = ProcurementContract.Status.CANCELLED
+        contract.document_number = "SPJ-2026-00001"
+        contract.submitted_by = self.kepala
+        contract.submitted_at = submitted_at
+        contract.approved_by = self.kepala
+        contract.approved_at = contract_approved_at
+        contract.cancelled_by = self.admin
+        contract.cancelled_at = cancelled_at
+        contract.cancel_reason = "Dibatalkan oleh pengelola"
+        contract.save(
+            update_fields=[
+                "status",
+                "document_number",
+                "submitted_by",
+                "submitted_at",
+                "approved_by",
+                "approved_at",
+                "cancelled_by",
+                "cancelled_at",
+                "cancel_reason",
+                "updated_at",
+            ]
+        )
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.PROCUREMENT_CONTRACT
+        )
+        issue = DocumentNumberIssue.objects.create(
+            rule=rule,
+            document_number=contract.document_number,
+            sequence_value=1,
+            period_key="2026",
+            business_date=contract.contract_date,
+            status=DocumentNumberIssue.Status.VOID,
+            content_type=ContentType.objects.get_for_model(ProcurementContract),
+            object_id=contract.pk,
+            target_label=f"procurement.ProcurementContract #{contract.pk}",
+            rule_label_snapshot=rule.label,
+            template_snapshot=rule.template,
+            reset_period_snapshot=rule.reset_period,
+            padding_snapshot=rule.padding,
+            issued_by=self.admin,
+            void_reason="Dokumen sudah dibatalkan sebelum migrasi.",
+        )
+        receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            document_number="RCV-2026-00001",
+            receiving_date=date(2026, 7, 1),
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.CANCELLED,
+            created_by=self.admin,
+            verified_by=self.kepala,
+            verified_at=submitted_at,
+            cancelled_by=self.kepala,
+            cancelled_at=cancelled_at,
+            cancel_reason="Penerimaan dibatalkan",
+        )
+        receiving_rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.RECEIVING
+        )
+        receiving_issue = DocumentNumberIssue.objects.create(
+            rule=receiving_rule,
+            document_number=receiving.document_number,
+            sequence_value=1,
+            period_key="2026",
+            business_date=receiving.receiving_date,
+            status=DocumentNumberIssue.Status.VOID,
+            content_type=ContentType.objects.get_for_model(Receiving),
+            object_id=receiving.pk,
+            target_label=f"receiving.Receiving #{receiving.pk}",
+            rule_label_snapshot=receiving_rule.label,
+            template_snapshot=receiving_rule.template,
+            reset_period_snapshot=receiving_rule.reset_period,
+            padding_snapshot=receiving_rule.padding,
+            issued_by=self.admin,
+            void_reason="Dokumen sudah dibatalkan sebelum migrasi.",
+        )
+        planned_receiving = Receiving.objects.create(
+            receiving_type=Receiving.ReceivingType.PROCUREMENT,
+            document_number="RCV-2026-00002",
+            receiving_date=date(2026, 7, 1),
+            is_planned=True,
+            contract=contract,
+            supplier=self.supplier,
+            sumber_dana=self.funding,
+            status=Receiving.Status.APPROVED,
+            created_by=self.admin,
+            approved_by=self.admin,
+            approved_at=cancelled_at,
+        )
+        planned_issue = DocumentNumberIssue.objects.create(
+            rule=receiving_rule,
+            document_number=planned_receiving.document_number,
+            sequence_value=2,
+            period_key="2026",
+            business_date=planned_receiving.receiving_date,
+            content_type=ContentType.objects.get_for_model(Receiving),
+            object_id=planned_receiving.pk,
+            target_label=f"receiving.Receiving #{planned_receiving.pk}",
+            rule_label_snapshot=receiving_rule.label,
+            template_snapshot=receiving_rule.template,
+            reset_period_snapshot=receiving_rule.reset_period,
+            padding_snapshot=receiving_rule.padding,
+            issued_by=self.kepala,
+        )
+
+        migration = import_module(
+            "apps.core.migrations.0007_repair_backfilled_void_metadata"
+        )
+        migration.repair_backfilled_void_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+        issuance_migration = import_module(
+            "apps.core.migrations.0008_document_number_issue_issued_at"
+        )
+        issuance_migration.repair_backfilled_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+        receiving_migration = import_module(
+            "apps.core.migrations.0009_repair_receiving_issuance_metadata"
+        )
+        receiving_migration.repair_receiving_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+        planned_issue.refresh_from_db()
+        self.assertEqual(planned_issue.issued_by, self.admin)
+        self.assertEqual(planned_issue.issued_at, cancelled_at)
+
+        contract_plan_migration = import_module(
+            "apps.core.migrations.0012_repair_contract_plan_issuance_metadata"
+        )
+        contract_plan_migration.repair_contract_plan_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        issue.refresh_from_db()
+        self.assertEqual(issue.issued_by, self.kepala)
+        self.assertEqual(issue.issued_at, submitted_at)
+        self.assertEqual(issue.voided_by, self.admin)
+        self.assertEqual(issue.voided_at, cancelled_at)
+        self.assertEqual(issue.void_reason, contract.cancel_reason)
+        receiving_issue.refresh_from_db()
+        self.assertEqual(receiving_issue.voided_by, self.kepala)
+        self.assertEqual(receiving_issue.voided_at, cancelled_at)
+        self.assertEqual(receiving_issue.void_reason, receiving.cancel_reason)
+        self.assertEqual(receiving_issue.issued_by, self.kepala)
+        self.assertEqual(receiving_issue.issued_at, submitted_at)
+        planned_issue.refresh_from_db()
+        self.assertEqual(planned_issue.issued_by, self.kepala)
+        self.assertEqual(planned_issue.issued_at, contract_approved_at)
+
+    def _create_contract(
+        self,
+        *,
+        quantity="10",
+        unit_price="5000",
+        external_document_number="",
+    ):
         contract = ProcurementContract.objects.create(
-            document_number="",
             contract_date=date(2026, 7, 1),
             supplier=self.supplier,
             sumber_dana=self.funding,
+            external_document_number=external_document_number,
             notes="Kontrak awal",
             created_by=self.admin,
         )
@@ -109,31 +462,32 @@ class ProcurementWorkflowTests(TestCase):
 
     def _approve_contract(self, *, quantity="10", unit_price="5000"):
         contract, line = self._create_contract(quantity=quantity, unit_price=unit_price)
-        contract.status = ProcurementContract.Status.SUBMITTED
-        contract.submitted_by = self.admin
-        contract.submitted_at = timezone.now()
-        contract.save(
-            update_fields=["status", "submitted_by", "submitted_at", "updated_at"]
-        )
+        submit_contract(contract, self.admin)
         approve_contract(contract, self.kepala)
         contract.refresh_from_db()
         return contract, line
 
-    def test_contract_form_rejects_null_byte(self):
+    def test_contract_form_does_not_expose_document_number(self):
         form = ProcurementContractForm(
             data={
                 "document_number": "SPJ\x00BAD",
                 "contract_date": "2026-07-01",
                 "supplier": self.supplier.pk,
                 "sumber_dana": self.funding.pk,
+                "external_document_number": "  800/8766.a/KD.F  ",
                 "notes": "catatan",
             }
         )
 
-        self.assertFalse(form.is_valid())
-        self.assertIn("document_number", form.errors)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertNotIn("document_number", form.fields)
+        self.assertNotIn("document_number", form.cleaned_data)
+        self.assertEqual(
+            form.cleaned_data["external_document_number"],
+            "800/8766.a/KD.F",
+        )
 
-    def test_contract_form_reserves_amendment_suffix_space_for_manual_number(self):
+    def test_contract_form_ignores_manual_document_number_override(self):
         form = ProcurementContractForm(
             data={
                 "document_number": "S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
@@ -144,14 +498,25 @@ class ProcurementWorkflowTests(TestCase):
             }
         )
 
-        self.assertFalse(form.is_valid())
-        self.assertIn("document_number", form.errors)
-        self.assertIn(
-            f"{PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter",
-            form.errors["document_number"][0],
+        self.assertTrue(form.is_valid(), form.errors)
+        contract = form.save(commit=False)
+        self.assertIsNone(contract.document_number)
+
+    def test_contract_form_rejects_invalid_external_document_number(self):
+        form = ProcurementContractForm(
+            data={
+                "contract_date": "2026-07-01",
+                "supplier": self.supplier.pk,
+                "sumber_dana": self.funding.pk,
+                "external_document_number": "800/8766\x00/KD.F",
+                "notes": "catatan",
+            }
         )
 
-    def test_contract_model_validation_reserves_amendment_suffix_space(self):
+        self.assertFalse(form.is_valid())
+        self.assertIn("external_document_number", form.errors)
+
+    def test_contract_model_validation_enforces_document_number_length(self):
         contract = ProcurementContract(
             document_number="S" * (PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH + 1),
             contract_date=date(2026, 7, 1),
@@ -166,19 +531,6 @@ class ProcurementWorkflowTests(TestCase):
             f"Nomor dokumen tidak boleh lebih dari {PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH} karakter.",
         ):
             contract.full_clean()
-
-    def test_contract_form_accepts_manual_number_with_reserved_suffix_space(self):
-        form = ProcurementContractForm(
-            data={
-                "document_number": "S" * PROCUREMENT_CONTRACT_NUMBER_MAX_LENGTH,
-                "contract_date": "2026-07-01",
-                "supplier": self.supplier.pk,
-                "sumber_dana": self.funding.pk,
-                "notes": "catatan",
-            }
-        )
-
-        self.assertTrue(form.is_valid(), form.errors)
 
     def test_contract_line_unit_price_accepts_indonesian_decimal_separator(self):
         form = ProcurementContractLineForm(
@@ -904,7 +1256,6 @@ class ProcurementWorkflowTests(TestCase):
             response = self.client.post(
                 reverse("procurement:contract_edit", args=[contract.pk]),
                 {
-                    "document_number": contract.document_number,
                     "contract_date": "2026-07-01",
                     "supplier": str(self.supplier.pk),
                     "sumber_dana": str(self.funding.pk),
@@ -1068,6 +1419,41 @@ class ProcurementWorkflowTests(TestCase):
         self.assertContains(response, 'class="btn btn-outline-primary btn-sm formset-add"', html=False)
         self.assertContains(response, 'class="btn btn-outline-danger btn-sm formset-remove"', html=False)
         self.assertContains(response, 'id="procurement-lines-empty"')
+        self.assertContains(response, "Nomor Dokumen Eksternal")
+        self.assertContains(response, 'name="external_document_number"', html=False)
+        self.assertContains(response, "800/8766.a/KD.F")
+        content = response.content.decode()
+        self.assertLess(
+            content.index('id="id_sumber_dana"'),
+            content.index('id="id_external_document_number"'),
+        )
+        self.assertLess(
+            content.index('id="id_external_document_number"'),
+            content.index('id="id_notes"'),
+        )
+
+    def test_external_document_number_is_visible_and_searchable(self):
+        contract, _line = self._create_contract(
+            external_document_number="800/8766.a/KD.F"
+        )
+
+        detail_response = self.client.get(
+            reverse("procurement:contract_detail", args=[contract.pk]),
+            secure=True,
+        )
+        list_response = self.client.get(
+            reverse("procurement:contract_list"),
+            {"q": "8766.a"},
+            secure=True,
+        )
+
+        self.assertContains(detail_response, "Nomor Dokumen Eksternal")
+        self.assertContains(detail_response, "800/8766.a/KD.F")
+        self.assertContains(list_response, "800/8766.a/KD.F")
+        self.assertContains(
+            list_response,
+            reverse("procurement:contract_detail", args=[contract.pk]),
+        )
 
     def test_contract_form_accepts_indonesian_date_input(self):
         form = ProcurementContractForm(
@@ -1102,6 +1488,7 @@ class ProcurementWorkflowTests(TestCase):
                 "contract_date": "2026-07-01",
                 "supplier": str(self.supplier.pk),
                 "sumber_dana": str(self.funding.pk),
+                "external_document_number": "800/8766.a/KD.F",
                 "notes": "Kontrak dua baris",
                 "lines-TOTAL_FORMS": "2",
                 "lines-INITIAL_FORMS": "0",
@@ -1127,6 +1514,7 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(lines[0].original_quantity, Decimal("10"))
         self.assertEqual(lines[1].item, self.second_item)
         self.assertEqual(lines[1].original_quantity, Decimal("20"))
+        self.assertEqual(contract.external_document_number, "800/8766.a/KD.F")
 
     def test_contract_create_accepts_comma_decimal_unit_price(self):
         response = self.client.post(
@@ -1405,142 +1793,64 @@ class ProcurementWorkflowTests(TestCase):
         self.assertEqual(funding_source.description, "Dana operasional")
         self.assertEqual(response.json()["id"], funding_source.pk)
 
-    def test_contract_number_generation_ignores_nonnumeric_suffixes(self):
-        year = timezone.now().year
-        prefix = f"SPJ-{year}-"
-        ProcurementContract.objects.create(
-            document_number=f"{prefix}00009",
-            contract_date=date(year, 7, 1),
-            supplier=self.supplier,
-            sumber_dana=self.funding,
-            notes="Generated baseline",
-            created_by=self.admin,
-        )
-        ProcurementContract.objects.create(
-            document_number=f"{prefix}MANUAL",
-            contract_date=date(year, 7, 2),
-            supplier=self.supplier,
-            sumber_dana=self.funding,
-            notes="Manual suffix",
-            created_by=self.admin,
-        )
+    def test_contract_number_is_issued_on_submit_using_contract_date(self):
+        first, _line = self._create_contract()
+        second, _line = self._create_contract()
 
-        generated = ProcurementContract.objects.create(
-            document_number="",
-            contract_date=date(year, 7, 3),
-            supplier=self.supplier,
-            sumber_dana=self.funding,
-            notes="Auto number",
-            created_by=self.admin,
-        )
+        submit_contract(first, self.admin)
+        submit_contract(second, self.admin)
+        first.refresh_from_db()
+        second.refresh_from_db()
 
-        self.assertEqual(generated.document_number, f"{prefix}00010")
+        self.assertEqual(first.document_number, "SPJ-2026-00001")
+        self.assertEqual(second.document_number, "SPJ-2026-00002")
 
-    def test_amendment_number_generation_uses_contract_scoped_suffix(self):
+    def test_amendment_number_generation_uses_shared_monthly_sequence(self):
         contract, line = self._approve_contract(quantity="10", unit_price="5000")
-        other_contract, _other_line = self._approve_contract(quantity="5", unit_price="2500")
-        prefix = f"{contract.document_number}-A"
-        ProcurementAmendment.objects.create(
+        other_contract, other_line = self._approve_contract(quantity="5", unit_price="2500")
+        first = ProcurementAmendment.objects.create(
             contract=contract,
-            document_number=f"{prefix}3",
             amendment_date=date(2026, 7, 4),
-            notes="Generated baseline",
+            notes="Amandemen pertama",
             created_by=self.admin,
         )
-        ProcurementAmendment.objects.create(
+        second = ProcurementAmendment.objects.create(
             contract=contract,
-            document_number=f"{prefix}MANUAL",
             amendment_date=date(2026, 7, 5),
-            notes="Manual suffix",
+            notes="Amandemen kedua",
             created_by=self.admin,
         )
-        ProcurementAmendment.objects.create(
+        other = ProcurementAmendment.objects.create(
             contract=other_contract,
-            document_number=f"{other_contract.document_number}-A9",
             amendment_date=date(2026, 7, 5),
-            notes="Other contract sequence",
+            notes="Amandemen kontrak lain",
             created_by=self.admin,
         )
-
-        generated = ProcurementAmendment.objects.create(
-            contract=contract,
-            document_number="",
-            amendment_date=date(2026, 7, 6),
-            notes="Auto number",
+        next_month = ProcurementAmendment.objects.create(
+            contract=other_contract,
+            amendment_date=date(2026, 8, 1),
+            notes="Amandemen bulan berikutnya",
             created_by=self.admin,
         )
-
-        self.assertEqual(generated.document_number, f"{prefix}4")
-
-    def test_amendment_number_generation_rejects_overlong_parent_number(self):
-        contract, _line = self._create_contract(quantity="10", unit_price="5000")
-        contract.document_number = "SPJ-" + ("X" * 96)
-        contract.status = ProcurementContract.Status.APPROVED
-        contract.approved_by = self.kepala
-        contract.approved_at = timezone.now()
-        contract.save(
-            update_fields=[
-                "document_number",
-                "status",
-                "approved_by",
-                "approved_at",
-                "updated_at",
-            ]
-        )
-
-        with self.assertRaisesMessage(
-            ValidationError,
-            "Nomor amandemen otomatis melebihi batas 100 karakter",
+        for amendment, contract_line in (
+            (first, line),
+            (second, line),
+            (other, other_line),
+            (next_month, other_line),
         ):
-            ProcurementAmendment.objects.create(
-                contract=contract,
-                document_number="",
-                amendment_date=date(2026, 7, 6),
-                notes="Auto number terlalu panjang",
-                created_by=self.admin,
+            ProcurementAmendmentLine.objects.create(
+                amendment=amendment,
+                contract_line=contract_line,
+                revised_quantity=contract_line.original_quantity,
+                revised_unit_price=contract_line.original_unit_price,
             )
+            submit_amendment(amendment, self.admin)
+            amendment.refresh_from_db()
 
-    def test_amendment_create_reports_overlong_generated_number(self):
-        contract, line = self._create_contract(quantity="10", unit_price="5000")
-        contract.document_number = "SPJ-" + ("X" * 96)
-        contract.status = ProcurementContract.Status.APPROVED
-        contract.approved_by = self.kepala
-        contract.approved_at = timezone.now()
-        contract.save(
-            update_fields=[
-                "document_number",
-                "status",
-                "approved_by",
-                "approved_at",
-                "updated_at",
-            ]
-        )
-
-        response = self.client.post(
-            reverse("procurement:amendment_create", args=[contract.pk]),
-            {
-                "amendment_date": "2026-07-06",
-                "notes": "Auto number terlalu panjang",
-                "lines-TOTAL_FORMS": "1",
-                "lines-INITIAL_FORMS": "0",
-                "lines-MIN_NUM_FORMS": "0",
-                "lines-MAX_NUM_FORMS": "1000",
-                "lines-0-contract_line": str(line.pk),
-                "lines-0-revised_quantity": "10",
-                "lines-0-revised_unit_price": "5000",
-                "lines-0-notes": "Tetap",
-            },
-            secure=True,
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            "Nomor amandemen otomatis melebihi batas 100 karakter",
-        )
-        self.assertFalse(
-            ProcurementAmendment.objects.filter(contract=contract).exists()
-        )
+        self.assertEqual(first.document_number, "SPJ/2026/07/1")
+        self.assertEqual(second.document_number, "SPJ/2026/07/2")
+        self.assertEqual(other.document_number, "SPJ/2026/07/3")
+        self.assertEqual(next_month.document_number, "SPJ/2026/08/1")
 
     @override_settings(
         PROCUREMENT_MUTATION_RATE_LIMIT="1/m",

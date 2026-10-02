@@ -7,16 +7,31 @@ class ExpiredItemInline(admin.TabularInline):
     extra = 1
     autocomplete_fields = ['item', 'stock']
 
+    def _parent_is_draft(self, obj):
+        return obj is None or obj.status == Expired.Status.DRAFT
+
+    def has_add_permission(self, request, obj=None):
+        return super().has_add_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and self._parent_is_draft(obj)
+
 
 @admin.register(Expired)
 class ExpiredAdmin(admin.ModelAdmin):
     list_display = ('document_number', 'report_date', 'status', 'created_by')
     list_filter = ('status', 'report_date')
     search_fields = ('document_number',)
-    readonly_fields = ('created_at', 'updated_at', 'verified_at')
+    readonly_fields = (
+        'document_number', 'status', 'created_at', 'updated_at',
+        'verified_by', 'verified_at', 'disposed_by', 'disposed_at',
+    )
     inlines = [ExpiredItemInline]
-    autocomplete_fields = ['created_by', 'verified_by']
-    actions = ['mark_disposed']
+    autocomplete_fields = ['created_by']
+    actions = None
 
     fieldsets = (
         ('Informasi Expired', {
@@ -32,6 +47,8 @@ class ExpiredAdmin(admin.ModelAdmin):
                 'created_by',
                 'verified_by',
                 'verified_at',
+                'disposed_by',
+                'disposed_at',
             )
         }),
         ('Audit Trail', {
@@ -40,17 +57,16 @@ class ExpiredAdmin(admin.ModelAdmin):
         }),
     )
 
-    @admin.action(description='Tandai Dimusnahkan (hanya status Terverifikasi)')
-    def mark_disposed(self, request, queryset):
-        verified_qs = queryset.filter(status=Expired.Status.VERIFIED)
-        skipped = queryset.count() - verified_qs.count()
-        updated = verified_qs.update(status=Expired.Status.DISPOSED)
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.document_number:
+            readonly_fields.append('report_date')
+        return tuple(readonly_fields)
 
-        if updated:
-            self.message_user(request, f'{updated} dokumen expired ditandai dimusnahkan.')
-        if skipped:
-            self.message_user(
-                request,
-                f'{skipped} dokumen dilewati karena bukan status Terverifikasi.',
-                level='warning',
-            )
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.status != Expired.Status.DRAFT:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return False

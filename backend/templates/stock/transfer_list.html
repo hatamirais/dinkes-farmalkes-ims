@@ -45,7 +45,7 @@
             <tbody>
                 {% for trf in transfers %}
                 <tr>
-                    <td><a href="{% url 'stock:transfer_detail' trf.pk %}" class="fw-semibold text-decoration-none">{{ trf.document_number }}</a></td>
+                    <td><a href="{% url 'stock:transfer_detail' trf.pk %}" class="fw-semibold text-decoration-none">{{ trf.document_number|default:"Belum diterbitkan" }}</a></td>
                     <td>{{ trf.transfer_date|date:"d/m/Y" }}</td>
                     <td>{{ trf.source_location.name }}</td>
                     <td>{{ trf.destination_location.name }}</td>

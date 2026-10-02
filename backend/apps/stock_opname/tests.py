@@ -6,12 +6,12 @@ from unittest import mock
 
 from django.apps import apps as django_apps
 from django.contrib.auth.models import Permission
-from django.db import IntegrityError, connection
+from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.core.models import SystemSettings, TimeStampedModel
+from apps.core.models import DocumentNumberIssue, DocumentNumberRule, SystemSettings
 from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
 from apps.stock_opname.models import StockOpname, StockOpnameItem
@@ -22,6 +22,15 @@ from apps.users.models import User
 class StockOpnameTestMixin:
     def setUp(self):
         super().setUp()
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.STOCK_OPNAME,
+            defaults={
+                "label": "Stock Opname",
+                "template": "SO-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.admin = User.objects.create_superuser(
             username="admin_opname",
             password="secret12345",
@@ -64,14 +73,16 @@ class StockOpnameTestMixin:
         )
 
     def create_opname(self, *, status=StockOpname.Status.DRAFT, document_number=None):
-        opname = StockOpname.objects.create(
-            document_number=document_number or "",
-            period_type=StockOpname.PeriodType.MONTHLY,
-            period_start=date(2026, 3, 1),
-            period_end=date(2026, 3, 31),
-            status=status,
-            created_by=self.admin,
-        )
+        kwargs = {
+            "period_type": StockOpname.PeriodType.MONTHLY,
+            "period_start": date(2026, 3, 1),
+            "period_end": date(2026, 3, 31),
+            "status": status,
+            "created_by": self.admin,
+        }
+        if document_number is not None:
+            kwargs["document_number"] = document_number
+        opname = StockOpname.objects.create(**kwargs)
         opname.categories.add(self.category)
         return opname
 
@@ -137,6 +148,7 @@ class StockOpnameAccessAndWorkflowTests(StockOpnameTestMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         opname.refresh_from_db()
         self.assertEqual(opname.status, StockOpname.Status.IN_PROGRESS)
+        self.assertEqual(opname.document_number, "SO-202603-00001")
         snapshot = StockOpnameItem.objects.get(stock_opname=opname, stock=self.stock)
         self.assertEqual(snapshot.system_quantity, Decimal("100"))
         self.assertIsNotNone(snapshot.created_at)
@@ -651,46 +663,9 @@ class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
 
 
 class StockOpnameModelTests(StockOpnameTestMixin, TestCase):
-    def test_document_number_retries_on_unique_conflict(self):
-        self.create_opname(document_number="SO-202605-00001")
-
-        with mock.patch.object(
-            StockOpname,
-            "generate_document_number",
-            side_effect=["SO-202605-00001", "SO-202605-00002"],
-        ):
-            opname = StockOpname(
-                period_type=StockOpname.PeriodType.MONTHLY,
-                period_start=date(2026, 4, 1),
-                period_end=date(2026, 4, 30),
-                created_by=self.admin,
-            )
-            opname.save()
-
-        self.assertEqual(opname.document_number, "SO-202605-00002")
-
-    def test_document_number_retry_does_not_swallow_unrelated_integrity_error(self):
-        with mock.patch.object(
-            StockOpname,
-            "generate_document_number",
-            return_value="SO-202605-99999",
-        ) as generate_mock, mock.patch.object(
-            TimeStampedModel,
-            "save",
-            side_effect=IntegrityError(
-                'duplicate key value violates unique constraint "stock_opnames_period_type_key"'
-            ),
-        ):
-            opname = StockOpname(
-                period_type=StockOpname.PeriodType.MONTHLY,
-                period_start=date(2026, 4, 1),
-                period_end=date(2026, 4, 30),
-                created_by=self.admin,
-            )
-            with self.assertRaises(IntegrityError):
-                opname.save()
-
-        self.assertEqual(generate_mock.call_count, 1)
+    def test_draft_save_does_not_issue_document_number(self):
+        opname = self.create_opname()
+        self.assertIsNone(opname.document_number)
 
 
 class StockOpnamePresentationAndAuditTests(StockOpnameTestMixin, TestCase):
@@ -970,6 +945,30 @@ class StockOpnamePresentationAndAuditTests(StockOpnameTestMixin, TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_delete_in_progress_opname_voids_issued_number(self):
+        opname = self.create_opname()
+        self.client.force_login(self.admin)
+        start_response = self.client.post(
+            reverse("stock_opname:opname_start", args=[opname.pk]),
+            secure=True,
+        )
+        self.assertEqual(start_response.status_code, 302)
+        opname.refresh_from_db()
+        self.assertEqual(opname.status, StockOpname.Status.IN_PROGRESS)
+        issue = DocumentNumberIssue.objects.get(object_id=opname.pk)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_delete", args=[opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(StockOpname.objects.filter(pk=opname.pk).exists())
+        issue.refresh_from_db()
+        self.assertEqual(issue.status, DocumentNumberIssue.Status.VOID)
+        self.assertEqual(issue.voided_by, self.admin)
+        self.assertIsNotNone(issue.voided_at)
+
     def test_stock_opname_item_has_timestamps(self):
         opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
         item = StockOpnameItem.objects.create(
@@ -1198,6 +1197,41 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_edit_reloads_row_after_concurrent_start(self):
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        stale_draft = StockOpname.objects.get(pk=draft.pk)
+        self.client.force_login(self.admin)
+
+        self.client.post(
+            reverse("stock_opname:opname_start", args=[draft.pk]),
+            secure=True,
+        )
+        draft.refresh_from_db()
+        issued_number = draft.document_number
+
+        with mock.patch(
+            "apps.stock_opname.views.get_object_or_404", return_value=stale_draft
+        ):
+            response = self.client.post(
+                reverse("stock_opname:opname_edit", args=[draft.pk]),
+                {
+                    "period_type": StockOpname.PeriodType.MONTHLY,
+                    "period_start": "2026-04-01",
+                    "period_end": "2026-04-30",
+                    "categories": [str(self.category.pk)],
+                    "assigned_to": [str(self.gudang.pk)],
+                    "notes": "Tidak boleh tersimpan",
+                },
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, StockOpname.Status.IN_PROGRESS)
+        self.assertEqual(draft.document_number, issued_number)
+        self.assertEqual(draft.period_end, date(2026, 3, 31))
+        self.assertEqual(draft.notes, "")
+
     # ------------------------------------------------------------------
     # F13 — pagination must preserve query filters
     # ------------------------------------------------------------------
@@ -1236,7 +1270,10 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         from apps.stock_opname.admin import StockOpnameAdmin
 
         ma = StockOpnameAdmin(StockOpname, AdminSite())
-        opname = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        opname = self.create_opname(
+            status=StockOpname.Status.IN_PROGRESS,
+            document_number="SO-202603-00001",
+        )
 
         readonly_fields = ma.get_readonly_fields(mock.Mock(), opname)
 
@@ -1244,6 +1281,62 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
         self.assertIn("created_by", readonly_fields)
         self.assertIn("completed_by", readonly_fields)
         self.assertIn("completed_at", readonly_fields)
+        self.assertIn("period_end", readonly_fields)
+
+    def test_admin_locks_entire_header_after_draft(self):
+        from django.contrib.admin.sites import AdminSite
+        from apps.stock_opname.admin import StockOpnameAdmin
+
+        ma = StockOpnameAdmin(StockOpname, AdminSite())
+        request = mock.Mock(user=self.admin)
+        draft = self.create_opname(status=StockOpname.Status.DRAFT)
+        in_progress = self.create_opname(status=StockOpname.Status.IN_PROGRESS)
+        completed = self.create_opname(status=StockOpname.Status.COMPLETED)
+
+        self.assertTrue(ma.has_change_permission(request, draft))
+        self.assertFalse(ma.has_change_permission(request, in_progress))
+        self.assertFalse(ma.has_change_permission(request, completed))
+
+    def test_numbered_form_ignores_changed_period_end(self):
+        from apps.stock_opname.forms import StockOpnameForm
+
+        opname = self.create_opname(
+            status=StockOpname.Status.DRAFT,
+            document_number="SO-202603-00001",
+        )
+        original_period_end = opname.period_end
+        form = StockOpnameForm(
+            data={
+                "period_type": StockOpname.PeriodType.MONTHLY,
+                "period_start": "2026-03-01",
+                "period_end": "2026-04-30",
+                "categories": [self.category.pk],
+                "assigned_to": [self.gudang.pk],
+                "notes": "Catatan diperbarui",
+            },
+            instance=opname,
+        )
+
+        self.assertTrue(form.fields["period_end"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        opname.refresh_from_db()
+        self.assertEqual(opname.period_end, original_period_end)
+
+        draft_form = StockOpnameForm(instance=self.create_opname())
+        self.assertFalse(draft_form.fields["period_end"].disabled)
+
+    def test_admin_disables_object_and_bulk_deletion(self):
+        from django.contrib.admin.sites import AdminSite
+        from apps.stock_opname.admin import StockOpnameAdmin
+
+        ma = StockOpnameAdmin(StockOpname, AdminSite())
+        request = mock.Mock(user=self.admin)
+        draft = self.create_opname()
+
+        self.assertFalse(ma.has_delete_permission(request))
+        self.assertFalse(ma.has_delete_permission(request, draft))
+        self.assertNotIn("delete_selected", ma.get_actions(request))
 
     def test_admin_new_opname_forces_draft_workflow_state(self):
         from django.contrib.admin.sites import AdminSite

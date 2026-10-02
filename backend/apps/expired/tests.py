@@ -1,12 +1,16 @@
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.contrib import admin
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.tests.mixins import SecureClientDefaultsMixin
-from apps.expired.forms import ExpiredItemForm
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number
+from apps.expired.forms import ExpiredForm, ExpiredItemForm
 from apps.expired.models import Expired, ExpiredItem
 from apps.expired.services import (
     ExpiredWorkflowError,
@@ -18,12 +22,23 @@ from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
+from .admin import ExpiredAdmin, ExpiredItemInline
+
 
 class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
     """Tests for the expired module workflow transitions, stock posting, and edge cases."""
 
     def setUp(self):
         super().setUp()
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.EXPIRED,
+            defaults={
+                "label": "Kedaluwarsa",
+                "template": "EXP-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.user = User.objects.create_superuser(
             username="gudang_expired",
             password="secret12345",
@@ -85,19 +100,80 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
                 quantity=Decimal("5"),
                 notes="Melewati tanggal ED",
             )
+        if status != Expired.Status.DRAFT:
+            issue_document_number(
+                DocumentNumberRule.Key.EXPIRED,
+                business_date=expired_doc.report_date,
+                target=expired_doc,
+                actor=self.user,
+            )
+            expired_doc.refresh_from_db()
         return expired_doc
 
     # --- Auto-generated document number ---
 
     def test_auto_generated_document_number(self):
         expired_doc = self._create_expired()
-        self.assertTrue(expired_doc.document_number.startswith("EXP-"))
-        now_prefix = timezone.now().strftime("%Y%m")
-        self.assertIn(now_prefix, expired_doc.document_number)
+        self.assertIsNone(expired_doc.document_number)
 
-    def test_custom_document_number_preserved(self):
-        expired_doc = self._create_expired(document_number="CUSTOM-EXP-001")
-        self.assertEqual(expired_doc.document_number, "CUSTOM-EXP-001")
+        self.client.post(reverse("expired:expired_submit", args=[expired_doc.pk]))
+        expired_doc.refresh_from_db()
+
+        self.assertEqual(expired_doc.document_number, "EXP-202603-00001")
+
+    def test_form_does_not_expose_document_number(self):
+        form = ExpiredForm()
+        self.assertNotIn("document_number", form.fields)
+
+    def test_numbered_expired_form_ignores_changed_business_date(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        original_date = expired_doc.report_date
+        form = ExpiredForm(
+            data={
+                "report_date": "2026-04-10",
+                "notes": "Catatan diperbarui",
+            },
+            instance=expired_doc,
+        )
+
+        self.assertTrue(form.fields["report_date"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.report_date, original_date)
+
+        draft_form = ExpiredForm(instance=self._create_expired())
+        self.assertFalse(draft_form.fields["report_date"].disabled)
+
+    def test_admin_locks_workflow_and_items_after_draft(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        request = RequestFactory().get("/admin/expired/")
+        request.user = self.user
+        expired_admin = ExpiredAdmin(Expired, admin.site)
+        item_inline = ExpiredItemInline(Expired, admin.site)
+        form = ExpiredAdmin(Expired, admin.site).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "verified_by",
+            "verified_at",
+            "disposed_by",
+            "disposed_at",
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+        self.assertNotIn("mark_disposed", expired_admin.get_actions(request))
+        self.assertNotIn("delete_selected", expired_admin.get_actions(request))
+        self.assertIn(
+            "report_date",
+            expired_admin.get_readonly_fields(request, expired_doc),
+        )
+        self.assertFalse(expired_admin.has_change_permission(request, expired_doc))
+        self.assertFalse(expired_admin.has_delete_permission(request))
+        self.assertFalse(expired_admin.has_delete_permission(request, expired_doc))
+        self.assertFalse(item_inline.has_add_permission(request, expired_doc))
+        self.assertFalse(item_inline.has_change_permission(request, expired_doc))
+        self.assertFalse(item_inline.has_delete_permission(request, expired_doc))
 
     # --- Submit workflow ---
 
@@ -280,6 +356,40 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
             reverse("expired:expired_edit", args=[expired_doc.pk])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_edit_reloads_row_after_concurrent_submission(self):
+        expired_doc = self._create_expired(status=Expired.Status.DRAFT)
+        expired_item = expired_doc.items.get()
+        stale_draft = Expired.objects.get(pk=expired_doc.pk)
+
+        self.client.post(reverse("expired:expired_submit", args=[expired_doc.pk]))
+        expired_doc.refresh_from_db()
+        issued_number = expired_doc.document_number
+
+        with patch("apps.expired.views.get_object_or_404", return_value=stale_draft):
+            response = self.client.post(
+                reverse("expired:expired_edit", args=[expired_doc.pk]),
+                {
+                    "report_date": "2026-04-10",
+                    "notes": "Catatan setelah pengajuan",
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-id": str(expired_item.pk),
+                    "items-0-item": str(self.item.pk),
+                    "items-0-stock": str(self.stock.pk),
+                    "items-0-quantity": "5",
+                    "items-0-notes": "Melewati tanggal ED",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        expired_doc.refresh_from_db()
+        self.assertEqual(expired_doc.status, Expired.Status.SUBMITTED)
+        self.assertEqual(expired_doc.document_number, issued_number)
+        self.assertEqual(str(expired_doc.report_date), "2026-03-10")
+        self.assertEqual(expired_doc.notes, "Catatan setelah pengajuan")
 
     def test_edit_blocked_for_verified(self):
         expired_doc = self._create_expired(status=Expired.Status.VERIFIED)

@@ -2,7 +2,7 @@ import json
 import logging
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -10,6 +10,7 @@ from django.utils.http import escape_leading_slashes
 from datetime import timedelta
 from django.views.decorators.csrf import requires_csrf_token
 
+from django.db import transaction
 from django.db.models import Count, Q
 
 from apps.lplpo.models import LPLPO
@@ -19,13 +20,14 @@ from apps.users.models import User
 from apps.users.access import has_module_permission, has_module_scope
 from apps.users.models import ModuleAccess
 from django.urls import Resolver404, resolve, reverse, reverse_lazy
+from django.views.generic import TemplateView
 from django.views.generic.edit import UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django_ratelimit.exceptions import Ratelimited
 from apps.core.client_ip import get_client_ip
-from apps.core.models import SystemSettings
-from apps.core.forms import SystemSettingsForm
+from apps.core.models import DocumentNumberRule, SystemSettings
+from apps.core.forms import DocumentNumberRuleFormSet, SystemSettingsForm
 
 security_logger = logging.getLogger("security")
 app_logger = logging.getLogger("core")
@@ -312,12 +314,8 @@ def _can_access_administration_history(user):
     )
 
 
-class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
-    model = SystemSettings
-    form_class = SystemSettingsForm
-    template_name = "core/settings_form.html"
-    success_url = reverse_lazy('dashboard')
-    login_url = reverse_lazy('login')
+class SettingsRoleRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    login_url = reverse_lazy("login")
 
     def test_func(self):
         user = self.request.user
@@ -326,45 +324,15 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
             User.Role.KEPALA,
         }
 
+
+class SystemSettingsUpdateView(SettingsRoleRequiredMixin, UpdateView):
+    model = SystemSettings
+    form_class = SystemSettingsForm
+    template_name = "core/settings_form.html"
+    success_url = reverse_lazy("settings")
+
     def get_object(self, queryset=None):
         return SystemSettings.get_settings()
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        form = context.get("form")
-        sample_year = str(timezone.now().year)
-        sample_sequence = "12"
-        lplpo_template = form["lplpo_distribution_number_template"].value()
-        special_request_template = form[
-            "special_request_distribution_number_template"
-        ].value()
-        context["numbering_preview_cards"] = [
-            {
-                "title": "Preview LPLPO",
-                "template": lplpo_template,
-                "example": self._render_numbering_preview(
-                    lplpo_template,
-                    sample_sequence,
-                    sample_year,
-                ),
-            },
-            {
-                "title": "Preview Permintaan Khusus",
-                "template": special_request_template,
-                "example": self._render_numbering_preview(
-                    special_request_template,
-                    sample_sequence,
-                    sample_year,
-                ),
-            },
-        ]
-        context["numbering_preview_sample_year"] = sample_year
-        context["numbering_preview_sample_sequence"] = sample_sequence
-        return context
-
-    @staticmethod
-    def _render_numbering_preview(template, sequence, year):
-        return (template or "").replace("{seq}", sequence).replace("{year}", year)
 
     def form_valid(self, form):
         logo = form.cleaned_data.get("logo")
@@ -380,8 +348,10 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
                     sort_keys=True,
                 )
             )
-        messages.success(self.request, "Pengaturan sistem berhasil diperbarui.")
-        return super().form_valid(form)
+        with transaction.atomic():
+            self.object = form.save()
+        messages.success(self.request, "Pengaturan umum berhasil diperbarui.")
+        return HttpResponseRedirect(self.get_success_url())
 
     def form_invalid(self, form):
         if self.request.method == "POST" and self.request.FILES.get("logo"):
@@ -397,4 +367,35 @@ class SystemSettingsUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateVi
                 )
             )
         return super().form_invalid(form)
+
+
+class DocumentNumberSettingsUpdateView(SettingsRoleRequiredMixin, TemplateView):
+    template_name = "core/numbering_settings_form.html"
+
+    def _get_formset(self, data=None):
+        return DocumentNumberRuleFormSet(
+            data=data,
+            prefix="numbering_rules",
+            queryset=DocumentNumberRule.objects.order_by("label", "key"),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("numbering_formset", self._get_formset())
+        today = timezone.localdate()
+        context["numbering_preview_sample_year"] = str(today.year)
+        context["numbering_preview_sample_month"] = today.strftime("%m")
+        return context
+
+    def post(self, request, *args, **kwargs):
+        formset = self._get_formset(request.POST)
+        if not formset.is_valid():
+            return self.render_to_response(
+                self.get_context_data(numbering_formset=formset)
+            )
+
+        with transaction.atomic():
+            formset.save()
+        messages.success(request, "Pengaturan penomoran berhasil diperbarui.")
+        return HttpResponseRedirect(reverse("numbering_settings"))
 

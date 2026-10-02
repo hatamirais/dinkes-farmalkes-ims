@@ -1,6 +1,8 @@
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import (
     DistributionWorkflowError,
@@ -120,7 +122,7 @@ def _generate_distributions(allocation, allocation_items, user):
         facility = items_list[0][1].facility
 
         distribution = Distribution(
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
             request_date=allocation.allocation_date,
             facility=facility,
             status=Distribution.Status.VERIFIED,
@@ -130,7 +132,13 @@ def _generate_distributions(allocation, allocation_items, user):
             allocation=allocation,
             notes=f"Dibuat otomatis dari alokasi {allocation.document_number}",
         )
-        distribution.save()  # Auto-generates document_number
+        distribution.save()
+        issue_document_number(
+            DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+            business_date=allocation.allocation_date,
+            target=distribution,
+            actor=user,
+        )
 
         dist_items = []
         for alloc_item, fa in items_list:
@@ -156,22 +164,36 @@ def _generate_distributions(allocation, allocation_items, user):
 # ──────────────────────────────────────────────────────────────
 
 def execute_allocation_submission(allocation, user):
-    allocation_items = _get_allocation_items(allocation, "diajukan")
-    _validate_submission(allocation, allocation_items)
+    with transaction.atomic():
+        locked_allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
+        if locked_allocation.status != Allocation.Status.DRAFT:
+            raise AllocationWorkflowError(
+                "Hanya alokasi berstatus Draft yang dapat diajukan."
+            )
+        allocation_items = _get_allocation_items(locked_allocation, "diajukan")
+        _validate_submission(locked_allocation, allocation_items)
 
-    # Re-snapshot available quantities
-    for alloc_item in allocation_items:
-        if alloc_item.stock:
-            alloc_item.total_qty_available = alloc_item.stock.available_quantity
-            alloc_item.save(update_fields=["total_qty_available"])
+        for alloc_item in allocation_items:
+            if alloc_item.stock:
+                alloc_item.total_qty_available = alloc_item.stock.available_quantity
+                alloc_item.save(update_fields=["total_qty_available"])
 
-    allocation.status = Allocation.Status.SUBMITTED
-    allocation.submitted_by = user
-    allocation.submitted_at = timezone.now()
-    allocation.rejection_reason = ""
-    _save_allocation(
-        allocation, ["status", "submitted_by", "submitted_at", "rejection_reason"]
-    )
+        issue_document_number(
+            DocumentNumberRule.Key.ALLOCATION,
+            business_date=locked_allocation.allocation_date,
+            target=locked_allocation,
+            actor=user,
+        )
+        locked_allocation.status = Allocation.Status.SUBMITTED
+        locked_allocation.submitted_by = user
+        locked_allocation.submitted_at = timezone.now()
+        locked_allocation.rejection_reason = ""
+        _save_allocation(
+            locked_allocation,
+            ["status", "submitted_by", "submitted_at", "rejection_reason"],
+        )
+        allocation.document_number = locked_allocation.document_number
+        allocation.status = locked_allocation.status
 
 
 
@@ -193,7 +215,7 @@ def execute_allocation_approval(allocation, user):
 
 
 
-def execute_allocation_step_back_to_submitted(allocation):
+def execute_allocation_step_back_to_submitted(allocation, user=None):
     if allocation.status != Allocation.Status.APPROVED:
         raise AllocationWorkflowError(
             "Hanya alokasi berstatus 'Disetujui' yang dapat dikembalikan ke 'Diajukan'."
@@ -205,6 +227,11 @@ def execute_allocation_step_back_to_submitted(allocation):
                 release_distribution_reservations(distribution)
             except DistributionWorkflowError as exc:
                 raise AllocationWorkflowError(str(exc)) from exc
+            void_document_number(
+                distribution,
+                actor=user,
+                reason=f"Alokasi {allocation.document_number} dikembalikan ke status Diajukan.",
+            )
         allocation.distributions.all().delete()
         allocation.status = Allocation.Status.SUBMITTED
         allocation.approved_by = None

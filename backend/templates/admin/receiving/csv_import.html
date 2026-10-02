@@ -9,8 +9,9 @@
 
     <div class="module">
         <h3>Format CSV</h3>
-        <p>Setiap baris = 1 item penerimaan. Baris dengan <code>document_number</code> yang
-            sama akan dikelompokkan menjadi 1 dokumen penerimaan.</p>
+        <p>Setiap baris = 1 item penerimaan. Baris dengan <code>import_group</code> yang
+            sama dikelompokkan menjadi satu penerimaan. Nomor dokumen resmi diterbitkan
+            otomatis oleh sistem setelah seluruh grup lolos validasi.</p>
         <table>
             <thead>
                 <tr>
@@ -21,9 +22,9 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><code>document_number</code></td>
+                    <td><code>import_group</code></td>
                     <td>Ya</td>
-                    <td>Nomor dokumen (contoh: SALDO-DAK-2026)</td>
+                    <td>Identitas pengelompokan impor (contoh: HIBAH-DAK-2026-01); bukan nomor dokumen resmi</td>
                 </tr>
                 <tr>
                     <td><code>receiving_type</code></td>

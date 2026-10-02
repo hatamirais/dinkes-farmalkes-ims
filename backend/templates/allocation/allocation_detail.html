@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{{ allocation.document_number }} - Healthcare IMS{% endblock %}
+{% block title %}{{ allocation.document_number|default:"Alokasi draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block extra_css %}
@@ -71,7 +71,7 @@
 {% block content %}
 <div class="card content-card table-container">
     <div class="card-header d-flex align-items-center justify-content-between">
-        <span><i class="bi bi-diagram-3 me-2"></i>{{ allocation.document_number }}</span>
+        <span><i class="bi bi-diagram-3 me-2"></i>{{ allocation.document_number|default:"Belum diterbitkan" }}</span>
         <span class="badge-status badge-{{ allocation.status|lower }}">{{ allocation.get_status_display }}</span>
     </div>
 
@@ -244,11 +244,11 @@
                                 <a href="{% url 'distribution:distribution_detail' dist.pk %}"
                                     class="stretched-link"
                                     target="_blank" rel="noopener noreferrer"
-                                    aria-label="Lihat detail distribusi {{ dist.document_number }}"></a>
+                                    aria-label="Lihat detail distribusi {{ dist.document_number|default:'belum diterbitkan' }}"></a>
                             <div class="d-flex align-items-start justify-content-between mb-2">
                                 <div>
                                     <h6 class="fw-semibold mb-1">{{ dist.facility.name }}</h6>
-                                    <small class="text-muted">{{ dist.document_number }}</small>
+                                    <small class="text-muted">{{ dist.document_number|default:"Belum diterbitkan" }}</small>
                             </div>
                                 <span class="badge-status badge-{{ dist.status|lower }}">{{ dist.get_status_display }}</span>
                             </div>
