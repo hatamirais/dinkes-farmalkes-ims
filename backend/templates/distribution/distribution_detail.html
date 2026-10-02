@@ -199,12 +199,13 @@
                                 <div class="d-grid gap-2">
                                     {% if is_allocation %}
                                     {# Allocation-generated: limited actions, managed by parent allocation #}
-                                    {% if distribution.allocation %}
+                                    {% if distribution.allocation and can_view_allocation_parent %}
                                     <a href="{% url 'allocation:allocation_detail' distribution.allocation.pk %}"
                                         class="btn btn-outline-primary btn-sm">
                                         <i class="bi bi-diagram-3 me-1"></i>Lihat Alokasi Induk
                                     </a>
                                     {% endif %}
+                                    {% if can_manage_allocation_distribution %}
                                     {% if distribution.status == 'VERIFIED' %}
                                     <form method="post"
                                         action="{% url 'allocation:allocation_distribution_prepare' distribution.allocation.pk distribution.pk %}">
@@ -218,6 +219,7 @@
                                         data-bs-target="#distributeModal">
                                         <i class="bi bi-truck me-1"></i>Distribusikan
                                     </button>
+                                    {% endif %}
                                     {% endif %}
                                     {% if can_print_sbbk %}
                                     <button type="button" class="btn btn-dark btn-sm" data-action="print">
@@ -382,7 +384,7 @@
 </div>
 
 {# ─── Distribute Confirmation Modal ─── #}
-{% if can_distribute_distribution or is_allocation and distribution.status == 'PREPARED' %}
+{% if can_distribute_distribution or is_allocation and can_manage_allocation_distribution and distribution.status == 'PREPARED' %}
 <div class="modal fade" id="distributeModal" tabindex="-1" aria-labelledby="distributeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

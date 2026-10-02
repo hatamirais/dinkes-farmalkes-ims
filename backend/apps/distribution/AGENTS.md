@@ -41,6 +41,8 @@ App-specific guidance for outbound distribution workflows.
 - Allocation approval generates `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id=<parent>)`.
 - Allocation children share the normal Permintaan Khusus number rule and sequence. Use `allocation_id`, never a distinct distribution type, to distinguish their origin.
 - Allocation-generated child distributions remain parent-managed by the Allocation module and do not use generic distribution reset/step-back actions.
+- Standalone Permintaan Khusus operational lists and notifications exclude Allocation children with `allocation__isnull=True`; Permintaan Khusus and Allocation reports keep them included.
+- Distribution detail may remain readable through Distribution access, but parent links and prepare/deliver controls render only when the user also has the matching Allocation permission.
 - Allocation-generated child distributions start in `VERIFIED` with selected stock already reserved.
 - Quantities are locked and cannot be edited.
 - Stock deduction is deferred to per-distribution delivery confirmation.

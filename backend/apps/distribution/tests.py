@@ -2362,6 +2362,16 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
             with_items=True,
         )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
+        allocation_child = self._create_distribution(
+            status=Distribution.Status.DISTRIBUTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            with_items=True,
+            allocation=allocation,
+        )
         lplpo = self._create_distribution(
             status=Distribution.Status.DISTRIBUTED,
             distribution_type=Distribution.DistributionType.LPLPO,
@@ -2378,7 +2388,18 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, special_request.document_number)
+        self.assertContains(response, allocation_child.document_number)
         self.assertNotContains(response, lplpo.document_number)
+
+        allocation_response = self.client.get(
+            reverse("distribution:distribution_report_allocation"),
+            {
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+            },
+        )
+        self.assertContains(allocation_response, allocation_child.document_number)
+        self.assertNotContains(allocation_response, special_request.document_number)
 
     def test_distribution_report_tabs_use_dedicated_distribution_urls(self):
         response = self.client.get(reverse("distribution:distribution_report"))
@@ -2490,6 +2511,16 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         special_request = self._create_distribution(
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST
         )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
+        allocation_child = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
+            facility=self.rs_facility,
+        )
         history_only = self._create_distribution(
             distribution_type=Distribution.DistributionType.LPLPO,
             with_items=False,
@@ -2500,7 +2531,68 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.facility.name)
+        self.assertNotContains(response, allocation_child.document_number)
         self.assertNotContains(response, self.rs_facility.name)
+
+    def test_allocation_child_detail_hides_parent_actions_without_allocation_access(self):
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
+        verified_child = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
+        )
+        prepared_child = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
+        )
+        distribution_only_user = User.objects.create_user(
+            username="distribution_without_allocation_access",
+            password="secret12345",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ModuleAccess.objects.update_or_create(
+            user=distribution_only_user,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
+        ModuleAccess.objects.update_or_create(
+            user=distribution_only_user,
+            module=ModuleAccess.Module.ALLOCATION,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(distribution_only_user)
+
+        verified_response = self.client.get(
+            reverse("distribution:distribution_detail", args=[verified_child.pk])
+        )
+        prepared_response = self.client.get(
+            reverse("distribution:distribution_detail", args=[prepared_child.pk])
+        )
+
+        self.assertEqual(verified_response.status_code, 200)
+        self.assertNotContains(
+            verified_response,
+            reverse(
+                "allocation:allocation_distribution_prepare",
+                args=[allocation.pk, verified_child.pk],
+            ),
+        )
+        self.assertNotContains(
+            verified_response,
+            reverse("allocation:allocation_detail", args=[allocation.pk]),
+        )
+        self.assertEqual(prepared_response.status_code, 200)
+        self.assertNotContains(
+            prepared_response,
+            reverse(
+                "allocation:allocation_distribution_deliver",
+                args=[allocation.pk, prepared_child.pk],
+            ),
+        )
 
     def test_special_request_list_requires_view_permission(self):
         restricted_user = User.objects.create_user(

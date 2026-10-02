@@ -90,6 +90,14 @@ def _is_special_request(distribution):
     )
 
 
+def _has_django_or_module_permission(user, permission):
+    return (
+        getattr(user, "is_superuser", False)
+        or user.has_perm(permission)
+        or has_module_permission(user, permission)
+    )
+
+
 def _is_distribution_preparer(user, distribution):
     if getattr(user, "is_superuser", False):
         return True
@@ -542,7 +550,8 @@ def distribution_report_lplpo(request):
 def special_request_list(request):
     queryset = _order_distribution_queue(
         Distribution.objects.select_related("facility", "created_by").filter(
-            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation__isnull=True,
         )
     )
 
@@ -909,8 +918,17 @@ def distribution_detail(request, pk):
             }
         )
 
-    is_allocation = (
-        dist.allocation_id is not None
+    is_allocation = dist.allocation_id is not None
+    can_view_allocation_parent = is_allocation and _has_django_or_module_permission(
+        request.user,
+        "allocation.view_allocation",
+    )
+    can_manage_allocation_distribution = (
+        is_allocation
+        and _has_django_or_module_permission(
+            request.user,
+            "allocation.change_allocation",
+        )
     )
     can_prepare_distribution = (
         not is_allocation
@@ -983,6 +1001,8 @@ def distribution_detail(request, pk):
             "assigned_staff": assigned_staff,
             "kepala_instalasi": kepala_instalasi,
             "is_allocation": is_allocation,
+            "can_view_allocation_parent": can_view_allocation_parent,
+            "can_manage_allocation_distribution": can_manage_allocation_distribution,
             "page_title": (
                 "Detail Permintaan Khusus"
                 if _is_special_request(dist)

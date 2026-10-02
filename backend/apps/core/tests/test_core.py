@@ -25,6 +25,7 @@ from django.utils import timezone
 from django_ratelimit.exceptions import Ratelimited
 from axes.models import AccessAttempt
 
+from apps.allocation.models import Allocation
 from apps.core.admin_mixins import ImportGuideMixin
 from apps.core.context_processors import nav_notifications
 from apps.core.csv_exports import SanitizedCSV, escape_csv_formula
@@ -1844,6 +1845,61 @@ class NavNotificationsContextProcessorTests(TestCase):
 
         self.assertEqual(context["nav_notification_count"], 0)
         self.assertEqual(context["nav_notification_items"], [])
+
+    def test_special_request_notifications_exclude_allocation_children(self):
+        operator_user = User.objects.create_user(
+            username="nav-distribution-operator",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self._set_scope(
+            operator_user,
+            ModuleAccess.Module.DISTRIBUTION,
+            ModuleAccess.Scope.OPERATE,
+        )
+        self._set_scope(
+            operator_user,
+            ModuleAccess.Module.ALLOCATION,
+            ModuleAccess.Scope.NONE,
+        )
+        facility = Facility.objects.create(
+            code="PKM-NAV-DIST",
+            name="Puskesmas NAV Distribution",
+        )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 4, 1),
+            created_by=operator_user,
+        )
+        Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date=date(2026, 4, 1),
+            facility=facility,
+            status=Distribution.Status.VERIFIED,
+            created_by=operator_user,
+        )
+        Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date=date(2026, 4, 1),
+            facility=facility,
+            status=Distribution.Status.VERIFIED,
+            allocation=allocation,
+            created_by=operator_user,
+        )
+        request = self.factory.get("/")
+        request.user = operator_user
+
+        context = nav_notifications(request)
+
+        special_request_notification = next(
+            item
+            for item in context["nav_notification_items"]
+            if item["label"] == "Distribusi Permintaan Khusus"
+        )
+        self.assertEqual(special_request_notification["count"], 1)
+        self.assertEqual(
+            special_request_notification["url"],
+            reverse("distribution:special_request_list"),
+        )
 
     def test_verified_regular_receiving_does_not_show_when_only_plan_is_actionable(self):
         operator_user = User.objects.create_user(

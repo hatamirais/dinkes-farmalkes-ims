@@ -154,9 +154,10 @@ def nav_notifications(request):
         add_notification_item(
             "Distribusi Permintaan Khusus",
             base_qs.filter(
-                distribution_type=Distribution.DistributionType.SPECIAL_REQUEST
+                distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+                allocation__isnull=True,
             ).count(),
-            reverse("distribution:distribution_list"),
+            reverse("distribution:special_request_list"),
             "bi-send",
         )
 
