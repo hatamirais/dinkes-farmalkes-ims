@@ -705,43 +705,74 @@ def distribution_edit(request, pk):
         messages.error(request, "Distribusi alokasi tidak dapat diubah dari modul ini.")
         return redirect("distribution:distribution_detail", pk=dist.pk)
 
-    is_special_request = _is_special_request(dist)
-    is_generated_lplpo_distribution = dist.is_generated_lplpo_distribution
-    forced_distribution_type = (
-        Distribution.DistributionType.SPECIAL_REQUEST if is_special_request else None
-    )
-    formset_class = (
-        LockedLPLPODistributionItemFormSet
-        if is_generated_lplpo_distribution
-        else DistributionItemFormSet
-    )
-    formset_kwargs = {"prefix": "items"}
-    if is_generated_lplpo_distribution:
-        formset_kwargs["form_kwargs"] = {"lock_quantity_fields": True}
-
     if request.method == "POST":
-        form = DistributionForm(
-            request.POST,
-            instance=dist,
-            user=request.user,
-            forced_distribution_type=forced_distribution_type,
-        )
-        formset = formset_class(request.POST, instance=dist, **formset_kwargs)
-        formset_is_valid = formset.is_valid()
-        should_rebuild_generated_lplpo_rows = (
-            is_generated_lplpo_distribution
-            and not formset_is_valid
-            and _locked_lplpo_formset_structure_matches_post(
-                dist,
-                request.POST,
-                formset_kwargs["prefix"],
-            )
-            and _locked_lplpo_formset_has_only_availability_errors(formset)
-        )
+        saved = False
+        try:
+            with transaction.atomic():
+                dist = Distribution.objects.select_for_update().get(pk=pk)
+                if dist.status not in (
+                    Distribution.Status.DRAFT,
+                    Distribution.Status.REJECTED,
+                ):
+                    messages.error(
+                        request, "Hanya distribusi Draft/Ditolak yang dapat diubah."
+                    )
+                    return redirect("distribution:distribution_detail", pk=dist.pk)
 
-        if form.is_valid() and (formset_is_valid or should_rebuild_generated_lplpo_rows):
-            try:
-                with transaction.atomic():
+                if not _can_manage_distribution_preparation(request.user, dist):
+                    raise PermissionDenied(
+                        "Hanya petugas yang ditugaskan yang dapat mengubah distribusi ini."
+                    )
+
+                if dist.allocation_id:
+                    messages.error(
+                        request,
+                        "Distribusi alokasi tidak dapat diubah dari modul ini.",
+                    )
+                    return redirect("distribution:distribution_detail", pk=dist.pk)
+
+                is_special_request = _is_special_request(dist)
+                is_generated_lplpo_distribution = (
+                    dist.is_generated_lplpo_distribution
+                )
+                forced_distribution_type = (
+                    Distribution.DistributionType.SPECIAL_REQUEST
+                    if is_special_request
+                    else None
+                )
+                formset_class = (
+                    LockedLPLPODistributionItemFormSet
+                    if is_generated_lplpo_distribution
+                    else DistributionItemFormSet
+                )
+                formset_kwargs = {"prefix": "items"}
+                if is_generated_lplpo_distribution:
+                    formset_kwargs["form_kwargs"] = {"lock_quantity_fields": True}
+
+                form = DistributionForm(
+                    request.POST,
+                    instance=dist,
+                    user=request.user,
+                    forced_distribution_type=forced_distribution_type,
+                )
+                formset = formset_class(
+                    request.POST, instance=dist, **formset_kwargs
+                )
+                formset_is_valid = formset.is_valid()
+                should_rebuild_generated_lplpo_rows = (
+                    is_generated_lplpo_distribution
+                    and not formset_is_valid
+                    and _locked_lplpo_formset_structure_matches_post(
+                        dist,
+                        request.POST,
+                        formset_kwargs["prefix"],
+                    )
+                    and _locked_lplpo_formset_has_only_availability_errors(formset)
+                )
+
+                if form.is_valid() and (
+                    formset_is_valid or should_rebuild_generated_lplpo_rows
+                ):
                     dist = form.save(commit=False)
                     if forced_distribution_type:
                         dist.distribution_type = forced_distribution_type
@@ -758,19 +789,36 @@ def distribution_edit(request, pk):
                         )
                     else:
                         formset.save()
-            except ValueError as exc:
-                messages.error(request, str(exc))
-            else:
-                messages.success(
-                    request,
-                    (
-                        f"Permintaan khusus {dist.document_number or 'draft'} berhasil diperbarui."
-                        if is_special_request
-                        else f"Distribusi {dist.document_number or 'draft'} berhasil diperbarui."
-                    ),
-                )
-                return redirect("distribution:distribution_detail", pk=dist.pk)
+                    saved = True
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        if saved:
+            messages.success(
+                request,
+                (
+                    f"Permintaan khusus {dist.document_number or 'draft'} berhasil diperbarui."
+                    if is_special_request
+                    else f"Distribusi {dist.document_number or 'draft'} berhasil diperbarui."
+                ),
+            )
+            return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
+        is_special_request = _is_special_request(dist)
+        is_generated_lplpo_distribution = dist.is_generated_lplpo_distribution
+        forced_distribution_type = (
+            Distribution.DistributionType.SPECIAL_REQUEST
+            if is_special_request
+            else None
+        )
+        formset_class = (
+            LockedLPLPODistributionItemFormSet
+            if is_generated_lplpo_distribution
+            else DistributionItemFormSet
+        )
+        formset_kwargs = {"prefix": "items"}
+        if is_generated_lplpo_distribution:
+            formset_kwargs["form_kwargs"] = {"lock_quantity_fields": True}
+
         form = DistributionForm(
             instance=dist,
             user=request.user,

@@ -295,6 +295,34 @@ class AllocationSubmissionTest(TestCase):
         self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
         self.assertIsNotNone(allocation.submitted_at)
 
+    def test_repeated_submission_preserves_original_audit_metadata(self):
+        allocation = _create_allocation(self.fixtures)
+        first_actor = self.fixtures["admin"]
+        second_actor = self.fixtures["operator"]
+
+        execute_allocation_submission(allocation, first_actor)
+        allocation.refresh_from_db()
+        original_submitted_at = allocation.submitted_at
+        issue = DocumentNumberIssue.objects.get(
+            rule__key=DocumentNumberRule.Key.ALLOCATION,
+            object_id=allocation.pk,
+        )
+        original_issued_at = issue.issued_at
+
+        with self.assertRaisesMessage(
+            AllocationWorkflowError,
+            "Hanya alokasi berstatus Draft yang dapat diajukan.",
+        ):
+            execute_allocation_submission(allocation, second_actor)
+
+        allocation.refresh_from_db()
+        issue.refresh_from_db()
+        self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
+        self.assertEqual(allocation.submitted_by, first_actor)
+        self.assertEqual(allocation.submitted_at, original_submitted_at)
+        self.assertEqual(issue.issued_by, first_actor)
+        self.assertEqual(issue.issued_at, original_issued_at)
+
     def test_numbered_allocation_form_ignores_changed_business_date(self):
         allocation = _create_allocation(self.fixtures)
         execute_allocation_submission(allocation, self.fixtures["admin"])

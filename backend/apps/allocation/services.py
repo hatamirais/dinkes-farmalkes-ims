@@ -166,6 +166,10 @@ def _generate_distributions(allocation, allocation_items, user):
 def execute_allocation_submission(allocation, user):
     with transaction.atomic():
         locked_allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
+        if locked_allocation.status != Allocation.Status.DRAFT:
+            raise AllocationWorkflowError(
+                "Hanya alokasi berstatus Draft yang dapat diajukan."
+            )
         allocation_items = _get_allocation_items(locked_allocation, "diajukan")
         _validate_submission(locked_allocation, allocation_items)
 

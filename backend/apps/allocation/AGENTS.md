@@ -29,6 +29,7 @@ App-specific guidance for pre-distribution allocation planning.
 ## Numbering
 
 - Allocation drafts have no official number. The `ALLOCATION` rule is issued atomically on submit using `allocation_date`.
+- Submission locks and rechecks the parent is still `DRAFT` before issuance so repeated requests cannot overwrite the original `submitted_by` / `submitted_at` metadata.
 - Once issued, `allocation_date` remains locked even if the Allocation returns to Draft; changing it would invalidate the number's recorded business-date binding.
 - Templates/reset/padding are configured centrally on `/settings/numbering/`; users cannot enter official numbers or edit counters.
 - Django Admin keeps lifecycle fields read-only, locks the Allocation plus all related rows after Draft, and disables parent/bulk deletion. Submission, approval, and deletion must use the application workflow services; deletion rechecks Draft/Rejected status after locking the row.

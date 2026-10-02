@@ -19,6 +19,7 @@ from apps.distribution.models import Distribution, DistributionItem
 from apps.allocation.models import Allocation
 from apps.distribution.services import (
     DistributionWorkflowError,
+    execute_distribution_preparation,
     execute_distribution_rejection,
     execute_distribution_submission,
     execute_distribution_verification,
@@ -1590,6 +1591,52 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             HTTP_HOST="localhost",
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_edit_reloads_row_after_concurrent_submission(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            assigned_users=[self.user],
+        )
+        item_line = dist.items.get()
+        stale_draft = Distribution.objects.get(pk=dist.pk)
+
+        execute_distribution_preparation(dist)
+        execute_distribution_submission(dist, self.user)
+        dist.refresh_from_db()
+        issued_number = dist.document_number
+
+        with patch(
+            "apps.distribution.views.get_object_or_404", return_value=stale_draft
+        ):
+            response = self.client.post(
+                reverse("distribution:distribution_edit", args=[dist.pk]),
+                {
+                    "request_date": "2026-04-10",
+                    "facility": self.facility.pk,
+                    "notes": "Perubahan yang terlambat",
+                    "assigned_staff": [self.user.pk],
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-id": item_line.pk,
+                    "items-0-item": self.item.pk,
+                    "items-0-quantity_requested": "50",
+                    "items-0-quantity_approved": "40",
+                    "items-0-stock": self.stock.pk,
+                    "items-0-notes": "",
+                },
+                secure=True,
+                HTTP_HOST="localhost",
+            )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+        self.assertEqual(dist.document_number, issued_number)
+        self.assertEqual(str(dist.request_date), "2026-03-10")
+        self.assertEqual(dist.notes, "")
 
     def test_generated_lplpo_edit_locks_quantity_fields(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)
