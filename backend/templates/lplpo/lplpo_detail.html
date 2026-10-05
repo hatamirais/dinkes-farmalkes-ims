@@ -57,11 +57,11 @@
                 <strong>Sudah Didistribusikan</strong>
                 {% endif %}
                 {% if lplpo.status == 'APPROVED' and lplpo.distribution %}
-                — Instalasi Farmasi sedang memproses dokumen distribusi {{ lplpo.distribution.document_number }}.
+                — Instalasi Farmasi sedang memproses dokumen distribusi {{ lplpo.distribution.display_identifier }}.
                 {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
-                — Instalasi Farmasi sudah membuat dokumen distribusi {{ lplpo.distribution.document_number }}.
+                — Instalasi Farmasi sudah membuat dokumen distribusi {{ lplpo.distribution.display_identifier }}.
                 {% elif lplpo.status == 'CLOSED' and lplpo.distribution %}
-                — Distribusi {{ lplpo.distribution.document_number }} telah diselesaikan.
+                — Distribusi {{ lplpo.distribution.display_identifier }} telah diselesaikan.
                 {% endif %}
             {% else %}
                 <strong>{{ lplpo.get_status_display }}</strong>
@@ -72,11 +72,11 @@
                 — Alasan revisi tinjauan: {{ lplpo.rejection_reason }}
                 {% endif %}
                 {% if lplpo.status == 'APPROVED' and lplpo.distribution %}
-                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat dan masih mengikuti workflow distribusi.
+                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.display_identifier }}</a> telah dibuat dan masih mengikuti workflow distribusi.
                 {% elif lplpo.status == 'DISTRIBUTED' and lplpo.distribution %}
-                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah dibuat.
+                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.display_identifier }}</a> telah dibuat.
                 {% elif lplpo.status == 'CLOSED' and lplpo.distribution %}
-                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.document_number }}</a> telah selesai.
+                — Distribusi <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}" class="alert-link">{{ lplpo.distribution.display_identifier }}</a> telah selesai.
                 {% endif %}
             {% endif %}
         </div>

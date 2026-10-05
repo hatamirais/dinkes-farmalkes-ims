@@ -96,6 +96,13 @@ class Distribution(TimeStampedModel):
         return f"{self.document_number or 'Belum diterbitkan'} → {self.facility}"
 
     @property
+    def display_identifier(self):
+        """Official number, or a stable label while the document is still Draft."""
+        if self.document_number:
+            return self.document_number
+        return f"Draft #{self.pk}" if self.pk else "Draft"
+
+    @property
     def is_generated_lplpo_distribution(self):
         if self.distribution_type != self.DistributionType.LPLPO:
             return False

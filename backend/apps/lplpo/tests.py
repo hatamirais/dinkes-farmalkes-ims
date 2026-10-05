@@ -869,6 +869,12 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(lplpo.reviewed_by, self.gudang_user)
 		self.assertEqual(lplpo.approved_by, self.gudang_user)
 		self.assertEqual(distribution.status, Distribution.Status.DRAFT)
+		self.assertIsNone(distribution.document_number)
+		self.assertEqual(distribution.display_identifier, f"Draft #{distribution.pk}")
+		self.assertIn(
+			f"Distribusi Draft #{distribution.pk} telah dibuat sebagai Draft.",
+			" ".join(str(message) for message in get_messages(response.wsgi_request)),
+		)
 		self.assertTrue(distribution.staff_assignments.filter(user=self.gudang_user).exists())
 		self.assertEqual(distribution.items.count(), 1)
 		dist_line = distribution.items.get()
@@ -1958,7 +1964,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		response = self.client.get(reverse("lplpo:lplpo_detail", args=[lplpo.pk]))
 
 		self.assertContains(response, "Dokumen Distribusi Dibuat / Menunggu Distribusi")
-		self.assertContains(response, distribution.document_number)
+		self.assertContains(response, distribution.display_identifier)
 		self.assertNotContains(response, 'id="view-dist-btn"')
 		self.assertNotContains(
 			response,

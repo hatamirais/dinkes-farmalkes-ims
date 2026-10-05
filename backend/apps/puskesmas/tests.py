@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import Permission
+from django.contrib.messages import get_messages
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection
@@ -2091,6 +2092,17 @@ class PuskesmasRequestApprovalTests(SecureClientDefaultsMixin, TestCase):
 			Distribution.DistributionType.SPECIAL_REQUEST,
 		)
 		self.assertTrue(distribution.staff_assignments.filter(user=self.approver).exists())
+		self.assertIsNone(distribution.document_number)
+		self.assertEqual(distribution.display_identifier, f"Draft #{distribution.pk}")
+		self.assertIn(
+			f"Distribusi Draft #{distribution.pk} telah dibuat sebagai Draft.",
+			" ".join(str(message) for message in get_messages(response.wsgi_request)),
+		)
+
+		detail_response = self.client.get(
+			reverse("puskesmas:request_detail", args=[req.pk])
+		)
+		self.assertContains(detail_response, f"Draft #{distribution.pk}")
 
 		line = distribution.items.get()
 		self.assertEqual(line.quantity_requested, Decimal("8.00"))
