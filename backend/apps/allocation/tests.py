@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from importlib import import_module
 from pathlib import Path
@@ -11,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.allocation.forms import AllocationForm, AllocationItemForm
 from apps.core.models import DocumentNumberIssue, DocumentNumberRule
@@ -504,6 +506,52 @@ class AllocationApprovalTest(TestCase):
         self.assertEqual(child_issue.issued_at, child.verified_at)
         self.assertIsNone(standalone_issue.issued_by)
         self.assertIsNone(standalone_issue.issued_at)
+
+    def test_migration_clears_only_legacy_allocation_submission_metadata(self):
+        legacy_allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(legacy_allocation, self.fixtures["admin"])
+        legacy_issue = DocumentNumberIssue.objects.get(
+            rule__key=DocumentNumberRule.Key.ALLOCATION,
+            object_id=legacy_allocation.pk,
+        )
+        original_number = legacy_issue.document_number
+        original_sequence = legacy_issue.sequence_value
+        copied_submission_at = timezone.now() - timedelta(days=30)
+        legacy_allocation.submitted_by = self.fixtures["operator"]
+        legacy_allocation.submitted_at = copied_submission_at
+        legacy_allocation.save(
+            update_fields=["submitted_by", "submitted_at", "updated_at"]
+        )
+        DocumentNumberIssue.objects.filter(pk=legacy_issue.pk).update(
+            issued_by=self.fixtures["operator"],
+            issued_at=copied_submission_at,
+        )
+
+        live_allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(live_allocation, self.fixtures["admin"])
+        live_issue = DocumentNumberIssue.objects.get(
+            rule__key=DocumentNumberRule.Key.ALLOCATION,
+            object_id=live_allocation.pk,
+        )
+        live_allocation.submitted_at = live_issue.issued_at + timedelta(seconds=1)
+        live_allocation.save(update_fields=["submitted_at", "updated_at"])
+
+        migration = import_module(
+            "apps.core.migrations.0016_clear_legacy_allocation_issuance_metadata"
+        )
+        migration.clear_legacy_allocation_issuance_metadata(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        legacy_issue.refresh_from_db()
+        live_issue.refresh_from_db()
+        self.assertIsNone(legacy_issue.issued_by)
+        self.assertIsNone(legacy_issue.issued_at)
+        self.assertEqual(legacy_issue.document_number, original_number)
+        self.assertEqual(legacy_issue.sequence_value, original_sequence)
+        self.assertEqual(live_issue.issued_by, self.fixtures["admin"])
+        self.assertIsNotNone(live_issue.issued_at)
 
     def test_approve_copies_distribution_items(self):
         allocation = _create_allocation(self.fixtures)

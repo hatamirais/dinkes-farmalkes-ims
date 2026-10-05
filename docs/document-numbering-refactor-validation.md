@@ -28,6 +28,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 - `DocumentNumberSequence` menyimpan counter internal per rule, period, dan scope. Counter tidak ditampilkan atau dapat diedit dari `/settings/numbering/`.
 - `DocumentNumberIssue` adalah ledger nomor resmi, termasuk status `ISSUED` dan `VOID`, snapshot konfigurasi saat penerbitan, tanggal bisnis, serta `issued_at` server untuk penerbitan baru. Riwayat migrasi menampilkan waktu tidak diketahui bila checkpoint lama tidak dapat direkonstruksi.
 - Riwayat penerimaan non-rencana yang dimigrasikan memakai checkpoint verifikasi (`verified_by` / `verified_at`); rencana tertaut SPJ memakai checkpoint persetujuan kontrak awal (`contract.approved_by` / `contract.approved_at`) karena sinkronisasi amandemen menimpa metadata persetujuan pada rencana penerimaan, sedangkan rencana manual tanpa checkpoint penerbitan yang pasti tetap ditandai tidak diketahui.
+- Riwayat Alokasi lama tidak memakai `submitted_by` / `submitted_at` terbaru sebagai metadata penerbitan karena nomor dapat bertahan melewati siklus penolakan/reset/pengajuan ulang; pelaku dan waktu ditampilkan tidak diketahui bila checkpoint awal tidak dapat dibuktikan.
 - Nomor lama yang masih terisi pada Alokasi, Distribusi, Recall, atau Kedaluwarsa berstatus Draft/Disiapkan setelah step-back tetap dianggap terpakai dan wajib masuk ledger/counter; Draft tanpa nomor tetap tidak diterbitkan.
 - Nomor diterbitkan di dalam transaksi database yang sama dengan checkpoint workflow.
 - Nomor yang pernah diterbitkan tidak boleh digunakan kembali, termasuk setelah dokumen dihapus atau dibatalkan.
@@ -93,6 +94,7 @@ Tanggal mulai: `____________________`
 - [ ] Dokumen lama yang sudah melewati checkpoint muncul di Riwayat Penomoran. Catatan: `____________________`
 - [ ] Nomor lama yang urutan tanggal bisnisnya berbeda dari urutan penerbitan mempertahankan nilai `{seq}` yang tertulis, dan counter memakai nilai maksimum bucket. Catatan: `____________________`
 - [ ] Tidak ada nomor resmi lama yang berubah setelah migration. Catatan: `____________________`
+- [ ] Alokasi lama yang pernah ditolak/reset/diajukan ulang tidak mengatribusikan nomor yang dipertahankan kepada `submitted_by` / `submitted_at` terbaru; metadata penerbitan yang tidak dapat dibuktikan tampil sebagai tidak diketahui. Catatan: `____________________`
 - [ ] Jika nomor yang sama sudah ada pada workflow lama yang berbeda, migration selesai tanpa mengubah nilainya; satu issue menjadi canonical, issue tambahan bertanda `is_legacy_duplicate`, dan penerbitan baru tetap tidak dapat memakai nomor tersebut. Catatan: `____________________`
 
 ## 2. Pengaturan Rule
