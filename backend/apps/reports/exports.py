@@ -1,6 +1,7 @@
 """Excel export helpers for the reports module."""
 from decimal import Decimal
 from django.http import HttpResponse
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, numbers
 from openpyxl.utils import get_column_letter
@@ -28,6 +29,14 @@ TEXT_FORMAT = '@'
 
 def _cell_value(value):
     return escape_xlsx_formula(value)
+
+
+def _local_datetime_text(value):
+    if value is None:
+        return "-"
+    if timezone.is_aware(value):
+        value = timezone.localtime(value)
+    return value.strftime("%d/%m/%Y %H:%M")
 
 
 def _decimal_text(value, *, decimal_places):
@@ -270,13 +279,13 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
     return _make_response(wb, filename)
 
 
-def export_numbering_history_excel(history_rows, year, distribution_type_label):
+def export_numbering_history_excel(history_rows, year, rule_label):
     """Export numbering history report to Excel."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Riwayat Penomoran"
 
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:L1")
     title_cell = ws.cell(
         row=1,
         column=1,
@@ -285,10 +294,10 @@ def export_numbering_history_excel(history_rows, year, distribution_type_label):
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal="center")
 
-    ws.merge_cells("A2:H2")
+    ws.merge_cells("A2:L2")
     filter_text = f"Tahun: {year}"
-    if distribution_type_label:
-        filter_text += f" | Jenis Dokumen: {distribution_type_label}"
+    if rule_label:
+        filter_text += f" | Jenis Dokumen: {rule_label}"
     period_cell = ws.cell(row=2, column=1, value=_cell_value(filter_text))
     period_cell.font = Font(bold=True, size=11)
     period_cell.alignment = Alignment(horizontal="center")
@@ -296,14 +305,18 @@ def export_numbering_history_excel(history_rows, year, distribution_type_label):
     headers = [
         "No",
         "No. Dokumen",
-        "Jenis",
-        "Status",
-        "Fasilitas",
-        "Referensi",
-        "Tanggal Dibuat",
-        "Jumlah Item",
+        "Rule",
+        "Status Nomor",
+        "Status Workflow",
+        "Tanggal Bisnis",
+        "Urutan",
+        "Diterbitkan",
+        "Diterbitkan Oleh",
+        "Dibatalkan",
+        "Dibatalkan Oleh",
+        "Alasan Pembatalan",
     ]
-    col_widths = [6, 24, 24, 18, 28, 26, 22, 12]
+    col_widths = [6, 24, 24, 18, 28, 26, 22, 20, 24, 20, 24, 40]
     _apply_header_row(ws, 4, headers, col_widths)
 
     row_num = 5
@@ -311,17 +324,21 @@ def export_numbering_history_excel(history_rows, year, distribution_type_label):
         values = [
             idx,
             row.get("document_number", ""),
-            row.get("distribution_type", ""),
-            row.get("status", ""),
-            row.get("facility_name", ""),
-            f"{row.get('source_label', '-')}: {row.get('source_document_number', '-')}",
-            row.get("created_at").strftime("%d/%m/%Y %H:%M") if row.get("created_at") else "-",
-            row.get("item_count", 0),
+            row.get("rule_label", ""),
+            row.get("issue_status", ""),
+            row.get("target_status", ""),
+            row.get("business_date").strftime("%d/%m/%Y") if row.get("business_date") else "-",
+            row.get("sequence_value", ""),
+            _local_datetime_text(row.get("issued_at")),
+            row.get("issued_by", "-"),
+            _local_datetime_text(row.get("voided_at")),
+            row.get("voided_by", "-"),
+            row.get("void_reason", "-"),
         ]
         for col_idx, val in enumerate(values, 1):
             cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
-            if col_idx in (1, 8):
+            if col_idx in (1, 8, 10):
                 cell.alignment = Alignment(horizontal="center")
         row_num += 1
 

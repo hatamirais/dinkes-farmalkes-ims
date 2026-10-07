@@ -7,6 +7,7 @@ from django.db.models.functions import Coalesce, TruncDate
 from django.urls import reverse
 
 from apps.core.decimal_validation import multiply_decimals, sum_decimals
+from apps.core.models import DocumentNumberIssue
 from .forms import InventoryReportFilterForm, NumberingHistoryFilterForm
 from .exports import (
     export_numbering_history_excel,
@@ -20,7 +21,7 @@ from apps.distribution.models import Distribution
 _PENGELUARAN_REPORT_TAB_URL_NAMES = {
     '': 'reports:pengeluaran',
     Distribution.DistributionType.SPECIAL_REQUEST: 'reports:pengeluaran',
-    Distribution.DistributionType.ALLOCATION: 'reports:pengeluaran',
+    'ALLOCATION': 'reports:pengeluaran',
     Distribution.DistributionType.LPLPO: 'reports:pengeluaran',
 }
 
@@ -277,15 +278,35 @@ def reports_index(request):
 
 
 def _numbering_status_badge(status):
-    return {
-        Distribution.Status.DRAFT: 'bg-secondary-subtle text-secondary-emphasis',
-        Distribution.Status.SUBMITTED: 'bg-warning-subtle text-warning-emphasis',
-        Distribution.Status.VERIFIED: 'bg-info-subtle text-info-emphasis',
-        Distribution.Status.GENERATED: 'bg-primary-subtle text-primary-emphasis',
-        Distribution.Status.PREPARED: 'bg-primary-subtle text-primary-emphasis',
-        Distribution.Status.DISTRIBUTED: 'bg-success-subtle text-success-emphasis',
-        Distribution.Status.REJECTED: 'bg-danger-subtle text-danger-emphasis',
-    }.get(status, 'bg-light text-dark')
+    return (
+        'bg-danger-subtle text-danger-emphasis'
+        if status == DocumentNumberIssue.Status.VOID
+        else 'bg-success-subtle text-success-emphasis'
+    )
+
+
+def _numbering_workflow_url(target):
+    if target is None:
+        return ''
+    route_by_label = {
+        'allocation.Allocation': 'allocation:allocation_detail',
+        'distribution.Distribution': 'distribution:distribution_detail',
+        'procurement.ProcurementContract': 'procurement:contract_detail',
+        'procurement.ProcurementAmendment': 'procurement:amendment_detail',
+        'recall.Recall': 'recall:recall_detail',
+        'expired.Expired': 'expired:expired_detail',
+        'stock.StockTransfer': 'stock:transfer_detail',
+        'stock_opname.StockOpname': 'stock_opname:opname_detail',
+    }
+    if target._meta.label == 'receiving.Receiving':
+        route_name = (
+            'receiving:receiving_plan_detail'
+            if target.is_planned
+            else 'receiving:receiving_detail'
+        )
+    else:
+        route_name = route_by_label.get(target._meta.label)
+    return reverse(route_name, args=[target.pk]) if route_name else ''
 
 
 @login_required
@@ -295,69 +316,85 @@ def reports_numbering_history(request):
         request.GET or NumberingHistoryFilterForm.get_default_initial()
     )
     history_rows = []
-    selected_distribution_type_label = ''
+    selected_rule_label = ''
 
     if form.is_valid():
-        distribution_type = form.cleaned_data.get('distribution_type')
+        rule_key = form.cleaned_data.get('rule_key')
         year = form.cleaned_data.get('year')
-        selected_distribution_type_label = dict(form.fields['distribution_type'].choices).get(
-            distribution_type,
+        selected_rule_label = dict(form.fields['rule_key'].choices).get(
+            rule_key,
             '',
         )
 
         qs = (
-            Distribution.objects.filter(
-                distribution_type__in=[
-                    Distribution.DistributionType.LPLPO,
-                    Distribution.DistributionType.SPECIAL_REQUEST,
-                ]
+            DocumentNumberIssue.objects.select_related(
+                'rule', 'content_type', 'issued_by', 'voided_by'
             )
-            .select_related('facility', 'created_by')
-            .annotate(item_count=Count('items'))
-            .order_by('-created_at', '-id')
+            .filter(business_date__year=year)
+            .order_by(
+                '-business_date',
+                F('issued_at').desc(nulls_last=True),
+                '-id',
+            )
         )
 
-        if distribution_type:
-            qs = qs.filter(distribution_type=distribution_type)
-        if year:
-            qs = qs.filter(created_at__year=year)
+        if rule_key:
+            qs = qs.filter(rule__key=rule_key)
 
-        for dist in qs:
-            source_document_number = '-'
-            source_label = '-'
-            if dist.distribution_type == Distribution.DistributionType.LPLPO:
-                source = getattr(dist, 'lplpo_source', None)
-                if source is not None:
-                    source_document_number = source.document_number
-                    source_label = 'LPLPO'
-            elif dist.distribution_type == Distribution.DistributionType.SPECIAL_REQUEST:
-                source = getattr(dist, 'puskesmas_request', None)
-                if source is not None:
-                    source_document_number = source.document_number
-                    source_label = 'Permintaan Khusus'
+        issues = list(qs)
+        targets_by_key = {}
+        ids_by_content_type = {}
+        for issue in issues:
+            ids_by_content_type.setdefault(issue.content_type_id, []).append(issue.object_id)
+        processed_content_type_ids = set()
+        for issue in issues:
+            content_type_id = issue.content_type_id
+            if content_type_id in processed_content_type_ids:
+                continue
+            processed_content_type_ids.add(content_type_id)
+            model_class = issue.content_type.model_class()
+            if model_class is None:
+                continue
+            for object_id, target in model_class.objects.in_bulk(
+                ids_by_content_type[content_type_id]
+            ).items():
+                targets_by_key[(content_type_id, object_id)] = target
 
-            creator_name = (
-                dist.created_by.full_name
-                if getattr(dist.created_by, 'full_name', '')
-                else dist.created_by.username
-            )
+        for issue in issues:
+            target = targets_by_key.get((issue.content_type_id, issue.object_id))
+            is_void = issue.status == DocumentNumberIssue.Status.VOID
+            actor = issue.issued_by
+            actor_name = '-'
+            if actor is not None:
+                actor_name = actor.full_name or actor.username
+            void_actor = issue.voided_by
+            void_actor_name = 'Pelaku tidak diketahui' if is_void else '-'
+            if void_actor is not None:
+                void_actor_name = void_actor.full_name or void_actor.username
+            target_status = '-'
+            if target is not None and hasattr(target, 'get_status_display'):
+                target_status = target.get_status_display()
 
             history_rows.append(
                 {
-                    'pk': dist.pk,
-                    'document_number': dist.document_number,
-                    'distribution_type': dist.get_distribution_type_display(),
-                    'status': dist.get_status_display(),
-                    'status_badge_class': _numbering_status_badge(dist.status),
-                    'facility_name': dist.facility.name,
-                    'request_date': dist.request_date,
-                    'created_at': dist.created_at,
-                    'created_by': creator_name,
-                    'item_count': dist.item_count,
-                    'source_label': source_label,
-                    'source_document_number': source_document_number,
-                    'notes': dist.notes or '-',
-                    'workflow_url': reverse('distribution:distribution_detail', args=[dist.pk]),
+                    'document_number': issue.document_number,
+                    'rule_label': issue.rule_label_snapshot,
+                    'issue_status': issue.get_status_display(),
+                    'is_void': is_void,
+                    'status_badge_class': _numbering_status_badge(issue.status),
+                    'target_status': target_status,
+                    'business_date': issue.business_date,
+                    'period_key': issue.period_key or '-',
+                    'sequence_value': issue.sequence_value,
+                    'issued_at': issue.issued_at,
+                    'issued_by': actor_name,
+                    'voided_at': issue.voided_at,
+                    'voided_by': void_actor_name,
+                    'void_reason': issue.void_reason or (
+                        'Alasan tidak diketahui' if is_void else '-'
+                    ),
+                    'target_label': issue.target_label,
+                    'workflow_url': _numbering_workflow_url(target),
                 }
             )
 
@@ -365,13 +402,13 @@ def reports_numbering_history(request):
             return export_numbering_history_excel(
                 history_rows,
                 year,
-                selected_distribution_type_label,
+                selected_rule_label,
             )
 
     context = {
         'form': form,
         'history_rows': history_rows,
-        'selected_distribution_type_label': selected_distribution_type_label,
+        'selected_rule_label': selected_rule_label,
     }
     return render(request, 'reports/numbering_history.html', context)
 
@@ -876,7 +913,9 @@ def render_pengeluaran_report(
         if facility:
             qs = qs.filter(distribution__facility=facility)
 
-        if distribution_type:
+        if distribution_type == 'ALLOCATION':
+            qs = qs.filter(distribution__allocation__isnull=False)
+        elif distribution_type:
             qs = qs.filter(distribution__distribution_type=distribution_type)
 
         for di in qs:

@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.utils import timezone
 from apps.core.models import TimeStampedModel
 from apps.core.decimal_validation import (
     PRICE_DECIMAL_PLACES,
@@ -9,22 +8,17 @@ from apps.core.decimal_validation import (
     multiply_decimals,
 )
 
-from .numbering import generate_distribution_document_number
-
-
 class Distribution(TimeStampedModel):
     """Outbound stock requests and allocations."""
 
     class DistributionType(models.TextChoices):
         LPLPO = "LPLPO", "LPLPO"
-        ALLOCATION = "ALLOCATION", "Alokasi"
         SPECIAL_REQUEST = "SPECIAL_REQUEST", "Permintaan Khusus"
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         SUBMITTED = "SUBMITTED", "Diajukan"
         VERIFIED = "VERIFIED", "Terverifikasi"
-        GENERATED = "GENERATED", "Dibuat Otomatis"
         PREPARED = "PREPARED", "Disiapkan"
         DISTRIBUTED = "DISTRIBUTED", "Terdistribusi"
         REJECTED = "REJECTED", "Ditolak"
@@ -34,9 +28,9 @@ class Distribution(TimeStampedModel):
     )
     document_number = models.CharField(
         max_length=100,
-        unique=True,
         blank=True,
-        help_text="Leave blank to auto-generate (e.g., DIST-YYYYMM-XXXXX)",
+        null=True,
+        help_text="Diterbitkan otomatis pada checkpoint workflow.",
     )
     request_date = models.DateField()
     facility = models.ForeignKey(
@@ -99,7 +93,14 @@ class Distribution(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.document_number} → {self.facility}"
+        return f"{self.document_number or 'Belum diterbitkan'} → {self.facility}"
+
+    @property
+    def display_identifier(self):
+        """Official number, or a stable label while the document is still Draft."""
+        if self.document_number:
+            return self.document_number
+        return f"Draft #{self.pk}" if self.pk else "Draft"
 
     @property
     def is_generated_lplpo_distribution(self):
@@ -110,15 +111,6 @@ class Distribution(TimeStampedModel):
         except ObjectDoesNotExist:
             return False
         return True
-
-    def save(self, *args, **kwargs):
-        if not self.document_number:
-            self.document_number = generate_distribution_document_number(
-                Distribution,
-                self.distribution_type,
-            )
-        super().save(*args, **kwargs)
-
 
 class DistributionStaffAssignment(TimeStampedModel):
     """Staff members involved in a distribution workflow."""

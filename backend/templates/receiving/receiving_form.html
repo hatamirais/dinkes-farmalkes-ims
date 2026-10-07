@@ -11,6 +11,10 @@
             <div class="card-body">
                 <form method="post" novalidate data-item-picker-table="true" data-item-table-target="receiving-items" data-item-required-field="quantity" data-item-required-message="Kuantitas wajib diisi." data-item-focus-field="quantity" data-item-dependent-fields="quantity,batch_lot,expiry_date,unit_price,location">
                     {% csrf_token %}
+                    <div class="alert alert-info py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Nomor dokumen resmi diterbitkan otomatis ketika stok penerimaan diposting.
+                    </div>
                     <div class="row g-3 mb-4">
                         {% for field in form %}
                         <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">

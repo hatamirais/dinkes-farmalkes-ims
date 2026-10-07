@@ -2,7 +2,7 @@
 
 Current-state ERD derived from Django models.
 
-Last verified: 2026-04-27
+Last verified: 2026-09-21
 Verification sources: `backend/apps/*/models.py`
 
 ```mermaid
@@ -31,9 +31,43 @@ erDiagram
         text facility_address
         string facility_phone
         string header_title
-        string lplpo_distribution_number_template
-        string special_request_distribution_number_template
         string logo
+    }
+
+    DocumentNumberRule {
+        bigint id PK
+        string key UK
+        string label
+        string template
+        string reset_period
+        int padding
+    }
+
+    DocumentNumberSequence {
+        bigint id PK
+        bigint rule_id FK
+        string period_key
+        string scope_key
+        bigint last_value
+        datetime updated_at
+    }
+
+    DocumentNumberIssue {
+        bigint id PK
+        bigint rule_id FK
+        string document_number
+        bigint sequence_value
+        string period_key
+        string scope_key
+        date business_date
+        string status
+        bigint content_type_id FK
+        bigint object_id
+        bigint issued_by_id FK
+        datetime issued_at
+        bigint voided_by_id FK
+        datetime voided_at
+        text void_reason
     }
 
     Unit {
@@ -123,6 +157,7 @@ erDiagram
         bigint id PK
         string receiving_type
         string document_number
+        string import_group
         date receiving_date
         bool is_planned
         bigint supplier_id FK
@@ -441,6 +476,11 @@ erDiagram
     User ||--o{ ModuleAccess : has
     Facility ||--o{ User : operators
 
+    DocumentNumberRule ||--o{ DocumentNumberSequence : owns_counters
+    DocumentNumberRule ||--o{ DocumentNumberIssue : issues
+    User ||--o{ DocumentNumberIssue : issued_by
+    User ||--o{ DocumentNumberIssue : voided_by
+
     Unit ||--o{ Item : referenced_by
     Category ||--o{ Item : referenced_by
     Program ||--o{ Item : referenced_by
@@ -542,7 +582,10 @@ erDiagram
 ## Notes
 
 - Reports app has no bespoke database models; it aggregates data from other apps.
-- Many document number formats are generated in model `save()` methods when blank.
+- Official non-Puskesmas document numbers are issued by the centralized numbering service at workflow commitment checkpoints; draft model saves do not generate them.
+- `DocumentNumberSequence` unique tuple is `(rule, period_key, scope_key)`. Counter rows are internal and are not user-editable.
+- `DocumentNumberIssue` is the issuance/void ledger. It is unique per `(rule, document_number)` and per generic target `(content_type, object_id)`. `issued_at` is nullable for migrated records whose original issuance checkpoint cannot be reconstructed.
+- Puskesmas-owned document numbering remains outside the centralized numbering subsystem.
 - `ModuleAccess` unique tuple is `(user, module)`.
 - `Stock` unique tuple is `(item, location, batch_lot, sumber_dana, source_document_number)`.
 - `StockOpnameItem` unique tuple is `(stock_opname, stock)`.

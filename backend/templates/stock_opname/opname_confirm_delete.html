@@ -13,12 +13,12 @@
             <div class="card-body">
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    Apakah Anda yakin ingin menghapus Stock Opname <strong>{{ opname.document_number }}</strong>?
+                    Apakah Anda yakin ingin menghapus Stock Opname <strong>{{ opname.document_number|default:"Belum diterbitkan" }}</strong>?
                     <br><small class="text-muted">Semua data penghitungan dalam sesi ini akan ikut terhapus.</small>
                 </div>
                 <dl class="row mb-3">
                     <dt class="col-5">No. Dokumen</dt>
-                    <dd class="col-7">{{ opname.document_number }}</dd>
+                    <dd class="col-7">{{ opname.document_number|default:"Belum diterbitkan" }}</dd>
                     <dt class="col-5">Periode</dt>
                     <dd class="col-7">{{ opname.get_period_type_display }} ({{ opname.period_start|date:'d/m/Y' }} — {{ opname.period_end|date:'d/m/Y' }})</dd>
                     <dt class="col-5">Status</dt>

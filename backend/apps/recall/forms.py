@@ -27,16 +27,20 @@ class StockByItemSelect(forms.Select):
 class RecallForm(forms.ModelForm):
     class Meta:
         model = Recall
-        fields = ['document_number', 'recall_date', 'supplier', 'notes']
+        fields = ['recall_date', 'supplier', 'notes']
         widgets = {
-            'document_number': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Kosongkan untuk auto-generate',
-            }),
             'recall_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'supplier': forms.Select(attrs={'class': 'form-select'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.document_number:
+            self.fields['recall_date'].disabled = True
+            self.fields['recall_date'].help_text = (
+                'Tanggal recall dikunci setelah nomor dokumen diterbitkan.'
+            )
 
 
 class RecallItemForm(forms.ModelForm):

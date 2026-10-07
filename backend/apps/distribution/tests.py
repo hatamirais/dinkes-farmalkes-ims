@@ -1,27 +1,42 @@
 from datetime import date, datetime
 from decimal import Decimal
+from importlib import import_module
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.apps import apps as django_apps
+from django.contrib import admin
 from django.contrib.messages import get_messages
 from django.contrib.staticfiles import finders
-from django.test import TestCase
+from django.db import connection
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.distribution.forms import DistributionForm, DistributionItemForm
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
+from apps.allocation.models import Allocation
 from apps.distribution.services import (
     DistributionWorkflowError,
+    execute_distribution_preparation,
     execute_distribution_rejection,
+    execute_distribution_submission,
     execute_distribution_verification,
 )
-from apps.core.models import SystemSettings
+from apps.core.models import (
+    DocumentNumberIssue,
+    DocumentNumberRule,
+    DocumentNumberSequence,
+)
+from apps.core.numbering import issue_document_number
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.lplpo.models import LPLPO
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
+
+from .admin import DistributionAdmin, DistributionItemInline
 
 
 class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
@@ -29,6 +44,27 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
     @classmethod
     def setUpTestData(cls):
+        for key, label, template in (
+            (
+                DocumentNumberRule.Key.DISTRIBUTION_LPLPO,
+                "Distribusi LPLPO",
+                "440/{seq}/SBBK.RF/{year}",
+            ),
+            (
+                DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
+                "Permintaan Khusus",
+                "440/{seq}/KD.F/{year}",
+            ),
+        ):
+            DocumentNumberRule.objects.get_or_create(
+                key=key,
+                defaults={
+                    "label": label,
+                    "template": template,
+                    "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                    "padding": 1,
+                },
+            )
         cls.user = User.objects.create_superuser(
             username="gudang_dist",
             password="secret12345",
@@ -90,20 +126,199 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         super().setUp()
         self.client.force_login(self.user)
 
+    def test_admin_does_not_expose_workflow_managed_fields(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        form = DistributionAdmin(Distribution, admin.site).get_form(request)
+
+        for field_name in {
+            "document_number",
+            "status",
+            "verified_by",
+            "verified_at",
+            "approved_by",
+            "approved_at",
+            "distributed_date",
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+
+    def test_admin_locks_distribution_and_items_after_draft(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        distribution = self._create_distribution(status=Distribution.Status.PREPARED)
+        distribution_admin = DistributionAdmin(Distribution, admin.site)
+        item_inline = DistributionItemInline(Distribution, admin.site)
+
+        self.assertFalse(
+            distribution_admin.has_change_permission(request, distribution)
+        )
+        self.assertFalse(item_inline.has_add_permission(request, distribution))
+        self.assertFalse(item_inline.has_change_permission(request, distribution))
+        self.assertFalse(item_inline.has_delete_permission(request, distribution))
+
+    def test_admin_disables_distribution_deletion_and_bulk_delete(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        distribution = self._create_distribution(status=Distribution.Status.DRAFT)
+        distribution_admin = DistributionAdmin(Distribution, admin.site)
+
+        self.assertFalse(distribution_admin.has_delete_permission(request))
+        self.assertFalse(
+            distribution_admin.has_delete_permission(request, distribution)
+        )
+        self.assertNotIn("delete_selected", distribution_admin.get_actions(request))
+
+    def test_admin_locks_business_date_after_number_issuance(self):
+        request = RequestFactory().get("/admin/distribution/")
+        request.user = self.user
+        distribution = self._create_distribution(
+            status=Distribution.Status.SUBMITTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+        distribution.status = Distribution.Status.DRAFT
+        distribution.save(update_fields=["status", "updated_at"])
+        distribution_admin = DistributionAdmin(Distribution, admin.site)
+
+        self.assertIn(
+            "request_date",
+            distribution_admin.get_readonly_fields(request, distribution),
+        )
+
+    def test_numbering_backfill_preserves_numbered_step_back_states(self):
+        for rule_key, label in DocumentNumberRule.Key.choices:
+            DocumentNumberRule.objects.get_or_create(
+                key=rule_key,
+                defaults={
+                    "label": label,
+                    "template": "{seq}",
+                    "reset_period": DocumentNumberRule.ResetPeriod.NEVER,
+                    "padding": 1,
+                },
+            )
+        prepared = self._create_distribution(status=Distribution.Status.PREPARED)
+        prepared.document_number = "440/900/SBBK.RF/2026"
+        prepared.save(update_fields=["document_number", "updated_at"])
+        numbered_draft = self._create_distribution(status=Distribution.Status.DRAFT)
+        numbered_draft.document_number = "440/901/SBBK.RF/2026"
+        numbered_draft.save(update_fields=["document_number", "updated_at"])
+        unnumbered_draft = self._create_distribution(status=Distribution.Status.DRAFT)
+
+        migration = import_module(
+            "apps.core.migrations.0005_backfill_document_number_issues"
+        )
+        migration.backfill_document_number_issues(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        prepared.refresh_from_db()
+        numbered_draft.refresh_from_db()
+        self.assertEqual(prepared.document_number, "440/900/SBBK.RF/2026")
+        self.assertEqual(numbered_draft.document_number, "440/901/SBBK.RF/2026")
+        self.assertTrue(
+            DocumentNumberIssue.objects.filter(object_id=prepared.pk).exists()
+        )
+        self.assertTrue(
+            DocumentNumberIssue.objects.filter(object_id=numbered_draft.pk).exists()
+        )
+        self.assertFalse(
+            DocumentNumberIssue.objects.filter(object_id=unnumbered_draft.pk).exists()
+        )
+
+        repeated_issue = issue_document_number(
+            DocumentNumberRule.Key.DISTRIBUTION_LPLPO,
+            business_date=prepared.request_date,
+            target=prepared,
+            actor=self.user,
+        )
+        self.assertEqual(repeated_issue.document_number, prepared.document_number)
+
+    def test_numbering_backfill_preserves_parsed_values_out_of_date_order(self):
+        for rule_key, label in DocumentNumberRule.Key.choices:
+            DocumentNumberRule.objects.get_or_create(
+                key=rule_key,
+                defaults={
+                    "label": label,
+                    "template": "{seq}",
+                    "reset_period": DocumentNumberRule.ResetPeriod.NEVER,
+                    "padding": 1,
+                },
+            )
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+        )
+        number_one = self._create_distribution(status=Distribution.Status.PREPARED)
+        number_one.request_date = date(2026, 3, 20)
+        number_one.document_number = "440/1/SBBK.RF/2026"
+        number_one.save(
+            update_fields=["request_date", "document_number", "updated_at"]
+        )
+        number_two = self._create_distribution(status=Distribution.Status.PREPARED)
+        number_two.request_date = date(2026, 3, 10)
+        number_two.document_number = "440/2/SBBK.RF/2026"
+        number_two.save(
+            update_fields=["request_date", "document_number", "updated_at"]
+        )
+
+        backfill = import_module(
+            "apps.core.migrations.0005_backfill_document_number_issues"
+        )
+        backfill.backfill_document_number_issues(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        issue_one = DocumentNumberIssue.objects.get(
+            rule=rule,
+            object_id=number_one.pk,
+        )
+        issue_two = DocumentNumberIssue.objects.get(
+            rule=rule,
+            object_id=number_two.pk,
+        )
+        sequence = DocumentNumberSequence.objects.get(
+            rule=rule,
+            period_key="2026",
+            scope_key="",
+        )
+        self.assertEqual(issue_one.sequence_value, 1)
+        self.assertEqual(issue_two.sequence_value, 2)
+        self.assertEqual(sequence.last_value, 2)
+
+        issue_one.sequence_value = 3
+        issue_one.save(update_fields=["sequence_value", "updated_at"])
+        sequence.last_value = 3
+        sequence.save(update_fields=["last_value", "updated_at"])
+        repair = import_module(
+            "apps.core.migrations.0010_repair_document_number_sequences"
+        )
+        repair.repair_document_number_sequences(
+            django_apps,
+            SimpleNamespace(connection=connection),
+        )
+
+        issue_one.refresh_from_db()
+        sequence.refresh_from_db()
+        self.assertEqual(issue_one.sequence_value, 1)
+        self.assertEqual(sequence.last_value, 2)
+
     def _create_distribution(
         self,
         status=Distribution.Status.DRAFT,
         with_items=True,
         distribution_type=Distribution.DistributionType.LPLPO,
         assigned_users=None,
+        allocation=None,
+        facility=None,
     ):
         """Helper to create a distribution with optional items."""
         dist = Distribution.objects.create(
             distribution_type=distribution_type,
             request_date="2026-03-10",
-            facility=self.facility,
+            facility=facility or self.facility,
             status=status,
             created_by=self.user,
+            allocation=allocation,
         )
         if with_items:
             distribution_item = DistributionItem.objects.create(
@@ -114,8 +329,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
                 stock=self.stock,
             )
             if status == Distribution.Status.VERIFIED or (
-                distribution_type == Distribution.DistributionType.ALLOCATION
-                and status == Distribution.Status.PREPARED
+                allocation is not None and status == Distribution.Status.PREPARED
             ):
                 distribution_item.reserved_quantity = distribution_item.quantity_approved
                 distribution_item.save(update_fields=["reserved_quantity"])
@@ -123,6 +337,23 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
                 self.stock.save(update_fields=["reserved", "updated_at"])
         for user in assigned_users or []:
             dist.staff_assignments.create(user=user)
+        if status in {
+            Distribution.Status.SUBMITTED,
+            Distribution.Status.VERIFIED,
+            Distribution.Status.DISTRIBUTED,
+            Distribution.Status.REJECTED,
+        } or allocation is not None:
+            rule_key = (
+                DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+                if distribution_type == Distribution.DistributionType.LPLPO
+                else DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST
+            )
+            issue_document_number(
+                rule_key,
+                business_date=dist.request_date,
+                target=dist,
+                actor=self.user,
+            )
         return dist
 
     def _link_lplpo_source(self, distribution, *, status=LPLPO.Status.APPROVED):
@@ -138,101 +369,97 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             distribution=distribution,
         )
 
-    # --- Auto-generated document number ---
+    # --- Official document number issuance ---
 
-    def test_auto_generated_document_number(self):
+    def test_draft_has_no_document_number(self):
         dist = self._create_distribution()
-        self.assertRegex(dist.document_number, r"^440/\d+/SBBK\.RF/\d{4}$")
+        self.assertIsNone(dist.document_number)
 
-    def test_special_request_document_number_uses_independent_rule(self):
-        dist = self._create_distribution(
-            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
-        )
-        self.assertRegex(dist.document_number, r"^440/\d+/KD\.F/\d{4}$")
-
-    def test_document_number_counter_is_independent_per_rule(self):
+    def test_submit_issues_number_from_type_rule_and_business_date(self):
         lplpo_dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
             distribution_type=Distribution.DistributionType.LPLPO,
+            assigned_users=[self.user],
         )
         special_dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            assigned_users=[self.user],
         )
+
+        execute_distribution_submission(lplpo_dist, self.user)
+        execute_distribution_submission(special_dist, self.user)
+        lplpo_dist.refresh_from_db()
+        special_dist.refresh_from_db()
+
         self.assertEqual(lplpo_dist.document_number, "440/1/SBBK.RF/2026")
         self.assertEqual(special_dist.document_number, "440/1/KD.F/2026")
 
-    def test_document_number_counter_resets_each_year(self):
-        with patch("apps.distribution.numbering.timezone.now") as mocked_now:
-            mocked_now.return_value = timezone.datetime(2026, 5, 1, tzinfo=timezone.get_current_timezone())
-            first = self._create_distribution(
-                distribution_type=Distribution.DistributionType.LPLPO,
-            )
-
-        with patch("apps.distribution.numbering.timezone.now") as mocked_now:
-            mocked_now.return_value = timezone.datetime(2027, 1, 10, tzinfo=timezone.get_current_timezone())
-            second = Distribution.objects.create(
-                distribution_type=Distribution.DistributionType.LPLPO,
-                request_date="2027-01-10",
-                facility=self.facility,
-                status=Distribution.Status.DRAFT,
-                created_by=self.user,
-            )
-
-        self.assertEqual(first.document_number, "440/1/SBBK.RF/2026")
-        self.assertEqual(second.document_number, "440/1/SBBK.RF/2027")
-
-    def test_legacy_document_numbers_do_not_break_new_rule_counter(self):
-        Distribution.objects.create(
-            distribution_type=Distribution.DistributionType.LPLPO,
-            document_number="DIST-202604-00001",
-            request_date="2026-04-10",
-            facility=self.facility,
-            status=Distribution.Status.DRAFT,
-            created_by=self.user,
-        )
-
+    def test_document_number_uses_request_date_not_server_date(self):
         dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
             distribution_type=Distribution.DistributionType.LPLPO,
+            assigned_users=[self.user],
+        )
+        dist.request_date = date(2027, 1, 10)
+        dist.save(update_fields=["request_date", "updated_at"])
+
+        execute_distribution_submission(dist, self.user)
+        dist.refresh_from_db()
+
+        self.assertEqual(dist.document_number, "440/1/SBBK.RF/2027")
+
+    def test_numbered_distribution_form_ignores_changed_business_date(self):
+        distribution = self._create_distribution(
+            status=Distribution.Status.REJECTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+        )
+        distribution.refresh_from_db()
+        original_date = distribution.request_date
+        form = DistributionForm(
+            data={
+                "distribution_type": Distribution.DistributionType.SPECIAL_REQUEST,
+                "request_date": "2026-04-10",
+                "facility": self.facility.pk,
+                "program": "Program uji",
+                "notes": "Catatan diperbarui",
+            },
+            instance=distribution,
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
         )
 
-        self.assertEqual(dist.document_number, "440/1/SBBK.RF/2026")
+        self.assertTrue(form.fields["request_date"].disabled)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.request_date, original_date)
 
-    def test_non_rule_distribution_type_keeps_dist_prefix_format(self):
-        dist = self._create_distribution(
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+        draft_form = DistributionForm(
+            instance=self._create_distribution(
+                distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            ),
+            user=self.user,
+            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
         )
+        self.assertFalse(draft_form.fields["request_date"].disabled)
 
-        self.assertRegex(dist.document_number, r"^DIST-\d{6}-\d{5}$")
-
-    def test_custom_template_from_settings_is_used_for_lplpo(self):
-        settings = SystemSettings.get_settings()
-        settings.lplpo_distribution_number_template = "DOC/LPLPO/{year}/{seq}"
-        settings.save(update_fields=["lplpo_distribution_number_template", "updated_at"])
-
+    def test_custom_rule_template_is_used_on_submit(self):
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+        )
+        rule.template = "DOC/LPLPO/{year}/{seq}"
+        rule.save(update_fields=["template", "updated_at"])
         dist = self._create_distribution(
+            status=Distribution.Status.PREPARED,
             distribution_type=Distribution.DistributionType.LPLPO,
+            assigned_users=[self.user],
         )
+
+        execute_distribution_submission(dist, self.user)
+        dist.refresh_from_db()
 
         self.assertEqual(dist.document_number, "DOC/LPLPO/2026/1")
-
-    def test_custom_template_supports_year_outside_suffix_position(self):
-        settings = SystemSettings.get_settings()
-        settings.special_request_distribution_number_template = "PK/{year}/{seq}/KD.F"
-        settings.save(update_fields=["special_request_distribution_number_template", "updated_at"])
-
-        Distribution.objects.create(
-            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
-            document_number="PK/2026/1/KD.F",
-            request_date="2026-04-10",
-            facility=self.facility,
-            status=Distribution.Status.DRAFT,
-            created_by=self.user,
-        )
-
-        dist = self._create_distribution(
-            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
-        )
-
-        self.assertEqual(dist.document_number, "PK/2026/2/KD.F")
 
     # --- Submit workflow ---
 
@@ -463,43 +690,12 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             Distribution.DistributionType.LPLPO,
         )
 
-    def test_distribution_form_manual_lplpo_uses_auto_numbering_configuration(self):
+    def test_distribution_form_does_not_expose_document_number(self):
         form = DistributionForm(
             user=self.user,
             forced_distribution_type=Distribution.DistributionType.LPLPO,
         )
-
-        self.assertTrue(form.fields["document_number"].disabled)
-        self.assertEqual(
-            form.fields["document_number"].widget.attrs.get("placeholder"),
-            "Nomor dokumen dibuat otomatis",
-        )
-        self.assertEqual(
-            form.fields["document_number"].widget.attrs.get("readonly"),
-            True,
-        )
-        self.assertIn(
-            "440/{seq}/SBBK.RF/{year}",
-            form.fields["document_number"].help_text,
-        )
-        self.assertEqual(form.fields["document_number_preview"].initial, None)
-
-    def test_distribution_form_manual_lplpo_keeps_blank_document_number_for_auto_generation(self):
-        form = DistributionForm(
-            data={
-                "document_number": "",
-                "request_date": "2026-03-10",
-                "facility": self.facility.pk,
-                "program": "",
-                "notes": "",
-                "assigned_staff": [self.user.pk],
-            },
-            user=self.user,
-            forced_distribution_type=Distribution.DistributionType.LPLPO,
-        )
-
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["document_number"], "")
+        self.assertNotIn("document_number", form.fields)
 
     def test_distribution_form_edit_keeps_instance_distribution_type_when_hidden(self):
         dist = self._create_distribution(
@@ -509,7 +705,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         form = DistributionForm(
             data={
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "program": "",
@@ -526,34 +721,10 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             Distribution.DistributionType.LPLPO,
         )
 
-    def test_distribution_form_special_request_prefills_preview_number(self):
-        form = DistributionForm(
-            user=self.user,
-            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
-        )
-
-        self.assertFalse(form.fields["document_number"].disabled)
-        self.assertEqual(form.fields["document_number"].initial, "440/1/KD.F/2026")
-        self.assertEqual(
-            form.fields["document_number_preview"].initial,
-            "440/1/KD.F/2026",
-        )
-        self.assertEqual(
-            form.fields["document_number"].widget.attrs.get("placeholder"),
-            "Nomor dokumen permintaan khusus",
-        )
-        self.assertEqual(
-            form.fields["document_number"].widget.attrs.get("readonly"),
-            True,
-        )
-        self.assertIn("440/1/KD.F/2026", form.fields["document_number"].help_text)
-        self.assertIn("440/{seq}/KD.F/{year}", form.fields["document_number"].help_text)
-
-    def test_distribution_form_special_request_unchanged_preview_keeps_auto_generation(self):
+    def test_distribution_form_special_request_does_not_allow_manual_number(self):
         form = DistributionForm(
             data={
-                "document_number": "440/1/KD.F/2026",
-                "document_number_preview": "440/1/KD.F/2026",
+                "document_number": "MANUAL-NUMBER",
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "program": "",
@@ -565,28 +736,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["document_number"], "")
-
-    def test_distribution_form_special_request_keeps_manual_override(self):
-        form = DistributionForm(
-            data={
-                "document_number": "440/MANUAL/KD.F/2026",
-                "document_number_preview": "440/1/KD.F/2026",
-                "request_date": "2026-03-10",
-                "facility": self.facility.pk,
-                "program": "",
-                "notes": "",
-                "assigned_staff": [self.user.pk],
-            },
-            user=self.user,
-            forced_distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
-        )
-
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(
-            form.cleaned_data["document_number"],
-            "440/MANUAL/KD.F/2026",
-        )
+        self.assertNotIn("document_number", form.cleaned_data)
 
     # --- Verify workflow ---
 
@@ -757,10 +907,15 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
 
-    def test_prepare_allocation_verified_to_prepared(self):
+    def test_generic_prepare_is_blocked_for_allocation_child(self):
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
         dist = self._create_distribution(
             status=Distribution.Status.VERIFIED,
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
         )
 
         response = self.client.post(
@@ -769,7 +924,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
 
     # --- Distribute workflow (stock deduction + transaction) ---
 
@@ -860,10 +1015,15 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, Decimal("10"))  # unchanged
 
-    def test_distribute_allocation_prepared_deducts_stock_and_creates_transaction(self):
+    def test_generic_distribute_is_blocked_for_allocation_child(self):
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
         dist = self._create_distribution(
             status=Distribution.Status.PREPARED,
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
         )
 
         response = self.client.post(
@@ -873,9 +1033,9 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         dist.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(dist.status, Distribution.Status.DISTRIBUTED)
-        self.assertEqual(self.stock.quantity, Decimal("160"))
-        self.assertEqual(self.stock.reserved, Decimal("0"))
+        self.assertEqual(dist.status, Distribution.Status.PREPARED)
+        self.assertEqual(self.stock.quantity, Decimal("200"))
+        self.assertEqual(self.stock.reserved, Decimal("40"))
 
     # --- Reject workflow ---
 
@@ -1016,9 +1176,14 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
 
     def test_reset_to_draft_blocked_for_allocation_distribution(self):
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
         dist = self._create_distribution(
             status=Distribution.Status.VERIFIED,
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
         )
 
         response = self.client.post(
@@ -1039,9 +1204,14 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
 
     def test_step_back_blocked_for_allocation_distribution(self):
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
         dist = self._create_distribution(
             status=Distribution.Status.PREPARED,
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
         )
 
         response = self.client.post(
@@ -1422,6 +1592,52 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_edit_reloads_row_after_concurrent_submission(self):
+        dist = self._create_distribution(
+            status=Distribution.Status.DRAFT,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            assigned_users=[self.user],
+        )
+        item_line = dist.items.get()
+        stale_draft = Distribution.objects.get(pk=dist.pk)
+
+        execute_distribution_preparation(dist)
+        execute_distribution_submission(dist, self.user)
+        dist.refresh_from_db()
+        issued_number = dist.document_number
+
+        with patch(
+            "apps.distribution.views.get_object_or_404", return_value=stale_draft
+        ):
+            response = self.client.post(
+                reverse("distribution:distribution_edit", args=[dist.pk]),
+                {
+                    "request_date": "2026-04-10",
+                    "facility": self.facility.pk,
+                    "notes": "Perubahan yang terlambat",
+                    "assigned_staff": [self.user.pk],
+                    "items-TOTAL_FORMS": "1",
+                    "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "0",
+                    "items-MAX_NUM_FORMS": "1000",
+                    "items-0-id": item_line.pk,
+                    "items-0-item": self.item.pk,
+                    "items-0-quantity_requested": "50",
+                    "items-0-quantity_approved": "40",
+                    "items-0-stock": self.stock.pk,
+                    "items-0-notes": "",
+                },
+                secure=True,
+                HTTP_HOST="localhost",
+            )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
+        self.assertEqual(dist.document_number, issued_number)
+        self.assertEqual(str(dist.request_date), "2026-03-10")
+        self.assertEqual(dist.notes, "")
+
     def test_generated_lplpo_edit_locks_quantity_fields(self):
         dist = self._create_distribution(status=Distribution.Status.DRAFT)
         self._link_lplpo_source(dist)
@@ -1451,7 +1667,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "Batch dipilih",
@@ -1490,7 +1705,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "Batch zero split",
@@ -1588,7 +1802,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "Batch disesuaikan ulang",
@@ -1727,7 +1940,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "Batch sebagian disesuaikan",
@@ -1770,7 +1982,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "",
@@ -1886,16 +2097,16 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             "Baris item berasal dari LPLPO sumber dan tidak dapat ditambah atau dihapus pada tahap ini.",
         )
 
-    def test_special_request_create_shows_editable_preview_document_number(self):
+    def test_special_request_create_explains_system_issued_document_number(self):
         response = self.client.get(reverse("distribution:special_request_create"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'value="440/1/KD.F/2026"', html=False)
-        self.assertContains(response, "Konfirmasi Edit Nomor Dokumen")
-        self.assertContains(response, "Ubah Nomor")
-        self.assertContains(response, "Nomor berikutnya saat ini: 440/1/KD.F/2026")
-        self.assertContains(response, "440/{seq}/KD.F/{year}")
-        self.assertNotContains(response, "DIST-YYYYMM-XXXXX")
+        self.assertContains(
+            response,
+            "Nomor dokumen resmi dikelola sistem dan diterbitkan saat diajukan.",
+        )
+        self.assertNotContains(response, 'name="document_number"', html=False)
+        self.assertNotContains(response, "Konfirmasi Edit Nomor Dokumen")
 
     def test_special_request_create_uses_versioned_distribution_form_script(self):
         response = self.client.get(reverse("distribution:special_request_create"))
@@ -1930,7 +2141,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
         self.assertNotIn("validateApprovedQty", asset_content)
 
-    def test_special_request_create_uses_auto_generation_when_preview_is_unchanged(self):
+    def test_special_request_create_keeps_number_unissued_while_draft(self):
         response = self.client.post(
             reverse("distribution:special_request_create"),
             {
@@ -1954,7 +2165,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         self.assertEqual(response.status_code, 302)
         dist = Distribution.objects.latest("id")
-        self.assertEqual(dist.document_number, "440/1/KD.F/2026")
+        self.assertIsNone(dist.document_number)
 
     def test_manual_lplpo_create_hides_distribution_type_field(self):
         response = self.client.get(reverse("distribution:manual_lplpo_create"))
@@ -1975,15 +2186,14 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             "Baris item berasal dari LPLPO sumber dan tidak dapat ditambah atau dihapus pada tahap ini.",
         )
 
-    def test_manual_lplpo_create_uses_auto_generated_lplpo_numbering(self):
+    def test_manual_lplpo_create_does_not_expose_manual_number_controls(self):
         response = self.client.get(reverse("distribution:manual_lplpo_create"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Buat Distribusi LPLPO")
-        self.assertContains(response, "440/{seq}/SBBK.RF/{year}")
         self.assertNotContains(response, "Konfirmasi Edit Nomor Dokumen")
         self.assertNotContains(response, "Ubah Nomor")
-        self.assertNotContains(response, "440/1/KD.F/2026")
+        self.assertNotContains(response, 'name="document_number"', html=False)
 
     def test_manual_lplpo_create_saves_lplpo_distribution_without_source_document(self):
         response = self.client.post(
@@ -2009,7 +2219,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         dist = Distribution.objects.latest("id")
         self.assertEqual(dist.distribution_type, Distribution.DistributionType.LPLPO)
         self.assertEqual(dist.status, Distribution.Status.DRAFT)
-        self.assertEqual(dist.document_number, "440/1/SBBK.RF/2026")
+        self.assertIsNone(dist.document_number)
         self.assertFalse(dist.is_generated_lplpo_distribution)
         self.assertEqual(dist.notes, "Distribusi manual untuk rollout tengah tahun.")
         self.assertFalse(hasattr(dist, "lplpo_source"))
@@ -2043,13 +2253,18 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             status=Distribution.Status.DRAFT,
             created_by=self.user,
         )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 6, 1),
+            created_by=self.user,
+        )
         active_older = Distribution.objects.create(
-            distribution_type=Distribution.DistributionType.ALLOCATION,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
             document_number="QUEUE-OLDER",
             request_date=date(2026, 6, 1),
             facility=self.facility,
             status=Distribution.Status.VERIFIED,
             created_by=self.user,
+            allocation=allocation,
         )
         distributed_newer = Distribution.objects.create(
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
@@ -2101,7 +2316,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "Direvisi",
@@ -2148,6 +2362,16 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
             with_items=True,
         )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
+        allocation_child = self._create_distribution(
+            status=Distribution.Status.DISTRIBUTED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            with_items=True,
+            allocation=allocation,
+        )
         lplpo = self._create_distribution(
             status=Distribution.Status.DISTRIBUTED,
             distribution_type=Distribution.DistributionType.LPLPO,
@@ -2164,7 +2388,18 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, special_request.document_number)
+        self.assertContains(response, allocation_child.document_number)
         self.assertNotContains(response, lplpo.document_number)
+
+        allocation_response = self.client.get(
+            reverse("distribution:distribution_report_allocation"),
+            {
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+            },
+        )
+        self.assertContains(allocation_response, allocation_child.document_number)
+        self.assertNotContains(allocation_response, special_request.document_number)
 
     def test_distribution_report_tabs_use_dedicated_distribution_urls(self):
         response = self.client.get(reverse("distribution:distribution_report"))
@@ -2276,16 +2511,88 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         special_request = self._create_distribution(
             distribution_type=Distribution.DistributionType.SPECIAL_REQUEST
         )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
+        allocation_child = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
+            facility=self.rs_facility,
+        )
         history_only = self._create_distribution(
             distribution_type=Distribution.DistributionType.LPLPO,
             with_items=False,
+            facility=self.rs_facility,
         )
 
         response = self.client.get(reverse("distribution:special_request_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, special_request.document_number)
-        self.assertNotContains(response, history_only.document_number)
+        self.assertContains(response, self.facility.name)
+        self.assertNotContains(response, allocation_child.document_number)
+        self.assertNotContains(response, self.rs_facility.name)
+
+    def test_allocation_child_detail_hides_parent_actions_without_allocation_access(self):
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 3, 10),
+            created_by=self.user,
+        )
+        verified_child = self._create_distribution(
+            status=Distribution.Status.VERIFIED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
+        )
+        prepared_child = self._create_distribution(
+            status=Distribution.Status.PREPARED,
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation=allocation,
+        )
+        distribution_only_user = User.objects.create_user(
+            username="distribution_without_allocation_access",
+            password="secret12345",
+            role=User.Role.ADMIN_UMUM,
+        )
+        ModuleAccess.objects.update_or_create(
+            user=distribution_only_user,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
+        ModuleAccess.objects.update_or_create(
+            user=distribution_only_user,
+            module=ModuleAccess.Module.ALLOCATION,
+            defaults={"scope": ModuleAccess.Scope.NONE},
+        )
+        self.client.force_login(distribution_only_user)
+
+        verified_response = self.client.get(
+            reverse("distribution:distribution_detail", args=[verified_child.pk])
+        )
+        prepared_response = self.client.get(
+            reverse("distribution:distribution_detail", args=[prepared_child.pk])
+        )
+
+        self.assertEqual(verified_response.status_code, 200)
+        self.assertNotContains(
+            verified_response,
+            reverse(
+                "allocation:allocation_distribution_prepare",
+                args=[allocation.pk, verified_child.pk],
+            ),
+        )
+        self.assertNotContains(
+            verified_response,
+            reverse("allocation:allocation_detail", args=[allocation.pk]),
+        )
+        self.assertEqual(prepared_response.status_code, 200)
+        self.assertNotContains(
+            prepared_response,
+            reverse(
+                "allocation:allocation_distribution_deliver",
+                args=[allocation.pk, prepared_child.pk],
+            ),
+        )
 
     def test_special_request_list_requires_view_permission(self):
         restricted_user = User.objects.create_user(
@@ -2629,7 +2936,6 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         response = self.client.post(
             reverse("distribution:distribution_edit", args=[dist.pk]),
             {
-                "document_number": dist.document_number,
                 "request_date": "2026-03-10",
                 "facility": self.facility.pk,
                 "notes": "",

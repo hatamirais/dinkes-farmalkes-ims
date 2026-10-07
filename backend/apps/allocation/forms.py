@@ -65,6 +65,11 @@ class AllocationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["title"].label = "Judul Alokasi"
         self.fields["allocation_date"].input_formats = ["%Y-%m-%d"]
+        if self.instance.pk and self.instance.document_number:
+            self.fields["allocation_date"].disabled = True
+            self.fields["allocation_date"].help_text = (
+                "Tanggal alokasi dikunci setelah nomor dokumen diterbitkan."
+            )
         self.fields["selected_facilities"].label_from_instance = (
             lambda facility: facility.name
         )

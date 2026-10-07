@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load number_format %}
 
-{% block title %}{{ contract.document_number }} - Healthcare IMS{% endblock %}
+{% block title %}{{ contract.document_number|default:"SPJ draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail SPJ / Pengadaan{% endblock %}
 
 {% block content %}
@@ -11,8 +11,10 @@
             <div class="card-header"><span>Informasi SPJ</span></div>
             <div class="card-body">
                 <dl class="row mb-0">
-                    <dt class="col-5 text-muted">Nomor</dt>
-                    <dd class="col-7 fw-semibold">{{ contract.document_number }}</dd>
+                    <dt class="col-5 text-muted">Nomor Internal IMS</dt>
+                    <dd class="col-7 fw-semibold">{{ contract.document_number|default:"Belum diterbitkan" }}</dd>
+                    <dt class="col-5 text-muted">Nomor Dokumen Eksternal</dt>
+                    <dd class="col-7">{{ contract.external_document_number|default:"-" }}</dd>
                     <dt class="col-5 text-muted">Tanggal</dt>
                     <dd class="col-7">{{ contract.contract_date|date:"d/m/Y" }}</dd>
                     <dt class="col-5 text-muted">Supplier</dt>
@@ -137,7 +139,7 @@
                         <tbody>
                             {% for amendment in contract.amendments.all %}
                             <tr>
-                                <td><a href="{% url 'procurement:amendment_detail' amendment.pk %}">{{ amendment.document_number }}</a></td>
+                                <td><a href="{% url 'procurement:amendment_detail' amendment.pk %}">{{ amendment.document_number|default:"Belum diterbitkan" }}</a></td>
                                 <td>{{ amendment.amendment_date|date:"d/m/Y" }}</td>
                                 <td><span class="badge-status badge-{{ amendment.status|lower }}">{{ amendment.get_status_display }}</span></td>
                                 <td>{{ amendment.created_by }}</td>

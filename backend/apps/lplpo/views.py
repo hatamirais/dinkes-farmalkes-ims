@@ -1478,7 +1478,7 @@ def lplpo_review(request, pk):
             messages.success(
                 request,
                 f"LPLPO {lplpo_obj.document_number} berhasil ditinjau. "
-                f"Distribusi {dist.document_number} telah dibuat sebagai Draft.",
+                f"Distribusi {dist.display_identifier} telah dibuat sebagai Draft.",
             )
             return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
@@ -1585,7 +1585,7 @@ def lplpo_finalize(request, pk):
     messages.success(
         request,
         f"LPLPO {lplpo_obj.document_number} disetujui. "
-        f"Distribusi {dist.document_number} telah dibuat sebagai Draft.",
+        f"Distribusi {dist.display_identifier} telah dibuat sebagai Draft.",
     )
     return redirect("distribution:distribution_detail", pk=dist.pk)
 

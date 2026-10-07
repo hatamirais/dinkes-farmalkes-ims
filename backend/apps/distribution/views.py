@@ -3,7 +3,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import (
@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from apps.core.decimal_validation import multiply_decimals, sum_decimals
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.numbering import void_document_number
 from apps.lplpo.forms import RejectLPLPOForm
 from apps.lplpo.models import LPLPO
 from apps.reports.views import (
@@ -63,7 +64,7 @@ _DISTRIBUTION_REPORT_TAB_URL_NAMES = {
     **_PENGELUARAN_REPORT_TAB_URL_NAMES,
     "": "distribution:distribution_report",
     Distribution.DistributionType.SPECIAL_REQUEST: "distribution:distribution_report_special_request",
-    Distribution.DistributionType.ALLOCATION: "distribution:distribution_report_allocation",
+    "ALLOCATION": "distribution:distribution_report_allocation",
     Distribution.DistributionType.LPLPO: "distribution:distribution_report_lplpo",
 }
 
@@ -86,6 +87,14 @@ def _is_special_request(distribution):
     return (
         distribution.distribution_type
         == Distribution.DistributionType.SPECIAL_REQUEST
+    )
+
+
+def _has_django_or_module_permission(user, permission):
+    return (
+        getattr(user, "is_superuser", False)
+        or user.has_perm(permission)
+        or has_module_permission(user, permission)
     )
 
 
@@ -188,9 +197,7 @@ def _render_distribution_list(
     )
 
 
-def _build_distribution_form_context(
-    *, title, back_url_name, active_pengeluaran_submenu, document_number_warning_enabled=False
-):
+def _build_distribution_form_context(*, title, back_url_name, active_pengeluaran_submenu):
     return {
         "title": title,
         "page_title": title,
@@ -200,7 +207,6 @@ def _build_distribution_form_context(
         "item_error_colspan": 7,
         "back_url_name": back_url_name,
         "active_pengeluaran_submenu": active_pengeluaran_submenu,
-        "document_number_warning_enabled": document_number_warning_enabled,
     }
 
 
@@ -522,7 +528,7 @@ def distribution_report_special_request(request):
 def distribution_report_allocation(request):
     return render_pengeluaran_report(
         request,
-        forced_distribution_type=Distribution.DistributionType.ALLOCATION,
+        forced_distribution_type="ALLOCATION",
         base_report_url_name="distribution:distribution_report",
         tab_url_names=_DISTRIBUTION_REPORT_TAB_URL_NAMES,
     )
@@ -544,7 +550,8 @@ def distribution_report_lplpo(request):
 def special_request_list(request):
     queryset = _order_distribution_queue(
         Distribution.objects.select_related("facility", "created_by").filter(
-            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            allocation__isnull=True,
         )
     )
 
@@ -605,7 +612,8 @@ def _save_special_request(request):
 
             messages.success(
                 request,
-                f"Permintaan khusus {dist.document_number} berhasil dibuat.",
+                "Draft permintaan khusus berhasil dibuat. Nomor dokumen akan "
+                "diterbitkan saat diajukan.",
             )
             return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
@@ -629,7 +637,6 @@ def _save_special_request(request):
                 title="Buat Permintaan Khusus",
                 back_url_name="distribution:special_request_list",
                 active_pengeluaran_submenu="special_request",
-                document_number_warning_enabled=True,
             ),
         },
     )
@@ -660,7 +667,8 @@ def _save_manual_lplpo_distribution(request):
 
             messages.success(
                 request,
-                f"Distribusi LPLPO {dist.document_number} berhasil dibuat.",
+                "Draft distribusi LPLPO berhasil dibuat. Nomor dokumen akan "
+                "diterbitkan saat diajukan.",
             )
             return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
@@ -702,47 +710,78 @@ def distribution_edit(request, pk):
             "Hanya petugas yang ditugaskan yang dapat mengubah distribusi ini."
         )
 
-    if dist.distribution_type == Distribution.DistributionType.ALLOCATION:
+    if dist.allocation_id:
         messages.error(request, "Distribusi alokasi tidak dapat diubah dari modul ini.")
         return redirect("distribution:distribution_detail", pk=dist.pk)
 
-    is_special_request = _is_special_request(dist)
-    is_generated_lplpo_distribution = dist.is_generated_lplpo_distribution
-    forced_distribution_type = (
-        Distribution.DistributionType.SPECIAL_REQUEST if is_special_request else None
-    )
-    formset_class = (
-        LockedLPLPODistributionItemFormSet
-        if is_generated_lplpo_distribution
-        else DistributionItemFormSet
-    )
-    formset_kwargs = {"prefix": "items"}
-    if is_generated_lplpo_distribution:
-        formset_kwargs["form_kwargs"] = {"lock_quantity_fields": True}
-
     if request.method == "POST":
-        form = DistributionForm(
-            request.POST,
-            instance=dist,
-            user=request.user,
-            forced_distribution_type=forced_distribution_type,
-        )
-        formset = formset_class(request.POST, instance=dist, **formset_kwargs)
-        formset_is_valid = formset.is_valid()
-        should_rebuild_generated_lplpo_rows = (
-            is_generated_lplpo_distribution
-            and not formset_is_valid
-            and _locked_lplpo_formset_structure_matches_post(
-                dist,
-                request.POST,
-                formset_kwargs["prefix"],
-            )
-            and _locked_lplpo_formset_has_only_availability_errors(formset)
-        )
+        saved = False
+        try:
+            with transaction.atomic():
+                dist = Distribution.objects.select_for_update().get(pk=pk)
+                if dist.status not in (
+                    Distribution.Status.DRAFT,
+                    Distribution.Status.REJECTED,
+                ):
+                    messages.error(
+                        request, "Hanya distribusi Draft/Ditolak yang dapat diubah."
+                    )
+                    return redirect("distribution:distribution_detail", pk=dist.pk)
 
-        if form.is_valid() and (formset_is_valid or should_rebuild_generated_lplpo_rows):
-            try:
-                with transaction.atomic():
+                if not _can_manage_distribution_preparation(request.user, dist):
+                    raise PermissionDenied(
+                        "Hanya petugas yang ditugaskan yang dapat mengubah distribusi ini."
+                    )
+
+                if dist.allocation_id:
+                    messages.error(
+                        request,
+                        "Distribusi alokasi tidak dapat diubah dari modul ini.",
+                    )
+                    return redirect("distribution:distribution_detail", pk=dist.pk)
+
+                is_special_request = _is_special_request(dist)
+                is_generated_lplpo_distribution = (
+                    dist.is_generated_lplpo_distribution
+                )
+                forced_distribution_type = (
+                    Distribution.DistributionType.SPECIAL_REQUEST
+                    if is_special_request
+                    else None
+                )
+                formset_class = (
+                    LockedLPLPODistributionItemFormSet
+                    if is_generated_lplpo_distribution
+                    else DistributionItemFormSet
+                )
+                formset_kwargs = {"prefix": "items"}
+                if is_generated_lplpo_distribution:
+                    formset_kwargs["form_kwargs"] = {"lock_quantity_fields": True}
+
+                form = DistributionForm(
+                    request.POST,
+                    instance=dist,
+                    user=request.user,
+                    forced_distribution_type=forced_distribution_type,
+                )
+                formset = formset_class(
+                    request.POST, instance=dist, **formset_kwargs
+                )
+                formset_is_valid = formset.is_valid()
+                should_rebuild_generated_lplpo_rows = (
+                    is_generated_lplpo_distribution
+                    and not formset_is_valid
+                    and _locked_lplpo_formset_structure_matches_post(
+                        dist,
+                        request.POST,
+                        formset_kwargs["prefix"],
+                    )
+                    and _locked_lplpo_formset_has_only_availability_errors(formset)
+                )
+
+                if form.is_valid() and (
+                    formset_is_valid or should_rebuild_generated_lplpo_rows
+                ):
                     dist = form.save(commit=False)
                     if forced_distribution_type:
                         dist.distribution_type = forced_distribution_type
@@ -759,19 +798,36 @@ def distribution_edit(request, pk):
                         )
                     else:
                         formset.save()
-            except ValueError as exc:
-                messages.error(request, str(exc))
-            else:
-                messages.success(
-                    request,
-                    (
-                        f"Permintaan khusus {dist.document_number} berhasil diperbarui."
-                        if is_special_request
-                        else f"Distribusi {dist.document_number} berhasil diperbarui."
-                    ),
-                )
-                return redirect("distribution:distribution_detail", pk=dist.pk)
+                    saved = True
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        if saved:
+            messages.success(
+                request,
+                (
+                    f"Permintaan khusus {dist.document_number or 'draft'} berhasil diperbarui."
+                    if is_special_request
+                    else f"Distribusi {dist.document_number or 'draft'} berhasil diperbarui."
+                ),
+            )
+            return redirect("distribution:distribution_detail", pk=dist.pk)
     else:
+        is_special_request = _is_special_request(dist)
+        is_generated_lplpo_distribution = dist.is_generated_lplpo_distribution
+        forced_distribution_type = (
+            Distribution.DistributionType.SPECIAL_REQUEST
+            if is_special_request
+            else None
+        )
+        formset_class = (
+            LockedLPLPODistributionItemFormSet
+            if is_generated_lplpo_distribution
+            else DistributionItemFormSet
+        )
+        formset_kwargs = {"prefix": "items"}
+        if is_generated_lplpo_distribution:
+            formset_kwargs["form_kwargs"] = {"lock_quantity_fields": True}
+
         form = DistributionForm(
             instance=dist,
             user=request.user,
@@ -793,9 +849,9 @@ def distribution_edit(request, pk):
             "allow_item_row_mutation": not is_generated_lplpo_distribution,
             **_build_distribution_form_context(
                 title=(
-                    f"Edit Permintaan Khusus {dist.document_number}"
+                    f"Edit Permintaan Khusus {dist.document_number or 'draft'}"
                     if is_special_request
-                    else f"Edit Distribusi {dist.document_number}"
+                    else f"Edit Distribusi {dist.document_number or 'draft'}"
                 ),
                 back_url_name=(
                     "distribution:special_request_list"
@@ -807,7 +863,6 @@ def distribution_edit(request, pk):
                     if is_special_request
                     else "distribution_history"
                 ),
-                document_number_warning_enabled=is_special_request,
             ),
         },
     )
@@ -863,8 +918,17 @@ def distribution_detail(request, pk):
             }
         )
 
-    is_allocation = (
-        dist.distribution_type == Distribution.DistributionType.ALLOCATION
+    is_allocation = dist.allocation_id is not None
+    can_view_allocation_parent = is_allocation and _has_django_or_module_permission(
+        request.user,
+        "allocation.view_allocation",
+    )
+    can_manage_allocation_distribution = (
+        is_allocation
+        and _has_django_or_module_permission(
+            request.user,
+            "allocation.change_allocation",
+        )
     )
     can_prepare_distribution = (
         not is_allocation
@@ -937,6 +1001,8 @@ def distribution_detail(request, pk):
             "assigned_staff": assigned_staff,
             "kepala_instalasi": kepala_instalasi,
             "is_allocation": is_allocation,
+            "can_view_allocation_parent": can_view_allocation_parent,
+            "can_manage_allocation_distribution": can_manage_allocation_distribution,
             "page_title": (
                 "Detail Permintaan Khusus"
                 if _is_special_request(dist)
@@ -992,8 +1058,8 @@ def distribution_submit(request, pk):
         return _redirect_distribution_detail(pk)
 
     try:
-        execute_distribution_submission(dist)
-    except DistributionWorkflowError as exc:
+        dist = execute_distribution_submission(dist, request.user)
+    except (DistributionWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_distribution_detail(pk)
 
@@ -1047,13 +1113,15 @@ def distribution_prepare(request, pk):
             "Hanya petugas yang ditugaskan yang dapat menyiapkan distribusi ini."
         )
 
+    if dist.allocation_id:
+        messages.error(
+            request,
+            "Distribusi dari alokasi dikelola melalui alokasi induk.",
+        )
+        return _redirect_distribution_detail(pk)
+
     allowed_statuses = {Distribution.Status.DRAFT, Distribution.Status.REJECTED}
     error_message = "Hanya distribusi Draft atau Ditolak yang dapat ditandai siap."
-    if dist.distribution_type == Distribution.DistributionType.ALLOCATION:
-        allowed_statuses = {Distribution.Status.VERIFIED}
-        error_message = (
-            "Hanya distribusi alokasi berstatus Diverifikasi yang dapat ditandai siap."
-        )
 
     if dist.status not in allowed_statuses:
         messages.error(request, error_message)
@@ -1078,15 +1146,17 @@ def distribution_distribute(request, pk):
             "Anda tidak memiliki akses untuk mendistribusikan dokumen ini."
         )
 
+    if dist.allocation_id:
+        messages.error(
+            request,
+            "Distribusi dari alokasi dikelola melalui alokasi induk.",
+        )
+        return _redirect_distribution_detail(pk)
+
     allowed_statuses = {Distribution.Status.VERIFIED}
     error_message = (
         "Hanya distribusi berstatus Diverifikasi yang dapat didistribusikan."
     )
-    if dist.distribution_type == Distribution.DistributionType.ALLOCATION:
-        allowed_statuses = {Distribution.Status.PREPARED}
-        error_message = (
-            "Hanya distribusi alokasi berstatus Disiapkan yang dapat didistribusikan."
-        )
 
     if dist.status not in allowed_statuses:
         messages.error(request, error_message)
@@ -1259,6 +1329,11 @@ def distribution_delete(request, pk):
         if _is_special_request(dist)
         else "distribution:distribution_list"
         )
+        void_document_number(
+            dist,
+            actor=request.user,
+            reason="Distribusi dihapus dari status Draft/Ditolak.",
+        )
         dist.delete()
     messages.success(request, f"Distribusi {document_number} berhasil dihapus.")
     return redirect(redirect_url_name)
@@ -1301,6 +1376,11 @@ def distribution_return_lplpo_to_puskesmas(request, pk):
 
         distribution_document_number = dist.document_number
         release_distribution_reservations(dist)
+        void_document_number(
+            dist,
+            actor=request.user,
+            reason=form.cleaned_data["rejection_reason"],
+        )
 
         lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
         lplpo_obj.verified_by = None

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Detail Kedaluwarsa {{ expired_doc.document_number }} — Healthcare IMS{% endblock %}
+{% block title %}Detail Kedaluwarsa {{ expired_doc.document_number|default:"draft" }} — Healthcare IMS{% endblock %}
 {% block page_title %}Detail Barang Kedaluwarsa{% endblock %}
 
 {% block content %}
@@ -11,7 +11,7 @@
             <div class="card-body">
                 <dl class="row mb-0">
                     <dt class="col-5 text-muted">No. Dokumen</dt>
-                    <dd class="col-7 fw-semibold">{{ expired_doc.document_number }}</dd>
+                    <dd class="col-7 fw-semibold">{{ expired_doc.document_number|default:"Belum diterbitkan" }}</dd>
 
                     <dt class="col-5 text-muted">Tanggal</dt>
                     <dd class="col-7">{{ expired_doc.report_date|date:"d/m/Y" }}</dd>

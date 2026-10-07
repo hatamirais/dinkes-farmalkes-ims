@@ -289,16 +289,9 @@ class BaseReceivingForm(forms.ModelForm):
 
 
 class ReceivingForm(BaseReceivingForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["document_number"].widget.attrs["placeholder"] = (
-            "Kosongkan untuk generate otomatis"
-        )
-
     class Meta:
         model = Receiving
         fields = [
-            "document_number",
             "receiving_type",
             "receiving_date",
             "supplier",
@@ -306,7 +299,6 @@ class ReceivingForm(BaseReceivingForm):
             "notes",
         ]
         widgets = {
-            "document_number": forms.TextInput(attrs={"class": "form-control"}),
             "receiving_date": IndonesianDateInput(
                 attrs=_indonesian_date_attrs()
             ),
@@ -314,13 +306,6 @@ class ReceivingForm(BaseReceivingForm):
             "sumber_dana": forms.Select(attrs={"class": "form-select"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
-
-    def clean_document_number(self):
-        return _normalize_text_value(
-            self.cleaned_data.get("document_number"),
-            field_label="No. dokumen",
-            max_length=100,
-        )
 
     def clean_receiving_date(self):
         value = self.cleaned_data.get("receiving_date")
@@ -351,8 +336,8 @@ class ReceivingEditForm(ReceivingForm):
             list(self.fields["receiving_type"].widget.choices),
             current_type,
         )
-        if self.instance and self.instance.has_posted_stock_movements():
-            self.fields["document_number"].disabled = True
+        if getattr(self.instance, "document_number", None):
+            self.fields["receiving_date"].disabled = True
 
     def clean_receiving_type(self):
         try:
@@ -391,16 +376,9 @@ class ReceivingCancelForm(forms.Form):
         )
 
 class PlannedReceivingForm(BaseReceivingForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["document_number"].widget.attrs["placeholder"] = (
-            "Kosongkan untuk generate otomatis"
-        )
-
     class Meta:
         model = Receiving
         fields = [
-            "document_number",
             "receiving_type",
             "receiving_date",
             "supplier",
@@ -408,7 +386,6 @@ class PlannedReceivingForm(BaseReceivingForm):
             "notes",
         ]
         widgets = {
-            "document_number": forms.TextInput(attrs={"class": "form-control"}),
             "receiving_date": IndonesianDateInput(
                 attrs=_indonesian_date_attrs()
             ),

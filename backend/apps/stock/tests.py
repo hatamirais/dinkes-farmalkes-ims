@@ -14,7 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, connection, connections
 from django.test import Client
 from django.test import SimpleTestCase
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.test import TransactionTestCase
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
@@ -23,7 +23,12 @@ from django.utils import timezone
 
 from apps.core.csv_exports import SanitizedCSV
 from apps.users.models import ModuleAccess, User
-from apps.stock.admin import StockAdmin, StockResource
+from apps.stock.admin import (
+    StockAdmin,
+    StockResource,
+    StockTransferAdmin,
+    StockTransferItemInline,
+)
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Supplier, Unit
 from apps.receiving.models import Receiving, ReceivingItem
 from apps.stock import views as stock_views
@@ -39,7 +44,7 @@ from apps.stock.models import (
 from apps.expired.models import Expired, ExpiredItem
 from apps.recall.models import Recall, RecallItem
 from apps.stock_opname.models import StockOpname, StockOpnameItem
-from apps.core.models import SystemSettings
+from apps.core.models import DocumentNumberRule, SystemSettings
 from apps.allocation.models import Allocation, AllocationItem
 from apps.distribution.models import Distribution, DistributionItem
 from apps.puskesmas.models import PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem
@@ -5289,28 +5294,13 @@ class StockCardTest(TestCase):
 
 
 class StockTransferModelTests(SimpleTestCase):
-    def test_save_retries_when_auto_generated_document_number_conflicts(self):
+    def test_new_transfer_starts_without_document_number(self):
         transfer = StockTransfer(
             source_location_id=1,
             destination_location_id=2,
             created_by_id=1,
         )
-
-        with (
-            patch.object(
-                StockTransfer,
-                "generate_document_number",
-                side_effect=["TRF-2026-00001", "TRF-2026-00002"],
-            ),
-            patch(
-                "django.db.models.base.Model.save",
-                side_effect=[IntegrityError("duplicate key value violates unique constraint stock_transfers_document_number_key"), None],
-            ) as mock_save,
-        ):
-            transfer.save()
-
-        self.assertEqual(mock_save.call_count, 2)
-        self.assertEqual(transfer.document_number, "TRF-2026-00002")
+        self.assertIsNone(transfer.document_number)
 
     def test_stock_transfer_item_clean_rejects_non_finite_quantity(self):
         transfer_item = StockTransferItem(quantity=Decimal("-Infinity"))
@@ -5330,6 +5320,15 @@ class StockTransferModelTests(SimpleTestCase):
 )
 class StockTransferConcurrencyTests(TransactionTestCase):
     def setUp(self):
+        DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.STOCK_TRANSFER,
+            defaults={
+                "label": "Mutasi Lokasi",
+                "template": "TRF-{year}{month}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.MONTHLY,
+                "padding": 5,
+            },
+        )
         self.user = User.objects.create_superuser(
             username='admin_transfer_concurrency',
             password='secret12345',
@@ -5556,6 +5555,36 @@ class StockTransferCreateValidationTests(TestCase):
             'stock_id': [str(stock_id if stock_id is not None else self.stock.pk)],
             'quantity': [quantity],
         }
+
+    def test_admin_locks_completion_fields_and_items_after_draft(self):
+        transfer = StockTransfer.objects.create(
+            transfer_date=date(2026, 7, 13),
+            source_location=self.source_location,
+            destination_location=self.destination_location,
+            status=StockTransfer.Status.COMPLETED,
+            created_by=self.user,
+            completed_by=self.user,
+            completed_at=timezone.now(),
+        )
+        request = RequestFactory().get('/admin/stock/stocktransfer/')
+        request.user = self.user
+        transfer_admin = StockTransferAdmin(StockTransfer, AdminSite())
+        item_inline = StockTransferItemInline(StockTransfer, AdminSite())
+        form = transfer_admin.get_form(request)
+
+        for field_name in {
+            'document_number',
+            'status',
+            'completed_by',
+            'completed_at',
+        }:
+            self.assertNotIn(field_name, form.base_fields)
+        self.assertNotIn('delete_selected', transfer_admin.get_actions(request))
+        self.assertFalse(transfer_admin.has_change_permission(request, transfer))
+        self.assertFalse(transfer_admin.has_delete_permission(request, transfer))
+        self.assertFalse(item_inline.has_add_permission(request, transfer))
+        self.assertFalse(item_inline.has_change_permission(request, transfer))
+        self.assertFalse(item_inline.has_delete_permission(request, transfer))
 
     def test_transfer_create_rejects_nan_quantity_without_creating_transfer(self):
         response = self.client.post(self.url, self._payload(quantity='NaN'))

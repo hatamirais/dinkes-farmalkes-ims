@@ -25,13 +25,14 @@ from django.utils import timezone
 from django_ratelimit.exceptions import Ratelimited
 from axes.models import AccessAttempt
 
+from apps.allocation.models import Allocation
 from apps.core.admin_mixins import ImportGuideMixin
 from apps.core.context_processors import nav_notifications
 from apps.core.csv_exports import SanitizedCSV, escape_csv_formula
-from apps.core.forms import SystemSettingsForm
+from apps.core.forms import DocumentNumberRuleForm, SystemSettingsForm
 from apps.core.forms import CrispyAuthenticationForm
 from apps.core.form_fields import IndonesianDateInput
-from apps.core.models import SystemSettings
+from apps.core.models import DocumentNumberRule, SystemSettings
 from apps.core.xlsx_exports import escape_xlsx_formula
 from apps.core.templatetags.number_format import plain_decimal, safe_media_url
 from apps.core.views import (
@@ -229,12 +230,12 @@ class XlsxExportSecurityTests(SimpleTestCase):
         self.assertEqual(escape_xlsx_formula(Decimal("12.50")), Decimal("12.50"))
 
 
-class SystemSettingsFormTests(SimpleTestCase):
+class SystemSettingsFormTests(TestCase):
     @staticmethod
     def _uploaded_file(name, content, content_type):
         return SimpleUploadedFile(name, content, content_type)
 
-    def test_accepts_valid_numbering_templates(self):
+    def test_accepts_valid_general_settings(self):
         form = SystemSettingsForm(
             data={
                 "platform_label": "Healthcare IMS",
@@ -242,28 +243,32 @@ class SystemSettingsFormTests(SimpleTestCase):
                 "facility_address": "",
                 "facility_phone": "",
                 "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "PK/{year}/{seq}/KD.F",
             }
         )
 
         self.assertTrue(form.is_valid(), form.errors)
 
     def test_rejects_unknown_numbering_placeholder(self):
-        form = SystemSettingsForm(
+        rule, _ = DocumentNumberRule.objects.get_or_create(
+            key=DocumentNumberRule.Key.ALLOCATION,
+            defaults={
+                "label": "Alokasi",
+                "template": "ALK-{year}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 4,
+            },
+        )
+        form = DocumentNumberRuleForm(
             data={
-                "platform_label": "Healthcare IMS",
-                "facility_name": "Instalasi Farmasi",
-                "facility_address": "",
-                "facility_phone": "",
-                "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/{month}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
-            }
+                "template": "ALK-{year}-{unknown}-{seq}",
+                "reset_period": DocumentNumberRule.ResetPeriod.YEARLY,
+                "padding": 4,
+            },
+            instance=rule,
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn("lplpo_distribution_number_template", form.errors)
+        self.assertIn("template", form.errors)
 
     def test_rejects_non_image_logo_with_png_extension(self):
         form = SystemSettingsForm(
@@ -273,8 +278,6 @@ class SystemSettingsFormTests(SimpleTestCase):
                 "facility_address": "",
                 "facility_phone": "",
                 "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
             },
             files={
                 "logo": self._uploaded_file(
@@ -302,8 +305,6 @@ class SystemSettingsFormTests(SimpleTestCase):
                         "facility_address": "",
                         "facility_phone": "",
                         "header_title": "Dinas Kesehatan",
-                        "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                        "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
                     },
                     instance=SystemSettings(logo="settings/logo.png"),
                 )
@@ -324,8 +325,6 @@ class SystemSettingsFormTests(SimpleTestCase):
                 "facility_address": "",
                 "facility_phone": "",
                 "header_title": "Dinas Kesehatan",
-                "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
             },
             files={
                 "logo": self._uploaded_file(
@@ -343,10 +342,19 @@ class SystemSettingsFormTests(SimpleTestCase):
 
 class SystemSettingsModelTests(TestCase):
     def test_get_settings_exposes_default_numbering_templates(self):
-        settings = SystemSettings.get_settings()
-
-        self.assertEqual(settings.lplpo_distribution_number_template, "440/{seq}/SBBK.RF/{year}")
-        self.assertEqual(settings.special_request_distribution_number_template, "440/{seq}/KD.F/{year}")
+        SystemSettings.get_settings()
+        self.assertEqual(
+            DocumentNumberRule.objects.get(
+                key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+            ).template,
+            "440/{seq}/SBBK.RF/{year}",
+        )
+        self.assertEqual(
+            DocumentNumberRule.objects.get(
+                key=DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST
+            ).template,
+            "440/{seq}/KD.F/{year}",
+        )
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -1241,11 +1249,43 @@ class AuthenticationAuditClientIpTests(TestCase):
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class SystemSettingsAccessTests(TestCase):
-    def test_anonymous_user_is_redirected_to_login(self):
-        response = self.client.get(reverse("settings"))
+    @classmethod
+    def setUpTestData(cls):
+        defaults = (
+            ("ALLOCATION", "Alokasi", "ALK-{year}-{seq}", "YEARLY", 4),
+            ("DISTRIBUTION_LPLPO", "Distribusi LPLPO", "440/{seq}/SBBK.RF/{year}", "YEARLY", 1),
+            ("DISTRIBUTION_SPECIAL_REQUEST", "Permintaan Khusus", "440/{seq}/KD.F/{year}", "YEARLY", 1),
+            ("PROCUREMENT_CONTRACT", "SPJ / Kontrak", "SPJ-{year}-{seq}", "YEARLY", 5),
+            (
+                "PROCUREMENT_AMENDMENT",
+                "Amandemen SPJ",
+                "SPJ/{year}/{month}/{seq}",
+                "MONTHLY",
+                1,
+            ),
+            ("RECEIVING", "Penerimaan", "RCV-{year}-{seq}", "YEARLY", 5),
+            ("RECALL", "Recall", "REC-{year}{month}-{seq}", "MONTHLY", 5),
+            ("EXPIRED", "Kedaluwarsa", "EXP-{year}{month}-{seq}", "MONTHLY", 5),
+            ("STOCK_TRANSFER", "Mutasi Lokasi", "TRF-{year}-{seq}", "YEARLY", 5),
+            ("STOCK_OPNAME", "Stock Opname", "SO-{year}{month}-{seq}", "MONTHLY", 5),
+        )
+        for key, label, template, reset_period, padding in defaults:
+            DocumentNumberRule.objects.get_or_create(
+                key=key,
+                defaults={
+                    "label": label,
+                    "template": template,
+                    "reset_period": reset_period,
+                    "padding": padding,
+                },
+            )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/login/", response.url)
+    def test_anonymous_user_is_redirected_to_login(self):
+        for url_name in ("settings", "numbering_settings"):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/login/", response.url)
 
     def test_non_admin_user_is_denied_access(self):
         user = User.objects.create_user(
@@ -1255,9 +1295,10 @@ class SystemSettingsAccessTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get(reverse("settings"))
-
-        self.assertEqual(response.status_code, 403)
+        for url_name in ("settings", "numbering_settings"):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 403)
 
     def test_kepala_user_sees_settings_menu_and_can_open_settings(self):
         user = User.objects.create_user(
@@ -1271,9 +1312,18 @@ class SystemSettingsAccessTests(TestCase):
         self.assertEqual(sidebar_response.status_code, 200)
         self.assertContains(sidebar_response, "Pengaturan")
         self.assertContains(sidebar_response, 'href="/settings/"', html=False)
+        self.assertContains(
+            sidebar_response,
+            'href="/settings/numbering/"',
+            html=False,
+        )
+        self.assertContains(sidebar_response, "Umum")
+        self.assertContains(sidebar_response, "Penomoran")
 
         settings_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
         self.assertEqual(settings_response.status_code, 200)
+        self.assertEqual(numbering_response.status_code, 200)
 
     def test_admin_panel_manager_without_admin_or_kepala_role_is_denied_settings(self):
         user = User.objects.create_user(
@@ -1293,9 +1343,11 @@ class SystemSettingsAccessTests(TestCase):
         self.assertNotContains(sidebar_response, "Pengaturan")
 
         settings_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
         self.assertEqual(settings_response.status_code, 403)
+        self.assertEqual(numbering_response.status_code, 403)
 
-    def test_admin_user_sees_numbering_preview_card(self):
+    def test_general_and_numbering_settings_are_separate(self):
         user = User.objects.create_superuser(
             username="settings-admin",
             email="settings-admin@example.com",
@@ -1303,12 +1355,98 @@ class SystemSettingsAccessTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get(reverse("settings"))
+        general_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
+
+        self.assertEqual(general_response.status_code, 200)
+        self.assertContains(general_response, "Pengaturan Umum")
+        self.assertNotContains(general_response, "DISTRIBUTION_LPLPO")
+        self.assertNotContains(general_response, "Preview Rule")
+
+        self.assertEqual(numbering_response.status_code, 200)
+        self.assertNotContains(numbering_response, "Preview Rule")
+        self.assertContains(numbering_response, "DISTRIBUTION_LPLPO")
+        self.assertContains(numbering_response, "DISTRIBUTION_SPECIAL_REQUEST")
+        self.assertContains(numbering_response, "Minimum digit urutan")
+        self.assertNotContains(numbering_response, "{parent}")
+        self.assertContains(numbering_response, "data-numbering-preview", count=10)
+        self.assertContains(numbering_response, "bi-info-circle")
+        self.assertContains(
+            numbering_response,
+            f"js/system-settings.js?v={settings.APP_VERSION}-20260922b",
+        )
+        self.assertNotContains(numbering_response, "facility_name")
+        self.assertNotContains(numbering_response, "last_value")
+
+    def test_admin_can_update_rule_format_without_exposing_counter(self):
+        user = User.objects.create_superuser(
+            username="settings-numbering-admin",
+            email="settings-numbering-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(user)
+        rules = list(DocumentNumberRule.objects.order_by("label", "key"))
+        data = {
+            "numbering_rules-TOTAL_FORMS": str(len(rules)),
+            "numbering_rules-INITIAL_FORMS": str(len(rules)),
+            "numbering_rules-MIN_NUM_FORMS": "0",
+            "numbering_rules-MAX_NUM_FORMS": "1000",
+        }
+        for index, rule in enumerate(rules):
+            data[f"numbering_rules-{index}-id"] = str(rule.pk)
+            data[f"numbering_rules-{index}-template"] = (
+                "SBBK/{year}/{seq}"
+                if rule.key == DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+                else rule.template
+            )
+            data[f"numbering_rules-{index}-reset_period"] = rule.reset_period
+            data[f"numbering_rules-{index}-padding"] = str(rule.padding)
+
+        response = self.client.post(reverse("numbering_settings"), data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("numbering_settings"))
+        rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.DISTRIBUTION_LPLPO
+        )
+        self.assertEqual(rule.template, "SBBK/{year}/{seq}")
+
+    def test_invalid_numbering_rule_is_rejected_without_saving(self):
+        user = User.objects.create_superuser(
+            username="settings-numbering-invalid-admin",
+            email="settings-numbering-invalid-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(user)
+        rules = list(DocumentNumberRule.objects.order_by("label", "key"))
+        stock_opname_rule = next(
+            rule
+            for rule in rules
+            if rule.key == DocumentNumberRule.Key.STOCK_OPNAME
+        )
+        original_template = stock_opname_rule.template
+        data = {
+            "numbering_rules-TOTAL_FORMS": str(len(rules)),
+            "numbering_rules-INITIAL_FORMS": str(len(rules)),
+            "numbering_rules-MIN_NUM_FORMS": "0",
+            "numbering_rules-MAX_NUM_FORMS": "1000",
+        }
+        for index, rule in enumerate(rules):
+            data[f"numbering_rules-{index}-id"] = str(rule.pk)
+            data[f"numbering_rules-{index}-template"] = (
+                "SO-{seq}"
+                if rule.key == DocumentNumberRule.Key.STOCK_OPNAME
+                else rule.template
+            )
+            data[f"numbering_rules-{index}-reset_period"] = rule.reset_period
+            data[f"numbering_rules-{index}-padding"] = str(rule.padding)
+
+        response = self.client.post(reverse("numbering_settings"), data)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Preview Rule")
-        self.assertContains(response, "440/12/SBBK.RF/2026")
-        self.assertContains(response, "440/12/KD.F/2026")
+        self.assertContains(response, "Rule bulanan harus memuat")
+        stock_opname_rule.refresh_from_db()
+        self.assertEqual(stock_opname_rule.template, original_template)
 
     def test_admin_user_logo_upload_is_audit_logged(self):
         user = User.objects.create_superuser(
@@ -1333,8 +1471,6 @@ class SystemSettingsAccessTests(TestCase):
                     "facility_address": "",
                     "facility_phone": "",
                     "header_title": "Dinas Kesehatan",
-                    "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                    "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
                     "logo": SimpleUploadedFile(
                         "audit-logo.png",
                         image_buffer.read(),
@@ -1364,8 +1500,6 @@ class SystemSettingsAccessTests(TestCase):
                     "facility_address": "",
                     "facility_phone": "",
                     "header_title": "Dinas Kesehatan",
-                    "lplpo_distribution_number_template": "440/{seq}/SBBK.RF/{year}",
-                    "special_request_distribution_number_template": "440/{seq}/KD.F/{year}",
                     "logo": SimpleUploadedFile(
                         'bad"\nlogo.png',
                         b"not-a-real-image",
@@ -1711,6 +1845,61 @@ class NavNotificationsContextProcessorTests(TestCase):
 
         self.assertEqual(context["nav_notification_count"], 0)
         self.assertEqual(context["nav_notification_items"], [])
+
+    def test_special_request_notifications_exclude_allocation_children(self):
+        operator_user = User.objects.create_user(
+            username="nav-distribution-operator",
+            password="TestPassword123!",
+            role=User.Role.ADMIN_UMUM,
+        )
+        self._set_scope(
+            operator_user,
+            ModuleAccess.Module.DISTRIBUTION,
+            ModuleAccess.Scope.OPERATE,
+        )
+        self._set_scope(
+            operator_user,
+            ModuleAccess.Module.ALLOCATION,
+            ModuleAccess.Scope.NONE,
+        )
+        facility = Facility.objects.create(
+            code="PKM-NAV-DIST",
+            name="Puskesmas NAV Distribution",
+        )
+        allocation = Allocation.objects.create(
+            allocation_date=date(2026, 4, 1),
+            created_by=operator_user,
+        )
+        Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date=date(2026, 4, 1),
+            facility=facility,
+            status=Distribution.Status.VERIFIED,
+            created_by=operator_user,
+        )
+        Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            request_date=date(2026, 4, 1),
+            facility=facility,
+            status=Distribution.Status.VERIFIED,
+            allocation=allocation,
+            created_by=operator_user,
+        )
+        request = self.factory.get("/")
+        request.user = operator_user
+
+        context = nav_notifications(request)
+
+        special_request_notification = next(
+            item
+            for item in context["nav_notification_items"]
+            if item["label"] == "Distribusi Permintaan Khusus"
+        )
+        self.assertEqual(special_request_notification["count"], 1)
+        self.assertEqual(
+            special_request_notification["url"],
+            reverse("distribution:special_request_list"),
+        )
 
     def test_verified_regular_receiving_does_not_show_when_only_plan_is_actionable(self):
         operator_user = User.objects.create_user(

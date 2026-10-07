@@ -10,6 +10,8 @@ from django.db import DatabaseError, transaction
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.core.models import DocumentNumberRule
+from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock
 from apps.users.access import has_module_scope
 from apps.users.models import ModuleAccess
@@ -112,7 +114,8 @@ def opname_create(request):
             opname.save()
             form.save_m2m()
             messages.success(
-                request, f"Stock Opname {opname.document_number} berhasil dibuat."
+                request,
+                "Draft Stock Opname berhasil dibuat. Nomor dokumen akan diterbitkan saat dimulai.",
             )
             return redirect("stock_opname:opname_detail", pk=opname.pk)
     else:
@@ -132,21 +135,32 @@ def opname_create(request):
 @perm_required("stock_opname.change_stockopname")
 def opname_edit(request, pk):
     opname = get_object_or_404(StockOpname, pk=pk)
-    # F14: Only DRAFT opnames may have their header edited; once a snapshot
-    # has been taken (IN_PROGRESS) the category list is locked to match it.
-    if opname.status != StockOpname.Status.DRAFT:
-        messages.error(request, "Hanya Stock Opname berstatus Draft yang dapat diubah.")
-        return redirect("stock_opname:opname_detail", pk=opname.pk)
 
     if request.method == "POST":
-        form = StockOpnameForm(request.POST, instance=opname)
-        if form.is_valid():
-            form.save()
-            messages.success(
-                request, f"Stock Opname {opname.document_number} berhasil diperbarui."
+        with transaction.atomic():
+            opname = StockOpname.objects.select_for_update().get(pk=pk)
+            # Only DRAFT opnames may have their header edited; once a snapshot
+            # has been taken (IN_PROGRESS) the category list is locked to match it.
+            if opname.status != StockOpname.Status.DRAFT:
+                messages.error(
+                    request, "Hanya Stock Opname berstatus Draft yang dapat diubah."
+                )
+                return redirect("stock_opname:opname_detail", pk=opname.pk)
+
+            form = StockOpnameForm(request.POST, instance=opname)
+            if form.is_valid():
+                form.save()
+                messages.success(
+                    request,
+                    f"Stock Opname {opname.document_number or 'draft'} berhasil diperbarui.",
+                )
+                return redirect("stock_opname:opname_detail", pk=opname.pk)
+    else:
+        if opname.status != StockOpname.Status.DRAFT:
+            messages.error(
+                request, "Hanya Stock Opname berstatus Draft yang dapat diubah."
             )
             return redirect("stock_opname:opname_detail", pk=opname.pk)
-    else:
         form = StockOpnameForm(instance=opname)
 
     return render(
@@ -154,7 +168,7 @@ def opname_edit(request, pk):
         "stock_opname/opname_form.html",
         {
             "form": form,
-            "title": f"Edit Stock Opname — {opname.document_number}",
+            "title": f"Edit Stock Opname — {opname.document_number or 'draft'}",
         },
     )
 
@@ -260,6 +274,13 @@ def opname_start(request, pk):
                 )
                 return redirect("stock_opname:opname_detail", pk=opname.pk)
 
+            issue_document_number(
+                DocumentNumberRule.Key.STOCK_OPNAME,
+                business_date=opname.period_end,
+                target=opname,
+                actor=request.user,
+            )
+
             selected_category_ids = list(
                 opname.categories.values_list("pk", flat=True)
             )
@@ -297,6 +318,9 @@ def opname_start(request, pk):
             f"Stock Opname dimulai. {len(opname_items)} item stok berhasil di-snapshot.",
         )
         return redirect("stock_opname:opname_detail", pk=opname.pk)
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+        return redirect("stock_opname:opname_detail", pk=pk)
     except DatabaseError:
         logger.exception(
             "Failed to start stock opname snapshot",
@@ -682,7 +706,21 @@ def opname_delete(request, pk):
 
     if request.method == "POST":
         doc_num = opname.document_number
-        opname.delete()
+        with transaction.atomic():
+            opname = get_object_or_404(
+                StockOpname.objects.select_for_update(),
+                pk=opname.pk,
+                status__in=[
+                    StockOpname.Status.DRAFT,
+                    StockOpname.Status.IN_PROGRESS,
+                ],
+            )
+            void_document_number(
+                opname,
+                actor=request.user,
+                reason="Stock opname dihapus sebelum selesai.",
+            )
+            opname.delete()
         messages.success(request, f"Stock Opname {doc_num} berhasil dihapus.")
         return redirect("stock_opname:opname_list")
 

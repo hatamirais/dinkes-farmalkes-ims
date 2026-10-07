@@ -1829,7 +1829,7 @@ def request_approve(request, pk):
     messages.success(
         request,
         f"Permintaan {req.document_number} disetujui. "
-        f"Distribusi {dist.document_number} telah dibuat sebagai Draft.",
+        f"Distribusi {dist.display_identifier} telah dibuat sebagai Draft.",
     )
     return redirect("puskesmas:request_detail", pk=pk)
 

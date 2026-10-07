@@ -1883,6 +1883,18 @@ class StockTransferItemInline(admin.TabularInline):
     extra = 0
     autocomplete_fields = ("stock", "item")
 
+    def _parent_is_draft(self, obj):
+        return obj is None or obj.status == StockTransfer.Status.DRAFT
+
+    def has_add_permission(self, request, obj=None):
+        return super().has_add_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and self._parent_is_draft(obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and self._parent_is_draft(obj)
+
 
 @admin.register(StockTransfer)
 class StockTransferAdmin(admin.ModelAdmin):
@@ -1901,3 +1913,15 @@ class StockTransferAdmin(admin.ModelAdmin):
         "destination_location__name",
     )
     inlines = [StockTransferItemInline]
+    readonly_fields = ("document_number", "status", "completed_by", "completed_at")
+    actions = None
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.status != StockTransfer.Status.DRAFT:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.status != StockTransfer.Status.DRAFT:
+            return False
+        return super().has_delete_permission(request, obj)

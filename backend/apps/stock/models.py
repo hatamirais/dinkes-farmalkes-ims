@@ -348,7 +348,13 @@ class StockTransfer(TimeStampedModel):
         DRAFT = "DRAFT", "Draft"
         COMPLETED = "COMPLETED", "Selesai"
 
-    document_number = models.CharField(max_length=50, unique=True)
+    document_number = models.CharField(
+        max_length=100,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Diterbitkan otomatis saat mutasi diselesaikan.",
+    )
     transfer_date = models.DateField(default=timezone.now)
     source_location = models.ForeignKey(
         "items.Location",
@@ -382,25 +388,6 @@ class StockTransfer(TimeStampedModel):
         db_table = "stock_transfers"
         ordering = ["-transfer_date", "-created_at"]
 
-    @staticmethod
-    def generate_document_number():
-        year = timezone.now().year
-        prefix = f"TRF-{year}-"
-        last = (
-            StockTransfer.objects.filter(document_number__startswith=prefix)
-            .order_by("-document_number")
-            .values_list("document_number", flat=True)
-            .first()
-        )
-        if last:
-            try:
-                num = int(last.split("-")[-1]) + 1
-            except (ValueError, IndexError):
-                num = 1
-        else:
-            num = 1
-        return f"{prefix}{num:05d}"
-
     def clean(self):
         from django.core.exceptions import ValidationError
 
@@ -411,42 +398,6 @@ class StockTransfer(TimeStampedModel):
                         "destination_location": "Lokasi tujuan harus berbeda dari lokasi asal."
                     }
                 )
-
-    def save(self, *args, **kwargs):
-        from django.db import IntegrityError, transaction
-
-        auto_generated_document_number = not self.document_number
-        if auto_generated_document_number:
-            self.document_number = self.generate_document_number()
-
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                if auto_generated_document_number and transaction.get_connection().in_atomic_block:
-                    with transaction.atomic():
-                        super().save(*args, **kwargs)
-                else:
-                    super().save(*args, **kwargs)
-                return
-            except IntegrityError as exc:
-                error_message = " ".join(str(arg) for arg in exc.args)
-                constraint_name = (
-                    getattr(getattr(exc.__cause__, "diag", None), "constraint_name", "")
-                    or ""
-                )
-                if (
-                    auto_generated_document_number
-                    and attempt < max_retries - 1
-                    and (
-                        "document_number" in error_message
-                        or "document_number" in constraint_name
-                    )
-                ):
-                    # Regenerate and retry on duplicate document number
-                    self.document_number = self.generate_document_number()
-                else:
-                    raise
-
 
 class StockTransferItem(models.Model):
     transfer = models.ForeignKey(

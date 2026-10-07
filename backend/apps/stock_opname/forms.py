@@ -41,6 +41,11 @@ class StockOpnameForm(forms.ModelForm):
                 active_qs = (active_qs | current_assignees).distinct()
         self.fields['assigned_to'].queryset = active_qs.order_by('full_name', 'username')
         self.fields['categories'].required = True
+        if self.instance.pk and self.instance.document_number:
+            self.fields['period_end'].disabled = True
+            self.fields['period_end'].help_text = (
+                'Tanggal selesai dikunci setelah nomor dokumen diterbitkan.'
+            )
 
         # F9: crispy-forms helper — renders via {% crispy form %} in the template.
         self.helper = FormHelper()

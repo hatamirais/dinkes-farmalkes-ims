@@ -1,104 +1,305 @@
-import re
+import unicodedata
+from datetime import date, datetime
+
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-
-def get_template_from_settings(field_name, default_template=None):
-    """Retrieve a document-number template from SystemSettings or return default."""
-    from apps.core.models import SystemSettings
-
-    settings = SystemSettings.get_settings()
-    return getattr(settings, field_name, None) or default_template
-
-
-def _build_template_pattern(template):
-    escaped_template = re.escape(template)
-    escaped_template = escaped_template.replace(re.escape("{seq}"), r"(?P<sequence>\d+)")
-    escaped_template = escaped_template.replace(re.escape("{year}"), r"(?P<year>\d{4})")
-    return re.compile(rf"^{escaped_template}$")
+from apps.core.models import (
+    DocumentNumberIssue,
+    DocumentNumberRule,
+    DocumentNumberSequence,
+    MAX_DOCUMENT_NUMBER_LENGTH,
+)
 
 
-def _render_document_number(template, sequence, year):
-    return template.format(seq=sequence, year=year)
+class DocumentNumberingError(ValidationError):
+    pass
 
 
-def render_document_number_preview(
+def _normalize_business_date(value):
+    if isinstance(value, str):
+        try:
+            value = date.fromisoformat(value)
+        except ValueError as exc:
+            raise DocumentNumberingError("Tanggal bisnis dokumen tidak valid.") from exc
+    if isinstance(value, datetime):
+        value = timezone.localdate(value) if timezone.is_aware(value) else value.date()
+    if not isinstance(value, date):
+        raise DocumentNumberingError("Tanggal bisnis dokumen wajib diisi.")
+    if not 1000 <= value.year <= 9999:
+        raise DocumentNumberingError("Tahun tanggal bisnis harus antara 1000 dan 9999.")
+    return value
+
+
+def _normalize_scope_key(value):
+    normalized = unicodedata.normalize("NFC", str(value or "").strip())
+    if "\x00" in normalized:
+        raise DocumentNumberingError("Scope penomoran tidak valid.")
+    if len(normalized) > 191:
+        raise DocumentNumberingError("Scope penomoran terlalu panjang.")
+    return normalized
+
+
+def _period_key(rule, business_date):
+    if rule.reset_period == DocumentNumberRule.ResetPeriod.MONTHLY:
+        return business_date.strftime("%Y%m")
+    if rule.reset_period == DocumentNumberRule.ResetPeriod.YEARLY:
+        return business_date.strftime("%Y")
+    return ""
+
+
+def render_document_number(rule, sequence, business_date):
+    business_date = _normalize_business_date(business_date)
+    context = {
+        "seq": str(sequence).zfill(rule.padding),
+        "year": business_date.strftime("%Y"),
+        "month": business_date.strftime("%m"),
+    }
+    try:
+        number = rule.template.format(**context)
+    except (KeyError, ValueError) as exc:
+        raise DocumentNumberingError(
+            f"Template rule {rule.key} tidak dapat dirender."
+        ) from exc
+    if not number or len(number) > MAX_DOCUMENT_NUMBER_LENGTH:
+        raise DocumentNumberingError(
+            "Hasil nomor dokumen kosong atau melebihi "
+            f"{MAX_DOCUMENT_NUMBER_LENGTH} karakter."
+        )
+    return number
+
+
+def _locked_sequence(rule, period_key, scope_key):
+    try:
+        with transaction.atomic():
+            DocumentNumberSequence.objects.create(
+                rule=rule,
+                period_key=period_key,
+                scope_key=scope_key,
+                last_value=0,
+            )
+    except IntegrityError:
+        pass
+    return DocumentNumberSequence.objects.select_for_update().get(
+        rule=rule,
+        period_key=period_key,
+        scope_key=scope_key,
+    )
+
+
+def _reuse_existing_issue(
+    existing,
     *,
-    template=None,
-    template_field_name=None,
-    template_default=None,
-    sequence="12",
-    year=None,
+    rule_key,
+    business_date,
+    scope_key,
+    target,
 ):
-    if template is None and template_field_name is None:
-        return None
-    if template is None and template_field_name:
-        template = get_template_from_settings(template_field_name, template_default)
-    if template is None:
-        return None
-    year = str(year or timezone.now().year)
-    return _render_document_number(template, sequence, year)
+    if existing.rule.key != rule_key:
+        raise DocumentNumberingError(
+            "Dokumen ini sudah memakai rule penomoran yang berbeda."
+        )
+    if existing.business_date != business_date:
+        raise DocumentNumberingError(
+            "Tanggal bisnis dokumen bernomor tidak boleh diubah."
+        )
+    if existing.scope_key != scope_key:
+        raise DocumentNumberingError(
+            "Scope dokumen bernomor tidak boleh diubah."
+        )
+    if target.document_number != existing.document_number:
+        target.document_number = existing.document_number
+        update_fields = ["document_number"]
+        if hasattr(target, "updated_at"):
+            update_fields.append("updated_at")
+        target.save(update_fields=update_fields)
+    return existing
 
 
-def generate_document_number(
-    model_class,
+def _document_number_taken(rule_key, document_number):
+    number_taken = DocumentNumberIssue.objects.filter(
+        document_number=document_number,
+    ).exists()
+    if not number_taken:
+        from apps.distribution.models import Distribution
+
+        # These retired workflow types are intentionally retained as historical
+        # rows but have no active numbering rule and were not ledger-backfilled.
+        # Their official numbers must still remain globally reserved.
+        number_taken = Distribution.objects.filter(
+            distribution_type__in=("BORROW_RS", "SWAP_RS"),
+            document_number=document_number,
+        ).exists()
+    if rule_key == DocumentNumberRule.Key.RECEIVING:
+        from apps.stock.models import OpeningBalanceImport, SourceDocumentNumberClaim
+
+        number_taken = number_taken or (
+            SourceDocumentNumberClaim.objects.filter(
+                document_number=document_number
+            ).exists()
+            or OpeningBalanceImport.objects.filter(
+                document_number=document_number
+            ).exists()
+        )
+    return number_taken
+
+
+@transaction.atomic
+def issue_document_number(
+    rule_key,
     *,
-    template=None,
-    template_field_name=None,
-    template_default=None,
-    filter_kwargs=None,
-    year=None,
-    fallback_prefix=None,
+    business_date,
+    target,
+    actor=None,
+    scope_key="",
 ):
-    """
-    Generic document-number generator.
+    """Issue once for a saved target and assign its ``document_number`` field."""
+    if target.pk is None:
+        raise DocumentNumberingError("Dokumen harus disimpan sebelum nomor diterbitkan.")
 
-    - If a template (or template_field_name) is provided, find the next sequence
-      by scanning existing `document_number` values on `model_class` filtered
-      by `filter_kwargs`.
-    - If no template is available, fall back to a time-based prefix (e.g.
-      `PREFIX-YYYYMM-XXXXX`) and increment the trailing sequence.
-    """
-    # Resolve template
-    if template is None and template_field_name:
-        template = get_template_from_settings(template_field_name, template_default)
-
-    # Template-based numbering
-    if template:
-        year = str(year or timezone.now().year)
-        pattern = _build_template_pattern(template)
-        matching_numbers = model_class.objects.filter(**(filter_kwargs or {})).values_list("document_number", flat=True)
-
-        current_max = 0
-        for document_number in matching_numbers:
-            match = pattern.fullmatch(document_number or "")
-            if not match:
-                continue
-            if match.group("year") != year:
-                continue
-            try:
-                current_max = max(current_max, int(match.group("sequence")))
-            except (TypeError, ValueError):
-                continue
-
-        next_sequence = current_max + 1
-        return _render_document_number(template, next_sequence, year)
-
-    # Fallback prefix-based numbering
-    year_month = timezone.now().strftime("%Y%m")
-    prefix = fallback_prefix or f"DOC-{year_month}"
-    prefix_with_dash = f"{prefix}-"
-
-    last = (
-        model_class.objects.filter(document_number__startswith=prefix_with_dash)
-        .order_by("-document_number")
+    business_date = _normalize_business_date(business_date)
+    scope_key = _normalize_scope_key(scope_key)
+    content_type = ContentType.objects.get_for_model(target, for_concrete_model=False)
+    existing = (
+        DocumentNumberIssue.objects.select_for_update()
+        .filter(content_type=content_type, object_id=target.pk)
         .first()
     )
-    if last:
-        try:
-            sequence = int(last.document_number.split("-")[-1]) + 1
-        except (TypeError, ValueError, IndexError):
-            sequence = 1
-    else:
-        sequence = 1
+    if existing:
+        return _reuse_existing_issue(
+            existing,
+            rule_key=rule_key,
+            business_date=business_date,
+            scope_key=scope_key,
+            target=target,
+        )
 
-    return f"{prefix}-{str(sequence).zfill(5)}"
+    if getattr(target, "document_number", None):
+        raise DocumentNumberingError(
+            "Dokumen sudah memiliki nomor tanpa catatan penerbitan."
+        )
+
+    try:
+        rule = DocumentNumberRule.objects.select_for_update().get(key=rule_key)
+    except DocumentNumberRule.DoesNotExist as exc:
+        raise DocumentNumberingError(
+            f"Rule penomoran {rule_key} belum dikonfigurasi."
+        ) from exc
+    rule.full_clean()
+
+    period_key = _period_key(rule, business_date)
+    sequence = _locked_sequence(rule, period_key, scope_key)
+    sequence.last_value += 1
+    while True:
+        document_number = render_document_number(
+            rule,
+            sequence.last_value,
+            business_date,
+        )
+        if _document_number_taken(rule_key, document_number):
+            sequence.last_value += 1
+            continue
+        try:
+            with transaction.atomic():
+                issue = DocumentNumberIssue.objects.create(
+                    rule=rule,
+                    document_number=document_number,
+                    sequence_value=sequence.last_value,
+                    period_key=period_key,
+                    scope_key=scope_key,
+                    business_date=business_date,
+                    content_type=content_type,
+                    object_id=target.pk,
+                    target_label=f"{target._meta.label} #{target.pk}",
+                    rule_label_snapshot=rule.label,
+                    template_snapshot=rule.template,
+                    reset_period_snapshot=rule.reset_period,
+                    padding_snapshot=rule.padding,
+                    issued_by=actor,
+                    issued_at=timezone.now(),
+                )
+        except IntegrityError:
+            concurrent_existing = (
+                DocumentNumberIssue.objects.select_for_update()
+                .filter(content_type=content_type, object_id=target.pk)
+                .first()
+            )
+            if concurrent_existing:
+                return _reuse_existing_issue(
+                    concurrent_existing,
+                    rule_key=rule_key,
+                    business_date=business_date,
+                    scope_key=scope_key,
+                    target=target,
+                )
+            if _document_number_taken(rule_key, document_number):
+                sequence.last_value += 1
+                continue
+            raise
+        break
+    sequence.save(update_fields=["last_value", "updated_at"])
+
+    target.document_number = document_number
+    update_fields = ["document_number"]
+    if hasattr(target, "updated_at"):
+        update_fields.append("updated_at")
+    target.save(update_fields=update_fields)
+    return issue
+
+
+@transaction.atomic
+def void_document_number(target, *, actor=None, reason):
+    reason = unicodedata.normalize("NFC", (reason or "").strip())
+    if not reason:
+        raise DocumentNumberingError("Alasan pembatalan nomor dokumen wajib diisi.")
+    content_type = ContentType.objects.get_for_model(target, for_concrete_model=False)
+    issue = (
+        DocumentNumberIssue.objects.select_for_update()
+        .filter(content_type=content_type, object_id=target.pk)
+        .first()
+    )
+    if issue is None or issue.status == DocumentNumberIssue.Status.VOID:
+        return issue
+    issue.status = DocumentNumberIssue.Status.VOID
+    issue.voided_by = actor
+    issue.voided_at = timezone.now()
+    issue.void_reason = reason
+    issue.save(
+        update_fields=["status", "voided_by", "voided_at", "void_reason", "updated_at"]
+    )
+    return issue
+
+
+def preview_document_number(
+    rule_key,
+    *,
+    business_date,
+    scope_key="",
+):
+    """Return a non-reserving estimate; concurrent issuance may change it."""
+    business_date = _normalize_business_date(business_date)
+    scope_key = _normalize_scope_key(scope_key)
+    rule = DocumentNumberRule.objects.get(key=rule_key)
+    period_key = _period_key(rule, business_date)
+    last_value = (
+        DocumentNumberSequence.objects.filter(
+            rule=rule,
+            period_key=period_key,
+            scope_key=scope_key,
+        )
+        .values_list("last_value", flat=True)
+        .first()
+        or 0
+    )
+    sequence_value = last_value + 1
+    while True:
+        document_number = render_document_number(
+            rule,
+            sequence_value,
+            business_date,
+        )
+        if not _document_number_taken(rule_key, document_number):
+            return document_number
+        sequence_value += 1

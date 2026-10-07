@@ -8,6 +8,7 @@ from apps.core.rate_limits import login_ratelimit
 from apps.core.forms import CrispyAuthenticationForm
 from apps.users.views import RateLimitedPasswordChangeView
 from apps.core.views import (
+    DocumentNumberSettingsUpdateView,
     SystemSettingsUpdateView,
     bad_request,
     dashboard,
@@ -22,6 +23,11 @@ urlpatterns = [
     # Dashboard (root)
     path("", dashboard, name="dashboard"),
     path("settings/", SystemSettingsUpdateView.as_view(), name="settings"),
+    path(
+        "settings/numbering/",
+        DocumentNumberSettingsUpdateView.as_view(),
+        name="numbering_settings",
+    ),
     path("maintenance/", maintenance_mode, name="maintenance_mode"),
 
     # Auth

@@ -22,7 +22,7 @@
         <div>
             <strong>{{ req.get_status_display }}</strong>
             {% if req.status == 'APPROVED' and req.distribution %}
-            — Distribusi <a href="{% url 'distribution:distribution_detail' req.distribution.pk %}" class="alert-link">{{ req.distribution.document_number }}</a> telah dibuat.
+            — Distribusi <a href="{% url 'distribution:distribution_detail' req.distribution.pk %}" class="alert-link">{{ req.distribution.display_identifier }}</a> telah dibuat.
             {% elif req.status == 'REJECTED' and req.rejection_reason %}
             — Alasan: {{ req.rejection_reason }}
             {% endif %}
@@ -233,7 +233,7 @@
                     {% elif req.status == 'APPROVED' and req.distribution %}
                     <a href="{% url 'distribution:distribution_detail' req.distribution.pk %}"
                         class="btn btn-outline-success w-100" id="view-distribution-btn">
-                        <i class="bi bi-send me-1"></i>Lihat Distribusi {{ req.distribution.document_number }}
+                        <i class="bi bi-send me-1"></i>Lihat Distribusi {{ req.distribution.display_identifier }}
                     </a>
                     {% endif %}
 
