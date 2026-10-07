@@ -26,6 +26,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Prevented new document-number previews and issuance across every rule from reusing numbers retained by historical `BORROW_RS` and `SWAP_RS` Distribution rows.
 - Replaced blank or `None` Distribution references in LPLPO and Puskesmas draft creation messages and links with a stable `Draft #<id>` label until the official number is issued.
 - Prevented migrated Allocation numbering history from attributing a retained legacy number to the latest submitter and submission time after rejection, reset, or resubmission; unverifiable original issuance metadata now remains explicitly unknown.
 - Preserved legal cross-workflow legacy document-number collisions during migration by explicitly marking grandfathered ledger rows instead of blocking deployment or rewriting official history, while retaining global uniqueness enforcement for all new issuance.

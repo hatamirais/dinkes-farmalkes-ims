@@ -122,6 +122,16 @@ def _document_number_taken(rule_key, document_number):
     number_taken = DocumentNumberIssue.objects.filter(
         document_number=document_number,
     ).exists()
+    if not number_taken:
+        from apps.distribution.models import Distribution
+
+        # These retired workflow types are intentionally retained as historical
+        # rows but have no active numbering rule and were not ledger-backfilled.
+        # Their official numbers must still remain globally reserved.
+        number_taken = Distribution.objects.filter(
+            distribution_type__in=("BORROW_RS", "SWAP_RS"),
+            document_number=document_number,
+        ).exists()
     if rule_key == DocumentNumberRule.Key.RECEIVING:
         from apps.stock.models import OpeningBalanceImport, SourceDocumentNumberClaim
 

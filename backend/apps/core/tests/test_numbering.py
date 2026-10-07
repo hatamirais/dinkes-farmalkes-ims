@@ -21,9 +21,12 @@ from apps.core.models import (
 from apps.core.numbering import (
     DocumentNumberingError,
     issue_document_number,
+    preview_document_number,
     render_document_number,
     void_document_number,
 )
+from apps.distribution.models import Distribution
+from apps.items.models import Facility
 from apps.users.models import User
 
 
@@ -316,6 +319,56 @@ class DocumentNumberIssuanceTests(TestCase):
         self.assertEqual(
             DocumentNumberIssue.objects.values("document_number").distinct().count(),
             2,
+        )
+
+    def test_retired_distribution_numbers_remain_globally_reserved(self):
+        allocation_rule = DocumentNumberRule.objects.get(
+            key=DocumentNumberRule.Key.ALLOCATION,
+        )
+        allocation_rule.template = "DIST-{year}{month}-{seq}"
+        allocation_rule.reset_period = DocumentNumberRule.ResetPeriod.MONTHLY
+        allocation_rule.padding = 5
+        allocation_rule.save(
+            update_fields=["template", "reset_period", "padding", "updated_at"]
+        )
+        facility = Facility.objects.create(
+            code="LEGACY-RS",
+            name="Legacy RS",
+            facility_type=Facility.FacilityType.RS,
+        )
+        for sequence_value, distribution_type in enumerate(
+            ("BORROW_RS", "SWAP_RS"),
+            start=1,
+        ):
+            Distribution.objects.create(
+                document_number=f"DIST-202604-{sequence_value:05d}",
+                distribution_type=distribution_type,
+                request_date=date(2026, 4, sequence_value),
+                facility=facility,
+                created_by=self.user,
+            )
+
+        preview = preview_document_number(
+            DocumentNumberRule.Key.ALLOCATION,
+            business_date=date(2026, 4, 3),
+        )
+        allocation = self._allocation(date(2026, 4, 3))
+        issue = issue_document_number(
+            DocumentNumberRule.Key.ALLOCATION,
+            business_date=allocation.allocation_date,
+            target=allocation,
+            actor=self.user,
+        )
+
+        self.assertEqual(preview, "DIST-202604-00003")
+        self.assertEqual(issue.document_number, "DIST-202604-00003")
+        self.assertEqual(
+            DocumentNumberSequence.objects.get(
+                rule=allocation_rule,
+                period_key="202604",
+                scope_key="",
+            ).last_value,
+            3,
         )
 
     def test_existing_issue_rejects_changed_business_date(self):

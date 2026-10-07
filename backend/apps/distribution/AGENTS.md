@@ -58,6 +58,7 @@ App-specific guidance for outbound distribution workflows.
 - Edit POSTs lock and reload the parent before binding forms, then recheck the live status, Allocation restriction, and object-level preparation authorization in the same transaction so stale Draft edits cannot overwrite a concurrent submission.
 - Once issued, `request_date` remains locked through rejection/reset/step-back states so the workflow cannot diverge from its numbering-ledger business date.
 - Rule template/reset/padding are configured centrally on `/settings/numbering/`; counters remain internal and issued values are never reused.
+- Retired `BORROW_RS` and `SWAP_RS` rows remain historical-only and outside active rule/ledger backfills, but every nonblank number on those rows is a global reservation that preview and issuance must skip.
 - Django Admin keeps lifecycle fields read-only, locks Distribution headers/items after Draft, and disables deletion; workflow transitions and deletion must use the application services.
 - Numbering migration must preserve nonblank numbers on legacy `DRAFT` / `PREPARED` rows because submitted documents can be stepped back without voiding their issued number; genuinely unnumbered drafts remain unissued.
 

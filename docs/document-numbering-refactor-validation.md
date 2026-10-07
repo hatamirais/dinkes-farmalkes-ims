@@ -33,6 +33,7 @@ Catatan: angka di atas adalah suite yang relevan terhadap refactor, bukan klaim 
 - Nomor diterbitkan di dalam transaksi database yang sama dengan checkpoint workflow.
 - Nomor yang pernah diterbitkan tidak boleh digunakan kembali, termasuk setelah dokumen dihapus atau dibatalkan.
 - Nilai nomor dokumen baru unik secara global lintas rule. Jika dua rule merender kandidat yang sama, penerbitan berikutnya melewati nilai yang sudah tercatat, termasuk issue berstatus `VOID`; constraint database dan retry melindungi penerbitan konkuren. Konflik lintas workflow yang sudah sah pada skema lama tidak menghalangi migrasi atau diubah diam-diam: satu issue dipertahankan sebagai canonical, salinan berikutnya ditandai `is_legacy_duplicate`, dan semua nilainya tetap dianggap terpakai.
+- Baris Distribusi historis bertipe pensiun `BORROW_RS` / `SWAP_RS` tidak dipetakan secara palsu ke rule aktif atau ledger penerbitan, tetapi nomor nonblank-nya tetap menjadi reservasi global yang wajib dilewati oleh preview dan penerbitan setiap rule.
 - Template Distribusi lama yang masih valid dipertahankan saat migrasi. Template lama yang tidak memenuhi kontrak token atau batas panjang saat urutan mencapai 19 digit diganti dengan default aman untuk rule terkait.
 - Draft baru tidak memperoleh nomor sebelum checkpoint yang ditentukan.
 - Form operasional dan Django Admin tidak menerima override nomor resmi untuk workflow yang masuk cakupan.
@@ -128,6 +129,7 @@ Gunakan database development yang dapat direset. Catat nilai awal sebelum mengub
 - [ ] Pemanggilan ulang penerbitan dengan tanggal bisnis atau scope berbeda ditolak tanpa mengubah issue maupun counter. Catatan: `____________________`
 - [ ] Dokumen dengan tanggal bisnis pada period berbeda mulai kembali dari sequence pertama untuk rule yang reset. Catatan: `____________________`
 - [ ] Nomor yang di-VOID tidak digunakan kembali oleh dokumen berikutnya. Catatan: `____________________`
+- [ ] Preview dan penerbitan melewati nomor yang masih dimiliki Distribusi historis `BORROW_RS` / `SWAP_RS`, termasuk ketika kandidat berasal dari rule non-Distribusi. Catatan: `____________________`
 - [ ] Nomor resmi tidak dapat diketik atau diubah melalui form operasional. Catatan: `____________________`
 - [ ] Nomor resmi read-only pada Django Admin untuk model dalam cakupan. Catatan: `____________________`
 - [ ] Distribusi tidak dapat dihapus melalui Django Admin; penghapusan memakai workflow aplikasi agar nomor diterbitkan menjadi VOID. Catatan: `____________________`
