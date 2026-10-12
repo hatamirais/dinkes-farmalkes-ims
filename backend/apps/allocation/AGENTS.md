@@ -50,3 +50,4 @@ App-specific guidance for pre-distribution allocation planning.
 ## Permissions
 
 - Allocation is active and gated by `ModuleAccess` scopes like all other modules.
+- Allocation approval, rejection, and step-back accept an active Allocation-specific Acting Kepala delegation as an alternative approval basis. Delegation never bypasses the workflow-status checks, and its use must be recorded atomically in `AuthorityExercise`.

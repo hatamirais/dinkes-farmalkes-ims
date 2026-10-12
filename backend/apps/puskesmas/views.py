@@ -30,7 +30,14 @@ from apps.core.rate_limits import (
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.lplpo.models import LPLPO
-from apps.users.access import has_module_permission, has_module_scope, is_super_admin
+from apps.users.access import (
+    get_active_authority_delegation,
+    has_module_permission,
+    has_module_scope,
+    is_super_admin,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess, User
 from apps.items.models import Facility, Item
 
@@ -92,12 +99,18 @@ def _can_review_request(user):
     if getattr(user, "role", None) == "PUSKESMAS":
         return False
 
-    return has_module_permission(
-        user, "puskesmas.change_puskesmasrequest"
-    ) and has_module_scope(
-        user,
-        ModuleAccess.Module.PUSKESMAS,
-        ModuleAccess.Scope.APPROVE,
+    return (
+        has_module_permission(user, "puskesmas.change_puskesmasrequest")
+        and has_module_scope(
+            user,
+            ModuleAccess.Module.PUSKESMAS,
+            ModuleAccess.Scope.APPROVE,
+        )
+    ) or bool(
+        get_active_authority_delegation(
+            user,
+            ModuleAccess.Module.PUSKESMAS,
+        )
     )
 
 
@@ -1778,6 +1791,23 @@ def request_approve(request, pk):
 
     try:
         with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.PUSKESMAS,
+                role_gated=False,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Anda tidak memiliki wewenang persetujuan permintaan Puskesmas."
+                )
+            req = PuskesmasRequest.objects.select_for_update().get(pk=req.pk)
+            if req.status != PuskesmasRequest.Status.SUBMITTED:
+                messages.error(
+                    request,
+                    "Hanya permintaan berstatus Diajukan yang dapat disetujui.",
+                )
+                return redirect("puskesmas:request_detail", pk=pk)
             # Persist approved quantities
             for item_obj in req_items:
                 item_obj.quantity_approved = approved_data.get(item_obj.pk)
@@ -1821,7 +1851,17 @@ def request_approve(request, pk):
                     "status", "approved_by", "approved_at", "distribution", "updated_at"
                 ]
             )
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.PUSKESMAS,
+                action="approve_request",
+                target=req,
+                exercised_at=req.approved_at,
+            )
 
+    except PermissionDenied:
+        raise
     except Exception as exc:
         messages.error(request, f"Terjadi kesalahan saat menyetujui permintaan: {exc}")
         return redirect("puskesmas:request_detail", pk=pk)
@@ -1855,9 +1895,34 @@ def request_reject(request, pk):
         return redirect("puskesmas:request_detail", pk=pk)
 
     reason = request.POST.get("rejection_reason", "").strip()
-    req.status = PuskesmasRequest.Status.REJECTED
-    req.rejection_reason = reason
-    req.save(update_fields=["status", "rejection_reason", "updated_at"])
+    with transaction.atomic():
+        decision = resolve_approval_authority(
+            request.user,
+            ModuleAccess.Module.PUSKESMAS,
+            role_gated=False,
+            for_update=True,
+        )
+        if not decision.allowed:
+            raise PermissionDenied(
+                "Anda tidak memiliki wewenang penolakan permintaan Puskesmas."
+            )
+        req = PuskesmasRequest.objects.select_for_update().get(pk=req.pk)
+        if req.status != PuskesmasRequest.Status.SUBMITTED:
+            messages.error(
+                request, "Hanya permintaan berstatus Diajukan yang dapat ditolak."
+            )
+            return redirect("puskesmas:request_detail", pk=pk)
+        req.status = PuskesmasRequest.Status.REJECTED
+        req.rejection_reason = reason
+        req.save(update_fields=["status", "rejection_reason", "updated_at"])
+        record_authority_exercise(
+            decision,
+            actor=request.user,
+            module=ModuleAccess.Module.PUSKESMAS,
+            action="reject_request",
+            target=req,
+            exercised_at=req.updated_at,
+        )
     messages.success(request, f"Permintaan {req.document_number} ditolak.")
     return redirect("puskesmas:request_detail", pk=pk)
 

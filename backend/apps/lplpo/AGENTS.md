@@ -22,6 +22,7 @@ App-specific guidance for monthly LPLPO reports and stock requests.
 - Approved LPLPO documents that already spawned a draft distribution can be explicitly returned to `REJECTED_PUSKESMAS` only by cancelling that generated distribution before any stock distribution completes.
 - `Distribution(distribution_type=LPLPO)` is normally system-generated from PIC review submission in `lplpo_review`.
 - The legacy `lplpo_finalize` route remains only to finish older `REVIEWED` rows and should not be treated as the primary workflow path.
+- An active LPLPO-specific Acting Kepala delegation applies only to the legacy `REVIEWED` finalize/reject compatibility checkpoint. It does not create a new approval stage, bypass facility/stage visibility, or alter the normal PIC-driven path; delegated use must be recorded atomically in `AuthorityExercise`.
 
 ## Creation And Carry-Forward
 

@@ -38,6 +38,7 @@ App-specific guidance for receiving workflows.
 - SPJ-linked planned receiving leftovers must be corrected through procurement amendments rather than the receiving-side `Tutup Sisa` close-items action.
 - New no-contract planned receiving creation is disabled; `/receiving/plans/create/` redirects to the SPJ create flow.
 - Legacy manual `Receiving(is_planned=True, contract IS NULL)` rows remain readable and executable through receiving routes for compatibility.
+- Approval of a submitted legacy manual plan accepts an active Receiving-specific Acting Kepala delegation. The delegation does not apply to SPJ-linked plans and its use must be recorded atomically in `AuthorityExercise`.
 
 ## Attachments
 

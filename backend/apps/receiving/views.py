@@ -22,7 +22,11 @@ from apps.core.numbering import issue_document_number, void_document_number
 from apps.core.rate_limits import item_mutation_ratelimit, receiving_mutation_ratelimit
 from apps.core.upload_validation import sanitize_uploaded_filename
 from apps.stock.models import Stock, Transaction
-from apps.users.access import has_module_scope
+from apps.users.access import (
+    has_module_scope,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess, User
 from .models import (
     Receiving,
@@ -1003,10 +1007,41 @@ def receiving_plan_approve(request, pk):
         )
         return redirect("receiving:receiving_plan_detail", pk=pk)
 
-    receiving.status = Receiving.Status.APPROVED
-    receiving.approved_by = request.user
-    receiving.approved_at = timezone.now()
-    receiving.save(update_fields=["status", "approved_by", "approved_at", "updated_at"])
+    with transaction.atomic():
+        decision = resolve_approval_authority(
+            request.user,
+            ModuleAccess.Module.RECEIVING,
+            role_gated=False,
+            for_update=True,
+        )
+        if not decision.allowed:
+            raise PermissionDenied("Anda tidak memiliki wewenang persetujuan penerimaan.")
+        receiving = Receiving.objects.select_for_update().get(pk=receiving.pk)
+        if receiving.status != Receiving.Status.SUBMITTED:
+            messages.error(
+                request, "Hanya rencana penerimaan Diajukan yang dapat disetujui."
+            )
+            return redirect("receiving:receiving_plan_detail", pk=pk)
+        if receiving.contract_id:
+            messages.error(
+                request,
+                "Rencana penerimaan yang berasal dari SPJ tidak memerlukan persetujuan terpisah.",
+            )
+            return redirect("receiving:receiving_plan_detail", pk=pk)
+        receiving.status = Receiving.Status.APPROVED
+        receiving.approved_by = request.user
+        receiving.approved_at = timezone.now()
+        receiving.save(
+            update_fields=["status", "approved_by", "approved_at", "updated_at"]
+        )
+        record_authority_exercise(
+            decision,
+            actor=request.user,
+            module=ModuleAccess.Module.RECEIVING,
+            action="approve_plan",
+            target=receiving,
+            exercised_at=receiving.approved_at,
+        )
     messages.success(
         request, f"Rencana penerimaan {receiving.document_number} disetujui."
     )

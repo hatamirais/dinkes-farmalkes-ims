@@ -102,7 +102,7 @@ Module highlights:
   - Receipt-confirmation mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
   - Create/edit/delete is rate-limited by `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO lines. Opening or re-saving an editable LPLPO also refreshes same-month `penerimaan` and weighted `harga_satuan` when confirmed receipt-confirmation rows already exist.
 - Allocation: `/allocation/`, `/allocation/create/`, `/allocation/<pk>/`, `/allocation/<pk>/edit/`, `/allocation/<pk>/delete/`, `/allocation/<pk>/reset-to-draft/`, `/allocation/<pk>/submit/`, `/allocation/<pk>/approve/`, `/allocation/<pk>/step-back/`, `/allocation/<pk>/reject/`, `/allocation/<pk>/distributions/<dist_pk>/prepare/`, `/allocation/<pk>/distributions/<dist_pk>/deliver/`
-- Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`
+- Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`, `/users/acting-authority/new/`, `/users/acting-authority/<pk>/revoke/`
 
 ## 3) Permission and Access Model
 
@@ -131,6 +131,7 @@ Special rule:
 - `/settings/` and `/settings/numbering/` are explicit role-gated exceptions outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update their respective settings.
 - Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
 - Distribution and expired verification use the same explicit approver rule: superusers or role `ADMIN` / `KEPALA` with the relevant module scope at `APPROVE` or higher. Elevated scope alone does not authorize another role.
+- Active `ADMIN_UMUM` or `GUDANG` users may additionally exercise selected approval checkpoints through a current `AuthorityDelegation`. This delegated path is recognized only on views already marked as approval checkpoints (plus documented mixed-purpose legacy rejection branches), is rechecked inside the workflow transaction, and does not change the user's role, Django permissions, or module scope. Facility/object restrictions still apply.
 - `AUDITOR` retains read-only module scopes for direct authorized pages, but the global sidebar renders only the `Laporan` group for this role and the dashboard suppresses linked drill-through cards/sections that open operational menus.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
@@ -183,6 +184,15 @@ This section reflects model code in `backend/apps/*/models.py`.
   - `module` (enum)
   - `scope` (int enum)
   - Unique: `(user, module)`
+
+- `users.AuthorityDelegation` (`db_table=user_authority_delegations`)
+  - Finite `starts_at`/`ends_at`, one module, delegate, grantor, reason, and optional revocation actor/time/reason.
+  - Delegate roles are limited by the application to active `ADMIN_UMUM` / `GUDANG` accounts with at least `VIEW` on the delegated module.
+  - PostgreSQL exclusion constraint prevents overlapping non-revoked Kepala-approval delegations for the same module; adjacent half-open periods are allowed.
+
+- `users.AuthorityExercise` (`db_table=user_authority_exercises`)
+  - Append-only evidence for successful delegated workflow actions through a generic target relation.
+  - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, delegation-period, grantor, and reason snapshots used by historical rendering.
 
 ### 4.3 Master data and item registry
 

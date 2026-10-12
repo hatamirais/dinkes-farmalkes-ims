@@ -14,14 +14,25 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.core.decorators import module_scope_required, perm_required
+from apps.core.decorators import (
+    delegated_approval_fallback,
+    module_scope_required,
+    perm_required,
+)
 from apps.core.decimal_validation import format_price_input
 from apps.core.rate_limits import lplpo_import_ratelimit
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Facility, Item
 from apps.stock.models import Stock
-from apps.users.access import has_module_permission, has_module_scope, is_super_admin
+from apps.users.access import (
+    get_active_authority_delegation,
+    has_module_permission,
+    has_module_scope,
+    is_super_admin,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess, User
 
 from .forms import (
@@ -206,8 +217,18 @@ def _has_lplpo_operate_access(user):
 
 
 def _has_lplpo_approve_access(user):
-    return user.role != User.Role.PUSKESMAS and has_module_scope(
-        user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.APPROVE
+    return user.role != User.Role.PUSKESMAS and (
+        has_module_scope(
+            user,
+            ModuleAccess.Module.LPLPO,
+            ModuleAccess.Scope.APPROVE,
+        )
+        or bool(
+            get_active_authority_delegation(
+                user,
+                ModuleAccess.Module.LPLPO,
+            )
+        )
     )
 
 
@@ -1262,6 +1283,7 @@ def lplpo_verify(request, pk):
 
 @login_required
 @perm_required("lplpo.change_lplpo")
+@delegated_approval_fallback(ModuleAccess.Module.LPLPO)
 def lplpo_reject(request, pk):
     """Reject submitted LPLPO back to Puskesmas or reviewed LPLPO back to PIC."""
     denied = _check_instalasi_farmasi_access(request)
@@ -1285,6 +1307,7 @@ def lplpo_reject(request, pk):
         if denied:
             return denied
 
+        authority_decision = None
         if _can_admin_reject_lplpo(request.user, lplpo_obj):
             lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
             lplpo_obj.verified_by = None
@@ -1328,6 +1351,16 @@ def lplpo_reject(request, pk):
                 raise PermissionDenied(
                     "Anda tidak memiliki akses untuk menolak LPLPO ini."
                 )
+            authority_decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.LPLPO,
+                role_gated=False,
+                for_update=True,
+            )
+            if not authority_decision.allowed:
+                raise PermissionDenied(
+                    "Anda tidak memiliki wewenang untuk menolak LPLPO ini."
+                )
             lplpo_obj.status = LPLPO.Status.REJECTED_PIC
             lplpo_obj.approved_by = None
             lplpo_obj.approved_at = None
@@ -1354,6 +1387,15 @@ def lplpo_reject(request, pk):
 
         lplpo_obj.rejection_reason = form.cleaned_data["rejection_reason"]
         lplpo_obj.save(update_fields=update_fields)
+        if authority_decision is not None:
+            record_authority_exercise(
+                authority_decision,
+                actor=request.user,
+                module=ModuleAccess.Module.LPLPO,
+                action="reject_legacy",
+                target=lplpo_obj,
+                exercised_at=lplpo_obj.updated_at,
+            )
 
     messages.success(request, success_message)
     return redirect("lplpo:lplpo_detail", pk=pk)
@@ -1550,6 +1592,14 @@ def lplpo_finalize(request, pk):
 
     try:
         with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.LPLPO,
+                role_gated=False,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied("Anda tidak memiliki wewenang persetujuan LPLPO.")
             lplpo_obj = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
             if lplpo_obj.status != LPLPO.Status.REVIEWED:
                 messages.error(
@@ -1569,6 +1619,15 @@ def lplpo_finalize(request, pk):
                 lplpo_obj,
                 actor=request.user,
                 processed_at=timezone.now(),
+            )
+            lplpo_obj.refresh_from_db(fields=("approved_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.LPLPO,
+                action="finalize_legacy",
+                target=lplpo_obj,
+                exercised_at=lplpo_obj.approved_at,
             )
 
     except IntegrityError:

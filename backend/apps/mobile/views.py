@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -24,7 +25,12 @@ from apps.stock.services import (
     build_mobile_stock_detail_context,
     build_mobile_stock_search_context,
 )
-from apps.users.access import can_approve_workflow, can_view_mobile_stock
+from apps.users.access import (
+    can_approve_workflow,
+    can_view_mobile_stock,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 
@@ -255,7 +261,25 @@ def distribution_approve(request, pk):
     )
     distribution = get_object_or_404(_distribution_approval_queryset(), pk=pk)
     try:
-        execute_distribution_verification(distribution, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied("Delegasi persetujuan distribusi tidak berlaku.")
+            execute_distribution_verification(distribution, request.user)
+            distribution.refresh_from_db(fields=("verified_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="verify",
+                target=distribution,
+                exercised_at=distribution.verified_at,
+            )
     except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
     else:
@@ -275,7 +299,25 @@ def distribution_reject(request, pk):
     )
     distribution = get_object_or_404(_distribution_approval_queryset(), pk=pk)
     try:
-        execute_distribution_rejection(distribution)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied("Delegasi persetujuan distribusi tidak berlaku.")
+            execute_distribution_rejection(distribution)
+            distribution.refresh_from_db(fields=("updated_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="reject",
+                target=distribution,
+                exercised_at=distribution.updated_at,
+            )
     except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
     else:
@@ -324,7 +366,27 @@ def expired_approve(request, pk):
     )
     expired_document = get_object_or_404(_expired_approval_queryset(), pk=pk)
     try:
-        execute_expired_verification(expired_document, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.EXPIRED,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied("Delegasi persetujuan kedaluwarsa tidak berlaku.")
+            expired_document = execute_expired_verification(
+                expired_document,
+                request.user,
+            )
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.EXPIRED,
+                action="verify",
+                target=expired_document,
+                exercised_at=expired_document.verified_at,
+            )
     except ExpiredWorkflowError as exc:
         messages.error(request, str(exc))
     else:

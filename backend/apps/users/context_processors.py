@@ -1,5 +1,6 @@
 from .access import (
     can_approve_workflow,
+    can_manage_authority_delegations,
     can_view_mobile_stock,
     has_module_permission,
     has_module_scope,
@@ -13,6 +14,7 @@ def access_flags(request):
     if not user or not user.is_authenticated:
         return {
             "can_view_user_management": False,
+            "can_manage_authority_delegations": False,
             "can_open_admin_panel": False,
             "can_view_items": False,
             "can_view_stock": False,
@@ -42,6 +44,7 @@ def access_flags(request):
         "can_view_user_management": has_module_scope(
             user, ModuleAccess.Module.USERS, ModuleAccess.Scope.VIEW
         ),
+        "can_manage_authority_delegations": can_manage_authority_delegations(user),
         "can_open_admin_panel": has_module_scope(
             user, ModuleAccess.Module.ADMIN_PANEL, ModuleAccess.Scope.MANAGE
         ),

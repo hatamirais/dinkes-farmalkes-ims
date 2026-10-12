@@ -17,7 +17,13 @@ from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.items.models import Location
 from apps.stock.models import Stock
-from apps.users.access import can_approve_workflow, has_module_scope
+from apps.users.access import (
+    can_approve_workflow,
+    get_delegated_signature,
+    has_module_scope,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess, User
 
 from .forms import ExpiredAuditReportFilterForm, ExpiredForm, ExpiredItemFormSet
@@ -418,6 +424,10 @@ def expired_print(request, pk):
             "items": items,
             "total_quantity": total_quantity,
             "print_date": timezone.now(),
+            "delegated_signature": get_delegated_signature(
+                expired_doc,
+                action="verify",
+            ),
         },
     )
 
@@ -510,7 +520,26 @@ def expired_verify(request, pk):
         return redirect("expired:expired_detail", pk=pk)
 
     try:
-        execute_expired_verification(expired_doc, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.EXPIRED,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat memverifikasi dokumen ini."
+                )
+            expired_doc = execute_expired_verification(expired_doc, request.user)
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.EXPIRED,
+                action="verify",
+                target=expired_doc,
+                exercised_at=expired_doc.verified_at,
+            )
     except ExpiredWorkflowError as exc:
         messages.error(request, str(exc))
         return redirect("expired:expired_detail", pk=pk)

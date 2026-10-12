@@ -11,7 +11,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 - `ProcurementContract` is the contractual source of truth.
 - `document_number` is the system-issued internal IMS number. `external_document_number` is an optional, user-entered reference from another application and must never drive an IMS sequence.
 - Contract approval does not mutate stock.
-- Kepala/Admin approval synchronously creates or re-syncs the linked planned procurement receiving execution document.
+- Kepala/Admin approval, or an active Procurement-specific Acting Kepala delegation, synchronously creates or re-syncs the linked planned procurement receiving execution document. Delegated use must be recorded atomically in `AuthorityExercise`.
 - Contract create/edit reuses supplier and funding-source quick-create modals on the SPJ form.
 - Contract cancellation is a soft-cancel state, not a hard delete. Draft/submitted SPJ can be cancelled with a reason; approved SPJ can be cancelled only while the linked planned receiving is still unused: not `PARTIAL` / `RECEIVED` / `CLOSED`, with no receipt rows and no received quantity. Cancelling an unused approved SPJ also marks its linked receiving plan `CANCELLED`.
 
@@ -19,7 +19,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 
 - `ProcurementAmendment` stores formal revisions.
 - Amendment document numbers use the configured central rule and period counter independently of the parent contract number.
-- Kepala/Admin approval of an amendment synchronously creates or re-syncs the linked planned procurement receiving execution document.
+- Kepala/Admin approval of an amendment, or approval through an active Procurement-specific Acting Kepala delegation, synchronously creates or re-syncs the linked planned procurement receiving execution document.
 - Amendment approval does not mutate stock.
 
 ## Numbering
@@ -33,7 +33,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 ## Role Rules
 
 - `GUDANG` may operate, create, and submit procurement documents.
-- `GUDANG` cannot approve SPJ or amendments, even when granted elevated procurement module scope.
+- `GUDANG` cannot approve SPJ or amendments from elevated procurement module scope alone. An active, time-bound Procurement-specific Acting Kepala delegation is the only exception.
 
 ## Receiving Link
 

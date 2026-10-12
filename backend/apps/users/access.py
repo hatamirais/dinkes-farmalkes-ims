@@ -1,8 +1,28 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict
 
-from .models import ModuleAccess, User
+from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
+
+from .models import (
+    AuthorityDelegation,
+    AuthorityExercise,
+    ModuleAccess,
+    User,
+)
+
+
+DELEGATE_ROLES = {User.Role.ADMIN_UMUM, User.Role.GUDANG}
+
+
+@dataclass(frozen=True)
+class AuthorityDecision:
+    allowed: bool
+    basis: str | None = None
+    delegation: AuthorityDelegation | None = None
 
 
 ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
@@ -130,15 +150,149 @@ def has_module_scope(user: User, module: str, min_scope: int) -> bool:
     return get_user_module_scope(user, module) >= min_scope
 
 
-def can_approve_workflow(user: User, module: str) -> bool:
-    """Return whether a user may perform a Kepala/Admin approval checkpoint."""
+def can_manage_authority_delegations(user: User) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
-    if getattr(user, "is_superuser", False):
-        return True
-    if getattr(user, "role", None) not in {User.Role.ADMIN, User.Role.KEPALA}:
+    return is_super_admin(user) or getattr(user, "role", None) == User.Role.KEPALA
+
+
+def can_delegate_module(user: User, module: str) -> bool:
+    if not can_manage_authority_delegations(user):
         return False
+    if is_super_admin(user):
+        return True
     return has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
+
+
+def get_active_authority_delegation(
+    user: User,
+    module: str,
+    *,
+    at: datetime | None = None,
+    for_update: bool = False,
+) -> AuthorityDelegation | None:
+    if (
+        not getattr(user, "is_authenticated", False)
+        or not getattr(user, "is_active", False)
+        or getattr(user, "role", None) not in DELEGATE_ROLES
+        or not has_module_scope(user, module, ModuleAccess.Scope.VIEW)
+    ):
+        return None
+
+    effective_at = at or timezone.now()
+    queryset = AuthorityDelegation.objects.select_related("delegate", "granted_by")
+    if for_update:
+        queryset = queryset.select_for_update()
+    return queryset.filter(
+        authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+        module=module,
+        delegate=user,
+        delegate__is_active=True,
+        revoked_at__isnull=True,
+        starts_at__lte=effective_at,
+        ends_at__gt=effective_at,
+    ).first()
+
+
+def resolve_approval_authority(
+    user: User,
+    module: str,
+    *,
+    role_gated: bool,
+    at: datetime | None = None,
+    for_update: bool = False,
+) -> AuthorityDecision:
+    if not getattr(user, "is_authenticated", False):
+        return AuthorityDecision(False)
+    if getattr(user, "is_superuser", False):
+        return AuthorityDecision(True, "superuser")
+
+    has_approve_scope = has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
+    if has_approve_scope and (
+        not role_gated
+        or getattr(user, "role", None) in {User.Role.ADMIN, User.Role.KEPALA}
+    ):
+        return AuthorityDecision(True, "role")
+
+    delegation = get_active_authority_delegation(
+        user,
+        module,
+        at=at,
+        for_update=for_update,
+    )
+    if delegation:
+        return AuthorityDecision(True, "delegation", delegation)
+    return AuthorityDecision(False)
+
+
+def can_approve_module(user: User, module: str) -> bool:
+    """Allow the existing approve-scope path or an active Kepala delegation."""
+    return resolve_approval_authority(user, module, role_gated=False).allowed
+
+
+def can_approve_workflow(user: User, module: str) -> bool:
+    """Return whether a user may perform a Kepala/Admin approval checkpoint."""
+    return resolve_approval_authority(user, module, role_gated=True).allowed
+
+
+def record_authority_exercise(
+    decision: AuthorityDecision,
+    *,
+    actor: User,
+    module: str,
+    action: str,
+    target,
+    exercised_at: datetime | None = None,
+) -> AuthorityExercise | None:
+    if decision.basis != "delegation" or decision.delegation is None:
+        return None
+
+    delegation = decision.delegation
+    timestamp = exercised_at or timezone.now()
+    return AuthorityExercise.objects.create(
+        delegation=delegation,
+        actor=actor,
+        module=module,
+        action=action,
+        content_type=ContentType.objects.get_for_model(target, for_concrete_model=False),
+        object_id=target.pk,
+        exercised_at=timestamp,
+        actor_name_snapshot=actor.full_name or actor.username,
+        actor_nip_snapshot=actor.nip,
+        authority_title_snapshot="Plh. Kepala Instalasi",
+        delegation_starts_at_snapshot=delegation.starts_at,
+        delegation_ends_at_snapshot=delegation.ends_at,
+        grantor_name_snapshot=(
+            delegation.granted_by.full_name or delegation.granted_by.username
+        ),
+        reason_snapshot=delegation.reason,
+    )
+
+
+def get_authority_exercise(target, *, action: str | None = None):
+    content_type = ContentType.objects.get_for_model(
+        target,
+        for_concrete_model=False,
+    )
+    queryset = AuthorityExercise.objects.filter(
+        content_type=content_type,
+        object_id=target.pk,
+    ).select_related("actor", "delegation")
+    if action:
+        queryset = queryset.filter(action=action)
+    return queryset.order_by("-exercised_at", "-pk").first()
+
+
+def get_delegated_signature(target, *, action: str):
+    exercise = get_authority_exercise(target, action=action)
+    if exercise is None:
+        return None
+    return {
+        "name": exercise.actor_name_snapshot,
+        "nip": exercise.actor_nip_snapshot,
+        "title": exercise.authority_title_snapshot,
+        "exercised_at": exercise.exercised_at,
+    }
 
 
 def can_view_mobile_stock(user: User) -> bool:

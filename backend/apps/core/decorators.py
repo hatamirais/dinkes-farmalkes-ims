@@ -19,7 +19,12 @@ Usage:
 from functools import wraps
 from django.core.exceptions import PermissionDenied
 
-from apps.users.access import has_module_permission, has_module_scope
+from apps.users.access import (
+    can_approve_module,
+    has_module_permission,
+    has_module_scope,
+)
+from apps.users.models import ModuleAccess
 
 
 def perm_required(*perms):
@@ -52,6 +57,13 @@ def perm_required(*perms):
             if any(has_module_permission(request.user, p) for p in perms):
                 return view_func(request, *args, **kwargs)
 
+            approval_module = getattr(view_func, "_approval_module", None)
+            if approval_module and can_approve_module(
+                request.user,
+                approval_module,
+            ):
+                return view_func(request, *args, **kwargs)
+
             raise PermissionDenied("Anda tidak memiliki izin untuk mengakses halaman ini.")
 
         return _wrapped_view
@@ -72,8 +84,26 @@ def module_scope_required(module: str, min_scope: int):
             if has_module_scope(request.user, module, min_scope):
                 return view_func(request, *args, **kwargs)
 
+            if (
+                min_scope == ModuleAccess.Scope.APPROVE
+                and can_approve_module(request.user, module)
+            ):
+                return view_func(request, *args, **kwargs)
+
             raise PermissionDenied("Anda tidak memiliki level akses modul yang diperlukan.")
 
+        if min_scope == ModuleAccess.Scope.APPROVE:
+            _wrapped_view._approval_module = module
         return _wrapped_view
+
+    return decorator
+
+
+def delegated_approval_fallback(module: str):
+    """Mark a mixed-purpose view where one branch is an approval action."""
+
+    def decorator(view_func):
+        view_func._approval_module = module
+        return view_func
 
     return decorator

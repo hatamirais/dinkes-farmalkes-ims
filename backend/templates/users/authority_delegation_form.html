@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Buat Delegasi Wewenang - Healthcare IMS{% endblock %}
+{% block page_title %}Buat Delegasi Wewenang{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-8">
+        <div class="card content-card">
+            <div class="card-header"><i class="bi bi-person-check me-2"></i>Penugasan Plh. Kepala Instalasi</div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    Delegasi hanya berlaku untuk modul dan periode yang dipilih. Kepala Instalasi tetap memiliki wewenang selama periode tersebut.
+                </div>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Simpan Delegasi</button>
+                        <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-secondary">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

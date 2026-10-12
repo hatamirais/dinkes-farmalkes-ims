@@ -13,7 +13,12 @@ from django.views.decorators.http import require_POST
 
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.rate_limits import item_mutation_ratelimit, procurement_mutation_ratelimit
-from apps.users.access import has_module_permission, has_module_scope, is_super_admin
+from apps.users.access import (
+    can_approve_workflow,
+    has_module_permission,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess, User
 from apps.receiving.forms import (
     ReceivingQuickCreateFundingSourceForm,
@@ -50,15 +55,9 @@ logger = logging.getLogger(__name__)
 
 
 def _can_approve_procurement_documents(user):
-    if is_super_admin(user):
-        return True
-    return (
-        getattr(user, "role", None) == User.Role.KEPALA
-        and has_module_scope(
-            user,
-            ModuleAccess.Module.PROCUREMENT,
-            ModuleAccess.Scope.APPROVE,
-        )
+    return can_approve_workflow(
+        user,
+        ModuleAccess.Module.PROCUREMENT,
     )
 
 
@@ -348,7 +347,27 @@ def contract_approve(request, pk):
         messages.error(request, "Hanya kontrak Diajukan yang dapat disetujui.")
         return _redirect_contract_detail(pk)
     try:
-        approve_contract(contract, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.PROCUREMENT,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui SPJ."
+                )
+            approve_contract(contract, request.user)
+            contract.refresh_from_db(fields=("approved_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.PROCUREMENT,
+                action="approve_contract",
+                target=contract,
+                exercised_at=contract.approved_at,
+            )
     except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_contract_detail(pk)
@@ -637,7 +656,27 @@ def amendment_approve(request, pk):
         messages.error(request, "Hanya amandemen Diajukan yang dapat disetujui.")
         return _redirect_amendment_detail(pk)
     try:
-        approve_amendment(amendment, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.PROCUREMENT,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui amandemen SPJ."
+                )
+            approve_amendment(amendment, request.user)
+            amendment.refresh_from_db(fields=("approved_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.PROCUREMENT,
+                action="approve_amendment",
+                target=amendment,
+                exercised_at=amendment.approved_at,
+            )
     except (ProcurementWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_amendment_detail(pk)

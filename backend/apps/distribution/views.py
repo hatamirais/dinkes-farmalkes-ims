@@ -33,8 +33,11 @@ from apps.reports.views import (
 from apps.stock.models import Stock
 from apps.users.access import (
     can_approve_workflow,
+    get_delegated_signature,
     has_module_permission,
     has_module_scope,
+    record_authority_exercise,
+    resolve_approval_authority,
 )
 from apps.users.models import ModuleAccess, User
 
@@ -889,6 +892,7 @@ def distribution_detail(request, pk):
         .order_by("full_name", "username")
         .first()
     )
+    delegated_signature = get_delegated_signature(dist, action="verify")
 
     printable_items = []
     total_quantity = Decimal("0")
@@ -1000,6 +1004,7 @@ def distribution_detail(request, pk):
             "grand_total": grand_total,
             "assigned_staff": assigned_staff,
             "kepala_instalasi": kepala_instalasi,
+            "delegated_signature": delegated_signature,
             "is_allocation": is_allocation,
             "can_view_allocation_parent": can_view_allocation_parent,
             "can_manage_allocation_distribution": can_manage_allocation_distribution,
@@ -1090,7 +1095,27 @@ def distribution_verify(request, pk):
         return _redirect_distribution_detail(pk)
 
     try:
-        execute_distribution_verification(dist, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui distribusi."
+                )
+            execute_distribution_verification(dist, request.user)
+            dist.refresh_from_db(fields=("verified_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="verify",
+                target=dist,
+                exercised_at=dist.verified_at,
+            )
     except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
         return _redirect_distribution_detail(pk)
@@ -1198,7 +1223,27 @@ def distribution_reject(request, pk):
         return _redirect_distribution_detail(pk)
 
     try:
-        execute_distribution_rejection(dist)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menolak distribusi."
+                )
+            execute_distribution_rejection(dist)
+            dist.refresh_from_db(fields=("updated_at",))
+            record_authority_exercise(
+                decision,
+                actor=request.user,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="reject",
+                target=dist,
+                exercised_at=dist.updated_at,
+            )
     except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
         return _redirect_distribution_detail(pk)

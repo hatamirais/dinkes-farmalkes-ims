@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 
 from .access import ensure_default_module_access
 from .forms import UI_ROLE_CHOICES
-from .models import ModuleAccess, User
+from .models import AuthorityDelegation, AuthorityExercise, ModuleAccess, User
 
 
 @admin.register(User)
@@ -56,3 +56,44 @@ class ModuleAccessAdmin(admin.ModelAdmin):
     list_display = ("user", "module", "scope", "updated_at")
     list_filter = ("module", "scope")
     search_fields = ("user__username", "user__full_name", "user__email")
+
+
+class ReadOnlyAuditAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AuthorityDelegation)
+class AuthorityDelegationAdmin(ReadOnlyAuditAdmin):
+    list_display = (
+        "delegate",
+        "module",
+        "starts_at",
+        "ends_at",
+        "granted_by",
+        "revoked_at",
+    )
+    list_filter = ("module", "authority", "revoked_at")
+    search_fields = (
+        "delegate__username",
+        "delegate__full_name",
+        "granted_by__username",
+        "reason",
+    )
+
+
+@admin.register(AuthorityExercise)
+class AuthorityExerciseAdmin(ReadOnlyAuditAdmin):
+    list_display = ("actor", "module", "action", "exercised_at", "delegation")
+    list_filter = ("module", "action")
+    search_fields = (
+        "actor__username",
+        "actor_name_snapshot",
+        "reason_snapshot",
+    )

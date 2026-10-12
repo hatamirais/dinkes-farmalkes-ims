@@ -7,12 +7,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 
 from apps.core.csv_exports import sanitize_csv_row
 from apps.core.rate_limits import (
@@ -22,9 +23,18 @@ from apps.core.rate_limits import (
     user_password_reset_ratelimit,
 )
 
-from .access import ROLE_DEFAULT_SCOPES, has_module_permission
-from .forms import UserCreateForm, UserUpdateForm
-from .models import ModuleAccess, User
+from .access import (
+    ROLE_DEFAULT_SCOPES,
+    can_manage_authority_delegations,
+    has_module_permission,
+)
+from .forms import (
+    AuthorityDelegationCreateForm,
+    AuthorityDelegationRevokeForm,
+    UserCreateForm,
+    UserUpdateForm,
+)
+from .models import AuthorityDelegation, ModuleAccess, User
 
 
 def _role_defaults_json():
@@ -82,6 +92,13 @@ def _is_protected_user_account(user_obj):
 def _require_user_access(user, perm, message):
     if not _has_user_access(user, perm):
         raise PermissionDenied(message)
+
+
+def _require_authority_delegation_access(user):
+    if not can_manage_authority_delegations(user):
+        raise PermissionDenied(
+            "Hanya Kepala Instalasi atau Admin yang dapat mengelola delegasi wewenang."
+        )
 
 
 def _forbidden_protected_user_mutation(request, is_ajax=False):
@@ -397,7 +414,109 @@ def user_detail(request, pk):
             "target_user": target_user,
             "effective_scopes": _effective_scope_rows(target_user),
             "can_manage_users": _can_change_users(request.user),
+            "authority_delegations": target_user.authority_delegations.select_related(
+                "granted_by", "revoked_by"
+            ).all(),
         },
+    )
+
+
+@login_required
+def authority_delegation_list(request):
+    _require_authority_delegation_access(request.user)
+    now = timezone.now()
+    delegations = list(
+        AuthorityDelegation.objects.select_related(
+            "delegate",
+            "granted_by",
+            "revoked_by",
+        ).all()
+    )
+    for delegation in delegations:
+        if delegation.revoked_at:
+            delegation.display_status = "Dicabut"
+            delegation.status_class = "text-bg-danger"
+        elif delegation.starts_at > now:
+            delegation.display_status = "Terjadwal"
+            delegation.status_class = "text-bg-info"
+        elif delegation.ends_at <= now:
+            delegation.display_status = "Berakhir"
+            delegation.status_class = "text-bg-secondary"
+        else:
+            delegation.display_status = "Aktif"
+            delegation.status_class = "text-bg-success"
+
+    return render(
+        request,
+        "users/authority_delegation_list.html",
+        {"delegations": delegations, "now": now},
+    )
+
+
+@login_required
+@user_mutation_ratelimit
+def authority_delegation_create(request):
+    _require_authority_delegation_access(request.user)
+    form = AuthorityDelegationCreateForm(
+        request.POST or None,
+        actor=request.user,
+    )
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                created = form.save()
+        except IntegrityError:
+            form.add_error(
+                "modules",
+                "Delegasi tidak dapat disimpan karena periodenya bertumpang tindih.",
+            )
+        else:
+            messages.success(
+                request,
+                f"{len(created)} delegasi wewenang berhasil dijadwalkan.",
+            )
+            return redirect("users:authority_delegation_list")
+
+    return render(
+        request,
+        "users/authority_delegation_form.html",
+        {"form": form},
+    )
+
+
+@login_required
+@user_mutation_ratelimit
+def authority_delegation_revoke(request, pk):
+    _require_authority_delegation_access(request.user)
+    delegation = get_object_or_404(
+        AuthorityDelegation.objects.select_related("delegate", "granted_by"),
+        pk=pk,
+    )
+    form = AuthorityDelegationRevokeForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            delegation = AuthorityDelegation.objects.select_for_update().get(pk=pk)
+            if delegation.revoked_at:
+                messages.info(request, "Delegasi ini sudah dicabut sebelumnya.")
+            else:
+                delegation.revoked_at = timezone.now()
+                delegation.revoked_by = request.user
+                delegation.revocation_reason = form.cleaned_data["revocation_reason"]
+                delegation.save(
+                    update_fields=(
+                        "revoked_at",
+                        "revoked_by",
+                        "revocation_reason",
+                    )
+                )
+                messages.success(request, "Delegasi wewenang berhasil dicabut.")
+        return redirect("users:authority_delegation_list")
+
+    return render(
+        request,
+        "users/authority_delegation_revoke.html",
+        {"delegation": delegation, "form": form},
     )
 
 

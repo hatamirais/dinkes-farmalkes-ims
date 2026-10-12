@@ -326,13 +326,20 @@
                 {% endif %}
 
                 {% if not is_auditor_user %}
-                {% if can_view_user_management or can_open_admin_panel %}
+                {% if can_view_user_management or can_manage_authority_delegations or can_open_admin_panel %}
                 <div class="sidebar-section-title">Administrasi</div>
                 {% if can_view_user_management %}
                 <a href="{% url 'users:user_list' %}"
-                    class="sidebar-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'users' and request.resolver_match.url_name|slice:':20' != 'authority_delegation' %}active{% endif %}"
                     data-label="Manajemen Pengguna" title="Manajemen Pengguna">
                     <i class="bi bi-people"></i><span>Manajemen Pengguna</span>
+                </a>
+                {% endif %}
+                {% if can_manage_authority_delegations %}
+                <a href="{% url 'users:authority_delegation_list' %}"
+                    class="sidebar-link {% if request.resolver_match.url_name|slice:':20' == 'authority_delegation' %}active{% endif %}"
+                    data-label="Delegasi Wewenang" title="Delegasi Wewenang">
+                    <i class="bi bi-person-check"></i><span>Delegasi Wewenang</span>
                 </a>
                 {% endif %}
                 {% if can_open_admin_panel %}
@@ -444,6 +451,11 @@
                         <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-outline-secondary btn-sm"
                             title="Kembali ke LPLPO">
                             <i class="bi bi-arrow-left me-1"></i>LPLPO
+                        </a>
+                        {% elif request.resolver_match.url_name|slice:':20' == 'authority_delegation' and request.resolver_match.url_name != 'authority_delegation_list' %}
+                        <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-secondary btn-sm"
+                            title="Kembali ke Delegasi Wewenang">
+                            <i class="bi bi-arrow-left me-1"></i>Delegasi Wewenang
                         </a>
                         {% elif request.resolver_match.app_name == 'users' and request.resolver_match.url_name != 'user_list' %}
                         <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm"

@@ -13,7 +13,13 @@ from apps.core.decorators import module_scope_required, perm_required
 from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock
-from apps.users.access import has_module_scope
+from apps.users.access import (
+    can_approve_module,
+    get_delegated_signature,
+    has_module_scope,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 from .models import StockOpname, StockOpnameItem
@@ -48,11 +54,9 @@ def _user_can_complete_opname(user, has_current_discrepancy):
         return True
     if not has_current_discrepancy and user.has_perm("stock_opname.change_stockopname"):
         return True
-    required_scope = (
-        ModuleAccess.Scope.APPROVE
-        if has_current_discrepancy
-        else ModuleAccess.Scope.OPERATE
-    )
+    if has_current_discrepancy:
+        return can_approve_module(user, ModuleAccess.Module.STOCK_OPNAME)
+    required_scope = ModuleAccess.Scope.OPERATE
     return has_module_scope(
         user,
         ModuleAccess.Module.STOCK_OPNAME,
@@ -548,6 +552,19 @@ def opname_complete(request, pk):
                         "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
                     )
 
+                authority_decision = None
+                if has_current_discrepancy:
+                    authority_decision = resolve_approval_authority(
+                        request.user,
+                        ModuleAccess.Module.STOCK_OPNAME,
+                        role_gated=False,
+                        for_update=True,
+                    )
+                    if not authority_decision.allowed:
+                        raise PermissionDenied(
+                            "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
+                        )
+
                 opname.status = StockOpname.Status.COMPLETED
                 opname.completed_by = request.user
                 opname.completed_at = timezone.now()
@@ -567,6 +584,15 @@ def opname_complete(request, pk):
                         "updated_at",
                     ]
                 )
+                if authority_decision is not None:
+                    record_authority_exercise(
+                        authority_decision,
+                        actor=request.user,
+                        module=ModuleAccess.Module.STOCK_OPNAME,
+                        action="complete_with_discrepancy",
+                        target=opname,
+                        exercised_at=opname.completed_at,
+                    )
         except StockOpname.DoesNotExist:
             raise
         except DatabaseError:
@@ -690,6 +716,10 @@ def opname_print(request, pk):
             "locations": locations.values(),
             "total_discrepancies": len(discrepancy_list),
             "print_date": timezone.now(),
+            "delegated_signature": get_delegated_signature(
+                opname,
+                action="complete_with_discrepancy",
+            ),
         },
     )
 

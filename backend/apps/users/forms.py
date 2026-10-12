@@ -1,9 +1,20 @@
+import unicodedata
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 
-from .access import default_scope_for_role
-from .models import ModuleAccess
-from .models import User
+from .access import (
+    DELEGATE_ROLES,
+    can_delegate_module,
+    default_scope_for_role,
+    has_module_scope,
+)
+from .models import (
+    APPROVAL_MODULE_CHOICES,
+    AuthorityDelegation,
+    ModuleAccess,
+    User,
+)
 
 # ADMIN role can only be created via CLI (createsuperuser / management command)
 UI_ROLE_CHOICES = [
@@ -11,6 +22,13 @@ UI_ROLE_CHOICES = [
 ]
 
 FACILITY_HELP_TEXT = "Wajib dipilih untuk Operator Puskesmas."
+
+
+def _clean_normalized_text(value, *, field_label):
+    value = unicodedata.normalize("NFC", (value or "").strip())
+    if "\x00" in value:
+        raise forms.ValidationError(f"{field_label} tidak boleh mengandung null byte.")
+    return value
 
 
 def _configure_user_form_fields(form):
@@ -235,3 +253,144 @@ class UserUpdateForm(forms.ModelForm):
                     defaults={"scope": scope},
                 )
         return user
+
+
+class AuthorityDelegationCreateForm(forms.Form):
+    delegate = forms.ModelChoiceField(
+        label="Pelaksana Harian",
+        queryset=User.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    modules = forms.MultipleChoiceField(
+        label="Modul yang Didelegasikan",
+        choices=APPROVAL_MODULE_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    starts_at = forms.DateTimeField(
+        label="Mulai Berlaku",
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={"class": "form-control", "type": "datetime-local"},
+        ),
+    )
+    ends_at = forms.DateTimeField(
+        label="Berakhir",
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={"class": "form-control", "type": "datetime-local"},
+        ),
+    )
+    reason = forms.CharField(
+        label="Alasan / Dasar Penugasan",
+        max_length=500,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+    )
+
+    def __init__(self, *args, actor, **kwargs):
+        self.actor = actor
+        super().__init__(*args, **kwargs)
+        self.fields["delegate"].queryset = User.objects.filter(
+            is_active=True,
+            role__in=DELEGATE_ROLES,
+        ).order_by("full_name", "username")
+        self.fields["modules"].choices = [
+            (module, label)
+            for module, label in APPROVAL_MODULE_CHOICES
+            if can_delegate_module(actor, module)
+        ]
+
+    def clean_reason(self):
+        return _clean_normalized_text(
+            self.cleaned_data.get("reason"),
+            field_label="Alasan",
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        starts_at = cleaned_data.get("starts_at")
+        ends_at = cleaned_data.get("ends_at")
+        delegate = cleaned_data.get("delegate")
+        modules = cleaned_data.get("modules") or []
+
+        if starts_at and ends_at:
+            if not (1000 <= starts_at.year <= 9999 and 1000 <= ends_at.year <= 9999):
+                self.add_error("starts_at", "Tahun harus berada pada rentang 1000–9999.")
+            elif starts_at >= ends_at:
+                self.add_error("ends_at", "Waktu berakhir harus setelah waktu mulai.")
+
+        for module in modules:
+            if not can_delegate_module(self.actor, module):
+                self.add_error(
+                    "modules",
+                    "Anda tidak dapat mendelegasikan salah satu modul yang dipilih.",
+                )
+                break
+            if (
+                delegate
+                and module
+                in {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
+                and not delegate.facility_id
+            ):
+                self.add_error(
+                    "delegate",
+                    "Pelaksana Harian harus terhubung ke fasilitas untuk delegasi Puskesmas/LPLPO.",
+                )
+                break
+            if delegate and not has_module_scope(
+                delegate,
+                module,
+                ModuleAccess.Scope.VIEW,
+            ):
+                self.add_error(
+                    "modules",
+                    f"{delegate} tidak memiliki akses Lihat pada salah satu modul yang dipilih.",
+                )
+                break
+
+        if starts_at and ends_at:
+            overlapping = AuthorityDelegation.objects.filter(
+                authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+                module__in=modules,
+                revoked_at__isnull=True,
+                starts_at__lt=ends_at,
+                ends_at__gt=starts_at,
+            )
+            if overlapping.exists():
+                labels = ", ".join(
+                    sorted({obj.get_module_display() for obj in overlapping})
+                )
+                self.add_error(
+                    "modules",
+                    f"Periode bertumpang tindih dengan delegasi pada modul: {labels}.",
+                )
+        return cleaned_data
+
+    def save(self):
+        return [
+            AuthorityDelegation.objects.create(
+                authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+                module=module,
+                delegate=self.cleaned_data["delegate"],
+                starts_at=self.cleaned_data["starts_at"],
+                ends_at=self.cleaned_data["ends_at"],
+                reason=self.cleaned_data["reason"],
+                granted_by=self.actor,
+            )
+            for module in self.cleaned_data["modules"]
+        ]
+
+
+class AuthorityDelegationRevokeForm(forms.Form):
+    revocation_reason = forms.CharField(
+        label="Alasan Pencabutan",
+        max_length=500,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+    )
+
+    def clean_revocation_reason(self):
+        return _clean_normalized_text(
+            self.cleaned_data.get("revocation_reason"),
+            field_label="Alasan pencabutan",
+        )
