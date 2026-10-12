@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags static %}
 
 {% block title %}Buat Delegasi Wewenang - Healthcare IMS{% endblock %}
 {% block page_title %}Buat Delegasi Wewenang{% endblock %}
@@ -11,7 +11,7 @@
             <div class="card-header"><i class="bi bi-person-check me-2"></i>Penugasan Plh. Kepala Instalasi</div>
             <div class="card-body">
                 <div class="alert alert-info">
-                    Delegasi hanya berlaku untuk modul dan periode yang dipilih. Kepala Instalasi tetap memiliki wewenang selama periode tersebut.
+                    Delegasi hanya berlaku untuk modul dan durasi yang dipilih. Durasi dapat ditentukan sampai waktu tertentu atau berlaku sampai dicabut. Kepala Instalasi tetap memiliki wewenang selama delegasi aktif.
                 </div>
                 <form method="post" novalidate>
                     {% csrf_token %}
@@ -25,4 +25,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/authority-delegation-form.js' %}"></script>
 {% endblock %}

@@ -66,6 +66,44 @@ class AuthorityDelegationPolicyTests(AuthorityDelegationTestMixin, TestCase):
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.basis, "delegation")
 
+    def test_until_revoked_delegation_is_active_until_revoked(self):
+        delegation = self.make_delegation(self.delegate)
+        delegation.ends_at = None
+        delegation.save(update_fields=("ends_at",))
+
+        self.assertTrue(
+            can_approve_workflow(
+                self.delegate,
+                ModuleAccess.Module.DISTRIBUTION,
+            )
+        )
+        decision = resolve_approval_authority(
+            self.delegate,
+            ModuleAccess.Module.DISTRIBUTION,
+            role_gated=True,
+        )
+        exercise = record_authority_exercise(
+            decision,
+            actor=self.delegate,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            action="verify",
+            target=self.kepala,
+        )
+        self.assertIsNone(exercise.delegation_ends_at_snapshot)
+
+        delegation.revoked_at = timezone.now()
+        delegation.revoked_by = self.kepala
+        delegation.revocation_reason = "Penugasan telah berakhir."
+        delegation.save(
+            update_fields=("revoked_at", "revoked_by", "revocation_reason")
+        )
+        self.assertFalse(
+            can_approve_workflow(
+                self.delegate,
+                ModuleAccess.Module.DISTRIBUTION,
+            )
+        )
+
     def test_expired_revoked_or_scope_removed_delegation_is_denied(self):
         delegation = self.make_delegation(self.delegate)
         delegation.ends_at = timezone.now() - timedelta(minutes=1)
@@ -165,6 +203,23 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         response = self.client.get(reverse("users:authority_delegation_list"))
         self.assertEqual(response.status_code, 403)
 
+    def test_create_form_places_duration_before_dates_and_toggles_end_field(self):
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("users:authority_delegation_create"))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertLess(
+            content.index('name="duration_mode"'),
+            content.index('id="id_starts_at"'),
+        )
+        self.assertLess(
+            content.index('id="id_starts_at"'),
+            content.index('id="id_ends_at"'),
+        )
+        self.assertContains(response, "/static/js/authority-delegation-form.js")
+
     def test_create_and_revoke_delegation(self):
         self.client.force_login(self.kepala)
         starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
@@ -178,6 +233,7 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
                     ModuleAccess.Module.EXPIRED,
                 ],
                 "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "duration_mode": "FIXED",
                 "ends_at": ends_at.strftime("%Y-%m-%dT%H:%M"),
                 "reason": "Penugasan resmi selama Kepala berada di luar kantor.",
             },
@@ -200,6 +256,58 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         delegation.refresh_from_db()
         self.assertIsNotNone(delegation.revoked_at)
         self.assertEqual(delegation.revoked_by, self.kepala)
+
+    def test_create_until_revoked_delegation_without_end_datetime(self):
+        self.client.force_login(self.kepala)
+        starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
+
+        response = self.client.post(
+            reverse("users:authority_delegation_create"),
+            {
+                "delegate": self.delegate.pk,
+                "modules": [ModuleAccess.Module.DISTRIBUTION],
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "duration_mode": "UNTIL_REVOKED",
+                "ends_at": "nilai-lama-yang-diabaikan",
+                "reason": "Penugasan berlaku sampai dicabut secara resmi.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("users:authority_delegation_list"))
+        delegation = AuthorityDelegation.objects.get(delegate=self.delegate)
+        self.assertIsNone(delegation.ends_at)
+
+        response = self.client.get(reverse("users:authority_delegation_list"))
+        self.assertContains(response, "Berlaku sampai dicabut")
+        self.assertContains(
+            response,
+            reverse("users:authority_delegation_revoke", args=[delegation.pk]),
+        )
+
+    def test_fixed_duration_requires_end_datetime(self):
+        self.client.force_login(self.kepala)
+        starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
+
+        response = self.client.post(
+            reverse("users:authority_delegation_create"),
+            {
+                "delegate": self.delegate.pk,
+                "modules": [ModuleAccess.Module.DISTRIBUTION],
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "duration_mode": "FIXED",
+                "ends_at": "",
+                "reason": "Penugasan dengan periode tertentu.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Waktu berakhir wajib diisi untuk durasi tertentu.",
+        )
+        self.assertFalse(
+            AuthorityDelegation.objects.filter(delegate=self.delegate).exists()
+        )
 
 
 class AuthorityDelegationConstraintTests(
@@ -239,4 +347,68 @@ class AuthorityDelegationConstraintTests(
             granted_by=self.kepala,
         )
         self.assertIsNotNone(second.pk)
+
+    def test_until_revoked_delegation_blocks_any_later_non_revoked_delegation(self):
+        first = self.make_delegation(self.delegate)
+        first.ends_at = None
+        first.save(update_fields=("ends_at",))
+        other_delegate = self.make_user(
+            "admin_umum_open_ended",
+            User.Role.ADMIN_UMUM,
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                AuthorityDelegation.objects.create(
+                    module=ModuleAccess.Module.DISTRIBUTION,
+                    delegate=other_delegate,
+                    starts_at=timezone.now() + timedelta(days=30),
+                    ends_at=timezone.now() + timedelta(days=31),
+                    reason="Delegasi yang harus diblokir oleh periode terbuka.",
+                    granted_by=self.kepala,
+                )
+
+    def test_fixed_delegation_still_requires_end_after_start_at_database(self):
+        starts_at = timezone.now() + timedelta(hours=2)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                AuthorityDelegation.objects.create(
+                    module=ModuleAccess.Module.DISTRIBUTION,
+                    delegate=self.delegate,
+                    starts_at=starts_at,
+                    ends_at=starts_at,
+                    reason="Periode tetap yang tidak valid.",
+                    granted_by=self.kepala,
+                )
+
+    def test_new_delegation_is_allowed_after_open_ended_delegation_is_revoked(self):
+        first = self.make_delegation(self.delegate)
+        first.ends_at = None
+        first.revoked_at = timezone.now()
+        first.revoked_by = self.kepala
+        first.revocation_reason = "Diganti dengan pelaksana baru."
+        first.save(
+            update_fields=(
+                "ends_at",
+                "revoked_at",
+                "revoked_by",
+                "revocation_reason",
+            )
+        )
+        other_delegate = self.make_user(
+            "admin_umum_after_revoke",
+            User.Role.ADMIN_UMUM,
+        )
+
+        replacement = AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.DISTRIBUTION,
+            delegate=other_delegate,
+            starts_at=timezone.now(),
+            ends_at=None,
+            reason="Pelaksana pengganti berlaku sampai dicabut.",
+            granted_by=self.kepala,
+        )
+
+        self.assertIsNotNone(replacement.pk)
 

@@ -33,7 +33,7 @@ App-specific guidance for SPJ / contract procurement workflows.
 ## Role Rules
 
 - `GUDANG` may operate, create, and submit procurement documents.
-- `GUDANG` cannot approve SPJ or amendments from elevated procurement module scope alone. An active, time-bound Procurement-specific Acting Kepala delegation is the only exception.
+- `GUDANG` cannot approve SPJ or amendments from elevated procurement module scope alone. An active Procurement-specific Acting Kepala delegation, either fixed-period or explicitly valid until revoked, is the only exception.
 
 ## Receiving Link
 

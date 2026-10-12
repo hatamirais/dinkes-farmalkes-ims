@@ -433,13 +433,16 @@ def authority_delegation_list(request):
         ).all()
     )
     for delegation in delegations:
+        delegation.can_revoke = delegation.revoked_at is None and (
+            delegation.ends_at is None or delegation.ends_at > now
+        )
         if delegation.revoked_at:
             delegation.display_status = "Dicabut"
             delegation.status_class = "text-bg-danger"
         elif delegation.starts_at > now:
             delegation.display_status = "Terjadwal"
             delegation.status_class = "text-bg-info"
-        elif delegation.ends_at <= now:
+        elif delegation.ends_at is not None and delegation.ends_at <= now:
             delegation.display_status = "Berakhir"
             delegation.status_class = "text-bg-secondary"
         else:

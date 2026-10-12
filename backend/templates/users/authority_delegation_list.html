@@ -36,12 +36,14 @@
                     <td>{{ delegation.get_module_display }}</td>
                     <td>
                         <div>{{ delegation.starts_at|date:'d M Y, H:i' }}</div>
-                        <small class="text-muted">s.d. {{ delegation.ends_at|date:'d M Y, H:i' }}</small>
+                        <small class="text-muted">
+                            {% if delegation.ends_at %}s.d. {{ delegation.ends_at|date:'d M Y, H:i' }}{% else %}Berlaku sampai dicabut{% endif %}
+                        </small>
                     </td>
                     <td><span class="badge {{ delegation.status_class }}">{{ delegation.display_status }}</span></td>
                     <td>{{ delegation.granted_by.full_name|default:delegation.granted_by.username }}</td>
                     <td class="text-end">
-                        {% if not delegation.revoked_at and delegation.ends_at > now %}
+                        {% if delegation.can_revoke %}
                         <a href="{% url 'users:authority_delegation_revoke' delegation.pk %}" class="btn btn-outline-danger btn-sm">
                             <i class="bi bi-x-circle me-1"></i>Cabut
                         </a>

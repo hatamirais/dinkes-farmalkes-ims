@@ -186,13 +186,13 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Unique: `(user, module)`
 
 - `users.AuthorityDelegation` (`db_table=user_authority_delegations`)
-  - Finite `starts_at`/`ends_at`, one module, delegate, grantor, reason, and optional revocation actor/time/reason.
+  - Required `starts_at`, nullable `ends_at`, one module, delegate, grantor, reason, and optional revocation actor/time/reason. `ends_at=NULL` explicitly represents `Sampai dicabut`; fixed periods require `ends_at > starts_at`.
   - Delegate roles are limited by the application to active `ADMIN_UMUM` / `GUDANG` accounts with at least `VIEW` on the delegated module.
-  - PostgreSQL exclusion constraint prevents overlapping non-revoked Kepala-approval delegations for the same module; adjacent half-open periods are allowed.
+  - PostgreSQL exclusion constraint prevents overlapping non-revoked Kepala-approval delegations for the same module. Fixed periods use half-open `[starts_at, ends_at)` ranges, while a null upper bound is unbounded and blocks every later delegation for that module until revocation; adjacent finite periods are allowed.
 
 - `users.AuthorityExercise` (`db_table=user_authority_exercises`)
   - Append-only evidence for successful delegated workflow actions through a generic target relation.
-  - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, delegation-period, grantor, and reason snapshots used by historical rendering.
+  - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, nullable delegation-period end, grantor, and reason snapshots used by historical rendering.
 
 ### 4.3 Master data and item registry
 

@@ -137,7 +137,10 @@
                             {% for delegation in authority_delegations %}
                             <tr>
                                 <td>{{ delegation.get_module_display }}</td>
-                                <td>{{ delegation.starts_at|date:'d M Y H:i' }} – {{ delegation.ends_at|date:'d M Y H:i' }}</td>
+                                <td>
+                                    {{ delegation.starts_at|date:'d M Y H:i' }} –
+                                    {% if delegation.ends_at %}{{ delegation.ends_at|date:'d M Y H:i' }}{% else %}Sampai dicabut{% endif %}
+                                </td>
                                 <td>
                                     {% if delegation.revoked_at %}
                                     <span class="badge text-bg-danger">Dicabut</span>

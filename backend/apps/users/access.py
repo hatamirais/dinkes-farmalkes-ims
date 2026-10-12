@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import (
@@ -183,15 +184,18 @@ def get_active_authority_delegation(
     queryset = AuthorityDelegation.objects.select_related("delegate", "granted_by")
     if for_update:
         queryset = queryset.select_for_update()
-    return queryset.filter(
-        authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
-        module=module,
-        delegate=user,
-        delegate__is_active=True,
-        revoked_at__isnull=True,
-        starts_at__lte=effective_at,
-        ends_at__gt=effective_at,
-    ).first()
+    return (
+        queryset.filter(
+            authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+            module=module,
+            delegate=user,
+            delegate__is_active=True,
+            revoked_at__isnull=True,
+            starts_at__lte=effective_at,
+        )
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=effective_at))
+        .first()
+    )
 
 
 def resolve_approval_authority(

@@ -166,7 +166,7 @@ class AuthorityDelegation(models.Model):
         related_name="authority_delegations",
     )
     starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
     reason = models.CharField(max_length=500)
     granted_by = models.ForeignKey(
         "users.User",
@@ -197,7 +197,9 @@ class AuthorityDelegation(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(ends_at__gt=F("starts_at")),
+                condition=(
+                    Q(ends_at__isnull=True) | Q(ends_at__gt=F("starts_at"))
+                ),
                 name="authority_delegation_valid_period",
             ),
             ExclusionConstraint(
@@ -219,9 +221,14 @@ class AuthorityDelegation(models.Model):
         ]
 
     def __str__(self):
+        period_end = (
+            f"{self.ends_at:%Y-%m-%d %H:%M}"
+            if self.ends_at
+            else "sampai dicabut"
+        )
         return (
             f"{self.delegate} - {self.get_module_display()} "
-            f"({self.starts_at:%Y-%m-%d %H:%M}–{self.ends_at:%Y-%m-%d %H:%M})"
+            f"({self.starts_at:%Y-%m-%d %H:%M}–{period_end})"
         )
 
 
@@ -251,7 +258,7 @@ class AuthorityExercise(models.Model):
         default="Plh. Kepala Instalasi",
     )
     delegation_starts_at_snapshot = models.DateTimeField()
-    delegation_ends_at_snapshot = models.DateTimeField()
+    delegation_ends_at_snapshot = models.DateTimeField(null=True, blank=True)
     grantor_name_snapshot = models.CharField(max_length=255)
     reason_snapshot = models.CharField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)

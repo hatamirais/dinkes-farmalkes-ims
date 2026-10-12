@@ -2,6 +2,7 @@ import unicodedata
 
 from django import forms
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q
 
 from .access import (
     DELEGATE_ROLES,
@@ -256,6 +257,10 @@ class UserUpdateForm(forms.ModelForm):
 
 
 class AuthorityDelegationCreateForm(forms.Form):
+    class DurationMode:
+        FIXED = "FIXED"
+        UNTIL_REVOKED = "UNTIL_REVOKED"
+
     delegate = forms.ModelChoiceField(
         label="Pelaksana Harian",
         queryset=User.objects.none(),
@@ -265,6 +270,15 @@ class AuthorityDelegationCreateForm(forms.Form):
         label="Modul yang Didelegasikan",
         choices=APPROVAL_MODULE_CHOICES,
         widget=forms.CheckboxSelectMultiple,
+    )
+    duration_mode = forms.ChoiceField(
+        label="Durasi",
+        choices=(
+            (DurationMode.FIXED, "Sampai waktu tertentu"),
+            (DurationMode.UNTIL_REVOKED, "Berlaku sampai dicabut"),
+        ),
+        initial=DurationMode.FIXED,
+        widget=forms.RadioSelect,
     )
     starts_at = forms.DateTimeField(
         label="Mulai Berlaku",
@@ -276,6 +290,10 @@ class AuthorityDelegationCreateForm(forms.Form):
     )
     ends_at = forms.DateTimeField(
         label="Berakhir",
+        required=False,
+        help_text=(
+            "Wajib untuk durasi tertentu; dikosongkan untuk berlaku sampai dicabut."
+        ),
         input_formats=("%Y-%m-%dT%H:%M",),
         widget=forms.DateTimeInput(
             format="%Y-%m-%dT%H:%M",
@@ -291,6 +309,12 @@ class AuthorityDelegationCreateForm(forms.Form):
     def __init__(self, *args, actor, **kwargs):
         self.actor = actor
         super().__init__(*args, **kwargs)
+        if self.is_bound and self.data.get(self.add_prefix("duration_mode")) == (
+            self.DurationMode.UNTIL_REVOKED
+        ):
+            data = self.data.copy()
+            data[self.add_prefix("ends_at")] = ""
+            self.data = data
         self.fields["delegate"].queryset = User.objects.filter(
             is_active=True,
             role__in=DELEGATE_ROLES,
@@ -311,14 +335,26 @@ class AuthorityDelegationCreateForm(forms.Form):
         cleaned_data = super().clean()
         starts_at = cleaned_data.get("starts_at")
         ends_at = cleaned_data.get("ends_at")
+        duration_mode = cleaned_data.get("duration_mode")
         delegate = cleaned_data.get("delegate")
         modules = cleaned_data.get("modules") or []
 
-        if starts_at and ends_at:
-            if not (1000 <= starts_at.year <= 9999 and 1000 <= ends_at.year <= 9999):
-                self.add_error("starts_at", "Tahun harus berada pada rentang 1000–9999.")
-            elif starts_at >= ends_at:
+        if starts_at and not 1000 <= starts_at.year <= 9999:
+            self.add_error("starts_at", "Tahun harus berada pada rentang 1000–9999.")
+
+        if duration_mode == self.DurationMode.FIXED:
+            if ends_at is None:
+                self.add_error(
+                    "ends_at",
+                    "Waktu berakhir wajib diisi untuk durasi tertentu.",
+                )
+            elif not 1000 <= ends_at.year <= 9999:
+                self.add_error("ends_at", "Tahun harus berada pada rentang 1000–9999.")
+            elif starts_at and starts_at >= ends_at:
                 self.add_error("ends_at", "Waktu berakhir harus setelah waktu mulai.")
+        elif duration_mode == self.DurationMode.UNTIL_REVOKED:
+            ends_at = None
+            cleaned_data["ends_at"] = None
 
         for module in modules:
             if not can_delegate_module(self.actor, module):
@@ -349,13 +385,16 @@ class AuthorityDelegationCreateForm(forms.Form):
                 )
                 break
 
-        if starts_at and ends_at:
+        if starts_at and duration_mode:
             overlapping = AuthorityDelegation.objects.filter(
                 authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
                 module__in=modules,
                 revoked_at__isnull=True,
-                starts_at__lt=ends_at,
-                ends_at__gt=starts_at,
+            )
+            if ends_at is not None:
+                overlapping = overlapping.filter(starts_at__lt=ends_at)
+            overlapping = overlapping.filter(
+                Q(ends_at__isnull=True) | Q(ends_at__gt=starts_at)
             )
             if overlapping.exists():
                 labels = ", ".join(
