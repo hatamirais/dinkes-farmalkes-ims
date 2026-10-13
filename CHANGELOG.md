@@ -7,6 +7,25 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [1.35.0] - 2026-10-13
+
+### Added
+
+- Added module-specific Acting Kepala (`Plh. Kepala Instalasi`) delegation management under `/users/acting-authority/` for authorized Super Admin, Admin, and Kepala users.
+- Added finite and `Sampai dicabut` delegation periods, explicit revocation, database-backed overlap prevention, and delegation history on user detail pages.
+- Added append-only `AuthorityExercise` records with actor, title, grantor, reason, and delegation-period snapshots so historical approvals continue to identify the real acting official after profile changes, expiry, or revocation.
+
+### Changed
+
+- Integrated delegated authority into Kepala approval, verification, rejection, and conditional completion checkpoints for Receiving, Procurement, Distribution, Allocation, Recall, Expired, Stock Opname, Puskesmas requests, and LPLPO workflows.
+- Kept permanent Kepala authority active alongside a delegation while preserving each workflow's existing object, facility, module-scope, status, transaction, and row-lock requirements.
+- Replaced locale-dependent native delegation datetime presentation with locally vendored Flatpickr 4.6.13 controls using Indonesian labels and consistent 24-hour `DD/MM/YYYY HH:mm` display while retaining the existing `YYYY-MM-DDTHH:mm` submission format.
+
+### Security
+
+- Restricted delegates to active `ADMIN_UMUM` or `GUDANG` users with existing access to the delegated module; delegation does not grant settings, user-management, Django Admin, facility-bypass, or unrelated-module access.
+- Approval checkpoints re-resolve and lock active delegations inside the workflow transaction before recording a successful authority exercise.
+
 ## [1.34.0] - 2026-10-02
 
 ### Added
