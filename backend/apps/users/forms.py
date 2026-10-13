@@ -285,7 +285,12 @@ class AuthorityDelegationCreateForm(forms.Form):
         input_formats=("%Y-%m-%dT%H:%M",),
         widget=forms.DateTimeInput(
             format="%Y-%m-%dT%H:%M",
-            attrs={"class": "form-control", "type": "datetime-local"},
+            attrs={
+                "class": "form-control",
+                "type": "datetime-local",
+                "data-datetime-picker": "24h",
+                "placeholder": "DD/MM/YYYY HH:mm",
+            },
         ),
     )
     ends_at = forms.DateTimeField(
@@ -297,7 +302,12 @@ class AuthorityDelegationCreateForm(forms.Form):
         input_formats=("%Y-%m-%dT%H:%M",),
         widget=forms.DateTimeInput(
             format="%Y-%m-%dT%H:%M",
-            attrs={"class": "form-control", "type": "datetime-local"},
+            attrs={
+                "class": "form-control",
+                "type": "datetime-local",
+                "data-datetime-picker": "24h",
+                "placeholder": "DD/MM/YYYY HH:mm",
+            },
         ),
     )
     reason = forms.CharField(

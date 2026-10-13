@@ -4,6 +4,10 @@
 {% block title %}Buat Delegasi Wewenang - Healthcare IMS{% endblock %}
 {% block page_title %}Buat Delegasi Wewenang{% endblock %}
 
+{% block extra_css %}
+<link href="{% static 'vendor/flatpickr/flatpickr.min.css' %}?v={{ app_version }}-20261013" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-xl-8">
@@ -28,5 +32,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/authority-delegation-form.js' %}"></script>
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}?v={{ app_version }}-20261013"></script>
+<script src="{% static 'vendor/flatpickr/l10n/id.js' %}?v={{ app_version }}-20261013"></script>
+<script src="{% static 'js/authority-delegation-form.js' %}?v={{ app_version }}-20261013"></script>
 {% endblock %}

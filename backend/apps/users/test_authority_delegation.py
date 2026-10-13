@@ -218,6 +218,10 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
             content.index('id="id_starts_at"'),
             content.index('id="id_ends_at"'),
         )
+        self.assertEqual(content.count('data-datetime-picker="24h"'), 2)
+        self.assertContains(response, "/static/vendor/flatpickr/flatpickr.min.css")
+        self.assertContains(response, "/static/vendor/flatpickr/flatpickr.min.js")
+        self.assertContains(response, "/static/vendor/flatpickr/l10n/id.js")
         self.assertContains(response, "/static/js/authority-delegation-form.js")
 
     def test_create_and_revoke_delegation(self):

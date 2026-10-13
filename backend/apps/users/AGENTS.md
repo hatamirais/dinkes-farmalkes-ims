@@ -16,6 +16,7 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 - Only superusers, `ADMIN`, and `KEPALA` manage delegations under `/users/acting-authority/`.
 - Delegates must be active `ADMIN_UMUM` or `GUDANG` users with existing access to the delegated module.
 - Delegations are module-specific and either finite with timezone-aware bounds or open-ended (`ends_at=NULL`, `Sampai dicabut`). Non-revoked delegations cannot overlap for one module.
+- The delegation create form uses the locally vendored Flatpickr 4.6.13 assets to guarantee Indonesian, 24-hour `DD/MM/YYYY HH:mm` controls while preserving the Django `YYYY-MM-DDTHH:mm` submission format; keep its no-JavaScript native `datetime-local` fallback valid.
 - Delegation supplements, rather than replaces, the permanent Kepala.
 - Approval workflows re-resolve and lock the delegation inside their transaction.
 - Exercised authority creates append-only `AuthorityExercise` actor/title/grant snapshots so historical output continues to identify the real actor as `Plh. Kepala Instalasi` after expiry, revocation, or profile changes.

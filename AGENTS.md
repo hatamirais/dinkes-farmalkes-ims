@@ -14,7 +14,7 @@ Rules in this file apply repository-wide. Before changing an app, also read `bac
 | Django | 6.0.8 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis when `REDIS_URL` is set; otherwise In-Memory / LocMemCache |
-| UI | Django templates + Bootstrap 5; server-rendered mobile/PWA surface |
+| UI | Django templates + Bootstrap 5; locally vendored Flatpickr 4.6.13 on the delegation form; server-rendered mobile/PWA surface |
 | Static serving | WhiteNoise for collected static assets |
 | Auth model | `apps.users.User` |
 | Object audit | django-auditlog |
