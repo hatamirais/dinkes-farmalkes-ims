@@ -181,10 +181,32 @@ class AuthorityDelegationPolicyTests(AuthorityDelegationTestMixin, TestCase):
         self.delegate.nip = "NIP-BARU"
         self.delegate.save(update_fields=("full_name", "nip"))
 
-        signature = get_delegated_signature(self.kepala, action="verify")
+        signature = get_delegated_signature(
+            self.kepala,
+            action="verify",
+            actor=self.delegate,
+            exercised_at=exercise.exercised_at,
+        )
         self.assertEqual(signature["name"], exercise.actor_name_snapshot)
         self.assertEqual(signature["nip"], exercise.actor_nip_snapshot)
         self.assertEqual(signature["title"], "Plh. Kepala Instalasi")
+
+        self.assertIsNone(
+            get_delegated_signature(
+                self.kepala,
+                action="verify",
+                actor=self.kepala,
+                exercised_at=exercise.exercised_at,
+            )
+        )
+        self.assertIsNone(
+            get_delegated_signature(
+                self.kepala,
+                action="verify",
+                actor=self.delegate,
+                exercised_at=exercise.exercised_at + timedelta(seconds=1),
+            )
+        )
 
 
 class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):

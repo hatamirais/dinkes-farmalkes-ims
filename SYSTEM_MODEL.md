@@ -194,6 +194,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 - `users.AuthorityExercise` (`db_table=user_authority_exercises`)
   - Append-only evidence for successful delegated workflow actions through a generic target relation.
   - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, nullable delegation-period end, grantor, and reason snapshots used by historical rendering.
+  - A rendered delegated signature must match the target workflow's current checkpoint actor and timestamp; an older append-only exercise remains audit history but cannot identify a later permanent or delegated reprocessing action.
 
 ### 4.3 Master data and item registry
 

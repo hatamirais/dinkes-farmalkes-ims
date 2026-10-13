@@ -719,6 +719,8 @@ def opname_print(request, pk):
             "delegated_signature": get_delegated_signature(
                 opname,
                 action="complete_with_discrepancy",
+                actor=opname.completed_by,
+                exercised_at=opname.completed_at,
             ),
         },
     )

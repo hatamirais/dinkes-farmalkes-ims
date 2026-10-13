@@ -892,7 +892,12 @@ def distribution_detail(request, pk):
         .order_by("full_name", "username")
         .first()
     )
-    delegated_signature = get_delegated_signature(dist, action="verify")
+    delegated_signature = get_delegated_signature(
+        dist,
+        action="verify",
+        actor=dist.verified_by,
+        exercised_at=dist.verified_at,
+    )
 
     printable_items = []
     total_quantity = Decimal("0")

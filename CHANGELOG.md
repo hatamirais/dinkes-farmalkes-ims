@@ -26,6 +26,10 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Restricted delegates to active `ADMIN_UMUM` or `GUDANG` users with existing access to the delegated module; delegation does not grant settings, user-management, Django Admin, facility-bypass, or unrelated-module access.
 - Approval checkpoints re-resolve and lock active delegations inside the workflow transaction before recording a successful authority exercise.
 
+### Fixed
+
+- Prevented an older delegated exercise from being rendered as the current signer after a workflow is stepped back and later processed by the permanent Kepala or another delegate; signature snapshots now require an exact match with the current checkpoint actor and timestamp.
+
 ## [1.34.0] - 2026-10-02
 
 ### Added

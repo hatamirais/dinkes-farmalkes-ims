@@ -20,6 +20,7 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 - Delegation supplements, rather than replaces, the permanent Kepala.
 - Approval workflows re-resolve and lock the delegation inside their transaction.
 - Exercised authority creates append-only `AuthorityExercise` actor/title/grant snapshots so historical output continues to identify the real actor as `Plh. Kepala Instalasi` after expiry, revocation, or profile changes.
+- Render a delegated signature only when its `AuthorityExercise` actor and timestamp match the workflow object's current checkpoint actor and timestamp. Historical exercises remain append-only but must not override a later permanent or delegated action after step-back and reprocessing.
 - Delegation never grants settings access, user management, Django Admin, facility bypass, or unrelated module access.
 
 ## Mutation Throttling And Audit

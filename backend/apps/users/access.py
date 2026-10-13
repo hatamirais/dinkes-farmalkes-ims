@@ -287,8 +287,31 @@ def get_authority_exercise(target, *, action: str | None = None):
     return queryset.order_by("-exercised_at", "-pk").first()
 
 
-def get_delegated_signature(target, *, action: str):
-    exercise = get_authority_exercise(target, action=action)
+def get_delegated_signature(
+    target,
+    *,
+    action: str,
+    actor: User | None,
+    exercised_at: datetime | None,
+):
+    if actor is None or exercised_at is None:
+        return None
+
+    content_type = ContentType.objects.get_for_model(
+        target,
+        for_concrete_model=False,
+    )
+    exercise = (
+        AuthorityExercise.objects.filter(
+            content_type=content_type,
+            object_id=target.pk,
+            action=action,
+            actor=actor,
+            exercised_at=exercised_at,
+        )
+        .order_by("-pk")
+        .first()
+    )
     if exercise is None:
         return None
     return {

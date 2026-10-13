@@ -427,6 +427,8 @@ def expired_print(request, pk):
             "delegated_signature": get_delegated_signature(
                 expired_doc,
                 action="verify",
+                actor=expired_doc.verified_by,
+                exercised_at=expired_doc.verified_at,
             ),
         },
     )
