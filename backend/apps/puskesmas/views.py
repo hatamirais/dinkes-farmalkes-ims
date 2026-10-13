@@ -32,6 +32,7 @@ from apps.distribution.services import assign_default_distribution_staff
 from apps.lplpo.models import LPLPO
 from apps.users.access import (
     get_active_authority_delegation,
+    has_authority_exercise,
     has_module_permission,
     has_module_scope,
     is_super_admin,
@@ -1976,6 +1977,12 @@ def request_delete(request, pk):
         return redirect("puskesmas:request_detail", pk=pk)
 
     doc_num = req.document_number
+    if has_authority_exercise(req):
+        messages.error(
+            request,
+            "Permintaan tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+        )
+        return redirect("puskesmas:request_detail", pk=pk)
     req.delete()
     messages.success(request, f"Permintaan {doc_num} berhasil dihapus.")
     return redirect("puskesmas:request_list")

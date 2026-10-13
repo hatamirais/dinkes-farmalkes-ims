@@ -23,6 +23,7 @@ App-specific guidance for monthly LPLPO reports and stock requests.
 - `Distribution(distribution_type=LPLPO)` is normally system-generated from PIC review submission in `lplpo_review`.
 - The legacy `lplpo_finalize` route remains only to finish older `REVIEWED` rows and should not be treated as the primary workflow path.
 - An active LPLPO-specific Acting Kepala delegation applies only to the legacy `REVIEWED` finalize/reject compatibility checkpoint. It does not create a new approval stage, bypass facility/stage visibility, or alter the normal PIC-driven path; delegated use must be recorded atomically in `AuthorityExercise`.
+- Legacy reject and finalize transactions acquire locks in one order: the applicable delegation first, then the LPLPO row.
 
 ## Creation And Carry-Forward
 

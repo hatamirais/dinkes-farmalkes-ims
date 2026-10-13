@@ -20,6 +20,7 @@ from apps.stock.models import Stock
 from apps.users.access import (
     can_approve_workflow,
     get_delegated_signature,
+    has_authority_exercise,
     has_module_scope,
     record_authority_exercise,
     resolve_approval_authority,
@@ -662,6 +663,12 @@ def expired_delete(request, pk):
     doc_number = expired_doc.document_number
     with transaction.atomic():
         expired_doc = Expired.objects.select_for_update().get(pk=expired_doc.pk)
+        if has_authority_exercise(expired_doc):
+            messages.error(
+                request,
+                "Dokumen tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            )
+            return redirect("expired:expired_detail", pk=pk)
         void_document_number(
             expired_doc,
             actor=request.user,

@@ -34,6 +34,7 @@ from apps.stock.models import Stock
 from apps.users.access import (
     can_approve_workflow,
     get_delegated_signature,
+    has_authority_exercise,
     has_module_permission,
     has_module_scope,
     record_authority_exercise,
@@ -1373,6 +1374,12 @@ def distribution_delete(request, pk):
     document_number = dist.document_number
     with transaction.atomic():
         dist = get_object_or_404(Distribution.objects.select_for_update(), pk=pk)
+        if has_authority_exercise(dist):
+            messages.error(
+                request,
+                "Distribusi tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            )
+            return _redirect_distribution_detail(pk)
         release_distribution_reservations(dist)
         redirect_url_name = (
         "distribution:special_request_list"

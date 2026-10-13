@@ -11,7 +11,11 @@ from apps.core.decorators import module_scope_required, perm_required
 from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock, Transaction
-from apps.users.access import record_authority_exercise, resolve_approval_authority
+from apps.users.access import (
+    has_authority_exercise,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 from .forms import RecallForm, RecallItemFormSet
@@ -402,6 +406,12 @@ def recall_delete(request, pk):
     doc_number = recall.document_number
     with transaction.atomic():
         recall = Recall.objects.select_for_update().get(pk=recall.pk)
+        if has_authority_exercise(recall):
+            messages.error(
+                request,
+                "Recall tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            )
+            return redirect("recall:recall_detail", pk=pk)
         void_document_number(
             recall,
             actor=request.user,

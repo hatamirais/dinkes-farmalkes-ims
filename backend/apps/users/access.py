@@ -273,6 +273,20 @@ def record_authority_exercise(
     )
 
 
+def has_authority_exercise(target) -> bool:
+    """Return whether delegated-authority audit history references ``target``."""
+    if target.pk is None:
+        return False
+    content_type = ContentType.objects.get_for_model(
+        target,
+        for_concrete_model=False,
+    )
+    return AuthorityExercise.objects.filter(
+        content_type=content_type,
+        object_id=target.pk,
+    ).exists()
+
+
 def get_authority_exercise(target, *, action: str | None = None):
     content_type = ContentType.objects.get_for_model(
         target,

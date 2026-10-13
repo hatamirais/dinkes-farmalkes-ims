@@ -7,10 +7,13 @@ its permissions, and the appropriate Admin panel access.
 """
 
 from django.contrib.auth.models import Group
+from django.contrib.contenttypes.models import ContentType
+from django.db.models.deletion import ProtectedError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .access import ensure_default_module_access
+from .models import AuthorityExercise
 
 
 # Maps User.role values → Django Group names
@@ -57,3 +60,21 @@ def sync_user_group(sender, instance, **kwargs):
 
     # ── 3. Seed ModuleAccess defaults ────────────────────────────────────
     ensure_default_module_access(instance)
+
+
+def protect_authority_exercise_target(sender, instance, **kwargs):
+    """Prevent hard deletion from orphaning append-only authority evidence."""
+    content_type = ContentType.objects.get_for_model(
+        instance,
+        for_concrete_model=False,
+    )
+    exercises = AuthorityExercise.objects.filter(
+        content_type=content_type,
+        object_id=instance.pk,
+    )
+    if exercises.exists():
+        raise ProtectedError(
+            "Dokumen tidak dapat dihapus karena memiliki riwayat penggunaan "
+            "delegasi wewenang.",
+            exercises,
+        )

@@ -1,13 +1,16 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
+from apps.distribution.models import Distribution
+from apps.items.models import Facility
 
 from .access import (
     can_approve_workflow,
@@ -145,6 +148,53 @@ class AuthorityDelegationPolicyTests(AuthorityDelegationTestMixin, TestCase):
             )
         )
 
+    def test_puskesmas_role_cannot_resolve_manually_created_delegation(self):
+        facility = Facility.objects.create(code="PKM-DELEG", name="Puskesmas Delegasi")
+        puskesmas_user = self.make_user("puskesmas_delegate", User.Role.PUSKESMAS)
+        puskesmas_user.facility = facility
+        puskesmas_user.save(update_fields=("facility",))
+        self.make_delegation(puskesmas_user)
+
+        decision = resolve_approval_authority(
+            puskesmas_user,
+            ModuleAccess.Module.DISTRIBUTION,
+            role_gated=True,
+        )
+
+        self.assertFalse(decision.allowed)
+
+    def test_exercised_workflow_target_cannot_be_hard_deleted(self):
+        self.make_delegation(self.delegate)
+        facility = Facility.objects.create(code="PKM-PROTECT", name="Puskesmas Protect")
+        decision = resolve_approval_authority(
+            self.delegate,
+            ModuleAccess.Module.DISTRIBUTION,
+            role_gated=True,
+        )
+        target = Distribution.objects.create(
+            distribution_type=Distribution.DistributionType.SPECIAL_REQUEST,
+            facility=facility,
+            request_date=date(2026, 10, 13),
+            created_by=self.delegate,
+        )
+        record_authority_exercise(
+            decision,
+            actor=self.delegate,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            action="verify",
+            target=target,
+        )
+
+        with self.assertRaises(ProtectedError):
+            with transaction.atomic():
+                target.delete()
+        self.assertTrue(Distribution.objects.filter(pk=target.pk).exists())
+
+        with self.assertRaises(ProtectedError):
+            with transaction.atomic():
+                Distribution.objects.filter(pk=target.pk).delete()
+        self.assertTrue(Distribution.objects.filter(pk=target.pk).exists())
+
     def test_existing_approval_decorator_chain_accepts_only_active_delegation(self):
         @perm_required("distribution.change_distribution")
         @module_scope_required(
@@ -224,6 +274,20 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         self.client.force_login(self.admin_umum)
         response = self.client.get(reverse("users:authority_delegation_list"))
         self.assertEqual(response.status_code, 403)
+
+    def test_puskesmas_user_is_not_offered_as_delegate(self):
+        facility = Facility.objects.create(code="PKM-CHOICE", name="Puskesmas Choice")
+        puskesmas_user = self.make_user("puskesmas_choice", User.Role.PUSKESMAS)
+        puskesmas_user.facility = facility
+        puskesmas_user.save(update_fields=("facility",))
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(reverse("users:authority_delegation_create"))
+
+        self.assertEqual(response.status_code, 200)
+        delegate_queryset = response.context["form"].fields["delegate"].queryset
+        self.assertFalse(delegate_queryset.filter(pk=puskesmas_user.pk).exists())
+        self.assertTrue(delegate_queryset.filter(pk=self.delegate.pk).exists())
 
     def test_create_form_places_duration_before_dates_and_toggles_end_field(self):
         self.client.force_login(self.kepala)

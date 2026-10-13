@@ -200,10 +200,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!facilityGroup || !facilitySelect) return;
 
         var isPuskesmas = roleSelect.value === 'PUSKESMAS';
-        facilityGroup.classList.toggle('d-none', !isPuskesmas);
+        var canLinkFacility = ['PUSKESMAS', 'ADMIN_UMUM', 'GUDANG'].indexOf(roleSelect.value) !== -1;
+        facilityGroup.classList.toggle('d-none', !canLinkFacility);
         facilitySelect.required = isPuskesmas;
 
-        if (!isPuskesmas) {
+        if (!canLinkFacility) {
             facilitySelect.value = '';
         }
     }

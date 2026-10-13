@@ -1,5 +1,5 @@
 import importlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -21,7 +21,8 @@ from apps.puskesmas.models import (
     PuskesmasSubunit,
 )
 from apps.stock.models import Stock
-from apps.users.models import ModuleAccess, User
+from apps.users.access import resolve_approval_authority
+from apps.users.models import AuthorityDelegation, ModuleAccess, User
 from apps.lplpo.models import (
 	LPLPO,
 	LPLPOItem,
@@ -1738,6 +1739,49 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 			lplpo.rejection_reason,
 			"Sesuaikan jumlah pemberian dengan stok tersedia.",
 		)
+
+	def test_delegated_legacy_reject_locks_delegation_before_lplpo(self):
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.REVIEWED,
+			reviewed_by=self.gudang_user,
+		)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan untuk verifikasi urutan lock.",
+			granted_by=self.kepala_without_facility,
+		)
+		lock_order = []
+		real_select_for_update = LPLPO.objects.select_for_update
+
+		def resolve_with_trace(*args, **kwargs):
+			lock_order.append("delegation")
+			return resolve_approval_authority(*args, **kwargs)
+
+		def select_lplpo_with_trace(*args, **kwargs):
+			lock_order.append("lplpo")
+			return real_select_for_update(*args, **kwargs)
+
+		self.client.force_login(self.gudang_user)
+		with patch(
+			"apps.lplpo.views.resolve_approval_authority",
+			side_effect=resolve_with_trace,
+		), patch.object(
+			LPLPO.objects,
+			"select_for_update",
+			side_effect=select_lplpo_with_trace,
+		):
+			response = self.client.post(
+				reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+				{"rejection_reason": "Perlu diperbaiki."},
+			)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(lock_order[:2], ["delegation", "lplpo"])
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PIC)
 
 	def test_admin_can_reject_pic_verified_lplpo_back_to_puskesmas(self):
 		verified_at = timezone.now()

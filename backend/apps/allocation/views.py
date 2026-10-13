@@ -12,7 +12,11 @@ from django.utils import timezone
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.numbering import void_document_number
 from apps.stock.models import Stock
-from apps.users.access import record_authority_exercise, resolve_approval_authority
+from apps.users.access import (
+    has_authority_exercise,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 from .forms import AllocationForm, AllocationItemFormSet
@@ -663,6 +667,12 @@ def allocation_delete(request, pk):
             messages.error(
                 request,
                 "Hanya alokasi berstatus Draft atau Ditolak yang dapat dihapus.",
+            )
+            return _redirect_allocation_detail(pk)
+        if has_authority_exercise(allocation):
+            messages.error(
+                request,
+                "Alokasi tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
             )
             return _redirect_allocation_detail(pk)
 

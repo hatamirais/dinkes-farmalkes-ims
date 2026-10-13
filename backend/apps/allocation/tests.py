@@ -20,7 +20,8 @@ from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
-from apps.users.models import User
+from apps.users.access import record_authority_exercise, resolve_approval_authority
+from apps.users.models import AuthorityDelegation, ModuleAccess, User
 
 from .admin import (
     AllocationAdmin,
@@ -869,6 +870,43 @@ class AllocationRouteTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Allocation.objects.filter(pk=allocation.pk).exists())
+
+    def test_delete_draft_with_authority_exercise_is_blocked(self):
+        allocation = _create_allocation(self.fixtures)
+        delegate = self.fixtures["operator"]
+        AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.ALLOCATION,
+            delegate=delegate,
+            starts_at=timezone.now() - timedelta(hours=1),
+            ends_at=timezone.now() + timedelta(hours=1),
+            reason="Penugasan pengujian retensi audit.",
+            granted_by=self.fixtures["admin"],
+        )
+        decision = resolve_approval_authority(
+            delegate,
+            ModuleAccess.Module.ALLOCATION,
+            role_gated=False,
+        )
+        record_authority_exercise(
+            decision,
+            actor=delegate,
+            module=ModuleAccess.Module.ALLOCATION,
+            action="reject",
+            target=allocation,
+        )
+
+        response = self.client.post(
+            reverse("allocation:allocation_delete", args=[allocation.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Allocation.objects.filter(pk=allocation.pk).exists())
+        messages = [str(message) for message in response.wsgi_request._messages]
+        self.assertIn(
+            "Alokasi tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            messages,
+        )
 
     def test_delete_approved_fails(self):
         allocation = _create_allocation(self.fixtures, status=Allocation.Status.APPROVED)

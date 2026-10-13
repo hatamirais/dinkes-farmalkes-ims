@@ -27,6 +27,7 @@ from apps.items.models import Facility, Item
 from apps.stock.models import Stock
 from apps.users.access import (
     get_active_authority_delegation,
+    has_authority_exercise,
     has_module_permission,
     has_module_scope,
     is_super_admin,
@@ -1299,6 +1300,15 @@ def lplpo_reject(request, pk):
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     with transaction.atomic():
+        # Keep the same lock order as lplpo_finalize: delegation first, then
+        # the workflow row. This prevents concurrent legacy reject/finalize
+        # requests from deadlocking each other.
+        authority_decision = resolve_approval_authority(
+            request.user,
+            ModuleAccess.Module.LPLPO,
+            role_gated=False,
+            for_update=True,
+        )
         lplpo_obj = get_object_or_404(
             LPLPO.objects.select_for_update(),
             pk=pk,
@@ -1307,8 +1317,8 @@ def lplpo_reject(request, pk):
         if denied:
             return denied
 
-        authority_decision = None
         if _can_admin_reject_lplpo(request.user, lplpo_obj):
+            authority_decision = None
             lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
             lplpo_obj.verified_by = None
             lplpo_obj.verified_at = None
@@ -1331,6 +1341,7 @@ def lplpo_reject(request, pk):
                 "updated_at",
             ]
         elif lplpo_obj.status == LPLPO.Status.SUBMITTED:
+            authority_decision = None
             if not _has_lplpo_operate_access(request.user):
                 raise PermissionDenied(
                     "Anda tidak memiliki akses untuk menolak LPLPO ini."
@@ -1351,12 +1362,6 @@ def lplpo_reject(request, pk):
                 raise PermissionDenied(
                     "Anda tidak memiliki akses untuk menolak LPLPO ini."
                 )
-            authority_decision = resolve_approval_authority(
-                request.user,
-                ModuleAccess.Module.LPLPO,
-                role_gated=False,
-                for_update=True,
-            )
             if not authority_decision.allowed:
                 raise PermissionDenied(
                     "Anda tidak memiliki wewenang untuk menolak LPLPO ini."
@@ -1740,6 +1745,12 @@ def lplpo_delete(request, pk):
 
     doc_number = lplpo_obj.document_number
     facility_id = lplpo_obj.facility_id
+    if has_authority_exercise(lplpo_obj):
+        messages.error(
+            request,
+            "LPLPO tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+        )
+        return redirect("lplpo:lplpo_detail", pk=pk)
     lplpo_obj.delete()
     if is_super_admin(request.user):
         logger.info(

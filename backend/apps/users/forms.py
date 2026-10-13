@@ -22,7 +22,16 @@ UI_ROLE_CHOICES = [
     (value, label) for value, label in User.Role.choices if value != User.Role.ADMIN
 ]
 
-FACILITY_HELP_TEXT = "Wajib dipilih untuk Operator Puskesmas."
+FACILITY_LINKABLE_ROLES = {
+    User.Role.PUSKESMAS,
+    User.Role.ADMIN_UMUM,
+    User.Role.GUDANG,
+}
+
+FACILITY_HELP_TEXT = (
+    "Wajib untuk Operator Puskesmas; opsional untuk Admin Umum atau Petugas "
+    "Gudang yang akan menerima delegasi Puskesmas/LPLPO."
+)
 
 
 def _clean_normalized_text(value, *, field_label):
@@ -47,7 +56,7 @@ def _clean_role_and_facility(form):
     if role == User.Role.PUSKESMAS and not facility:
         form.add_error("facility", "Fasilitas wajib dipilih untuk Operator Puskesmas.")
 
-    if role != User.Role.PUSKESMAS:
+    if role not in FACILITY_LINKABLE_ROLES:
         cleaned_data["facility"] = None
 
     return cleaned_data

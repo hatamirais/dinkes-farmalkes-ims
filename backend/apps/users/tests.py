@@ -246,6 +246,57 @@ class UserManagementViewsTest(TestCase):
         self.assertEqual(created.role, User.Role.PUSKESMAS)
         self.assertEqual(created.facility_id, facility.pk)
 
+    def test_user_create_admin_umum_with_optional_facility_succeeds(self):
+        facility = Facility.objects.create(code="PKM-AU", name="Puskesmas Admin Umum")
+        payload = {
+            "username": "admin_umum_facility",
+            "full_name": "Admin Umum Facility",
+            "nip": "197001012010011006",
+            "email": "admin.umum.facility@example.com",
+            "role": User.Role.ADMIN_UMUM,
+            "facility": str(facility.pk),
+            "is_active": "on",
+            "password1": "VeryStrongPass123!",
+            "password2": "VeryStrongPass123!",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        response = self.client.post(reverse("users:user_create"), payload)
+
+        self.assertEqual(response.status_code, 302)
+        created = User.objects.get(username="admin_umum_facility")
+        self.assertEqual(created.facility_id, facility.pk)
+
+    def test_user_update_gudang_preserves_optional_facility(self):
+        facility = Facility.objects.create(code="PKM-GD", name="Puskesmas Gudang")
+        payload = {
+            "username": self.target.username,
+            "full_name": self.target.full_name,
+            "nip": self.target.nip,
+            "email": self.target.email,
+            "role": User.Role.GUDANG,
+            "facility": str(facility.pk),
+            "is_active": "on",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        response = self.client.post(
+            reverse("users:user_update", args=[self.target.pk]),
+            payload,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.target.refresh_from_db()
+        self.assertEqual(self.target.facility_id, facility.pk)
+
+    def test_user_form_script_shows_facility_for_delegate_roles(self):
+        script = (
+            Path(__file__).resolve().parents[2] / "static" / "js" / "user-form.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("['PUSKESMAS', 'ADMIN_UMUM', 'GUDANG']", script)
+        self.assertIn("facilitySelect.required = isPuskesmas", script)
+
     def test_dashboard_blocks_admin_role_creation(self):
         """ADMIN role cannot be created from the Dashboard — only via CLI."""
         payload = {

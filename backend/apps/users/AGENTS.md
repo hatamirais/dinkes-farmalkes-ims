@@ -15,11 +15,13 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 - Temporary authority uses `AuthorityDelegation`; never change `User.role` to model an acting appointment.
 - Only superusers, `ADMIN`, and `KEPALA` manage delegations under `/users/acting-authority/`.
 - Delegates must be active `ADMIN_UMUM` or `GUDANG` users with existing access to the delegated module.
+- `ADMIN_UMUM` and `GUDANG` may have an optional facility link for Puskesmas/LPLPO delegation. `PUSKESMAS` still requires a facility but is never an eligible delegate.
 - Delegations are module-specific and either finite with timezone-aware bounds or open-ended (`ends_at=NULL`, `Sampai dicabut`). Non-revoked delegations cannot overlap for one module.
 - The delegation create form uses the locally vendored Flatpickr 4.6.13 assets to guarantee Indonesian, 24-hour `DD/MM/YYYY HH:mm` controls while preserving the Django `YYYY-MM-DDTHH:mm` submission format; keep its no-JavaScript native `datetime-local` fallback valid.
 - Delegation supplements, rather than replaces, the permanent Kepala.
 - Approval workflows re-resolve and lock the delegation inside their transaction.
 - Exercised authority creates append-only `AuthorityExercise` actor/title/grant snapshots so historical output continues to identify the real actor as `Plh. Kepala Instalasi` after expiry, revocation, or profile changes.
+- Any workflow target referenced by `AuthorityExercise` is protected from instance, queryset/bulk, and cascading hard deletion so the generic audit reference cannot be orphaned.
 - Render a delegated signature only when its `AuthorityExercise` actor and timestamp match the workflow object's current checkpoint actor and timestamp. Historical exercises remain append-only but must not override a later permanent or delegated action after step-back and reprocessing.
 - Delegation never grants settings access, user management, Django Admin, facility bypass, or unrelated module access.
 

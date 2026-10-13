@@ -16,6 +16,7 @@ from apps.stock.models import Stock
 from apps.users.access import (
     can_approve_module,
     get_delegated_signature,
+    has_authority_exercise,
     has_module_scope,
     record_authority_exercise,
     resolve_approval_authority,
@@ -747,6 +748,12 @@ def opname_delete(request, pk):
                     StockOpname.Status.IN_PROGRESS,
                 ],
             )
+            if has_authority_exercise(opname):
+                messages.error(
+                    request,
+                    "Stock opname tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+                )
+                return redirect("stock_opname:opname_detail", pk=pk)
             void_document_number(
                 opname,
                 actor=request.user,
