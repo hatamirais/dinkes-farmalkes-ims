@@ -348,6 +348,57 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         self.assertIsNotNone(delegation.revoked_at)
         self.assertEqual(delegation.revoked_by, self.kepala)
 
+    def test_kepala_cannot_revoke_module_after_approval_scope_is_removed(self):
+        delegation = self.make_delegation(self.delegate)
+        ModuleAccess.objects.update_or_create(
+            user=self.kepala,
+            module=ModuleAccess.Module.DISTRIBUTION,
+            defaults={"scope": ModuleAccess.Scope.OPERATE},
+        )
+        revoke_url = reverse(
+            "users:authority_delegation_revoke",
+            args=[delegation.pk],
+        )
+        self.client.force_login(self.kepala)
+
+        list_response = self.client.get(reverse("users:authority_delegation_list"))
+        get_response = self.client.get(revoke_url)
+        post_response = self.client.post(
+            revoke_url,
+            {"revocation_reason": "Tidak boleh tersimpan."},
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, revoke_url)
+        self.assertEqual(get_response.status_code, 403)
+        self.assertEqual(post_response.status_code, 403)
+        delegation.refresh_from_db()
+        self.assertIsNone(delegation.revoked_at)
+        self.assertIsNone(delegation.revoked_by)
+        self.assertEqual(delegation.revocation_reason, "")
+
+    def test_revoke_rechecks_module_authority_after_locking(self):
+        delegation = self.make_delegation(self.delegate)
+        self.client.force_login(self.kepala)
+
+        with patch(
+            "apps.users.views.can_delegate_module",
+            side_effect=(True, False),
+        ):
+            response = self.client.post(
+                reverse(
+                    "users:authority_delegation_revoke",
+                    args=[delegation.pk],
+                ),
+                {"revocation_reason": "Tidak boleh tersimpan."},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        delegation.refresh_from_db()
+        self.assertIsNone(delegation.revoked_at)
+        self.assertIsNone(delegation.revoked_by)
+        self.assertEqual(delegation.revocation_reason, "")
+
     def test_expired_delegation_cannot_be_rewritten_as_revoked(self):
         delegation = self.make_delegation(self.delegate)
         delegation.starts_at = timezone.now() - timedelta(hours=2)

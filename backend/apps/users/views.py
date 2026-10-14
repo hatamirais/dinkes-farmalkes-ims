@@ -25,6 +25,7 @@ from apps.core.rate_limits import (
 
 from .access import (
     ROLE_DEFAULT_SCOPES,
+    can_delegate_module,
     can_manage_authority_delegations,
     has_module_permission,
 )
@@ -98,6 +99,13 @@ def _require_authority_delegation_access(user):
     if not can_manage_authority_delegations(user):
         raise PermissionDenied(
             "Hanya Kepala Instalasi atau Admin yang dapat mengelola delegasi wewenang."
+        )
+
+
+def _require_authority_delegation_module_access(user, module):
+    if not can_delegate_module(user, module):
+        raise PermissionDenied(
+            "Anda tidak memiliki kewenangan untuk mendelegasikan modul ini."
         )
 
 
@@ -425,6 +433,7 @@ def user_detail(request, pk):
 def authority_delegation_list(request):
     _require_authority_delegation_access(request.user)
     now = timezone.now()
+    module_authority = {}
     delegations = list(
         AuthorityDelegation.objects.select_related(
             "delegate",
@@ -433,8 +442,15 @@ def authority_delegation_list(request):
         ).all()
     )
     for delegation in delegations:
-        delegation.can_revoke = delegation.revoked_at is None and (
-            delegation.ends_at is None or delegation.ends_at > now
+        if delegation.module not in module_authority:
+            module_authority[delegation.module] = can_delegate_module(
+                request.user,
+                delegation.module,
+            )
+        delegation.can_revoke = (
+            module_authority[delegation.module]
+            and delegation.revoked_at is None
+            and (delegation.ends_at is None or delegation.ends_at > now)
         )
         if delegation.revoked_at:
             delegation.display_status = "Dicabut"
@@ -495,11 +511,16 @@ def authority_delegation_revoke(request, pk):
         AuthorityDelegation.objects.select_related("delegate", "granted_by"),
         pk=pk,
     )
+    _require_authority_delegation_module_access(request.user, delegation.module)
     form = AuthorityDelegationRevokeForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             delegation = AuthorityDelegation.objects.select_for_update().get(pk=pk)
+            _require_authority_delegation_module_access(
+                request.user,
+                delegation.module,
+            )
             decision_at = timezone.now()
             if delegation.revoked_at:
                 messages.info(request, "Delegasi ini sudah dicabut sebelumnya.")
