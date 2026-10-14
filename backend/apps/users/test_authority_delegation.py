@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
@@ -346,6 +347,51 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         delegation.refresh_from_db()
         self.assertIsNotNone(delegation.revoked_at)
         self.assertEqual(delegation.revoked_by, self.kepala)
+
+    def test_expired_delegation_cannot_be_rewritten_as_revoked(self):
+        delegation = self.make_delegation(self.delegate)
+        delegation.starts_at = timezone.now() - timedelta(hours=2)
+        delegation.ends_at = timezone.now() - timedelta(hours=1)
+        delegation.save(update_fields=("starts_at", "ends_at"))
+        self.client.force_login(self.kepala)
+
+        response = self.client.post(
+            reverse("users:authority_delegation_revoke", args=[delegation.pk]),
+            {"revocation_reason": "Alasan yang tidak boleh tersimpan."},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        delegation.refresh_from_db()
+        self.assertIsNone(delegation.revoked_at)
+        self.assertIsNone(delegation.revoked_by)
+        self.assertEqual(delegation.revocation_reason, "")
+        self.assertContains(
+            response,
+            "Delegasi ini sudah berakhir dan tidak dapat dicabut.",
+        )
+        self.assertContains(response, "Berakhir")
+        self.assertNotContains(response, "Alasan yang tidak boleh tersimpan.")
+
+    def test_delegation_ending_at_locked_decision_time_cannot_be_revoked(self):
+        delegation = self.make_delegation(self.delegate)
+        decision_at = timezone.now()
+        delegation.starts_at = decision_at - timedelta(hours=1)
+        delegation.ends_at = decision_at
+        delegation.save(update_fields=("starts_at", "ends_at"))
+        self.client.force_login(self.kepala)
+
+        with patch("apps.users.views.timezone.now", return_value=decision_at):
+            response = self.client.post(
+                reverse("users:authority_delegation_revoke", args=[delegation.pk]),
+                {"revocation_reason": "Batas waktu sudah tercapai."},
+            )
+
+        self.assertRedirects(response, reverse("users:authority_delegation_list"))
+        delegation.refresh_from_db()
+        self.assertIsNone(delegation.revoked_at)
+        self.assertIsNone(delegation.revoked_by)
+        self.assertEqual(delegation.revocation_reason, "")
 
     def test_create_until_revoked_delegation_without_end_datetime(self):
         self.client.force_login(self.kepala)

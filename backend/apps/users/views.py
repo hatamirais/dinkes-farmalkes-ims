@@ -500,10 +500,19 @@ def authority_delegation_revoke(request, pk):
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             delegation = AuthorityDelegation.objects.select_for_update().get(pk=pk)
+            decision_at = timezone.now()
             if delegation.revoked_at:
                 messages.info(request, "Delegasi ini sudah dicabut sebelumnya.")
+            elif (
+                delegation.ends_at is not None
+                and delegation.ends_at <= decision_at
+            ):
+                messages.info(
+                    request,
+                    "Delegasi ini sudah berakhir dan tidak dapat dicabut.",
+                )
             else:
-                delegation.revoked_at = timezone.now()
+                delegation.revoked_at = decision_at
                 delegation.revoked_by = request.user
                 delegation.revocation_reason = form.cleaned_data["revocation_reason"]
                 delegation.save(
