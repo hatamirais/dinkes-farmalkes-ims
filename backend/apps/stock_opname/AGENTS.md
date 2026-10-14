@@ -8,7 +8,7 @@ App-specific guidance for physical stock counting.
 - Completion refreshes current stock under the workflow transaction and stores that refreshed quantity on every row so completed detail/print output does not drift after later stock movements.
 - `GUDANG` or operate-scope users may complete only when every refreshed current-stock quantity matches the physical count.
 - Any remaining discrepancy requires stock-opname approve scope (`KEPALA`, Admin, or superuser by default).
-- An active Stock Opname delegation may satisfy both the completion endpoint guard and the discrepancy approval check even when the delegate's underlying module scope is only `VIEW`; the transaction must still re-resolve and lock the delegation before completion.
+- The completion endpoint uses delegation fallback only to let a `VIEW`-scope delegate reach the dynamic discrepancy check. After locking and refreshing stock, matching counts still require normal `OPERATE` access, while discrepancies may use delegated approval and must re-resolve/lock that delegation before completion.
 - Completion adjustments are explicit stock workflow actions and append ledger entries; historical transactions remain immutable.
 
 ## Concurrency, Dates, And Admin

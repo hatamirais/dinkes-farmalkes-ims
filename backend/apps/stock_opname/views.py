@@ -550,12 +550,16 @@ def opname_complete(request, pk):
                     item.actual_quantity != item.stock.quantity
                     for item in counted_items
                 )
-                if has_current_discrepancy and not _user_can_complete_opname(
+                if not _user_can_complete_opname(
                     request.user,
-                    has_current_discrepancy=True,
+                    has_current_discrepancy=has_current_discrepancy,
                 ):
+                    if has_current_discrepancy:
+                        raise PermissionDenied(
+                            "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
+                        )
                     raise PermissionDenied(
-                        "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
+                        "Anda tidak memiliki akses operasional untuk menyelesaikan Stock Opname."
                     )
 
                 authority_decision = None

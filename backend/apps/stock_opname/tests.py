@@ -591,6 +591,47 @@ class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
         self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
         self.assertIsNone(self.opname.completed_by)
 
+    def test_view_scope_delegate_cannot_complete_without_discrepancy(self):
+        delegate = User.objects.create_user(
+            username="opname_view_delegate_without_discrepancy",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(delegate, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=delegate,
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
+        delegation = AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            delegate=delegate,
+            starts_at=timezone.now() - timedelta(hours=1),
+            ends_at=timezone.now() + timedelta(hours=1),
+            reason="Penugasan approval tidak memberi akses operasional.",
+            granted_by=self.admin,
+        )
+        self.client.force_login(delegate)
+
+        detail_response = self.client.get(
+            reverse("stock_opname:opname_detail", args=[self.opname.pk]),
+            secure=True,
+        )
+        complete_response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(detail_response, "Selesaikan")
+        self.assertEqual(complete_response.status_code, 403)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
+        self.assertIsNone(self.opname.completed_by)
+        self.assertFalse(
+            AuthorityExercise.objects.filter(delegation=delegation).exists()
+        )
+
     def test_django_permission_user_can_complete_without_current_discrepancy(self):
         permission_user = User.objects.create_user(
             username="django_perm_opname",
