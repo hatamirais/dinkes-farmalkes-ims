@@ -9,7 +9,11 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import DatabaseError, transaction
 from django.utils import timezone
 
-from apps.core.decorators import module_scope_required, perm_required
+from apps.core.decorators import (
+    delegated_approval_fallback,
+    module_scope_required,
+    perm_required,
+)
 from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock
@@ -508,6 +512,7 @@ def opname_input(request, pk):
 
 @login_required
 @perm_required("stock_opname.change_stockopname")
+@delegated_approval_fallback(ModuleAccess.Module.STOCK_OPNAME)
 def opname_complete(request, pk):
     """Finalize a stock opname session."""
     opname = get_object_or_404(StockOpname, pk=pk)

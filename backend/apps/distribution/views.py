@@ -877,7 +877,12 @@ def distribution_edit(request, pk):
 def distribution_detail(request, pk):
     dist = get_object_or_404(
         Distribution.objects.select_related(
-            "facility", "created_by", "verified_by", "approved_by"
+            "facility",
+            "created_by",
+            "verified_by",
+            "approved_by",
+            "allocation",
+            "allocation__approved_by",
         )
         .prefetch_related("staff_assignments__user")
         .exclude(distribution_type__in=["BORROW_RS", "SWAP_RS"]),
@@ -899,6 +904,13 @@ def distribution_detail(request, pk):
         actor=dist.verified_by,
         exercised_at=dist.verified_at,
     )
+    if delegated_signature is None and dist.allocation_id:
+        delegated_signature = get_delegated_signature(
+            dist.allocation,
+            action="approve",
+            actor=dist.allocation.approved_by,
+            exercised_at=dist.allocation.approved_at,
+        )
 
     printable_items = []
     total_quantity = Decimal("0")
