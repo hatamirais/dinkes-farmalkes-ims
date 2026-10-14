@@ -468,7 +468,20 @@ def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
         status=LPLPO.Status.SUBMITTED,
     ):
         allowed_statuses = _get_cross_facility_queue_statuses(request.user)
-        queryset = queryset.filter(status__in=allowed_statuses)
+        access_filter = Q(status__in=allowed_statuses)
+        if (
+            getattr(request.user, "role", None) == User.Role.GUDANG
+            and request.user.facility_id
+            and get_active_authority_delegation(
+                request.user,
+                ModuleAccess.Module.LPLPO,
+            )
+        ):
+            access_filter |= Q(
+                status=LPLPO.Status.REVIEWED,
+                facility_id=request.user.facility_id,
+            )
+        queryset = queryset.filter(access_filter)
     else:
         facility = _get_required_facility(request.user)
         queryset = queryset.filter(facility=facility)

@@ -11,6 +11,7 @@ App-specific guidance for monthly LPLPO reports and stock requests.
 - Puskesmas-owned stages (`DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX import/export, and prefill helpers) require a linked `user.facility` for every non-superuser and remain same-facility only.
 - Instalasi Farmasi stages are cross-facility only in stage-gated ways.
 - `GUDANG` may verify/reject `SUBMITTED` documents and review `PIC_VERIFIED` / `REJECTED_PIC` documents across facilities.
+- A facility-linked `GUDANG` user with an active LPLPO delegation additionally sees own-facility legacy `REVIEWED` rows in the normal queue. Delegation must never expose another facility's `REVIEWED` rows; expired or revoked delegation removes this addition.
 - `KEPALA` uses cross-facility LPLPO access only for the legacy `REVIEWED/finalize` compatibility path plus read-only historical visibility on `APPROVED` / `CLOSED`.
 - Users with role exactly `ADMIN` (not `ADMIN_UMUM`) may reject active no-distribution LPLPO documents back to Puskesmas from later pre-distribution stages such as `PIC_VERIFIED`.
 

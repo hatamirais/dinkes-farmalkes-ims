@@ -1554,6 +1554,91 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertNotContains(response, rejected_lplpo.document_number)
 
+	def test_gudang_delegate_queue_includes_only_own_facility_reviewed_lplpo(self):
+		own_reviewed = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.REVIEWED,
+			bulan=3,
+		)
+		self.set_submitted_at(own_reviewed, 2026, 3, 2)
+		other_reviewed = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.REVIEWED,
+			bulan=4,
+		)
+		self.set_submitted_at(other_reviewed, 2026, 4, 2)
+		cross_facility_submitted = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.SUBMITTED,
+			bulan=5,
+		)
+		self.set_submitted_at(cross_facility_submitted, 2026, 5, 2)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan approval LPLPO fasilitas sendiri.",
+			granted_by=self.kepala_without_facility,
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, own_reviewed.document_number)
+		self.assertNotContains(response, other_reviewed.document_number)
+		self.assertContains(response, cross_facility_submitted.document_number)
+
+	def test_expired_lplpo_delegation_does_not_add_reviewed_queue_rows(self):
+		own_reviewed = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.REVIEWED,
+			bulan=3,
+		)
+		self.set_submitted_at(own_reviewed, 2026, 3, 2)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=2),
+			ends_at=timezone.now() - timedelta(hours=1),
+			reason="Penugasan LPLPO yang telah berakhir.",
+			granted_by=self.kepala_without_facility,
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, own_reviewed.document_number)
+
+	def test_revoked_lplpo_delegation_does_not_add_reviewed_queue_rows(self):
+		own_reviewed = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.REVIEWED,
+			bulan=3,
+		)
+		self.set_submitted_at(own_reviewed, 2026, 3, 2)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan LPLPO yang telah dicabut.",
+			granted_by=self.kepala_without_facility,
+			revoked_at=timezone.now(),
+			revoked_by=self.kepala_without_facility,
+			revocation_reason="Penugasan dibatalkan.",
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, own_reviewed.document_number)
+
 	def test_kepala_without_facility_can_view_reviewed_lplpo_list(self):
 		reviewed_lplpo = self.create_lplpo(
 			facility=self.other_facility,
