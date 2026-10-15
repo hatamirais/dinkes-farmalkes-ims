@@ -1,8 +1,10 @@
+import time
 from datetime import date, timedelta
+from threading import Event, Thread
 from unittest.mock import patch
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, close_old_connections, transaction
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, TransactionTestCase
@@ -707,4 +709,92 @@ class AuthorityDelegationConstraintTests(
         )
 
         self.assertIsNotNone(replacement.pk)
+
+
+class AuthorityDelegationLockingTests(
+    AuthorityDelegationTestMixin,
+    TransactionTestCase,
+):
+    def setUp(self):
+        self.kepala = self.make_user("kepala_locking", User.Role.KEPALA)
+        self.delegate = self.make_user("gudang_locking", User.Role.GUDANG)
+
+    def test_locked_resolution_reloads_delegate_role(self):
+        self.make_delegation(self.delegate)
+        stale_delegate = User.objects.get(pk=self.delegate.pk)
+        User.objects.filter(pk=self.delegate.pk).update(role=User.Role.AUDITOR)
+
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                stale_delegate,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+
+        self.assertFalse(decision.allowed)
+
+    def test_locked_resolution_rechecks_time_after_waiting_for_delegation(self):
+        delegation = self.make_delegation(self.delegate)
+        delegation.ends_at = timezone.now() + timedelta(seconds=2)
+        delegation.save(update_fields=("ends_at",))
+        lock_acquired = Event()
+        release_lock = Event()
+        resolver_started = Event()
+        result = {}
+        errors = []
+
+        def hold_delegation_lock():
+            close_old_connections()
+            try:
+                with transaction.atomic():
+                    AuthorityDelegation.objects.select_for_update().get(
+                        pk=delegation.pk
+                    )
+                    lock_acquired.set()
+                    if not release_lock.wait(timeout=10):
+                        raise TimeoutError("Timed out waiting to release delegation lock.")
+            except Exception as exc:  # pragma: no cover - reported in main thread
+                errors.append(exc)
+                lock_acquired.set()
+            finally:
+                close_old_connections()
+
+        def resolve_while_locked():
+            close_old_connections()
+            try:
+                delegate = User.objects.get(pk=self.delegate.pk)
+                resolver_started.set()
+                with transaction.atomic():
+                    result["decision"] = resolve_approval_authority(
+                        delegate,
+                        ModuleAccess.Module.DISTRIBUTION,
+                        role_gated=True,
+                        for_update=True,
+                    )
+            except Exception as exc:  # pragma: no cover - reported in main thread
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        locker = Thread(target=hold_delegation_lock)
+        resolver = Thread(target=resolve_while_locked)
+        locker.start()
+        self.assertTrue(lock_acquired.wait(timeout=5))
+        resolver.start()
+        self.assertTrue(resolver_started.wait(timeout=5))
+        time.sleep(0.25)
+        self.assertTrue(resolver.is_alive())
+        remaining = (delegation.ends_at - timezone.now()).total_seconds()
+        if remaining > 0:
+            time.sleep(remaining + 0.2)
+        release_lock.set()
+        locker.join(timeout=5)
+        resolver.join(timeout=5)
+
+        self.assertFalse(locker.is_alive())
+        self.assertFalse(resolver.is_alive())
+        self.assertEqual(errors, [])
+        self.assertIn("decision", result)
+        self.assertFalse(result["decision"].allowed)
 

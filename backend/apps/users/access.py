@@ -165,6 +165,58 @@ def can_delegate_module(user: User, module: str) -> bool:
     return has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
 
 
+def _lock_authority_user_state(user: User, module: str) -> User | None:
+    try:
+        locked_user = User.objects.select_for_update().get(pk=user.pk)
+    except User.DoesNotExist:
+        return None
+    list(
+        ModuleAccess.objects.select_for_update()
+        .filter(user=locked_user, module=module)
+        .order_by("user_id", "module")
+    )
+    return locked_user
+
+
+def _is_eligible_delegate(user: User, module: str) -> bool:
+    return bool(
+        user.is_active
+        and user.role in DELEGATE_ROLES
+        and has_module_scope(user, module, ModuleAccess.Scope.VIEW)
+    )
+
+
+def _get_locked_active_authority_delegation(
+    user: User,
+    module: str,
+    *,
+    at: datetime | None = None,
+) -> AuthorityDelegation | None:
+    candidates = list(
+        AuthorityDelegation.objects.select_related("delegate", "granted_by")
+        .select_for_update(of=("self",))
+        .filter(
+            authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+            module=module,
+            delegate=user,
+            revoked_at__isnull=True,
+        )
+        .order_by("starts_at", "pk")
+    )
+    effective_at = at or timezone.now()
+    if not _is_eligible_delegate(user, module):
+        return None
+    return next(
+        (
+            delegation
+            for delegation in candidates
+            if delegation.starts_at <= effective_at
+            and (delegation.ends_at is None or delegation.ends_at > effective_at)
+        ),
+        None,
+    )
+
+
 def get_active_authority_delegation(
     user: User,
     module: str,
@@ -172,18 +224,24 @@ def get_active_authority_delegation(
     at: datetime | None = None,
     for_update: bool = False,
 ) -> AuthorityDelegation | None:
-    if (
-        not getattr(user, "is_authenticated", False)
-        or not getattr(user, "is_active", False)
-        or getattr(user, "role", None) not in DELEGATE_ROLES
-        or not has_module_scope(user, module, ModuleAccess.Scope.VIEW)
-    ):
+    if not getattr(user, "is_authenticated", False):
+        return None
+
+    if for_update:
+        locked_user = _lock_authority_user_state(user, module)
+        if locked_user is None:
+            return None
+        return _get_locked_active_authority_delegation(
+            locked_user,
+            module,
+            at=at,
+        )
+
+    if not _is_eligible_delegate(user, module):
         return None
 
     effective_at = at or timezone.now()
     queryset = AuthorityDelegation.objects.select_related("delegate", "granted_by")
-    if for_update:
-        queryset = queryset.select_for_update()
     return (
         queryset.filter(
             authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
@@ -208,6 +266,12 @@ def resolve_approval_authority(
 ) -> AuthorityDecision:
     if not getattr(user, "is_authenticated", False):
         return AuthorityDecision(False)
+
+    if for_update:
+        user = _lock_authority_user_state(user, module)
+        if user is None:
+            return AuthorityDecision(False)
+
     if getattr(user, "is_superuser", False):
         return AuthorityDecision(True, "superuser")
 
@@ -218,12 +282,18 @@ def resolve_approval_authority(
     ):
         return AuthorityDecision(True, "role")
 
-    delegation = get_active_authority_delegation(
-        user,
-        module,
-        at=at,
-        for_update=for_update,
-    )
+    if for_update:
+        delegation = _get_locked_active_authority_delegation(
+            user,
+            module,
+            at=at,
+        )
+    else:
+        delegation = get_active_authority_delegation(
+            user,
+            module,
+            at=at,
+        )
     if delegation:
         return AuthorityDecision(True, "delegation", delegation)
     return AuthorityDecision(False)
