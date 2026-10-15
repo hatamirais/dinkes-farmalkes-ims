@@ -267,6 +267,53 @@ class UserManagementViewsTest(TestCase):
         created = User.objects.get(username="admin_umum_facility")
         self.assertEqual(created.facility_id, facility.pk)
 
+    def test_user_form_only_offers_active_puskesmas_facilities(self):
+        puskesmas = Facility.objects.create(code="PKM-ONLY", name="Puskesmas Only")
+        hospital = Facility.objects.create(
+            code="RS-HIDDEN",
+            name="Rumah Sakit Hidden",
+            facility_type=Facility.FacilityType.RS,
+        )
+        inactive_puskesmas = Facility.objects.create(
+            code="PKM-INACTIVE",
+            name="Puskesmas Inactive",
+            is_active=False,
+        )
+
+        response = self.client.get(reverse("users:user_create"))
+
+        facility_queryset = response.context["form"].fields["facility"].queryset
+        self.assertTrue(facility_queryset.filter(pk=puskesmas.pk).exists())
+        self.assertFalse(facility_queryset.filter(pk=hospital.pk).exists())
+        self.assertFalse(facility_queryset.filter(pk=inactive_puskesmas.pk).exists())
+
+    def test_user_create_rejects_non_puskesmas_facility_for_delegate_role(self):
+        hospital = Facility.objects.create(
+            code="RS-INVALID",
+            name="Rumah Sakit Invalid",
+            facility_type=Facility.FacilityType.RS,
+        )
+        payload = {
+            "username": "gudang_invalid_facility",
+            "full_name": "Gudang Invalid Facility",
+            "nip": "197001012010011007",
+            "email": "gudang.invalid@example.com",
+            "role": User.Role.GUDANG,
+            "facility": str(hospital.pk),
+            "is_active": "on",
+            "password1": "VeryStrongPass123!",
+            "password2": "VeryStrongPass123!",
+        }
+        payload.update(self._module_scope_payload(ModuleAccess.Scope.VIEW))
+
+        response = self.client.post(reverse("users:user_create"), payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("facility", response.context["form"].errors)
+        self.assertFalse(
+            User.objects.filter(username="gudang_invalid_facility").exists()
+        )
+
     def test_user_update_gudang_preserves_optional_facility(self):
         facility = Facility.objects.create(code="PKM-GD", name="Puskesmas Gudang")
         payload = {

@@ -28,6 +28,7 @@ from .access import (
     can_delegate_module,
     can_manage_authority_delegations,
     has_module_permission,
+    lock_authority_user_state,
 )
 from .forms import (
     AuthorityDelegationCreateForm,
@@ -523,11 +524,16 @@ def authority_delegation_revoke(request, pk):
 
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
-            delegation = AuthorityDelegation.objects.select_for_update().get(pk=pk)
-            _require_authority_delegation_module_access(
+            locked_actor = lock_authority_user_state(
                 request.user,
                 delegation.module,
             )
+            _require_authority_delegation_access(locked_actor)
+            _require_authority_delegation_module_access(
+                locked_actor,
+                delegation.module,
+            )
+            delegation = AuthorityDelegation.objects.select_for_update().get(pk=pk)
             decision_at = timezone.now()
             if delegation.revoked_at:
                 messages.info(request, "Delegasi ini sudah dicabut sebelumnya.")
@@ -541,7 +547,7 @@ def authority_delegation_revoke(request, pk):
                 )
             else:
                 delegation.revoked_at = decision_at
-                delegation.revoked_by = request.user
+                delegation.revoked_by = locked_actor
                 delegation.revocation_reason = form.cleaned_data["revocation_reason"]
                 delegation.save(
                     update_fields=(

@@ -190,8 +190,8 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `users.AuthorityDelegation` (`db_table=user_authority_delegations`)
   - Required `starts_at`, nullable `ends_at`, one module, delegate, grantor, reason, and optional revocation actor/time/reason. `ends_at=NULL` explicitly represents `Sampai dicabut`; fixed periods require `ends_at > starts_at`.
-  - Creation locks and reloads both users plus their relevant module-access rows, then revalidates grantor authority and delegate role, status, facility, and baseline access before any selected module is persisted.
-  - Revocation is available only while the actor remains authorized to delegate that module. The mutation locks and reloads the row, then rechecks module authority and rejects finite delegations whose `ends_at` has been reached so naturally expired records remain `Berakhir` without misleading revocation metadata.
+  - Creation locks and reloads both users plus their relevant module-access rows. For Puskesmas/LPLPO it also reloads and revalidates the delegate's linked `Facility` as an active Puskesmas before any selected module is persisted.
+  - Revocation is available only while the actor remains authorized to delegate that module. The mutation locks and reloads the actor and relevant module access before the delegation row, then rechecks module authority and rejects finite delegations whose `ends_at` has been reached so naturally expired records remain `Berakhir` without misleading revocation metadata.
   - Delegate roles are limited by the application to active `ADMIN_UMUM` / `GUDANG` accounts with at least `VIEW` on the delegated module.
   - PostgreSQL exclusion constraint prevents overlapping non-revoked Kepala-approval delegations for the same module. Fixed periods use half-open `[starts_at, ends_at)` ranges, while a null upper bound is unbounded and blocks every later delegation for that module until revocation; adjacent finite periods are allowed.
 
@@ -200,7 +200,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, nullable delegation-period end, grantor, and reason snapshots used by historical rendering.
   - A rendered delegated signature must match the target workflow's current checkpoint actor and timestamp; an older append-only exercise remains audit history but cannot identify a later permanent or delegated reprocessing action.
   - Supported workflow target models are protected by `pre_delete` guards, including queryset/bulk and cascading deletion, so an exercise cannot be orphaned.
-  - Eligible delegate roles remain `ADMIN_UMUM` and `GUDANG`; either may have an optional `facility` used to enforce Puskesmas/LPLPO same-facility scope. Role `PUSKESMAS` is never eligible to receive delegated authority.
+  - Eligible delegate roles remain `ADMIN_UMUM` and `GUDANG`; either may have an optional active Puskesmas `facility` used to enforce Puskesmas/LPLPO same-facility scope. Other facility types are rejected for this link. Role `PUSKESMAS` is never eligible to receive delegated authority.
 
 ### 4.3 Master data and item registry
 

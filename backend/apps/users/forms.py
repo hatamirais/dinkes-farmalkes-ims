@@ -4,6 +4,8 @@ from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.db.models import Q
 
+from apps.items.models import Facility
+
 from .access import (
     DELEGATE_ROLES,
     can_delegate_module,
@@ -44,7 +46,8 @@ def _clean_normalized_text(value, *, field_label):
 def _configure_user_form_fields(form):
     form.fields["facility"].help_text = FACILITY_HELP_TEXT
     form.fields["facility"].queryset = form.fields["facility"].queryset.filter(
-        is_active=True
+        is_active=True,
+        facility_type=Facility.FacilityType.PUSKESMAS,
     )
 
 
@@ -55,6 +58,13 @@ def _clean_role_and_facility(form):
 
     if role == User.Role.PUSKESMAS and not facility:
         form.add_error("facility", "Fasilitas wajib dipilih untuk Operator Puskesmas.")
+
+    if (
+        role in FACILITY_LINKABLE_ROLES
+        and facility
+        and facility.facility_type != Facility.FacilityType.PUSKESMAS
+    ):
+        form.add_error("facility", "Fasilitas harus berjenis Puskesmas.")
 
     if role not in FACILITY_LINKABLE_ROLES:
         cleaned_data["facility"] = None
@@ -337,7 +347,7 @@ class AuthorityDelegationCreateForm(forms.Form):
         self.fields["delegate"].queryset = User.objects.filter(
             is_active=True,
             role__in=DELEGATE_ROLES,
-        ).order_by("full_name", "username")
+        ).select_related("facility").order_by("full_name", "username")
         self.fields["modules"].choices = [
             (module, label)
             for module, label in APPROVAL_MODULE_CHOICES
@@ -386,11 +396,16 @@ class AuthorityDelegationCreateForm(forms.Form):
                 delegate
                 and module
                 in {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
-                and not delegate.facility_id
+                and (
+                    not delegate.facility_id
+                    or not delegate.facility.is_active
+                    or delegate.facility.facility_type
+                    != Facility.FacilityType.PUSKESMAS
+                )
             ):
                 self.add_error(
                     "delegate",
-                    "Pelaksana Harian harus terhubung ke fasilitas untuk delegasi Puskesmas/LPLPO.",
+                    "Pelaksana Harian harus terhubung ke fasilitas Puskesmas aktif untuk delegasi Puskesmas/LPLPO.",
                 )
                 break
             if delegate and not has_module_scope(
@@ -467,6 +482,18 @@ class AuthorityDelegationCreateForm(forms.Form):
                 }
             )
 
+        facility_bound = bool(
+            set(modules)
+            & {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
+        )
+        locked_facility = None
+        if facility_bound and locked_delegate.facility_id:
+            locked_facility = (
+                Facility.objects.only("facility_type", "is_active")
+                .filter(pk=locked_delegate.facility_id)
+                .first()
+            )
+
         for module in modules:
             if not can_delegate_module(locked_actor, module):
                 raise forms.ValidationError(
@@ -479,13 +506,18 @@ class AuthorityDelegationCreateForm(forms.Form):
                 )
             if (
                 module in {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
-                and not locked_delegate.facility_id
+                and (
+                    locked_facility is None
+                    or not locked_facility.is_active
+                    or locked_facility.facility_type
+                    != Facility.FacilityType.PUSKESMAS
+                )
             ):
                 raise forms.ValidationError(
                     {
                         "delegate": (
-                            "Pelaksana Harian harus terhubung ke fasilitas untuk "
-                            "delegasi Puskesmas/LPLPO."
+                            "Pelaksana Harian harus terhubung ke fasilitas Puskesmas aktif "
+                            "untuk delegasi Puskesmas/LPLPO."
                         )
                     }
                 )

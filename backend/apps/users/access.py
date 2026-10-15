@@ -166,7 +166,8 @@ def can_delegate_module(user: User, module: str) -> bool:
     return has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
 
 
-def _lock_authority_user_state(user: User, module: str) -> User | None:
+def lock_authority_user_state(user: User, module: str) -> User | None:
+    """Lock/reload an authority actor and module access inside an atomic block."""
     try:
         locked_user = User.objects.select_for_update().get(pk=user.pk)
     except User.DoesNotExist:
@@ -229,7 +230,7 @@ def get_active_authority_delegation(
         return None
 
     if for_update:
-        locked_user = _lock_authority_user_state(user, module)
+        locked_user = lock_authority_user_state(user, module)
         if locked_user is None:
             return None
         return _get_locked_active_authority_delegation(
@@ -269,7 +270,7 @@ def resolve_approval_authority(
         return AuthorityDecision(False)
 
     if for_update:
-        user = _lock_authority_user_state(user, module)
+        user = lock_authority_user_state(user, module)
         if user is None:
             return AuthorityDecision(False)
 

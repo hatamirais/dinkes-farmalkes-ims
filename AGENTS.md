@@ -96,7 +96,7 @@ Use Graphify selectively to improve codebase understanding while minimizing unne
 - Permission denials must raise `PermissionDenied` so the centralized `handler403` renders the response.
 - Role-gated checkpoints remain role-gated even when a user has an elevated module scope. Acting Kepala authority is the only documented workflow-specific exception; see the owning app and `users/AGENTS.md`.
 - Non-superuser Puskesmas/LPLPO access is facility-isolated. Never infer that report or approval access grants a facility bypass.
-- `ADMIN_UMUM` and `GUDANG` may carry an optional `facility` solely to scope Puskesmas/LPLPO delegation; this does not make role `PUSKESMAS` eligible for delegation. Workflow targets referenced by `AuthorityExercise` are protected from hard deletion.
+- `ADMIN_UMUM` and `GUDANG` may carry an optional active Puskesmas `facility` solely to scope Puskesmas/LPLPO delegation; other facility types are invalid for this link, and this does not make role `PUSKESMAS` eligible for delegation. Workflow targets referenced by `AuthorityExercise` are protected from hard deletion.
 
 ### Stock And Ledger
 

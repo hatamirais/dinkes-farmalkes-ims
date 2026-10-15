@@ -15,6 +15,7 @@ from apps.core.decorators import module_scope_required, perm_required
 from apps.distribution.models import Distribution
 from apps.items.models import Facility
 
+from . import views as user_views
 from .access import (
     can_approve_workflow,
     ensure_default_module_access,
@@ -358,6 +359,7 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
             "delegate_role_changed",
             "delegate_scope_removed",
             "delegate_facility_removed",
+            "delegate_facility_type_changed",
         )
 
         for index, case in enumerate(cases):
@@ -371,7 +373,10 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
                     User.Role.GUDANG,
                 )
                 module = ModuleAccess.Module.DISTRIBUTION
-                if case == "delegate_facility_removed":
+                if case in {
+                    "delegate_facility_removed",
+                    "delegate_facility_type_changed",
+                }:
                     module = ModuleAccess.Module.PUSKESMAS
                     delegate.facility = Facility.objects.create(
                         code=f"PKM-RACE-{index}",
@@ -407,8 +412,12 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
                     ModuleAccess.objects.filter(user=delegate, module=module).update(
                         scope=ModuleAccess.Scope.NONE
                     )
-                else:
+                elif case == "delegate_facility_removed":
                     User.objects.filter(pk=delegate.pk).update(facility=None)
+                else:
+                    Facility.objects.filter(pk=delegate.facility_id).update(
+                        facility_type=Facility.FacilityType.RS
+                    )
 
                 with self.assertRaises(ValidationError):
                     with transaction.atomic():
@@ -509,6 +518,63 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         self.assertIsNone(delegation.revoked_at)
         self.assertIsNone(delegation.revoked_by)
         self.assertEqual(delegation.revocation_reason, "")
+
+    def test_revoke_reloads_actor_role_before_authorizing(self):
+        delegation = self.make_delegation(self.delegate)
+        self.client.force_login(self.kepala)
+        original_check = user_views._require_authority_delegation_module_access
+        check_count = 0
+
+        def demote_after_initial_check(user, module):
+            nonlocal check_count
+            original_check(user, module)
+            check_count += 1
+            if check_count == 1:
+                User.objects.filter(pk=self.kepala.pk).update(role=User.Role.GUDANG)
+
+        with patch(
+            "apps.users.views._require_authority_delegation_module_access",
+            side_effect=demote_after_initial_check,
+        ):
+            response = self.client.post(
+                reverse(
+                    "users:authority_delegation_revoke",
+                    args=[delegation.pk],
+                ),
+                {"revocation_reason": "Tidak boleh tersimpan."},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        delegation.refresh_from_db()
+        self.assertIsNone(delegation.revoked_at)
+        self.assertIsNone(delegation.revoked_by)
+        self.assertEqual(delegation.revocation_reason, "")
+
+    def test_facility_bound_delegation_rejects_non_puskesmas_facility(self):
+        self.delegate.facility = Facility.objects.create(
+            code="RS-DELEGATE",
+            name="Rumah Sakit Delegate",
+            facility_type=Facility.FacilityType.RS,
+        )
+        self.delegate.save(update_fields=("facility",))
+        starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
+        form = AuthorityDelegationCreateForm(
+            {
+                "delegate": self.delegate.pk,
+                "modules": [ModuleAccess.Module.PUSKESMAS],
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "duration_mode": "FIXED",
+                "ends_at": (starts_at + timedelta(hours=1)).strftime(
+                    "%Y-%m-%dT%H:%M"
+                ),
+                "reason": "Fasilitas yang salah harus ditolak.",
+            },
+            actor=self.kepala,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("delegate", form.errors)
+        self.assertIn("fasilitas Puskesmas", form.errors["delegate"][0])
 
     def test_expired_delegation_cannot_be_rewritten_as_revoked(self):
         delegation = self.make_delegation(self.delegate)
