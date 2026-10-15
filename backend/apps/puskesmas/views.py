@@ -154,15 +154,19 @@ def _can_reset_request_to_draft(user, req):
     return False
 
 
-def _check_request_facility_access(request, req):
-    if is_super_admin(request.user):
+def _check_request_facility_access_for_user(user, req):
+    if is_super_admin(user):
         return None
 
-    facility = _get_required_facility(request.user)
+    facility = _get_required_facility(user)
     if req.facility_id != facility.pk:
         raise PermissionDenied("Anda tidak memiliki akses ke permintaan ini.")
 
     return None
+
+
+def _check_request_facility_access(request, req):
+    return _check_request_facility_access_for_user(request.user, req)
 
 
 def _check_puskesmas_request_creator_access(request):
@@ -1805,7 +1809,9 @@ def request_approve(request, pk):
                 raise PermissionDenied(
                     "Anda tidak memiliki wewenang persetujuan permintaan Puskesmas."
                 )
+            actor = decision.actor or request.user
             req = PuskesmasRequest.objects.select_for_update().get(pk=req.pk)
+            _check_request_facility_access_for_user(actor, req)
             if req.status != PuskesmasRequest.Status.SUBMITTED:
                 messages.error(
                     request,
@@ -1824,7 +1830,7 @@ def request_approve(request, pk):
                 request_date=req.request_date,
                 program=req.program.name if req.program else "",
                 status=Distribution.Status.DRAFT,
-                created_by=request.user,
+                created_by=actor,
                 notes=(
                     f"Dibuat otomatis dari Permintaan Puskesmas {req.document_number}."
                     + (f"\n{req.notes}" if req.notes else "")
@@ -1844,10 +1850,10 @@ def request_approve(request, pk):
                     for item_obj, qty in valid_items
                 ]
             )
-            assign_default_distribution_staff(dist, request.user)
+            assign_default_distribution_staff(dist, actor)
 
             req.status = PuskesmasRequest.Status.APPROVED
-            req.approved_by = request.user
+            req.approved_by = actor
             req.approved_at = timezone.now()
             req.distribution = dist
             req.save(
@@ -1857,7 +1863,7 @@ def request_approve(request, pk):
             )
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=actor,
                 module=ModuleAccess.Module.PUSKESMAS,
                 action="approve_request",
                 target=req,
@@ -1910,7 +1916,9 @@ def request_reject(request, pk):
             raise PermissionDenied(
                 "Anda tidak memiliki wewenang penolakan permintaan Puskesmas."
             )
+        actor = decision.actor or request.user
         req = PuskesmasRequest.objects.select_for_update().get(pk=req.pk)
+        _check_request_facility_access_for_user(actor, req)
         if req.status != PuskesmasRequest.Status.SUBMITTED:
             messages.error(
                 request, "Hanya permintaan berstatus Diajukan yang dapat ditolak."
@@ -1921,7 +1929,7 @@ def request_reject(request, pk):
         req.save(update_fields=["status", "rejection_reason", "updated_at"])
         record_authority_exercise(
             decision,
-            actor=request.user,
+            actor=actor,
             module=ModuleAccess.Module.PUSKESMAS,
             action="reject_request",
             target=req,

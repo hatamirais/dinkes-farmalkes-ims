@@ -180,24 +180,32 @@ def _get_required_facility(user):
     return facility
 
 
-def _check_facility_access(request, lplpo_obj, *, route_kind):
+def _check_facility_access_for_user(user, lplpo_obj, *, route_kind):
     """
     Enforce per-facility access for facility-bound roles.
     """
-    if is_super_admin(request.user):
+    if is_super_admin(user):
         return None
 
     if _can_access_lplpo_cross_facility(
-        request.user,
+        user,
         route_kind=route_kind,
         status=lplpo_obj.status,
     ):
         return None
 
-    facility = _get_required_facility(request.user)
+    facility = _get_required_facility(user)
     if lplpo_obj.facility_id != facility.pk:
         raise PermissionDenied("Anda tidak memiliki akses ke LPLPO ini.")
     return None
+
+
+def _check_facility_access(request, lplpo_obj, *, route_kind):
+    return _check_facility_access_for_user(
+        request.user,
+        lplpo_obj,
+        route_kind=route_kind,
+    )
 
 
 def _check_instalasi_farmasi_access(request):
@@ -1322,15 +1330,20 @@ def lplpo_reject(request, pk):
             role_gated=False,
             for_update=True,
         )
+        actor = authority_decision.actor or request.user
         lplpo_obj = get_object_or_404(
             LPLPO.objects.select_for_update(),
             pk=pk,
         )
-        denied = _check_facility_access(request, lplpo_obj, route_kind="instalasi_reject")
+        denied = _check_facility_access_for_user(
+            actor,
+            lplpo_obj,
+            route_kind="instalasi_reject",
+        )
         if denied:
             return denied
 
-        if _can_admin_reject_lplpo(request.user, lplpo_obj):
+        if _can_admin_reject_lplpo(actor, lplpo_obj):
             authority_decision = None
             lplpo_obj.status = LPLPO.Status.REJECTED_PUSKESMAS
             lplpo_obj.verified_by = None
@@ -1355,7 +1368,7 @@ def lplpo_reject(request, pk):
             ]
         elif lplpo_obj.status == LPLPO.Status.SUBMITTED:
             authority_decision = None
-            if not _has_lplpo_operate_access(request.user):
+            if not _has_lplpo_operate_access(actor):
                 raise PermissionDenied(
                     "Anda tidak memiliki akses untuk menolak LPLPO ini."
                 )
@@ -1371,7 +1384,7 @@ def lplpo_reject(request, pk):
                 "updated_at",
             ]
         elif lplpo_obj.status == LPLPO.Status.REVIEWED:
-            if not _has_lplpo_approve_access(request.user):
+            if not _has_lplpo_approve_access(actor):
                 raise PermissionDenied(
                     "Anda tidak memiliki akses untuk menolak LPLPO ini."
                 )
@@ -1408,7 +1421,7 @@ def lplpo_reject(request, pk):
         if authority_decision is not None:
             record_authority_exercise(
                 authority_decision,
-                actor=request.user,
+                actor=actor,
                 module=ModuleAccess.Module.LPLPO,
                 action="reject_legacy",
                 target=lplpo_obj,
@@ -1618,7 +1631,13 @@ def lplpo_finalize(request, pk):
             )
             if not decision.allowed:
                 raise PermissionDenied("Anda tidak memiliki wewenang persetujuan LPLPO.")
+            actor = decision.actor or request.user
             lplpo_obj = LPLPO.objects.select_for_update().get(pk=lplpo_obj.pk)
+            _check_facility_access_for_user(
+                actor,
+                lplpo_obj,
+                route_kind="instalasi_finalize",
+            )
             if lplpo_obj.status != LPLPO.Status.REVIEWED:
                 messages.error(
                     request, "Hanya LPLPO berstatus Ditinjau PIC yang dapat disetujui."
@@ -1635,13 +1654,13 @@ def lplpo_finalize(request, pk):
                 )
             dist = _create_lplpo_distribution(
                 lplpo_obj,
-                actor=request.user,
+                actor=actor,
                 processed_at=timezone.now(),
             )
             lplpo_obj.refresh_from_db(fields=("approved_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=actor,
                 module=ModuleAccess.Module.LPLPO,
                 action="finalize_legacy",
                 target=lplpo_obj,

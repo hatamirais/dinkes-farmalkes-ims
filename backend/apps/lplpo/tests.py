@@ -22,7 +22,12 @@ from apps.puskesmas.models import (
 )
 from apps.stock.models import Stock
 from apps.users.access import resolve_approval_authority
-from apps.users.models import AuthorityDelegation, ModuleAccess, User
+from apps.users.models import (
+	AuthorityDelegation,
+	AuthorityExercise,
+	ModuleAccess,
+	User,
+)
 from apps.lplpo.models import (
 	LPLPO,
 	LPLPOItem,
@@ -1867,6 +1872,47 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(lock_order[:2], ["delegation", "lplpo"])
 		lplpo.refresh_from_db()
 		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PIC)
+
+	def test_delegate_cannot_finalize_after_locked_facility_reassignment(self):
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.REVIEWED,
+			reviewed_by=self.gudang_user,
+		)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan LPLPO fasilitas sendiri.",
+			granted_by=self.kepala_without_facility,
+		)
+		real_resolve = resolve_approval_authority
+
+		def reassign_then_resolve(*args, **kwargs):
+			User.objects.filter(pk=self.gudang_user.pk).update(
+				facility=self.other_facility
+			)
+			return real_resolve(*args, **kwargs)
+
+		self.client.force_login(self.gudang_user)
+		with patch(
+			"apps.lplpo.views.resolve_approval_authority",
+			side_effect=reassign_then_resolve,
+		):
+			response = self.client.post(
+				reverse("lplpo:lplpo_finalize", args=[lplpo.pk])
+			)
+
+		self.assertEqual(response.status_code, 403)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.REVIEWED)
+		self.assertIsNone(lplpo.distribution_id)
+		self.assertFalse(
+			AuthorityExercise.objects.filter(
+				actor=self.gudang_user,
+				object_id=lplpo.pk,
+			).exists()
+		)
 
 	def test_admin_can_reject_pic_verified_lplpo_back_to_puskesmas(self):
 		verified_at = timezone.now()

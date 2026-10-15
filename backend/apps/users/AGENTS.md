@@ -22,6 +22,7 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 - The delegation create form uses the locally vendored Flatpickr 4.6.13 assets to guarantee Indonesian, 24-hour `DD/MM/YYYY HH:mm` controls while preserving the Django `YYYY-MM-DDTHH:mm` submission format; keep its no-JavaScript native `datetime-local` fallback valid.
 - Delegation supplements, rather than replaces, the permanent Kepala.
 - Approval workflows lock and reload the actor plus relevant module access before resolving permanent authority, then lock candidate delegations and recheck eligibility and current time before locking the workflow row.
+- Transactional authority decisions expose that locked actor; facility-bound workflows must use it for their post-lock object-scope check, ownership fields, and delegated audit snapshot.
 - Exercised authority creates append-only `AuthorityExercise` actor/title/grant snapshots so historical output continues to identify the real actor as `Plh. Kepala Instalasi` after expiry, revocation, or profile changes.
 - Any workflow target referenced by `AuthorityExercise` is protected from instance, queryset/bulk, and cascading hard deletion so the generic audit reference cannot be orphaned.
 - Render a delegated signature only when its `AuthorityExercise` actor and timestamp match the workflow object's current checkpoint actor and timestamp. Historical exercises remain append-only but must not override a later permanent or delegated action after step-back and reprocessing.

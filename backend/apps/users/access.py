@@ -24,6 +24,7 @@ class AuthorityDecision:
     allowed: bool
     basis: str | None = None
     delegation: AuthorityDelegation | None = None
+    actor: User | None = None
 
 
 ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
@@ -273,14 +274,14 @@ def resolve_approval_authority(
             return AuthorityDecision(False)
 
     if getattr(user, "is_superuser", False):
-        return AuthorityDecision(True, "superuser")
+        return AuthorityDecision(True, "superuser", actor=user)
 
     has_approve_scope = has_module_scope(user, module, ModuleAccess.Scope.APPROVE)
     if has_approve_scope and (
         not role_gated
         or getattr(user, "role", None) in {User.Role.ADMIN, User.Role.KEPALA}
     ):
-        return AuthorityDecision(True, "role")
+        return AuthorityDecision(True, "role", actor=user)
 
     if for_update:
         delegation = _get_locked_active_authority_delegation(
@@ -295,8 +296,13 @@ def resolve_approval_authority(
             at=at,
         )
     if delegation:
-        return AuthorityDecision(True, "delegation", delegation)
-    return AuthorityDecision(False)
+        return AuthorityDecision(
+            True,
+            "delegation",
+            delegation,
+            actor=user,
+        )
+    return AuthorityDecision(False, actor=user)
 
 
 def can_approve_module(user: User, module: str) -> bool:
