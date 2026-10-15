@@ -100,14 +100,17 @@ def _can_review_request(user):
     if getattr(user, "role", None) == "PUSKESMAS":
         return False
 
-    return (
-        has_module_permission(user, "puskesmas.change_puskesmasrequest")
-        and has_module_scope(
-            user,
-            ModuleAccess.Module.PUSKESMAS,
-            ModuleAccess.Scope.APPROVE,
-        )
-    ) or bool(
+    return has_module_permission(
+        user, "puskesmas.change_puskesmasrequest"
+    ) and has_module_scope(
+        user,
+        ModuleAccess.Module.PUSKESMAS,
+        ModuleAccess.Scope.APPROVE,
+    )
+
+
+def _can_decide_request(user):
+    return _can_review_request(user) or bool(
         get_active_authority_delegation(
             user,
             ModuleAccess.Module.PUSKESMAS,
@@ -1640,7 +1643,7 @@ def request_detail(request, pk):
 
     # Approval inline forms (read-only outside SUBMITTED status)
     approval_forms = []
-    can_review = _can_review_request(request.user)
+    can_review = _can_decide_request(request.user)
     can_manage = _can_manage_request(request.user, req)
     can_reset_to_draft = _can_reset_request_to_draft(request.user, req)
     if req.status == PuskesmasRequest.Status.SUBMITTED and can_review:
@@ -1747,7 +1750,7 @@ def request_submit(request, pk):
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_approve(request, pk):
     """Approve the request and create a Distribution Draft automatically."""
-    if not _can_review_request(request.user):
+    if not _can_decide_request(request.user):
         raise PermissionDenied("Operator Puskesmas tidak dapat menyetujui permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
@@ -1879,7 +1882,7 @@ def request_approve(request, pk):
 @perm_required("puskesmas.change_puskesmasrequest")
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_reject(request, pk):
-    if not _can_review_request(request.user):
+    if not _can_decide_request(request.user):
         raise PermissionDenied("Operator Puskesmas tidak dapat menolak permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
