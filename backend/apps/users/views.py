@@ -484,6 +484,13 @@ def authority_delegation_create(request):
         try:
             with transaction.atomic():
                 created = form.save()
+        except ValidationError as exc:
+            if hasattr(exc, "error_dict"):
+                for field, errors in exc.error_dict.items():
+                    for error in errors:
+                        form.add_error(field, error)
+            else:
+                form.add_error(None, exc)
         except IntegrityError:
             form.add_error(
                 "modules",

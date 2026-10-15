@@ -17,6 +17,7 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 - Delegates must be active `ADMIN_UMUM` or `GUDANG` users with existing access to the delegated module.
 - `ADMIN_UMUM` and `GUDANG` may have an optional facility link for Puskesmas/LPLPO delegation. `PUSKESMAS` still requires a facility but is never an eligible delegate.
 - Delegations are module-specific and either finite with timezone-aware bounds or open-ended (`ends_at=NULL`, `Sampai dicabut`). Non-revoked delegations cannot overlap for one module.
+- Creation locks and reloads the grantor, delegate, and their relevant module-access rows, then revalidates all eligibility rules before inserting any delegation rows.
 - Revocation requires the actor to remain authorized to delegate that module, then locks the delegation and rechecks both module authority and the current end time. A finite delegation at or past `ends_at` remains naturally `Berakhir` and must not receive revocation actor/time/reason metadata.
 - The delegation create form uses the locally vendored Flatpickr 4.6.13 assets to guarantee Indonesian, 24-hour `DD/MM/YYYY HH:mm` controls while preserving the Django `YYYY-MM-DDTHH:mm` submission format; keep its no-JavaScript native `datetime-local` fallback valid.
 - Delegation supplements, rather than replaces, the permanent Kepala.

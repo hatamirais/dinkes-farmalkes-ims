@@ -426,17 +426,94 @@ class AuthorityDelegationCreateForm(forms.Form):
         return cleaned_data
 
     def save(self):
+        modules = sorted(set(self.cleaned_data["modules"]))
+        delegate = self.cleaned_data["delegate"]
+        user_ids = sorted({self.actor.pk, delegate.pk})
+        locked_users = {
+            user.pk: user
+            for user in User.objects.select_for_update()
+            .filter(pk__in=user_ids)
+            .order_by("pk")
+        }
+        locked_actor = locked_users.get(self.actor.pk)
+        locked_delegate = locked_users.get(delegate.pk)
+        if locked_actor is None:
+            raise forms.ValidationError(
+                {"modules": "Akun pemberi delegasi tidak lagi tersedia."}
+            )
+        if locked_delegate is None:
+            raise forms.ValidationError(
+                {"delegate": "Pelaksana Harian tidak lagi tersedia."}
+            )
+
+        # User rows are locked first, then all relevant access rows in a stable
+        # order. Revalidation below therefore observes one save-time snapshot.
+        list(
+            ModuleAccess.objects.select_for_update()
+            .filter(user_id__in=user_ids, module__in=modules)
+            .order_by("user_id", "module")
+        )
+
+        if (
+            not locked_delegate.is_active
+            or locked_delegate.role not in DELEGATE_ROLES
+        ):
+            raise forms.ValidationError(
+                {
+                    "delegate": (
+                        "Pelaksana Harian harus merupakan Admin Umum atau Petugas "
+                        "Gudang yang masih aktif."
+                    )
+                }
+            )
+
+        for module in modules:
+            if not can_delegate_module(locked_actor, module):
+                raise forms.ValidationError(
+                    {
+                        "modules": (
+                            "Kewenangan Anda berubah dan salah satu modul tidak lagi "
+                            "dapat didelegasikan."
+                        )
+                    }
+                )
+            if (
+                module in {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
+                and not locked_delegate.facility_id
+            ):
+                raise forms.ValidationError(
+                    {
+                        "delegate": (
+                            "Pelaksana Harian harus terhubung ke fasilitas untuk "
+                            "delegasi Puskesmas/LPLPO."
+                        )
+                    }
+                )
+            if not has_module_scope(
+                locked_delegate,
+                module,
+                ModuleAccess.Scope.VIEW,
+            ):
+                raise forms.ValidationError(
+                    {
+                        "modules": (
+                            f"{locked_delegate} tidak lagi memiliki akses Lihat pada "
+                            "salah satu modul yang dipilih."
+                        )
+                    }
+                )
+
         return [
             AuthorityDelegation.objects.create(
                 authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
                 module=module,
-                delegate=self.cleaned_data["delegate"],
+                delegate=locked_delegate,
                 starts_at=self.cleaned_data["starts_at"],
                 ends_at=self.cleaned_data["ends_at"],
                 reason=self.cleaned_data["reason"],
-                granted_by=self.actor,
+                granted_by=locked_actor,
             )
-            for module in self.cleaned_data["modules"]
+            for module in modules
         ]
 
 

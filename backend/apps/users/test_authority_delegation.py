@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
@@ -20,6 +20,7 @@ from .access import (
     record_authority_exercise,
     resolve_approval_authority,
 )
+from .forms import AuthorityDelegationCreateForm
 from .models import AuthorityDelegation, AuthorityExercise, ModuleAccess, User
 
 
@@ -347,6 +348,114 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         delegation.refresh_from_db()
         self.assertIsNotNone(delegation.revoked_at)
         self.assertEqual(delegation.revoked_by, self.kepala)
+
+    def test_create_revalidates_eligibility_after_initial_form_validation(self):
+        cases = (
+            "grantor_scope_removed",
+            "delegate_deactivated",
+            "delegate_role_changed",
+            "delegate_scope_removed",
+            "delegate_facility_removed",
+        )
+
+        for index, case in enumerate(cases):
+            with self.subTest(case=case):
+                kepala = self.make_user(
+                    f"kepala_create_race_{index}",
+                    User.Role.KEPALA,
+                )
+                delegate = self.make_user(
+                    f"gudang_create_race_{index}",
+                    User.Role.GUDANG,
+                )
+                module = ModuleAccess.Module.DISTRIBUTION
+                if case == "delegate_facility_removed":
+                    module = ModuleAccess.Module.PUSKESMAS
+                    delegate.facility = Facility.objects.create(
+                        code=f"PKM-RACE-{index}",
+                        name=f"Puskesmas Race {index}",
+                    )
+                    delegate.save(update_fields=("facility",))
+
+                starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
+                form = AuthorityDelegationCreateForm(
+                    {
+                        "delegate": delegate.pk,
+                        "modules": [module],
+                        "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                        "duration_mode": "FIXED",
+                        "ends_at": (starts_at + timedelta(hours=1)).strftime(
+                            "%Y-%m-%dT%H:%M"
+                        ),
+                        "reason": "Validasi ulang sebelum delegasi disimpan.",
+                    },
+                    actor=kepala,
+                )
+                self.assertTrue(form.is_valid(), form.errors)
+
+                if case == "grantor_scope_removed":
+                    ModuleAccess.objects.filter(user=kepala, module=module).update(
+                        scope=ModuleAccess.Scope.OPERATE
+                    )
+                elif case == "delegate_deactivated":
+                    User.objects.filter(pk=delegate.pk).update(is_active=False)
+                elif case == "delegate_role_changed":
+                    User.objects.filter(pk=delegate.pk).update(role=User.Role.AUDITOR)
+                elif case == "delegate_scope_removed":
+                    ModuleAccess.objects.filter(user=delegate, module=module).update(
+                        scope=ModuleAccess.Scope.NONE
+                    )
+                else:
+                    User.objects.filter(pk=delegate.pk).update(facility=None)
+
+                with self.assertRaises(ValidationError):
+                    with transaction.atomic():
+                        form.save()
+
+                self.assertFalse(
+                    AuthorityDelegation.objects.filter(granted_by=kepala).exists()
+                )
+
+    def test_create_renders_save_time_eligibility_error(self):
+        self.client.force_login(self.kepala)
+        starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
+        original_save = AuthorityDelegationCreateForm.save
+
+        def deactivate_delegate_then_save(form):
+            User.objects.filter(pk=form.cleaned_data["delegate"].pk).update(
+                is_active=False
+            )
+            return original_save(form)
+
+        with patch.object(
+            AuthorityDelegationCreateForm,
+            "save",
+            autospec=True,
+            side_effect=deactivate_delegate_then_save,
+        ):
+            response = self.client.post(
+                reverse("users:authority_delegation_create"),
+                {
+                    "delegate": self.delegate.pk,
+                    "modules": [ModuleAccess.Module.DISTRIBUTION],
+                    "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                    "duration_mode": "FIXED",
+                    "ends_at": (starts_at + timedelta(hours=1)).strftime(
+                        "%Y-%m-%dT%H:%M"
+                    ),
+                    "reason": "Delegasi yang berubah sebelum disimpan.",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Pelaksana Harian harus merupakan Admin Umum atau Petugas Gudang "
+            "yang masih aktif.",
+        )
+        self.assertFalse(
+            AuthorityDelegation.objects.filter(delegate=self.delegate).exists()
+        )
 
     def test_kepala_cannot_revoke_module_after_approval_scope_is_removed(self):
         delegation = self.make_delegation(self.delegate)
