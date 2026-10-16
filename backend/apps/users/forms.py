@@ -489,7 +489,8 @@ class AuthorityDelegationCreateForm(forms.Form):
         locked_facility = None
         if facility_bound and locked_delegate.facility_id:
             locked_facility = (
-                Facility.objects.only("facility_type", "is_active")
+                Facility.objects.select_for_update()
+                .only("facility_type", "is_active")
                 .filter(pk=locked_delegate.facility_id)
                 .first()
             )

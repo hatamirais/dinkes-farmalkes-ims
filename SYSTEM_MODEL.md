@@ -190,7 +190,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `users.AuthorityDelegation` (`db_table=user_authority_delegations`)
   - Required `starts_at`, nullable `ends_at`, one module, delegate, grantor, reason, and optional revocation actor/time/reason. `ends_at=NULL` explicitly represents `Sampai dicabut`; fixed periods require `ends_at > starts_at`.
-  - Creation locks and reloads both users plus their relevant module-access rows. For Puskesmas/LPLPO it also reloads and revalidates the delegate's linked `Facility` as an active Puskesmas before any selected module is persisted.
+  - Creation locks and reloads both users plus their relevant module-access rows. For Puskesmas/LPLPO it also locks and revalidates the delegate's linked `Facility` as an active Puskesmas before any selected module is persisted.
   - Revocation is available only while the actor remains authorized to delegate that module. The mutation locks and reloads the actor and relevant module access before the delegation row, then rechecks module authority and rejects finite delegations whose `ends_at` has been reached so naturally expired records remain `Berakhir` without misleading revocation metadata.
   - Delegate roles are limited by the application to active `ADMIN_UMUM` / `GUDANG` accounts with at least `VIEW` on the delegated module.
   - PostgreSQL exclusion constraint prevents overlapping non-revoked Kepala-approval delegations for the same module. Fixed periods use half-open `[starts_at, ends_at)` ranges, while a null upper bound is unbounded and blocks every later delegation for that module until revocation; adjacent finite periods are allowed.

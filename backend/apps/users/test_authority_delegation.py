@@ -864,6 +864,91 @@ class AuthorityDelegationLockingTests(
         self.assertEqual(exercise.actor_nip_snapshot, "NIP-TERKINI")
         self.assertEqual(exercise.actor_id, decision.actor.pk)
 
+    def test_creation_waits_for_facility_lock_and_revalidates_after_update(self):
+        facility = Facility.objects.create(
+            code="PKM-CREATE-LOCK",
+            name="Puskesmas Create Lock",
+        )
+        self.delegate.facility = facility
+        self.delegate.save(update_fields=("facility",))
+        starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
+        form = AuthorityDelegationCreateForm(
+            {
+                "delegate": self.delegate.pk,
+                "modules": [ModuleAccess.Module.PUSKESMAS],
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "duration_mode": "FIXED",
+                "ends_at": (starts_at + timedelta(hours=1)).strftime(
+                    "%Y-%m-%dT%H:%M"
+                ),
+                "reason": "Validasi fasilitas setelah menunggu row lock.",
+            },
+            actor=self.kepala,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        facility_locked = Event()
+        release_facility = Event()
+        creator_started = Event()
+        result = {}
+        errors = []
+
+        def change_facility_while_locked():
+            close_old_connections()
+            try:
+                with transaction.atomic():
+                    locked_facility = Facility.objects.select_for_update().get(
+                        pk=facility.pk
+                    )
+                    locked_facility.facility_type = Facility.FacilityType.RS
+                    locked_facility.save(update_fields=("facility_type",))
+                    facility_locked.set()
+                    if not release_facility.wait(timeout=10):
+                        raise TimeoutError("Timed out waiting to release facility lock.")
+            except Exception as exc:  # pragma: no cover - reported in main thread
+                errors.append(exc)
+                facility_locked.set()
+            finally:
+                close_old_connections()
+
+        def create_while_facility_locked():
+            close_old_connections()
+            try:
+                creator_started.set()
+                with transaction.atomic():
+                    form.save()
+                result["created"] = True
+            except ValidationError as exc:
+                result["validation_error"] = exc
+            except Exception as exc:  # pragma: no cover - reported in main thread
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        facility_editor = Thread(target=change_facility_while_locked)
+        creator = Thread(target=create_while_facility_locked)
+        facility_editor.start()
+        self.assertTrue(facility_locked.wait(timeout=5))
+        creator.start()
+        self.assertTrue(creator_started.wait(timeout=5))
+        time.sleep(0.25)
+        self.assertTrue(creator.is_alive())
+        release_facility.set()
+        facility_editor.join(timeout=5)
+        creator.join(timeout=5)
+
+        self.assertFalse(facility_editor.is_alive())
+        self.assertFalse(creator.is_alive())
+        self.assertEqual(errors, [])
+        self.assertNotIn("created", result)
+        self.assertIn("validation_error", result)
+        self.assertFalse(
+            AuthorityDelegation.objects.filter(
+                module=ModuleAccess.Module.PUSKESMAS,
+                delegate=self.delegate,
+            ).exists()
+        )
+
     def test_locked_resolution_rechecks_time_after_waiting_for_delegation(self):
         delegation = self.make_delegation(self.delegate)
         delegation.ends_at = timezone.now() + timedelta(seconds=2)
