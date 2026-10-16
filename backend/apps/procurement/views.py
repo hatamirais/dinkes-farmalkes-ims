@@ -358,11 +358,11 @@ def contract_approve(request, pk):
                 raise PermissionDenied(
                     "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui SPJ."
                 )
-            approve_contract(contract, request.user)
+            approve_contract(contract, decision.actor)
             contract.refresh_from_db(fields=("approved_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.PROCUREMENT,
                 action="approve_contract",
                 target=contract,
@@ -667,11 +667,11 @@ def amendment_approve(request, pk):
                 raise PermissionDenied(
                     "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui amandemen SPJ."
                 )
-            approve_amendment(amendment, request.user)
+            approve_amendment(amendment, decision.actor)
             amendment.refresh_from_db(fields=("approved_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.PROCUREMENT,
                 action="approve_amendment",
                 target=amendment,

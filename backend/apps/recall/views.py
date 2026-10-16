@@ -254,19 +254,19 @@ def recall_verify(request, pk):
                     sumber_dana=stock.sumber_dana,
                     reference_type=Transaction.ReferenceType.RECALL,
                     reference_id=recall.id,
-                    user=request.user,
+                    user=decision.actor,
                     notes=f"Recall {recall.document_number}: {recall_item.notes}".strip(),
                 )
 
             recall.status = Recall.Status.VERIFIED
-            recall.verified_by = request.user
+            recall.verified_by = decision.actor
             recall.verified_at = timezone.now()
             recall.save(
                 update_fields=["status", "verified_by", "verified_at", "updated_at"]
             )
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.RECALL,
                 action="verify",
                 target=recall,
@@ -314,14 +314,14 @@ def recall_complete(request, pk):
             )
             return redirect("recall:recall_detail", pk=pk)
         recall.status = Recall.Status.COMPLETED
-        recall.completed_by = request.user
+        recall.completed_by = decision.actor
         recall.completed_at = timezone.now()
         recall.save(
             update_fields=["status", "completed_by", "completed_at", "updated_at"]
         )
         record_authority_exercise(
             decision,
-            actor=request.user,
+            actor=decision.actor,
             module=ModuleAccess.Module.RECALL,
             action="complete",
             target=recall,

@@ -1029,14 +1029,14 @@ def receiving_plan_approve(request, pk):
             )
             return redirect("receiving:receiving_plan_detail", pk=pk)
         receiving.status = Receiving.Status.APPROVED
-        receiving.approved_by = request.user
+        receiving.approved_by = decision.actor
         receiving.approved_at = timezone.now()
         receiving.save(
             update_fields=["status", "approved_by", "approved_at", "updated_at"]
         )
         record_authority_exercise(
             decision,
-            actor=request.user,
+            actor=decision.actor,
             module=ModuleAccess.Module.RECEIVING,
             action="approve_plan",
             target=receiving,

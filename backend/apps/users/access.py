@@ -8,6 +8,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.items.models import Facility
+
 from .models import (
     AuthorityDelegation,
     AuthorityExercise,
@@ -17,6 +19,7 @@ from .models import (
 
 
 DELEGATE_ROLES = {User.Role.ADMIN_UMUM, User.Role.GUDANG}
+FACILITY_BOUND_MODULES = {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
 
 
 @dataclass(frozen=True)
@@ -180,11 +183,27 @@ def lock_authority_user_state(user: User, module: str) -> User | None:
     return locked_user
 
 
-def _is_eligible_delegate(user: User, module: str) -> bool:
+def _has_valid_delegate_facility(user: User, module: str, *, for_update: bool) -> bool:
+    if module not in FACILITY_BOUND_MODULES:
+        return True
+    if not user.facility_id:
+        return False
+    facility = Facility.objects.filter(
+        pk=user.facility_id,
+        facility_type=Facility.FacilityType.PUSKESMAS,
+        is_active=True,
+    )
+    if for_update:
+        facility = facility.select_for_update()
+    return facility.exists()
+
+
+def _is_eligible_delegate(user: User, module: str, *, for_update: bool = False) -> bool:
     return bool(
         user.is_active
         and user.role in DELEGATE_ROLES
         and has_module_scope(user, module, ModuleAccess.Scope.VIEW)
+        and _has_valid_delegate_facility(user, module, for_update=for_update)
     )
 
 
@@ -194,6 +213,10 @@ def _get_locked_active_authority_delegation(
     *,
     at: datetime | None = None,
 ) -> AuthorityDelegation | None:
+    # User and ModuleAccess are already locked. Lock the facility before the
+    # delegation so its eligibility cannot change during this checkpoint.
+    if not _is_eligible_delegate(user, module, for_update=True):
+        return None
     candidates = list(
         AuthorityDelegation.objects.select_related("delegate", "granted_by")
         .select_for_update(of=("self",))
@@ -206,8 +229,6 @@ def _get_locked_active_authority_delegation(
         .order_by("starts_at", "pk")
     )
     effective_at = at or timezone.now()
-    if not _is_eligible_delegate(user, module):
-        return None
     return next(
         (
             delegation
@@ -328,6 +349,7 @@ def record_authority_exercise(
     if decision.basis != "delegation" or decision.delegation is None:
         return None
 
+    actor = decision.actor or actor
     delegation = decision.delegation
     timestamp = exercised_at or timezone.now()
     return AuthorityExercise.objects.create(

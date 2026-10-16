@@ -576,7 +576,9 @@ def opname_complete(request, pk):
                         )
 
                 opname.status = StockOpname.Status.COMPLETED
-                opname.completed_by = request.user
+                opname.completed_by = (
+                    authority_decision.actor if authority_decision else request.user
+                )
                 opname.completed_at = timezone.now()
                 completion_time = opname.completed_at
                 for item in counted_items:
@@ -597,7 +599,7 @@ def opname_complete(request, pk):
                 if authority_decision is not None:
                     record_authority_exercise(
                         authority_decision,
-                        actor=request.user,
+                        actor=authority_decision.actor,
                         module=ModuleAccess.Module.STOCK_OPNAME,
                         action="complete_with_discrepancy",
                         target=opname,

@@ -534,10 +534,10 @@ def expired_verify(request, pk):
                 raise PermissionDenied(
                     "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat memverifikasi dokumen ini."
                 )
-            expired_doc = execute_expired_verification(expired_doc, request.user)
+            expired_doc = execute_expired_verification(expired_doc, decision.actor)
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.EXPIRED,
                 action="verify",
                 target=expired_doc,

@@ -800,6 +800,70 @@ class AuthorityDelegationLockingTests(
 
         self.assertFalse(decision.allowed)
 
+    def test_facility_bound_resolution_rechecks_active_puskesmas_link(self):
+        facility = Facility.objects.create(
+            code="PKM-RESOLVE",
+            name="Puskesmas Resolve",
+        )
+        self.delegate.facility = facility
+        self.delegate.save(update_fields=("facility",))
+        self.make_delegation(self.delegate, module=ModuleAccess.Module.PUSKESMAS)
+        self.make_delegation(self.delegate, module=ModuleAccess.Module.LPLPO)
+
+        for changes in (
+            {"is_active": False},
+            {"is_active": True, "facility_type": Facility.FacilityType.RS},
+        ):
+            with self.subTest(changes=changes):
+                Facility.objects.filter(pk=facility.pk).update(**changes)
+                for module in (
+                    ModuleAccess.Module.PUSKESMAS,
+                    ModuleAccess.Module.LPLPO,
+                ):
+                    self.assertFalse(
+                        resolve_approval_authority(
+                            self.delegate,
+                            module,
+                            role_gated=True,
+                        ).allowed
+                    )
+                    with transaction.atomic():
+                        decision = resolve_approval_authority(
+                            self.delegate,
+                            module,
+                            role_gated=True,
+                            for_update=True,
+                        )
+                    self.assertFalse(decision.allowed)
+
+    def test_locked_exercise_snapshots_reloaded_actor_profile(self):
+        self.make_delegation(self.delegate)
+        stale_actor = User.objects.get(pk=self.delegate.pk)
+        User.objects.filter(pk=self.delegate.pk).update(
+            full_name="Nama Terkini",
+            nip="NIP-TERKINI",
+        )
+
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                stale_actor,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            self.assertTrue(decision.allowed)
+            exercise = record_authority_exercise(
+                decision,
+                actor=stale_actor,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="verify",
+                target=self.kepala,
+            )
+
+        self.assertEqual(exercise.actor_name_snapshot, "Nama Terkini")
+        self.assertEqual(exercise.actor_nip_snapshot, "NIP-TERKINI")
+        self.assertEqual(exercise.actor_id, decision.actor.pk)
+
     def test_locked_resolution_rechecks_time_after_waiting_for_delegation(self):
         delegation = self.make_delegation(self.delegate)
         delegation.ends_at = timezone.now() + timedelta(seconds=2)

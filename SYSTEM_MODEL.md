@@ -200,7 +200,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, nullable delegation-period end, grantor, and reason snapshots used by historical rendering.
   - A rendered delegated signature must match the target workflow's current checkpoint actor and timestamp; an older append-only exercise remains audit history but cannot identify a later permanent or delegated reprocessing action.
   - Supported workflow target models are protected by `pre_delete` guards, including queryset/bulk and cascading deletion, so an exercise cannot be orphaned.
-  - Eligible delegate roles remain `ADMIN_UMUM` and `GUDANG`; either may have an optional active Puskesmas `facility` used to enforce Puskesmas/LPLPO same-facility scope. Other facility types are rejected for this link. Role `PUSKESMAS` is never eligible to receive delegated authority.
+  - Eligible delegate roles remain `ADMIN_UMUM` and `GUDANG`; either may have an optional active Puskesmas `facility` used to enforce Puskesmas/LPLPO same-facility scope. Other facility types are rejected for this link, and existing delegations stop resolving when that facility is deactivated or changes type. Role `PUSKESMAS` is never eligible to receive delegated authority.
 
 ### 4.3 Master data and item registry
 

@@ -492,11 +492,11 @@ def allocation_approve(request, pk):
                     request, "Hanya alokasi berstatus Diajukan yang dapat disetujui."
                 )
                 return _redirect_allocation_detail(pk)
-            execute_allocation_approval(allocation, request.user)
+            execute_allocation_approval(allocation, decision.actor)
             allocation.refresh_from_db(fields=("approved_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.ALLOCATION,
                 action="approve",
                 target=allocation,
@@ -553,7 +553,7 @@ def allocation_reject(request, pk):
         allocation.refresh_from_db(fields=("updated_at",))
         record_authority_exercise(
             decision,
-            actor=request.user,
+            actor=decision.actor,
             module=ModuleAccess.Module.ALLOCATION,
             action="reject",
             target=allocation,
@@ -594,11 +594,11 @@ def allocation_step_back(request, pk):
                     "Anda tidak memiliki wewenang untuk mengembalikan alokasi."
                 )
             allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
-            execute_allocation_step_back_to_submitted(allocation, request.user)
+            execute_allocation_step_back_to_submitted(allocation, decision.actor)
             allocation.refresh_from_db(fields=("updated_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.ALLOCATION,
                 action="step_back",
                 target=allocation,

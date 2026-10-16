@@ -270,11 +270,11 @@ def distribution_approve(request, pk):
             )
             if not decision.allowed:
                 raise PermissionDenied("Delegasi persetujuan distribusi tidak berlaku.")
-            execute_distribution_verification(distribution, request.user)
+            execute_distribution_verification(distribution, decision.actor)
             distribution.refresh_from_db(fields=("verified_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.DISTRIBUTION,
                 action="verify",
                 target=distribution,
@@ -312,7 +312,7 @@ def distribution_reject(request, pk):
             distribution.refresh_from_db(fields=("updated_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.DISTRIBUTION,
                 action="reject",
                 target=distribution,
@@ -377,11 +377,11 @@ def expired_approve(request, pk):
                 raise PermissionDenied("Delegasi persetujuan kedaluwarsa tidak berlaku.")
             expired_document = execute_expired_verification(
                 expired_document,
-                request.user,
+                decision.actor,
             )
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.EXPIRED,
                 action="verify",
                 target=expired_document,

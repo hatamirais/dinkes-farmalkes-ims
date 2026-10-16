@@ -1124,11 +1124,11 @@ def distribution_verify(request, pk):
                 raise PermissionDenied(
                     "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui distribusi."
                 )
-            execute_distribution_verification(dist, request.user)
+            execute_distribution_verification(dist, decision.actor)
             dist.refresh_from_db(fields=("verified_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.DISTRIBUTION,
                 action="verify",
                 target=dist,
@@ -1256,7 +1256,7 @@ def distribution_reject(request, pk):
             dist.refresh_from_db(fields=("updated_at",))
             record_authority_exercise(
                 decision,
-                actor=request.user,
+                actor=decision.actor,
                 module=ModuleAccess.Module.DISTRIBUTION,
                 action="reject",
                 target=dist,
