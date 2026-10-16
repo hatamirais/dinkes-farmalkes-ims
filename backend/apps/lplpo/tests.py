@@ -1,5 +1,5 @@
 import importlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -21,7 +21,13 @@ from apps.puskesmas.models import (
     PuskesmasSubunit,
 )
 from apps.stock.models import Stock
-from apps.users.models import ModuleAccess, User
+from apps.users.access import resolve_approval_authority
+from apps.users.models import (
+	AuthorityDelegation,
+	AuthorityExercise,
+	ModuleAccess,
+	User,
+)
 from apps.lplpo.models import (
 	LPLPO,
 	LPLPOItem,
@@ -1553,6 +1559,91 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertNotContains(response, rejected_lplpo.document_number)
 
+	def test_gudang_delegate_queue_includes_only_own_facility_reviewed_lplpo(self):
+		own_reviewed = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.REVIEWED,
+			bulan=3,
+		)
+		self.set_submitted_at(own_reviewed, 2026, 3, 2)
+		other_reviewed = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.REVIEWED,
+			bulan=4,
+		)
+		self.set_submitted_at(other_reviewed, 2026, 4, 2)
+		cross_facility_submitted = self.create_lplpo(
+			facility=self.other_facility,
+			created_by=self.other_puskesmas_user,
+			status=LPLPO.Status.SUBMITTED,
+			bulan=5,
+		)
+		self.set_submitted_at(cross_facility_submitted, 2026, 5, 2)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan approval LPLPO fasilitas sendiri.",
+			granted_by=self.kepala_without_facility,
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, own_reviewed.document_number)
+		self.assertNotContains(response, other_reviewed.document_number)
+		self.assertContains(response, cross_facility_submitted.document_number)
+
+	def test_expired_lplpo_delegation_does_not_add_reviewed_queue_rows(self):
+		own_reviewed = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.REVIEWED,
+			bulan=3,
+		)
+		self.set_submitted_at(own_reviewed, 2026, 3, 2)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=2),
+			ends_at=timezone.now() - timedelta(hours=1),
+			reason="Penugasan LPLPO yang telah berakhir.",
+			granted_by=self.kepala_without_facility,
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, own_reviewed.document_number)
+
+	def test_revoked_lplpo_delegation_does_not_add_reviewed_queue_rows(self):
+		own_reviewed = self.create_lplpo(
+			facility=self.facility,
+			status=LPLPO.Status.REVIEWED,
+			bulan=3,
+		)
+		self.set_submitted_at(own_reviewed, 2026, 3, 2)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan LPLPO yang telah dicabut.",
+			granted_by=self.kepala_without_facility,
+			revoked_at=timezone.now(),
+			revoked_by=self.kepala_without_facility,
+			revocation_reason="Penugasan dibatalkan.",
+		)
+		self.client.force_login(self.gudang_user)
+
+		response = self.client.get(reverse("lplpo:lplpo_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, own_reviewed.document_number)
+
 	def test_kepala_without_facility_can_view_reviewed_lplpo_list(self):
 		reviewed_lplpo = self.create_lplpo(
 			facility=self.other_facility,
@@ -1737,6 +1828,90 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertEqual(
 			lplpo.rejection_reason,
 			"Sesuaikan jumlah pemberian dengan stok tersedia.",
+		)
+
+	def test_delegated_legacy_reject_locks_delegation_before_lplpo(self):
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.REVIEWED,
+			reviewed_by=self.gudang_user,
+		)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan untuk verifikasi urutan lock.",
+			granted_by=self.kepala_without_facility,
+		)
+		lock_order = []
+		real_select_for_update = LPLPO.objects.select_for_update
+
+		def resolve_with_trace(*args, **kwargs):
+			lock_order.append("delegation")
+			return resolve_approval_authority(*args, **kwargs)
+
+		def select_lplpo_with_trace(*args, **kwargs):
+			lock_order.append("lplpo")
+			return real_select_for_update(*args, **kwargs)
+
+		self.client.force_login(self.gudang_user)
+		with patch(
+			"apps.lplpo.views.resolve_approval_authority",
+			side_effect=resolve_with_trace,
+		), patch.object(
+			LPLPO.objects,
+			"select_for_update",
+			side_effect=select_lplpo_with_trace,
+		):
+			response = self.client.post(
+				reverse("lplpo:lplpo_reject", args=[lplpo.pk]),
+				{"rejection_reason": "Perlu diperbaiki."},
+			)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(lock_order[:2], ["delegation", "lplpo"])
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.REJECTED_PIC)
+
+	def test_delegate_cannot_finalize_after_locked_facility_reassignment(self):
+		lplpo = self.create_lplpo(
+			status=LPLPO.Status.REVIEWED,
+			reviewed_by=self.gudang_user,
+		)
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.LPLPO,
+			delegate=self.gudang_user,
+			starts_at=timezone.now() - timedelta(hours=1),
+			ends_at=timezone.now() + timedelta(hours=1),
+			reason="Penugasan LPLPO fasilitas sendiri.",
+			granted_by=self.kepala_without_facility,
+		)
+		real_resolve = resolve_approval_authority
+
+		def reassign_then_resolve(*args, **kwargs):
+			User.objects.filter(pk=self.gudang_user.pk).update(
+				facility=self.other_facility
+			)
+			return real_resolve(*args, **kwargs)
+
+		self.client.force_login(self.gudang_user)
+		with patch(
+			"apps.lplpo.views.resolve_approval_authority",
+			side_effect=reassign_then_resolve,
+		):
+			response = self.client.post(
+				reverse("lplpo:lplpo_finalize", args=[lplpo.pk])
+			)
+
+		self.assertEqual(response.status_code, 403)
+		lplpo.refresh_from_db()
+		self.assertEqual(lplpo.status, LPLPO.Status.REVIEWED)
+		self.assertIsNone(lplpo.distribution_id)
+		self.assertFalse(
+			AuthorityExercise.objects.filter(
+				actor=self.gudang_user,
+				object_id=lplpo.pk,
+			).exists()
 		)
 
 	def test_admin_can_reject_pic_verified_lplpo_back_to_puskesmas(self):

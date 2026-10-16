@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from importlib import import_module
 from types import SimpleNamespace
@@ -34,7 +34,7 @@ from apps.items.models import Category, Facility, FundingSource, Item, Location,
 from apps.lplpo.models import LPLPO
 from apps.stock.models import Stock, Transaction
 from apps.users.access import ensure_default_module_access
-from apps.users.models import ModuleAccess, User
+from apps.users.models import AuthorityDelegation, AuthorityExercise, ModuleAccess, User
 
 from .admin import DistributionAdmin, DistributionItemInline
 
@@ -2740,6 +2740,108 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
         self.stock.refresh_from_db()
         self.assertEqual(dist.status, Distribution.Status.SUBMITTED)
         self.assertEqual(self.stock.reserved, Decimal("0"))
+
+    def test_acting_kepala_can_verify_and_records_authority_exercise(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        delegate = User.objects.create_user(
+            username="distribution_acting_kepala",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            full_name="Pelaksana Harian Distribusi",
+            nip="1987654321",
+        )
+        ensure_default_module_access(delegate, overwrite=True)
+        now = timezone.now()
+        delegation = AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.DISTRIBUTION,
+            delegate=delegate,
+            starts_at=now - timedelta(hours=1),
+            ends_at=now + timedelta(hours=8),
+            reason="Kepala Instalasi sedang bertugas di luar kantor.",
+            granted_by=self.kepala_user,
+        )
+        self.client.force_login(delegate)
+
+        response = self.client.post(
+            reverse("distribution:distribution_verify", args=[dist.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertEqual(dist.verified_by, delegate)
+        exercise = AuthorityExercise.objects.get(
+            delegation=delegation,
+            actor=delegate,
+            action="verify",
+            object_id=dist.pk,
+        )
+        self.assertEqual(exercise.module, ModuleAccess.Module.DISTRIBUTION)
+        self.assertEqual(exercise.actor_name_snapshot, delegate.full_name)
+        self.assertEqual(exercise.actor_nip_snapshot, delegate.nip)
+        self.assertEqual(exercise.authority_title_snapshot, "Plh. Kepala Instalasi")
+
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["delegated_signature"]["name"],
+            delegate.full_name,
+        )
+        self.assertContains(response, "Plh. Kepala Instalasi")
+
+    def test_permanent_reverification_does_not_render_stale_delegate_signature(self):
+        dist = self._create_distribution(status=Distribution.Status.SUBMITTED)
+        delegate = User.objects.create_user(
+            username="distribution_previous_acting_kepala",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            full_name="Plh Lama Distribusi",
+            nip="1987654322",
+        )
+        ensure_default_module_access(delegate, overwrite=True)
+        now = timezone.now()
+        AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.DISTRIBUTION,
+            delegate=delegate,
+            starts_at=now - timedelta(hours=1),
+            ends_at=now + timedelta(hours=8),
+            reason="Kepala Instalasi sedang bertugas di luar kantor.",
+            granted_by=self.kepala_user,
+        )
+        self.client.force_login(delegate)
+        response = self.client.post(
+            reverse("distribution:distribution_verify", args=[dist.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.client.force_login(self.kepala_user)
+        response = self.client.post(
+            reverse("distribution:distribution_step_back", args=[dist.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+        response = self.client.post(
+            reverse("distribution:distribution_verify", args=[dist.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        dist.refresh_from_db()
+        self.assertEqual(dist.status, Distribution.Status.VERIFIED)
+        self.assertEqual(dist.verified_by, self.kepala_user)
+        response = self.client.get(
+            reverse("distribution:distribution_detail", args=[dist.pk]),
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["delegated_signature"])
+        self.assertNotContains(response, delegate.full_name)
+        self.assertNotContains(response, "Plh. Kepala Instalasi")
 
     def test_reject_rechecks_locked_distribution_state(self):
         dist = self._create_distribution(status=Distribution.Status.SUBMITTED)

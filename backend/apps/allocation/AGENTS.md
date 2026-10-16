@@ -21,6 +21,7 @@ App-specific guidance for pre-distribution allocation planning.
 - Children use the same `DISTRIBUTION_SPECIAL_REQUEST` numbering rule and continuing sequence as standalone Permintaan Khusus; `allocation_id` is the only origin discriminator.
 - Children are included in both the general Permintaan Khusus report and the allocation-origin report.
 - Generated child distributions start in `VERIFIED` status with selected stock already reserved.
+- When allocation approval uses delegated authority, generated children render the delegated signer from the parent Allocation `approve` exercise. Do not create child `verify` exercises: approval is one parent action and child exercises would prevent the documented step-back deletion.
 - Generated child distribution quantities are locked and cannot be edited.
 - Allocation-generated child distributions remain parent-managed by the Allocation module.
 - Revert generated child distributions from the parent Allocation workflow, not generic distribution reset/step-back endpoints.
@@ -50,3 +51,4 @@ App-specific guidance for pre-distribution allocation planning.
 ## Permissions
 
 - Allocation is active and gated by `ModuleAccess` scopes like all other modules.
+- Allocation approval, rejection, and step-back accept an active Allocation-specific Acting Kepala delegation as an alternative approval basis. Delegation never bypasses the workflow-status checks, and its use must be recorded atomically in `AuthorityExercise`.

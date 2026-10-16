@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags static %}
+
+{% block title %}Buat Delegasi Wewenang - Healthcare IMS{% endblock %}
+{% block page_title %}Buat Delegasi Wewenang{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'vendor/flatpickr/flatpickr.min.css' %}?v={{ app_version }}-20261013" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-8">
+        <div class="card content-card">
+            <div class="card-header"><i class="bi bi-person-check me-2"></i>Penugasan Plh. Kepala Instalasi</div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    Delegasi hanya berlaku untuk modul dan durasi yang dipilih. Durasi dapat ditentukan sampai waktu tertentu atau berlaku sampai dicabut. Kepala Instalasi tetap memiliki wewenang selama delegasi aktif.
+                </div>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Simpan Delegasi</button>
+                        <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-secondary">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}?v={{ app_version }}-20261013"></script>
+<script src="{% static 'vendor/flatpickr/l10n/id.js' %}?v={{ app_version }}-20261013"></script>
+<script src="{% static 'js/authority-delegation-form.js' %}?v={{ app_version }}-20261013"></script>
+{% endblock %}

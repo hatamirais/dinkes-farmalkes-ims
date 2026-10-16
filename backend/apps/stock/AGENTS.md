@@ -35,6 +35,7 @@ App-specific guidance for stock balances and ledger behavior.
 - Opening-balance import is restricted to superuser / role `ADMIN`.
 - Opening-balance import uses one consistent non-future `effective_date` per `document_number` for report classification.
 - Opening-balance CSV imports accept comma or semicolon delimiters.
+- Decimal-comma unit prices such as `8893,31985` are normalized internally, and `unit_price` precision is preserved up to 10 decimal places.
 - It rejects populated `receiving_type` / `supplier_code`.
 - It validates decimal precision before preview/confirm.
 - It rejects negative unit prices.

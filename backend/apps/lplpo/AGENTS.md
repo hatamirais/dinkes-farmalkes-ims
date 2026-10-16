@@ -11,6 +11,7 @@ App-specific guidance for monthly LPLPO reports and stock requests.
 - Puskesmas-owned stages (`DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX import/export, and prefill helpers) require a linked `user.facility` for every non-superuser and remain same-facility only.
 - Instalasi Farmasi stages are cross-facility only in stage-gated ways.
 - `GUDANG` may verify/reject `SUBMITTED` documents and review `PIC_VERIFIED` / `REJECTED_PIC` documents across facilities.
+- A facility-linked `GUDANG` user with an active LPLPO delegation additionally sees own-facility legacy `REVIEWED` rows in the normal queue. Delegation must never expose another facility's `REVIEWED` rows; expired or revoked delegation removes this addition.
 - `KEPALA` uses cross-facility LPLPO access only for the legacy `REVIEWED/finalize` compatibility path plus read-only historical visibility on `APPROVED` / `CLOSED`.
 - Users with role exactly `ADMIN` (not `ADMIN_UMUM`) may reject active no-distribution LPLPO documents back to Puskesmas from later pre-distribution stages such as `PIC_VERIFIED`.
 
@@ -22,6 +23,8 @@ App-specific guidance for monthly LPLPO reports and stock requests.
 - Approved LPLPO documents that already spawned a draft distribution can be explicitly returned to `REJECTED_PUSKESMAS` only by cancelling that generated distribution before any stock distribution completes.
 - `Distribution(distribution_type=LPLPO)` is normally system-generated from PIC review submission in `lplpo_review`.
 - The legacy `lplpo_finalize` route remains only to finish older `REVIEWED` rows and should not be treated as the primary workflow path.
+- An active LPLPO-specific Acting Kepala delegation applies only to the legacy `REVIEWED` finalize/reject compatibility checkpoint. It does not create a new approval stage, bypass facility/stage visibility, or alter the normal PIC-driven path; same-facility access is rechecked between the locked actor and locked LPLPO before mutation, and delegated use must be recorded atomically in `AuthorityExercise`.
+- Legacy reject and finalize transactions acquire locks in one order: the applicable delegation first, then the LPLPO row.
 
 ## Creation And Carry-Forward
 

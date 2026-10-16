@@ -1,6 +1,11 @@
 from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateTimeRangeField, RangeBoundary, RangeOperators
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import F, Q
 
 
 class UserManager(DjangoUserManager):
@@ -123,3 +128,152 @@ class ModuleAccess(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.module}: {self.get_scope_display()}"
+
+
+APPROVAL_MODULE_CHOICES = (
+    (ModuleAccess.Module.RECEIVING, ModuleAccess.Module.RECEIVING.label),
+    (ModuleAccess.Module.PROCUREMENT, ModuleAccess.Module.PROCUREMENT.label),
+    (ModuleAccess.Module.DISTRIBUTION, ModuleAccess.Module.DISTRIBUTION.label),
+    (ModuleAccess.Module.ALLOCATION, ModuleAccess.Module.ALLOCATION.label),
+    (ModuleAccess.Module.RECALL, ModuleAccess.Module.RECALL.label),
+    (ModuleAccess.Module.EXPIRED, ModuleAccess.Module.EXPIRED.label),
+    (ModuleAccess.Module.STOCK_OPNAME, ModuleAccess.Module.STOCK_OPNAME.label),
+    (ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.PUSKESMAS.label),
+    (ModuleAccess.Module.LPLPO, ModuleAccess.Module.LPLPO.label),
+)
+
+
+class TsTzRange(models.Func):
+    """PostgreSQL half-open timezone-aware range used by the overlap constraint."""
+
+    function = "TSTZRANGE"
+    output_field = DateTimeRangeField()
+
+
+class AuthorityDelegation(models.Model):
+    class Authority(models.TextChoices):
+        KEPALA_APPROVAL = "KEPALA_APPROVAL", "Persetujuan Kepala Instalasi"
+
+    authority = models.CharField(
+        max_length=30,
+        choices=Authority.choices,
+        default=Authority.KEPALA_APPROVAL,
+    )
+    module = models.CharField(max_length=30, choices=APPROVAL_MODULE_CHOICES)
+    delegate = models.ForeignKey(
+        "users.User",
+        on_delete=models.PROTECT,
+        related_name="authority_delegations",
+    )
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
+    reason = models.CharField(max_length=500)
+    granted_by = models.ForeignKey(
+        "users.User",
+        on_delete=models.PROTECT,
+        related_name="granted_authority_delegations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        "users.User",
+        on_delete=models.PROTECT,
+        related_name="revoked_authority_delegations",
+        null=True,
+        blank=True,
+    )
+    revocation_reason = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        db_table = "user_authority_delegations"
+        verbose_name = "Authority Delegation"
+        verbose_name_plural = "Authority Delegations"
+        ordering = ("-starts_at", "module", "pk")
+        indexes = [
+            models.Index(
+                fields=("delegate", "revoked_at"),
+                name="auth_del_delegate_active_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(ends_at__isnull=True) | Q(ends_at__gt=F("starts_at"))
+                ),
+                name="authority_delegation_valid_period",
+            ),
+            ExclusionConstraint(
+                name="authority_delegation_no_overlap",
+                expressions=(
+                    (
+                        TsTzRange("starts_at", "ends_at", RangeBoundary()),
+                        RangeOperators.OVERLAPS,
+                    ),
+                    ("authority", RangeOperators.EQUAL),
+                    ("module", RangeOperators.EQUAL),
+                ),
+                condition=Q(revoked_at__isnull=True),
+                violation_error_message=(
+                    "Sudah ada delegasi aktif atau terjadwal yang bertumpang tindih "
+                    "untuk modul ini."
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        period_end = (
+            f"{self.ends_at:%Y-%m-%d %H:%M}"
+            if self.ends_at
+            else "sampai dicabut"
+        )
+        return (
+            f"{self.delegate} - {self.get_module_display()} "
+            f"({self.starts_at:%Y-%m-%d %H:%M}–{period_end})"
+        )
+
+
+class AuthorityExercise(models.Model):
+    """Append-only evidence that a workflow action used delegated authority."""
+
+    delegation = models.ForeignKey(
+        AuthorityDelegation,
+        on_delete=models.PROTECT,
+        related_name="exercises",
+    )
+    actor = models.ForeignKey(
+        "users.User",
+        on_delete=models.PROTECT,
+        related_name="authority_exercises",
+    )
+    module = models.CharField(max_length=30, choices=APPROVAL_MODULE_CHOICES)
+    action = models.CharField(max_length=50)
+    content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
+    object_id = models.PositiveBigIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+    exercised_at = models.DateTimeField()
+    actor_name_snapshot = models.CharField(max_length=255)
+    actor_nip_snapshot = models.CharField(max_length=30, blank=True)
+    authority_title_snapshot = models.CharField(
+        max_length=100,
+        default="Plh. Kepala Instalasi",
+    )
+    delegation_starts_at_snapshot = models.DateTimeField()
+    delegation_ends_at_snapshot = models.DateTimeField(null=True, blank=True)
+    grantor_name_snapshot = models.CharField(max_length=255)
+    reason_snapshot = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "user_authority_exercises"
+        verbose_name = "Authority Exercise"
+        verbose_name_plural = "Authority Exercises"
+        ordering = ("-exercised_at", "-pk")
+        indexes = [
+            models.Index(
+                fields=("content_type", "object_id"),
+                name="auth_exercise_target_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.actor} - {self.module}.{self.action} @ {self.exercised_at}"

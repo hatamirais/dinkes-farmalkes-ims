@@ -102,7 +102,13 @@
         </div>
         <div class="sign-box">
             <div>Mengetahui,</div>
+            {% if delegated_signature %}
+            <div>{{ delegated_signature.title }}</div>
+            <div class="sign-line">{{ delegated_signature.name }}</div>
+            <div>NIP. {{ delegated_signature.nip|default:'............................' }}</div>
+            {% else %}
             <div class="sign-line">Kepala Instalasi Farmasi</div>
+            {% endif %}
         </div>
     </div>
 <script src="/static/js/confirm-actions.js"></script>

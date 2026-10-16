@@ -9,11 +9,22 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import DatabaseError, transaction
 from django.utils import timezone
 
-from apps.core.decorators import module_scope_required, perm_required
+from apps.core.decorators import (
+    delegated_approval_fallback,
+    module_scope_required,
+    perm_required,
+)
 from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock
-from apps.users.access import has_module_scope
+from apps.users.access import (
+    can_approve_module,
+    get_delegated_signature,
+    has_authority_exercise,
+    has_module_scope,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 from .models import StockOpname, StockOpnameItem
@@ -48,11 +59,9 @@ def _user_can_complete_opname(user, has_current_discrepancy):
         return True
     if not has_current_discrepancy and user.has_perm("stock_opname.change_stockopname"):
         return True
-    required_scope = (
-        ModuleAccess.Scope.APPROVE
-        if has_current_discrepancy
-        else ModuleAccess.Scope.OPERATE
-    )
+    if has_current_discrepancy:
+        return can_approve_module(user, ModuleAccess.Module.STOCK_OPNAME)
+    required_scope = ModuleAccess.Scope.OPERATE
     return has_module_scope(
         user,
         ModuleAccess.Module.STOCK_OPNAME,
@@ -503,6 +512,7 @@ def opname_input(request, pk):
 
 @login_required
 @perm_required("stock_opname.change_stockopname")
+@delegated_approval_fallback(ModuleAccess.Module.STOCK_OPNAME)
 def opname_complete(request, pk):
     """Finalize a stock opname session."""
     opname = get_object_or_404(StockOpname, pk=pk)
@@ -540,16 +550,35 @@ def opname_complete(request, pk):
                     item.actual_quantity != item.stock.quantity
                     for item in counted_items
                 )
-                if has_current_discrepancy and not _user_can_complete_opname(
+                if not _user_can_complete_opname(
                     request.user,
-                    has_current_discrepancy=True,
+                    has_current_discrepancy=has_current_discrepancy,
                 ):
+                    if has_current_discrepancy:
+                        raise PermissionDenied(
+                            "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
+                        )
                     raise PermissionDenied(
-                        "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
+                        "Anda tidak memiliki akses operasional untuk menyelesaikan Stock Opname."
                     )
 
+                authority_decision = None
+                if has_current_discrepancy:
+                    authority_decision = resolve_approval_authority(
+                        request.user,
+                        ModuleAccess.Module.STOCK_OPNAME,
+                        role_gated=False,
+                        for_update=True,
+                    )
+                    if not authority_decision.allowed:
+                        raise PermissionDenied(
+                            "Stock Opname dengan selisih hanya dapat diselesaikan oleh approver."
+                        )
+
                 opname.status = StockOpname.Status.COMPLETED
-                opname.completed_by = request.user
+                opname.completed_by = (
+                    authority_decision.actor if authority_decision else request.user
+                )
                 opname.completed_at = timezone.now()
                 completion_time = opname.completed_at
                 for item in counted_items:
@@ -567,6 +596,15 @@ def opname_complete(request, pk):
                         "updated_at",
                     ]
                 )
+                if authority_decision is not None:
+                    record_authority_exercise(
+                        authority_decision,
+                        actor=authority_decision.actor,
+                        module=ModuleAccess.Module.STOCK_OPNAME,
+                        action="complete_with_discrepancy",
+                        target=opname,
+                        exercised_at=opname.completed_at,
+                    )
         except StockOpname.DoesNotExist:
             raise
         except DatabaseError:
@@ -690,6 +728,12 @@ def opname_print(request, pk):
             "locations": locations.values(),
             "total_discrepancies": len(discrepancy_list),
             "print_date": timezone.now(),
+            "delegated_signature": get_delegated_signature(
+                opname,
+                action="complete_with_discrepancy",
+                actor=opname.completed_by,
+                exercised_at=opname.completed_at,
+            ),
         },
     )
 
@@ -715,6 +759,12 @@ def opname_delete(request, pk):
                     StockOpname.Status.IN_PROGRESS,
                 ],
             )
+            if has_authority_exercise(opname):
+                messages.error(
+                    request,
+                    "Stock opname tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+                )
+                return redirect("stock_opname:opname_detail", pk=pk)
             void_document_number(
                 opname,
                 actor=request.user,

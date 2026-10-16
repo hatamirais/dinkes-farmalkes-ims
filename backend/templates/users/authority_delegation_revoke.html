@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Cabut Delegasi Wewenang - Healthcare IMS{% endblock %}
+{% block page_title %}Cabut Delegasi Wewenang{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card content-card border-danger">
+            <div class="card-header text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Konfirmasi Pencabutan</div>
+            <div class="card-body">
+                <p>Cabut delegasi <strong>{{ delegation.get_module_display }}</strong> untuk <strong>{{ delegation.delegate }}</strong>?</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i>Cabut Delegasi</button>
+                        <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-secondary">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

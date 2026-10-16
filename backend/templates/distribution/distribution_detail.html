@@ -524,9 +524,15 @@
     <div class="sbbk-signatures">
         <div class="sbbk-sign-receiver">
             <div class="sbbk-sign-heading">Yang Menerima</div>
+            {% if delegated_signature %}
+            <div class="sbbk-kepala-title">{{ delegated_signature.title }}</div>
+            <div class="sbbk-kepala-name">{{ delegated_signature.name }}</div>
+            <div class="sbbk-kepala-nip">NIP: {{ delegated_signature.nip|default:"............................" }}</div>
+            {% else %}
             <div class="sbbk-kepala-title">Kepala {{ system_settings.facility_name|default:"Instalasi Farmasi" }}</div>
             <div class="sbbk-kepala-name">{{ kepala_instalasi|default:"(................................)" }}</div>
             <div class="sbbk-kepala-nip">NIP: {{ kepala_instalasi.nip|default:"............................" }}</div>
+            {% endif %}
         </div>
         <div class="sbbk-sign-sender">
             <div class="sbbk-sender-date">{% if distribution.distributed_date %}{{ distribution.distributed_date|date:"j F Y" }}{% else %}{{ distribution.request_date|date:"j F Y" }}{% endif %}</div>

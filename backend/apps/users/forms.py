@@ -1,22 +1,53 @@
+import unicodedata
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q
 
-from .access import default_scope_for_role
-from .models import ModuleAccess
-from .models import User
+from apps.items.models import Facility
+
+from .access import (
+    DELEGATE_ROLES,
+    can_delegate_module,
+    default_scope_for_role,
+    has_module_scope,
+)
+from .models import (
+    APPROVAL_MODULE_CHOICES,
+    AuthorityDelegation,
+    ModuleAccess,
+    User,
+)
 
 # ADMIN role can only be created via CLI (createsuperuser / management command)
 UI_ROLE_CHOICES = [
     (value, label) for value, label in User.Role.choices if value != User.Role.ADMIN
 ]
 
-FACILITY_HELP_TEXT = "Wajib dipilih untuk Operator Puskesmas."
+FACILITY_LINKABLE_ROLES = {
+    User.Role.PUSKESMAS,
+    User.Role.ADMIN_UMUM,
+    User.Role.GUDANG,
+}
+
+FACILITY_HELP_TEXT = (
+    "Wajib untuk Operator Puskesmas; opsional untuk Admin Umum atau Petugas "
+    "Gudang yang akan menerima delegasi Puskesmas/LPLPO."
+)
+
+
+def _clean_normalized_text(value, *, field_label):
+    value = unicodedata.normalize("NFC", (value or "").strip())
+    if "\x00" in value:
+        raise forms.ValidationError(f"{field_label} tidak boleh mengandung null byte.")
+    return value
 
 
 def _configure_user_form_fields(form):
     form.fields["facility"].help_text = FACILITY_HELP_TEXT
     form.fields["facility"].queryset = form.fields["facility"].queryset.filter(
-        is_active=True
+        is_active=True,
+        facility_type=Facility.FacilityType.PUSKESMAS,
     )
 
 
@@ -28,7 +59,14 @@ def _clean_role_and_facility(form):
     if role == User.Role.PUSKESMAS and not facility:
         form.add_error("facility", "Fasilitas wajib dipilih untuk Operator Puskesmas.")
 
-    if role != User.Role.PUSKESMAS:
+    if (
+        role in FACILITY_LINKABLE_ROLES
+        and facility
+        and facility.facility_type != Facility.FacilityType.PUSKESMAS
+    ):
+        form.add_error("facility", "Fasilitas harus berjenis Puskesmas.")
+
+    if role not in FACILITY_LINKABLE_ROLES:
         cleaned_data["facility"] = None
 
     return cleaned_data
@@ -235,3 +273,292 @@ class UserUpdateForm(forms.ModelForm):
                     defaults={"scope": scope},
                 )
         return user
+
+
+class AuthorityDelegationCreateForm(forms.Form):
+    class DurationMode:
+        FIXED = "FIXED"
+        UNTIL_REVOKED = "UNTIL_REVOKED"
+
+    delegate = forms.ModelChoiceField(
+        label="Pelaksana Harian",
+        queryset=User.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    modules = forms.MultipleChoiceField(
+        label="Modul yang Didelegasikan",
+        choices=APPROVAL_MODULE_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    duration_mode = forms.ChoiceField(
+        label="Durasi",
+        choices=(
+            (DurationMode.FIXED, "Sampai waktu tertentu"),
+            (DurationMode.UNTIL_REVOKED, "Berlaku sampai dicabut"),
+        ),
+        initial=DurationMode.FIXED,
+        widget=forms.RadioSelect,
+    )
+    starts_at = forms.DateTimeField(
+        label="Mulai Berlaku",
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={
+                "class": "form-control",
+                "type": "datetime-local",
+                "data-datetime-picker": "24h",
+                "placeholder": "DD/MM/YYYY HH:mm",
+            },
+        ),
+    )
+    ends_at = forms.DateTimeField(
+        label="Berakhir",
+        required=False,
+        help_text=(
+            "Wajib untuk durasi tertentu; dikosongkan untuk berlaku sampai dicabut."
+        ),
+        input_formats=("%Y-%m-%dT%H:%M",),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={
+                "class": "form-control",
+                "type": "datetime-local",
+                "data-datetime-picker": "24h",
+                "placeholder": "DD/MM/YYYY HH:mm",
+            },
+        ),
+    )
+    reason = forms.CharField(
+        label="Alasan / Dasar Penugasan",
+        max_length=500,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+    )
+
+    def __init__(self, *args, actor, **kwargs):
+        self.actor = actor
+        super().__init__(*args, **kwargs)
+        if self.is_bound and self.data.get(self.add_prefix("duration_mode")) == (
+            self.DurationMode.UNTIL_REVOKED
+        ):
+            data = self.data.copy()
+            data[self.add_prefix("ends_at")] = ""
+            self.data = data
+        self.fields["delegate"].queryset = User.objects.filter(
+            is_active=True,
+            role__in=DELEGATE_ROLES,
+        ).select_related("facility").order_by("full_name", "username")
+        self.fields["modules"].choices = [
+            (module, label)
+            for module, label in APPROVAL_MODULE_CHOICES
+            if can_delegate_module(actor, module)
+        ]
+
+    def clean_reason(self):
+        return _clean_normalized_text(
+            self.cleaned_data.get("reason"),
+            field_label="Alasan",
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        starts_at = cleaned_data.get("starts_at")
+        ends_at = cleaned_data.get("ends_at")
+        duration_mode = cleaned_data.get("duration_mode")
+        delegate = cleaned_data.get("delegate")
+        modules = cleaned_data.get("modules") or []
+
+        if starts_at and not 1000 <= starts_at.year <= 9999:
+            self.add_error("starts_at", "Tahun harus berada pada rentang 1000–9999.")
+
+        if duration_mode == self.DurationMode.FIXED:
+            if ends_at is None:
+                self.add_error(
+                    "ends_at",
+                    "Waktu berakhir wajib diisi untuk durasi tertentu.",
+                )
+            elif not 1000 <= ends_at.year <= 9999:
+                self.add_error("ends_at", "Tahun harus berada pada rentang 1000–9999.")
+            elif starts_at and starts_at >= ends_at:
+                self.add_error("ends_at", "Waktu berakhir harus setelah waktu mulai.")
+        elif duration_mode == self.DurationMode.UNTIL_REVOKED:
+            ends_at = None
+            cleaned_data["ends_at"] = None
+
+        for module in modules:
+            if not can_delegate_module(self.actor, module):
+                self.add_error(
+                    "modules",
+                    "Anda tidak dapat mendelegasikan salah satu modul yang dipilih.",
+                )
+                break
+            if (
+                delegate
+                and module
+                in {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
+                and (
+                    not delegate.facility_id
+                    or not delegate.facility.is_active
+                    or delegate.facility.facility_type
+                    != Facility.FacilityType.PUSKESMAS
+                )
+            ):
+                self.add_error(
+                    "delegate",
+                    "Pelaksana Harian harus terhubung ke fasilitas Puskesmas aktif untuk delegasi Puskesmas/LPLPO.",
+                )
+                break
+            if delegate and not has_module_scope(
+                delegate,
+                module,
+                ModuleAccess.Scope.VIEW,
+            ):
+                self.add_error(
+                    "modules",
+                    f"{delegate} tidak memiliki akses Lihat pada salah satu modul yang dipilih.",
+                )
+                break
+
+        if starts_at and duration_mode:
+            overlapping = AuthorityDelegation.objects.filter(
+                authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+                module__in=modules,
+                revoked_at__isnull=True,
+            )
+            if ends_at is not None:
+                overlapping = overlapping.filter(starts_at__lt=ends_at)
+            overlapping = overlapping.filter(
+                Q(ends_at__isnull=True) | Q(ends_at__gt=starts_at)
+            )
+            if overlapping.exists():
+                labels = ", ".join(
+                    sorted({obj.get_module_display() for obj in overlapping})
+                )
+                self.add_error(
+                    "modules",
+                    f"Periode bertumpang tindih dengan delegasi pada modul: {labels}.",
+                )
+        return cleaned_data
+
+    def save(self):
+        modules = sorted(set(self.cleaned_data["modules"]))
+        delegate = self.cleaned_data["delegate"]
+        user_ids = sorted({self.actor.pk, delegate.pk})
+        locked_users = {
+            user.pk: user
+            for user in User.objects.select_for_update()
+            .filter(pk__in=user_ids)
+            .order_by("pk")
+        }
+        locked_actor = locked_users.get(self.actor.pk)
+        locked_delegate = locked_users.get(delegate.pk)
+        if locked_actor is None:
+            raise forms.ValidationError(
+                {"modules": "Akun pemberi delegasi tidak lagi tersedia."}
+            )
+        if locked_delegate is None:
+            raise forms.ValidationError(
+                {"delegate": "Pelaksana Harian tidak lagi tersedia."}
+            )
+
+        # User rows are locked first, then all relevant access rows in a stable
+        # order. Revalidation below therefore observes one save-time snapshot.
+        list(
+            ModuleAccess.objects.select_for_update()
+            .filter(user_id__in=user_ids, module__in=modules)
+            .order_by("user_id", "module")
+        )
+
+        if (
+            not locked_delegate.is_active
+            or locked_delegate.role not in DELEGATE_ROLES
+        ):
+            raise forms.ValidationError(
+                {
+                    "delegate": (
+                        "Pelaksana Harian harus merupakan Admin Umum atau Petugas "
+                        "Gudang yang masih aktif."
+                    )
+                }
+            )
+
+        facility_bound = bool(
+            set(modules)
+            & {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
+        )
+        locked_facility = None
+        if facility_bound and locked_delegate.facility_id:
+            locked_facility = (
+                Facility.objects.select_for_update()
+                .only("facility_type", "is_active")
+                .filter(pk=locked_delegate.facility_id)
+                .first()
+            )
+
+        for module in modules:
+            if not can_delegate_module(locked_actor, module):
+                raise forms.ValidationError(
+                    {
+                        "modules": (
+                            "Kewenangan Anda berubah dan salah satu modul tidak lagi "
+                            "dapat didelegasikan."
+                        )
+                    }
+                )
+            if (
+                module in {ModuleAccess.Module.PUSKESMAS, ModuleAccess.Module.LPLPO}
+                and (
+                    locked_facility is None
+                    or not locked_facility.is_active
+                    or locked_facility.facility_type
+                    != Facility.FacilityType.PUSKESMAS
+                )
+            ):
+                raise forms.ValidationError(
+                    {
+                        "delegate": (
+                            "Pelaksana Harian harus terhubung ke fasilitas Puskesmas aktif "
+                            "untuk delegasi Puskesmas/LPLPO."
+                        )
+                    }
+                )
+            if not has_module_scope(
+                locked_delegate,
+                module,
+                ModuleAccess.Scope.VIEW,
+            ):
+                raise forms.ValidationError(
+                    {
+                        "modules": (
+                            f"{locked_delegate} tidak lagi memiliki akses Lihat pada "
+                            "salah satu modul yang dipilih."
+                        )
+                    }
+                )
+
+        return [
+            AuthorityDelegation.objects.create(
+                authority=AuthorityDelegation.Authority.KEPALA_APPROVAL,
+                module=module,
+                delegate=locked_delegate,
+                starts_at=self.cleaned_data["starts_at"],
+                ends_at=self.cleaned_data["ends_at"],
+                reason=self.cleaned_data["reason"],
+                granted_by=locked_actor,
+            )
+            for module in modules
+        ]
+
+
+class AuthorityDelegationRevokeForm(forms.Form):
+    revocation_reason = forms.CharField(
+        label="Alasan Pencabutan",
+        max_length=500,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+    )
+
+    def clean_revocation_reason(self):
+        return _clean_normalized_text(
+            self.cleaned_data.get("revocation_reason"),
+            field_label="Alasan pencabutan",
+        )

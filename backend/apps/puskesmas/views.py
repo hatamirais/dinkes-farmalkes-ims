@@ -30,7 +30,15 @@ from apps.core.rate_limits import (
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.lplpo.models import LPLPO
-from apps.users.access import has_module_permission, has_module_scope, is_super_admin
+from apps.users.access import (
+    get_active_authority_delegation,
+    has_authority_exercise,
+    has_module_permission,
+    has_module_scope,
+    is_super_admin,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess, User
 from apps.items.models import Facility, Item
 
@@ -101,6 +109,15 @@ def _can_review_request(user):
     )
 
 
+def _can_decide_request(user):
+    return _can_review_request(user) or bool(
+        get_active_authority_delegation(
+            user,
+            ModuleAccess.Module.PUSKESMAS,
+        )
+    )
+
+
 def _can_manage_request(user, req=None):
     if not getattr(user, "is_authenticated", False):
         return False
@@ -137,15 +154,19 @@ def _can_reset_request_to_draft(user, req):
     return False
 
 
-def _check_request_facility_access(request, req):
-    if is_super_admin(request.user):
+def _check_request_facility_access_for_user(user, req):
+    if is_super_admin(user):
         return None
 
-    facility = _get_required_facility(request.user)
+    facility = _get_required_facility(user)
     if req.facility_id != facility.pk:
         raise PermissionDenied("Anda tidak memiliki akses ke permintaan ini.")
 
     return None
+
+
+def _check_request_facility_access(request, req):
+    return _check_request_facility_access_for_user(request.user, req)
 
 
 def _check_puskesmas_request_creator_access(request):
@@ -1626,7 +1647,7 @@ def request_detail(request, pk):
 
     # Approval inline forms (read-only outside SUBMITTED status)
     approval_forms = []
-    can_review = _can_review_request(request.user)
+    can_review = _can_decide_request(request.user)
     can_manage = _can_manage_request(request.user, req)
     can_reset_to_draft = _can_reset_request_to_draft(request.user, req)
     if req.status == PuskesmasRequest.Status.SUBMITTED and can_review:
@@ -1733,7 +1754,7 @@ def request_submit(request, pk):
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_approve(request, pk):
     """Approve the request and create a Distribution Draft automatically."""
-    if not _can_review_request(request.user):
+    if not _can_decide_request(request.user):
         raise PermissionDenied("Operator Puskesmas tidak dapat menyetujui permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
@@ -1778,6 +1799,25 @@ def request_approve(request, pk):
 
     try:
         with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.PUSKESMAS,
+                role_gated=False,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Anda tidak memiliki wewenang persetujuan permintaan Puskesmas."
+                )
+            actor = decision.actor or request.user
+            req = PuskesmasRequest.objects.select_for_update().get(pk=req.pk)
+            _check_request_facility_access_for_user(actor, req)
+            if req.status != PuskesmasRequest.Status.SUBMITTED:
+                messages.error(
+                    request,
+                    "Hanya permintaan berstatus Diajukan yang dapat disetujui.",
+                )
+                return redirect("puskesmas:request_detail", pk=pk)
             # Persist approved quantities
             for item_obj in req_items:
                 item_obj.quantity_approved = approved_data.get(item_obj.pk)
@@ -1790,7 +1830,7 @@ def request_approve(request, pk):
                 request_date=req.request_date,
                 program=req.program.name if req.program else "",
                 status=Distribution.Status.DRAFT,
-                created_by=request.user,
+                created_by=actor,
                 notes=(
                     f"Dibuat otomatis dari Permintaan Puskesmas {req.document_number}."
                     + (f"\n{req.notes}" if req.notes else "")
@@ -1810,10 +1850,10 @@ def request_approve(request, pk):
                     for item_obj, qty in valid_items
                 ]
             )
-            assign_default_distribution_staff(dist, request.user)
+            assign_default_distribution_staff(dist, actor)
 
             req.status = PuskesmasRequest.Status.APPROVED
-            req.approved_by = request.user
+            req.approved_by = actor
             req.approved_at = timezone.now()
             req.distribution = dist
             req.save(
@@ -1821,7 +1861,17 @@ def request_approve(request, pk):
                     "status", "approved_by", "approved_at", "distribution", "updated_at"
                 ]
             )
+            record_authority_exercise(
+                decision,
+                actor=actor,
+                module=ModuleAccess.Module.PUSKESMAS,
+                action="approve_request",
+                target=req,
+                exercised_at=req.approved_at,
+            )
 
+    except PermissionDenied:
+        raise
     except Exception as exc:
         messages.error(request, f"Terjadi kesalahan saat menyetujui permintaan: {exc}")
         return redirect("puskesmas:request_detail", pk=pk)
@@ -1838,7 +1888,7 @@ def request_approve(request, pk):
 @perm_required("puskesmas.change_puskesmasrequest")
 @module_scope_required(ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.APPROVE)
 def request_reject(request, pk):
-    if not _can_review_request(request.user):
+    if not _can_decide_request(request.user):
         raise PermissionDenied("Operator Puskesmas tidak dapat menolak permintaan.")
 
     req = get_object_or_404(PuskesmasRequest, pk=pk)
@@ -1855,9 +1905,36 @@ def request_reject(request, pk):
         return redirect("puskesmas:request_detail", pk=pk)
 
     reason = request.POST.get("rejection_reason", "").strip()
-    req.status = PuskesmasRequest.Status.REJECTED
-    req.rejection_reason = reason
-    req.save(update_fields=["status", "rejection_reason", "updated_at"])
+    with transaction.atomic():
+        decision = resolve_approval_authority(
+            request.user,
+            ModuleAccess.Module.PUSKESMAS,
+            role_gated=False,
+            for_update=True,
+        )
+        if not decision.allowed:
+            raise PermissionDenied(
+                "Anda tidak memiliki wewenang penolakan permintaan Puskesmas."
+            )
+        actor = decision.actor or request.user
+        req = PuskesmasRequest.objects.select_for_update().get(pk=req.pk)
+        _check_request_facility_access_for_user(actor, req)
+        if req.status != PuskesmasRequest.Status.SUBMITTED:
+            messages.error(
+                request, "Hanya permintaan berstatus Diajukan yang dapat ditolak."
+            )
+            return redirect("puskesmas:request_detail", pk=pk)
+        req.status = PuskesmasRequest.Status.REJECTED
+        req.rejection_reason = reason
+        req.save(update_fields=["status", "rejection_reason", "updated_at"])
+        record_authority_exercise(
+            decision,
+            actor=actor,
+            module=ModuleAccess.Module.PUSKESMAS,
+            action="reject_request",
+            target=req,
+            exercised_at=req.updated_at,
+        )
     messages.success(request, f"Permintaan {req.document_number} ditolak.")
     return redirect("puskesmas:request_detail", pk=pk)
 
@@ -1911,6 +1988,12 @@ def request_delete(request, pk):
         return redirect("puskesmas:request_detail", pk=pk)
 
     doc_num = req.document_number
+    if has_authority_exercise(req):
+        messages.error(
+            request,
+            "Permintaan tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+        )
+        return redirect("puskesmas:request_detail", pk=pk)
     req.delete()
     messages.success(request, f"Permintaan {doc_num} berhasil dihapus.")
     return redirect("puskesmas:request_list")

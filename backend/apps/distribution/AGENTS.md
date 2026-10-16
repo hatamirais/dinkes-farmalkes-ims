@@ -9,7 +9,7 @@ App-specific guidance for outbound distribution workflows.
 ## Core Workflow
 
 - Regular and special-request distributions use `DRAFT/REJECTED -> PREPARED -> SUBMITTED -> VERIFIED -> DISTRIBUTED`.
-- Verification/rejection at `SUBMITTED` is restricted to superusers or role `ADMIN` / `KEPALA` with distribution module scope `APPROVE`; elevated scope alone does not authorize another role.
+- Verification/rejection at `SUBMITTED` is restricted to superusers or role `ADMIN` / `KEPALA` with distribution module scope `APPROVE`; elevated scope alone does not authorize another role. A current Distribution-specific Acting Kepala delegation is the only exception and its use must be recorded atomically in `AuthorityExercise`.
 - Assigned `DistributionStaffAssignment` users control draft/rejected preparation, submission, and final fulfillment.
 - When no preparers are assigned, approve-scope users remain the fallback managers.
 - Final distribution for standalone documents follows the same assignee/fallback authorization rule as preparation.

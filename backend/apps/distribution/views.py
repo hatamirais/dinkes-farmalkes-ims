@@ -33,8 +33,12 @@ from apps.reports.views import (
 from apps.stock.models import Stock
 from apps.users.access import (
     can_approve_workflow,
+    get_delegated_signature,
+    has_authority_exercise,
     has_module_permission,
     has_module_scope,
+    record_authority_exercise,
+    resolve_approval_authority,
 )
 from apps.users.models import ModuleAccess, User
 
@@ -873,7 +877,12 @@ def distribution_edit(request, pk):
 def distribution_detail(request, pk):
     dist = get_object_or_404(
         Distribution.objects.select_related(
-            "facility", "created_by", "verified_by", "approved_by"
+            "facility",
+            "created_by",
+            "verified_by",
+            "approved_by",
+            "allocation",
+            "allocation__approved_by",
         )
         .prefetch_related("staff_assignments__user")
         .exclude(distribution_type__in=["BORROW_RS", "SWAP_RS"]),
@@ -889,6 +898,19 @@ def distribution_detail(request, pk):
         .order_by("full_name", "username")
         .first()
     )
+    delegated_signature = get_delegated_signature(
+        dist,
+        action="verify",
+        actor=dist.verified_by,
+        exercised_at=dist.verified_at,
+    )
+    if delegated_signature is None and dist.allocation_id:
+        delegated_signature = get_delegated_signature(
+            dist.allocation,
+            action="approve",
+            actor=dist.allocation.approved_by,
+            exercised_at=dist.allocation.approved_at,
+        )
 
     printable_items = []
     total_quantity = Decimal("0")
@@ -1000,6 +1022,7 @@ def distribution_detail(request, pk):
             "grand_total": grand_total,
             "assigned_staff": assigned_staff,
             "kepala_instalasi": kepala_instalasi,
+            "delegated_signature": delegated_signature,
             "is_allocation": is_allocation,
             "can_view_allocation_parent": can_view_allocation_parent,
             "can_manage_allocation_distribution": can_manage_allocation_distribution,
@@ -1090,7 +1113,27 @@ def distribution_verify(request, pk):
         return _redirect_distribution_detail(pk)
 
     try:
-        execute_distribution_verification(dist, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menyetujui distribusi."
+                )
+            execute_distribution_verification(dist, decision.actor)
+            dist.refresh_from_db(fields=("verified_at",))
+            record_authority_exercise(
+                decision,
+                actor=decision.actor,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="verify",
+                target=dist,
+                exercised_at=dist.verified_at,
+            )
     except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
         return _redirect_distribution_detail(pk)
@@ -1198,7 +1241,27 @@ def distribution_reject(request, pk):
         return _redirect_distribution_detail(pk)
 
     try:
-        execute_distribution_rejection(dist)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.DISTRIBUTION,
+                role_gated=True,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Hanya Kepala Instalasi, Admin, atau Plh. yang berwenang dapat menolak distribusi."
+                )
+            execute_distribution_rejection(dist)
+            dist.refresh_from_db(fields=("updated_at",))
+            record_authority_exercise(
+                decision,
+                actor=decision.actor,
+                module=ModuleAccess.Module.DISTRIBUTION,
+                action="reject",
+                target=dist,
+                exercised_at=dist.updated_at,
+            )
     except DistributionWorkflowError as exc:
         messages.error(request, str(exc))
         return _redirect_distribution_detail(pk)
@@ -1323,6 +1386,12 @@ def distribution_delete(request, pk):
     document_number = dist.document_number
     with transaction.atomic():
         dist = get_object_or_404(Distribution.objects.select_for_update(), pk=pk)
+        if has_authority_exercise(dist):
+            messages.error(
+                request,
+                "Distribusi tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            )
+            return _redirect_distribution_detail(pk)
         release_distribution_reservations(dist)
         redirect_url_name = (
         "distribution:special_request_list"

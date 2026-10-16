@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
@@ -11,6 +11,11 @@ from apps.core.decorators import module_scope_required, perm_required
 from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.stock.models import Stock, Transaction
+from apps.users.access import (
+    has_authority_exercise,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 from .forms import RecallForm, RecallItemFormSet
@@ -206,6 +211,21 @@ def recall_verify(request, pk):
 
     try:
         with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.RECALL,
+                role_gated=False,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied("Anda tidak memiliki wewenang verifikasi recall.")
+            recall = Recall.objects.select_for_update().get(pk=recall.pk)
+            if recall.status != Recall.Status.SUBMITTED:
+                messages.error(
+                    request, "Hanya recall berstatus Diajukan yang dapat diverifikasi."
+                )
+                return redirect("recall:recall_detail", pk=pk)
+            recall_items = list(recall.items.select_related("item", "stock"))
             for recall_item in recall_items:
                 stock = Stock.objects.select_for_update().get(pk=recall_item.stock_id)
 
@@ -234,15 +254,23 @@ def recall_verify(request, pk):
                     sumber_dana=stock.sumber_dana,
                     reference_type=Transaction.ReferenceType.RECALL,
                     reference_id=recall.id,
-                    user=request.user,
+                    user=decision.actor,
                     notes=f"Recall {recall.document_number}: {recall_item.notes}".strip(),
                 )
 
             recall.status = Recall.Status.VERIFIED
-            recall.verified_by = request.user
+            recall.verified_by = decision.actor
             recall.verified_at = timezone.now()
             recall.save(
                 update_fields=["status", "verified_by", "verified_at", "updated_at"]
+            )
+            record_authority_exercise(
+                decision,
+                actor=decision.actor,
+                module=ModuleAccess.Module.RECALL,
+                action="verify",
+                target=recall,
+                exercised_at=recall.verified_at,
             )
 
     except ValueError as exc:
@@ -270,10 +298,35 @@ def recall_complete(request, pk):
         )
         return redirect("recall:recall_detail", pk=pk)
 
-    recall.status = Recall.Status.COMPLETED
-    recall.completed_by = request.user
-    recall.completed_at = timezone.now()
-    recall.save(update_fields=["status", "completed_by", "completed_at", "updated_at"])
+    with transaction.atomic():
+        decision = resolve_approval_authority(
+            request.user,
+            ModuleAccess.Module.RECALL,
+            role_gated=False,
+            for_update=True,
+        )
+        if not decision.allowed:
+            raise PermissionDenied("Anda tidak memiliki wewenang penyelesaian recall.")
+        recall = Recall.objects.select_for_update().get(pk=recall.pk)
+        if recall.status != Recall.Status.VERIFIED:
+            messages.error(
+                request, "Hanya recall terverifikasi yang dapat ditandai selesai."
+            )
+            return redirect("recall:recall_detail", pk=pk)
+        recall.status = Recall.Status.COMPLETED
+        recall.completed_by = decision.actor
+        recall.completed_at = timezone.now()
+        recall.save(
+            update_fields=["status", "completed_by", "completed_at", "updated_at"]
+        )
+        record_authority_exercise(
+            decision,
+            actor=decision.actor,
+            module=ModuleAccess.Module.RECALL,
+            action="complete",
+            target=recall,
+            exercised_at=recall.completed_at,
+        )
     messages.success(request, f"Recall {recall.document_number} ditandai selesai.")
     return redirect("recall:recall_detail", pk=pk)
 
@@ -353,6 +406,12 @@ def recall_delete(request, pk):
     doc_number = recall.document_number
     with transaction.atomic():
         recall = Recall.objects.select_for_update().get(pk=recall.pk)
+        if has_authority_exercise(recall):
+            messages.error(
+                request,
+                "Recall tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            )
+            return redirect("recall:recall_detail", pk=pk)
         void_document_number(
             recall,
             actor=request.user,

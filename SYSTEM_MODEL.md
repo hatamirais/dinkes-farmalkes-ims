@@ -80,6 +80,7 @@ Module highlights:
   - Super Admin sees all statuses on `/lplpo/` and can perform create/edit/submit/delete across facilities.
   - Puskesmas-owned routes and states stay facility-scoped for all non-superusers: `DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX export/import, and the prefill helper all require a linked `user.facility` and stay same-facility only.
   - Instalasi Farmasi LPLPO access is stage-gated across facilities: `GUDANG` may access queue/detail/print on `SUBMITTED`, `PIC_VERIFIED`, `REJECTED_PIC`, `APPROVED`, and `CLOSED` documents, verify/reject `SUBMITTED` documents, and review `PIC_VERIFIED` / `REJECTED_PIC` documents; `KEPALA` only gets cross-facility LPLPO access on legacy `REVIEWED/finalize` and read-only historical `APPROVED` / `CLOSED` states. Users whose role is exactly `ADMIN` (not `ADMIN_UMUM`) may directly reject active LPLPO documents without a linked distribution back to `REJECTED_PUSKESMAS`, including `PIC_VERIFIED`.
+  - A facility-linked `GUDANG` user with a current LPLPO delegation gets own-facility legacy `REVIEWED` rows added to that queue; the addition never includes another facility and disappears when the delegation expires or is revoked.
   - Non-Puskesmas non-superuser staff continue to use `/lplpo/` as the submitted queue only.
   - `api/prefill-penerimaan/` sources monthly totals and weighted-average unit prices from same-facility/month `puskesmas.PuskesmasReceiptConfirmationItem` rows, including January bootstrap as an editable suggestion baseline when confirmed receipt data exists.
   - `/export-xlsx/` and `/import-xlsx/` are draft-only offline-entry helpers for Puskesmas operators and super admins. They work only on existing `DRAFT` / `REJECTED_PUSKESMAS` documents after the standard monthly create flow has already generated the item rows.
@@ -102,7 +103,7 @@ Module highlights:
   - Receipt-confirmation mutations are blocked when the same facility-month LPLPO already exists in any status beyond `DRAFT` or `REJECTED_PUSKESMAS`.
   - Create/edit/delete is rate-limited by `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT` and each mutation atomically re-syncs same-month editable LPLPO lines. Opening or re-saving an editable LPLPO also refreshes same-month `penerimaan` and weighted `harga_satuan` when confirmed receipt-confirmation rows already exist.
 - Allocation: `/allocation/`, `/allocation/create/`, `/allocation/<pk>/`, `/allocation/<pk>/edit/`, `/allocation/<pk>/delete/`, `/allocation/<pk>/reset-to-draft/`, `/allocation/<pk>/submit/`, `/allocation/<pk>/approve/`, `/allocation/<pk>/step-back/`, `/allocation/<pk>/reject/`, `/allocation/<pk>/distributions/<dist_pk>/prepare/`, `/allocation/<pk>/distributions/<dist_pk>/deliver/`
-- Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`
+- Users sensitive POST actions: `/users/bulk-action/`, `/users/<pk>/toggle-active/`, `/users/<pk>/delete/`, `/users/<pk>/reset-password/`, `/users/acting-authority/new/`, `/users/acting-authority/<pk>/revoke/`
 
 ## 3) Permission and Access Model
 
@@ -131,6 +132,9 @@ Special rule:
 - `/settings/` and `/settings/numbering/` are explicit role-gated exceptions outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update their respective settings.
 - Procurement SPJ and amendment approval actions combine module scope with an explicit role gate: superusers/Admin and `KEPALA` may approve when they have the required procurement approval scope, while `GUDANG` remains limited to operate/create/submit behavior and cannot approve even if its procurement module scope is elevated.
 - Distribution and expired verification use the same explicit approver rule: superusers or role `ADMIN` / `KEPALA` with the relevant module scope at `APPROVE` or higher. Elevated scope alone does not authorize another role.
+- Active `ADMIN_UMUM` or `GUDANG` users may additionally exercise selected approval checkpoints through a current `AuthorityDelegation`. The transactional resolver locks and reloads the actor and relevant module access, locks candidate delegations, then evaluates current eligibility and time before the workflow row is locked. Facility-bound delegated mutations recheck the locked actor against the locked workflow object before changing state. This delegated path is recognized only on views already marked as approval checkpoints (plus documented mixed-purpose legacy rejection branches) and does not change the user's role, Django permissions, or module scope. For Puskesmas requests, delegation covers approve/reject only and never reset-to-draft.
+- Stock Opname completion is marked as an approval-fallback endpoint so a current delegate with baseline `VIEW` scope can reach the dynamic discrepancy checkpoint. The locked transaction then requires normal `OPERATE` authority for matching counts or revalidated delegated/permanent approval authority for discrepancies; delegation does not grant routine no-discrepancy completion.
+- The `/users/acting-authority/new/` form progressively enhances its native `datetime-local` fields with locally vendored Flatpickr 4.6.13, forcing Indonesian 24-hour `DD/MM/YYYY HH:mm` presentation while retaining `YYYY-MM-DDTHH:mm` as the submitted value and native controls as the no-JavaScript fallback.
 - `AUDITOR` retains read-only module scopes for direct authorized pages, but the global sidebar renders only the `Laporan` group for this role and the dashboard suppresses linked drill-through cards/sections that open operational menus.
 
 Role default scopes are seeded in `backend/apps/users/access.py` via `ROLE_DEFAULT_SCOPES`.
@@ -183,6 +187,20 @@ This section reflects model code in `backend/apps/*/models.py`.
   - `module` (enum)
   - `scope` (int enum)
   - Unique: `(user, module)`
+
+- `users.AuthorityDelegation` (`db_table=user_authority_delegations`)
+  - Required `starts_at`, nullable `ends_at`, one module, delegate, grantor, reason, and optional revocation actor/time/reason. `ends_at=NULL` explicitly represents `Sampai dicabut`; fixed periods require `ends_at > starts_at`.
+  - Creation locks and reloads both users plus their relevant module-access rows. For Puskesmas/LPLPO it also locks and revalidates the delegate's linked `Facility` as an active Puskesmas before any selected module is persisted.
+  - Revocation is available only while the actor remains authorized to delegate that module. The mutation locks and reloads the actor and relevant module access before the delegation row, then rechecks module authority and rejects finite delegations whose `ends_at` has been reached so naturally expired records remain `Berakhir` without misleading revocation metadata.
+  - Delegate roles are limited by the application to active `ADMIN_UMUM` / `GUDANG` accounts with at least `VIEW` on the delegated module.
+  - PostgreSQL exclusion constraint prevents overlapping non-revoked Kepala-approval delegations for the same module. Fixed periods use half-open `[starts_at, ends_at)` ranges, while a null upper bound is unbounded and blocks every later delegation for that module until revocation; adjacent finite periods are allowed.
+
+- `users.AuthorityExercise` (`db_table=user_authority_exercises`)
+  - Append-only evidence for successful delegated workflow actions through a generic target relation.
+  - Stores the actual actor plus immutable name, NIP, `Plh. Kepala Instalasi` title, nullable delegation-period end, grantor, and reason snapshots used by historical rendering.
+  - A rendered delegated signature must match the target workflow's current checkpoint actor and timestamp; an older append-only exercise remains audit history but cannot identify a later permanent or delegated reprocessing action.
+  - Supported workflow target models are protected by `pre_delete` guards, including queryset/bulk and cascading deletion, so an exercise cannot be orphaned.
+  - Eligible delegate roles remain `ADMIN_UMUM` and `GUDANG`; either may have an optional active Puskesmas `facility` used to enforce Puskesmas/LPLPO same-facility scope. Other facility types are rejected for this link, and existing delegations stop resolving when that facility is deactivated or changes type. Role `PUSKESMAS` is never eligible to receive delegated authority.
 
 ### 4.3 Master data and item registry
 
@@ -553,6 +571,7 @@ Operational mutation points (from app behavior and admin import logic):
 - Stock opname start issues the number from `period_end`, freezes the counting scope, and makes the header view-only after Draft in both the operational workflow and Django Admin. Completion requires at least one counted row and no remaining uncounted snapshot rows, records `status=COMPLETED`, `completed_by`, `completed_at`, and each row's `completion_stock_quantity`, and does not mutate `Stock` or write `Transaction` rows. `GUDANG` / operate-scope users may complete only when the physical count matches the current refreshed stock quantity for every counted row; if any current discrepancy remains, completion requires stock-opname approve scope (`KEPALA`/Admin/superuser by default). In-progress views compare `Stok Fisik` to live refreshed `Stock.quantity`; completed views and reports compare against the frozen `completion_stock_quantity`.
 - Allocation:
   - Approval phase auto-generates `Distribution(type=SPECIAL_REQUEST, allocation_id=<parent>, status=VERIFIED)` per facility, issues each child from the shared Permintaan Khusus sequence, and reserves the selected stock for each child row
+  - A generated child's delegated signer is resolved from the current parent Allocation `approve` exercise. No duplicate child `verify` exercise is created, preserving parent step-back deletion of generated children.
   - Generated children remain included in Permintaan Khusus and Allocation reports, but the standalone Permintaan Khusus operational queue and notification count require `allocation IS NULL`; direct Distribution detail hides parent links and Allocation actions when the user lacks the corresponding Allocation permission
   - For legacy generated children, the initial `verified_by` / `verified_at` values identify the same create-and-number checkpoint and are retained as migrated `DocumentNumberIssue` issuance metadata
   - Stepping an approved allocation back releases those child reservations before deleting the generated distributions

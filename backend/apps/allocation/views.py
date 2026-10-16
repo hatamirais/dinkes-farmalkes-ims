@@ -1,7 +1,7 @@
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, F, Q
@@ -12,6 +12,11 @@ from django.utils import timezone
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.numbering import void_document_number
 from apps.stock.models import Stock
+from apps.users.access import (
+    has_authority_exercise,
+    record_authority_exercise,
+    resolve_approval_authority,
+)
 from apps.users.models import ModuleAccess
 
 from .forms import AllocationForm, AllocationItemFormSet
@@ -472,7 +477,31 @@ def allocation_approve(request, pk):
         return _redirect_allocation_detail(pk)
 
     try:
-        execute_allocation_approval(allocation, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.ALLOCATION,
+                role_gated=False,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied("Anda tidak memiliki wewenang persetujuan alokasi.")
+            allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
+            if allocation.status != Allocation.Status.SUBMITTED:
+                messages.error(
+                    request, "Hanya alokasi berstatus Diajukan yang dapat disetujui."
+                )
+                return _redirect_allocation_detail(pk)
+            execute_allocation_approval(allocation, decision.actor)
+            allocation.refresh_from_db(fields=("approved_at",))
+            record_authority_exercise(
+                decision,
+                actor=decision.actor,
+                module=ModuleAccess.Module.ALLOCATION,
+                action="approve",
+                target=allocation,
+                exercised_at=allocation.approved_at,
+            )
     except (AllocationWorkflowError, ValidationError) as exc:
         messages.error(request, str(exc))
         return _redirect_allocation_detail(pk)
@@ -505,7 +534,31 @@ def allocation_reject(request, pk):
         messages.error(request, "Alasan penolakan wajib diisi.")
         return _redirect_allocation_detail(pk)
 
-    execute_allocation_rejection(allocation, reason)
+    with transaction.atomic():
+        decision = resolve_approval_authority(
+            request.user,
+            ModuleAccess.Module.ALLOCATION,
+            role_gated=False,
+            for_update=True,
+        )
+        if not decision.allowed:
+            raise PermissionDenied("Anda tidak memiliki wewenang penolakan alokasi.")
+        allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
+        if allocation.status != Allocation.Status.SUBMITTED:
+            messages.error(
+                request, "Hanya alokasi berstatus Diajukan yang dapat ditolak."
+            )
+            return _redirect_allocation_detail(pk)
+        execute_allocation_rejection(allocation, reason)
+        allocation.refresh_from_db(fields=("updated_at",))
+        record_authority_exercise(
+            decision,
+            actor=decision.actor,
+            module=ModuleAccess.Module.ALLOCATION,
+            action="reject",
+            target=allocation,
+            exercised_at=allocation.updated_at,
+        )
     messages.success(
         request, f"Alokasi {allocation.document_number} ditolak dan dikembalikan ke Draft."
     )
@@ -529,7 +582,28 @@ def allocation_step_back(request, pk):
         return _redirect_allocation_detail(pk)
 
     try:
-        execute_allocation_step_back_to_submitted(allocation, request.user)
+        with transaction.atomic():
+            decision = resolve_approval_authority(
+                request.user,
+                ModuleAccess.Module.ALLOCATION,
+                role_gated=False,
+                for_update=True,
+            )
+            if not decision.allowed:
+                raise PermissionDenied(
+                    "Anda tidak memiliki wewenang untuk mengembalikan alokasi."
+                )
+            allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
+            execute_allocation_step_back_to_submitted(allocation, decision.actor)
+            allocation.refresh_from_db(fields=("updated_at",))
+            record_authority_exercise(
+                decision,
+                actor=decision.actor,
+                module=ModuleAccess.Module.ALLOCATION,
+                action="step_back",
+                target=allocation,
+                exercised_at=allocation.updated_at,
+            )
     except AllocationWorkflowError as exc:
         messages.error(request, str(exc))
         return _redirect_allocation_detail(pk)
@@ -593,6 +667,12 @@ def allocation_delete(request, pk):
             messages.error(
                 request,
                 "Hanya alokasi berstatus Draft atau Ditolak yang dapat dihapus.",
+            )
+            return _redirect_allocation_detail(pk)
+        if has_authority_exercise(allocation):
+            messages.error(
+                request,
+                "Alokasi tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
             )
             return _redirect_allocation_detail(pk)
 

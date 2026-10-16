@@ -12,6 +12,7 @@ App-specific guidance for Puskesmas facility workflows.
 - `OPERATOR PUSKESMAS` users must never read or write another facility's documents.
 - Puskesmas report routes require `reports.view_reports` or REPORTS module-scope `VIEW`.
 - Superusers may query all facilities in reports; non-superusers are forced to their linked `facility` and receive `403` when no facility is linked.
+- An active Puskesmas-specific Acting Kepala delegation may satisfy only the request approval/rejection authority check; it does not authorize reset-to-draft. It never bypasses linked-facility or same-facility isolation, which is rechecked between the locked actor and locked request before mutation. Delegated use must be recorded atomically in `AuthorityExercise`.
 
 ## Stock Self-Check
 

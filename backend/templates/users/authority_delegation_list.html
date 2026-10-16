@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Delegasi Wewenang - Healthcare IMS{% endblock %}
+{% block page_title %}Delegasi Wewenang{% endblock %}
+
+{% block content %}
+<div class="table-container">
+    <div class="table-header">
+        <div>
+            <h5 class="mb-1"><i class="bi bi-person-check me-2"></i>Delegasi Wewenang</h5>
+            <p class="text-muted small mb-0">Penugasan sementara Plh. Kepala Instalasi per modul.</p>
+        </div>
+        <a href="{% url 'users:authority_delegation_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Buat Delegasi
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Pelaksana Harian</th>
+                    <th>Modul</th>
+                    <th>Periode</th>
+                    <th>Status</th>
+                    <th>Pemberi</th>
+                    <th class="text-end">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for delegation in delegations %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ delegation.delegate.full_name|default:delegation.delegate.username }}</div>
+                        <small class="text-muted">{{ delegation.delegate.get_role_display }}</small>
+                    </td>
+                    <td>{{ delegation.get_module_display }}</td>
+                    <td>
+                        <div>{{ delegation.starts_at|date:'d M Y, H:i' }}</div>
+                        <small class="text-muted">
+                            {% if delegation.ends_at %}s.d. {{ delegation.ends_at|date:'d M Y, H:i' }}{% else %}Berlaku sampai dicabut{% endif %}
+                        </small>
+                    </td>
+                    <td><span class="badge {{ delegation.status_class }}">{{ delegation.display_status }}</span></td>
+                    <td>{{ delegation.granted_by.full_name|default:delegation.granted_by.username }}</td>
+                    <td class="text-end">
+                        {% if delegation.can_revoke %}
+                        <a href="{% url 'users:authority_delegation_revoke' delegation.pk %}" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-x-circle me-1"></i>Cabut
+                        </a>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr class="table-light">
+                    <td colspan="6" class="small text-muted py-2">
+                        <strong>Dasar:</strong> {{ delegation.reason }}
+                        {% if delegation.revoked_at %}
+                        <span class="ms-2"><strong>Dicabut:</strong> {{ delegation.revoked_at|date:'d M Y, H:i' }} — {{ delegation.revocation_reason }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">Belum ada delegasi wewenang.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

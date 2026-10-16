@@ -39,9 +39,15 @@ from apps.puskesmas.models import (
 	PuskesmasSubunit,
 )
 from apps.puskesmas.services import assert_consumption_month_mutable
+from apps.puskesmas import views as puskesmas_views
 from apps.puskesmas.views import _get_consumption_subunits
 from apps.users.access import ensure_default_module_access
-from apps.users.models import ModuleAccess, User
+from apps.users.models import (
+	AuthorityDelegation,
+	AuthorityExercise,
+	ModuleAccess,
+	User,
+)
 from apps.lplpo.models import LPLPO, LPLPOItem
 
 
@@ -2062,6 +2068,29 @@ class PuskesmasRequestApprovalTests(SecureClientDefaultsMixin, TestCase):
 			facility=self.other_facility,
 		)
 
+	def _make_delegated_reviewer(self):
+		delegate = User.objects.create_user(
+			username="gudang-puskesmas-delegate",
+			password="TestPassword123!",
+			role=User.Role.GUDANG,
+			facility=self.facility,
+		)
+		ModuleAccess.objects.update_or_create(
+			user=delegate,
+			module=ModuleAccess.Module.PUSKESMAS,
+			defaults={"scope": ModuleAccess.Scope.OPERATE},
+		)
+		now = timezone.now()
+		AuthorityDelegation.objects.create(
+			module=ModuleAccess.Module.PUSKESMAS,
+			delegate=delegate,
+			starts_at=now - timedelta(hours=1),
+			ends_at=now + timedelta(hours=1),
+			reason="Delegasi keputusan permintaan Puskesmas.",
+			granted_by=self.approver,
+		)
+		return delegate
+
 	def test_approve_creates_distribution_with_requested_and_approved_quantities(self):
 		req = PuskesmasRequest.objects.create(
 			facility=self.facility,
@@ -2193,6 +2222,146 @@ class PuskesmasRequestApprovalTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.status_code, 302)
 		req.refresh_from_db()
 		self.assertEqual(req.status, PuskesmasRequest.Status.DRAFT)
+
+	def test_delegate_cannot_reset_submitted_request_to_draft(self):
+		delegate = self._make_delegated_reviewer()
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+		self.client.force_login(delegate)
+
+		detail_response = self.client.get(
+			reverse("puskesmas:request_detail", args=[req.pk])
+		)
+		reset_response = self.client.post(
+			reverse("puskesmas:request_reset_draft", args=[req.pk])
+		)
+
+		self.assertEqual(detail_response.status_code, 200)
+		self.assertContains(detail_response, "Setujui Permintaan")
+		self.assertContains(detail_response, "Tolak")
+		self.assertNotContains(detail_response, 'id="reset-draft-btn"', html=False)
+		self.assertRedirects(
+			reset_response,
+			reverse("puskesmas:request_detail", args=[req.pk]),
+		)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+		self.assertFalse(AuthorityExercise.objects.filter(actor=delegate).exists())
+
+	def test_delegate_can_approve_request_and_records_exercise(self):
+		delegate = self._make_delegated_reviewer()
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		item_line = PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+		self.client.force_login(delegate)
+
+		response = self.client.post(
+			reverse("puskesmas:request_approve", args=[req.pk]),
+			{f"approve_{item_line.pk}-quantity_approved": "3.00"},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.APPROVED)
+		self.assertTrue(
+			AuthorityExercise.objects.filter(
+				actor=delegate,
+				action="approve_request",
+				object_id=req.pk,
+			).exists()
+		)
+
+	def test_delegate_cannot_approve_after_locked_facility_reassignment(self):
+		delegate = self._make_delegated_reviewer()
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		item_line = PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=Decimal("4.00"),
+		)
+		real_resolve = puskesmas_views.resolve_approval_authority
+
+		def reassign_then_resolve(*args, **kwargs):
+			User.objects.filter(pk=delegate.pk).update(facility=self.other_facility)
+			return real_resolve(*args, **kwargs)
+
+		self.client.force_login(delegate)
+		with patch(
+			"apps.puskesmas.views.resolve_approval_authority",
+			side_effect=reassign_then_resolve,
+		):
+			response = self.client.post(
+				reverse("puskesmas:request_approve", args=[req.pk]),
+				{f"approve_{item_line.pk}-quantity_approved": "3.00"},
+			)
+
+		self.assertEqual(response.status_code, 403)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+		self.assertIsNone(req.distribution_id)
+		self.assertFalse(
+			AuthorityExercise.objects.filter(
+				actor=delegate,
+				object_id=req.pk,
+			).exists()
+		)
+
+	def test_delegate_cannot_reject_after_locked_facility_reassignment(self):
+		delegate = self._make_delegated_reviewer()
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			request_date="2026-04-02",
+			status=PuskesmasRequest.Status.SUBMITTED,
+			created_by=self.requester,
+		)
+		real_resolve = puskesmas_views.resolve_approval_authority
+
+		def reassign_then_resolve(*args, **kwargs):
+			User.objects.filter(pk=delegate.pk).update(facility=self.other_facility)
+			return real_resolve(*args, **kwargs)
+
+		self.client.force_login(delegate)
+		with patch(
+			"apps.puskesmas.views.resolve_approval_authority",
+			side_effect=reassign_then_resolve,
+		):
+			response = self.client.post(
+				reverse("puskesmas:request_reject", args=[req.pk]),
+				{"rejection_reason": "Tidak boleh diproses lintas fasilitas."},
+			)
+
+		self.assertEqual(response.status_code, 403)
+		req.refresh_from_db()
+		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
+		self.assertEqual(req.rejection_reason, "")
+		self.assertFalse(
+			AuthorityExercise.objects.filter(
+				actor=delegate,
+				object_id=req.pk,
+			).exists()
+		)
 
 	def test_approver_detail_hides_draft_actions(self):
 		req = PuskesmasRequest.objects.create(

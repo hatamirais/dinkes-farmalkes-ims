@@ -20,7 +20,13 @@ from apps.core.numbering import issue_document_number
 from apps.distribution.models import Distribution
 from apps.items.models import Category, Facility, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
-from apps.users.models import User
+from apps.users.access import record_authority_exercise, resolve_approval_authority
+from apps.users.models import (
+    AuthorityDelegation,
+    AuthorityExercise,
+    ModuleAccess,
+    User,
+)
 
 from .admin import (
     AllocationAdmin,
@@ -869,6 +875,100 @@ class AllocationRouteTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Allocation.objects.filter(pk=allocation.pk).exists())
+
+    def test_delete_draft_with_authority_exercise_is_blocked(self):
+        allocation = _create_allocation(self.fixtures)
+        delegate = self.fixtures["operator"]
+        AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.ALLOCATION,
+            delegate=delegate,
+            starts_at=timezone.now() - timedelta(hours=1),
+            ends_at=timezone.now() + timedelta(hours=1),
+            reason="Penugasan pengujian retensi audit.",
+            granted_by=self.fixtures["admin"],
+        )
+        decision = resolve_approval_authority(
+            delegate,
+            ModuleAccess.Module.ALLOCATION,
+            role_gated=False,
+        )
+        record_authority_exercise(
+            decision,
+            actor=delegate,
+            module=ModuleAccess.Module.ALLOCATION,
+            action="reject",
+            target=allocation,
+        )
+
+        response = self.client.post(
+            reverse("allocation:allocation_delete", args=[allocation.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Allocation.objects.filter(pk=allocation.pk).exists())
+        messages = [str(message) for message in response.wsgi_request._messages]
+        self.assertIn(
+            "Alokasi tidak dapat dihapus karena memiliki riwayat penggunaan delegasi wewenang.",
+            messages,
+        )
+
+    def test_delegated_approval_signs_generated_distribution_via_parent_exercise(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        delegate = self.fixtures["operator"]
+        delegate.full_name = "Pelaksana Harian Alokasi"
+        delegate.nip = "19876543210"
+        delegate.save(update_fields=["full_name", "nip"])
+        delegation = AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.ALLOCATION,
+            delegate=delegate,
+            starts_at=timezone.now() - timedelta(hours=1),
+            ends_at=timezone.now() + timedelta(hours=1),
+            reason="Penugasan persetujuan alokasi.",
+            granted_by=self.fixtures["admin"],
+        )
+        self.client.force_login(delegate)
+
+        approve_response = self.client.post(
+            reverse("allocation:allocation_approve", args=[allocation.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(approve_response.status_code, 302)
+        allocation.refresh_from_db()
+        parent_exercise = AuthorityExercise.objects.get(
+            delegation=delegation,
+            action="approve",
+            object_id=allocation.pk,
+        )
+        child = allocation.distributions.order_by("pk").first()
+        detail_response = self.client.get(
+            reverse("distribution:distribution_detail", args=[child.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(
+            detail_response.context["delegated_signature"]["name"],
+            parent_exercise.actor_name_snapshot,
+        )
+        self.assertContains(detail_response, "Plh. Kepala Instalasi")
+        child_content_type = ContentType.objects.get_for_model(child)
+        self.assertFalse(
+            AuthorityExercise.objects.filter(
+                content_type=child_content_type,
+                object_id=child.pk,
+                action="verify",
+            ).exists()
+        )
+
+        step_back_response = self.client.post(
+            reverse("allocation:allocation_step_back", args=[allocation.pk]),
+            secure=True,
+        )
+        self.assertEqual(step_back_response.status_code, 302)
+        self.assertFalse(Distribution.objects.filter(pk=child.pk).exists())
 
     def test_delete_approved_fails(self):
         allocation = _create_allocation(self.fixtures, status=Allocation.Status.APPROVED)

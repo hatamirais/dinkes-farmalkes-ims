@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.postgres",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -218,6 +219,10 @@ AUDITLOG_INCLUDE_TRACKING_MODELS = (
     {
         "model": "users.ModuleAccess",
         "exclude_fields": AUDITLOG_TRACKING_TIMESTAMP_FIELDS,
+    },
+    {
+        "model": "users.AuthorityDelegation",
+        "exclude_fields": ["created_at"],
     },
     {
         "model": "items.Item",

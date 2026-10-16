@@ -16,7 +16,7 @@ from apps.items.models import Category, FundingSource, Item, Location, Unit
 from apps.stock.models import Stock, Transaction
 from apps.stock_opname.models import StockOpname, StockOpnameItem
 from apps.users.access import ensure_default_module_access
-from apps.users.models import User
+from apps.users.models import AuthorityDelegation, AuthorityExercise, ModuleAccess, User
 
 
 class StockOpnameTestMixin:
@@ -515,6 +515,122 @@ class StockOpnameApprovalAccessTest(StockOpnameTestMixin, TestCase):
         self.opname.refresh_from_db()
         self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
         self.assertIsNone(self.opname.completed_by)
+
+    def test_view_scope_delegate_can_complete_opname_with_current_discrepancy(self):
+        self.stock.quantity = Decimal("90")
+        self.stock.save(update_fields=["quantity", "updated_at"])
+        delegate = User.objects.create_user(
+            username="opname_view_scope_delegate",
+            password="secret12345",
+            role=User.Role.GUDANG,
+            full_name="Pelaksana Harian Stock Opname",
+            nip="19876543211",
+        )
+        ensure_default_module_access(delegate, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=delegate,
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
+        delegation = AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            delegate=delegate,
+            starts_at=timezone.now() - timedelta(hours=1),
+            ends_at=timezone.now() + timedelta(hours=1),
+            reason="Penugasan penyelesaian stock opname berselisih.",
+            granted_by=self.admin,
+        )
+        self.client.force_login(delegate)
+
+        detail_response = self.client.get(
+            reverse("stock_opname:opname_detail", args=[self.opname.pk]),
+            secure=True,
+        )
+        complete_response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Selesaikan")
+        self.assertEqual(complete_response.status_code, 302)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.COMPLETED)
+        self.assertEqual(self.opname.completed_by, delegate)
+        exercise = AuthorityExercise.objects.get(
+            delegation=delegation,
+            actor=delegate,
+            action="complete_with_discrepancy",
+            object_id=self.opname.pk,
+        )
+        self.assertEqual(exercise.exercised_at, self.opname.completed_at)
+
+    def test_view_scope_user_without_delegation_cannot_complete_discrepancy(self):
+        self.stock.quantity = Decimal("90")
+        self.stock.save(update_fields=["quantity", "updated_at"])
+        user = User.objects.create_user(
+            username="opname_view_scope_without_delegation",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(user, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=user,
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
+        self.assertIsNone(self.opname.completed_by)
+
+    def test_view_scope_delegate_cannot_complete_without_discrepancy(self):
+        delegate = User.objects.create_user(
+            username="opname_view_delegate_without_discrepancy",
+            password="secret12345",
+            role=User.Role.GUDANG,
+        )
+        ensure_default_module_access(delegate, overwrite=True)
+        ModuleAccess.objects.update_or_create(
+            user=delegate,
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            defaults={"scope": ModuleAccess.Scope.VIEW},
+        )
+        delegation = AuthorityDelegation.objects.create(
+            module=ModuleAccess.Module.STOCK_OPNAME,
+            delegate=delegate,
+            starts_at=timezone.now() - timedelta(hours=1),
+            ends_at=timezone.now() + timedelta(hours=1),
+            reason="Penugasan approval tidak memberi akses operasional.",
+            granted_by=self.admin,
+        )
+        self.client.force_login(delegate)
+
+        detail_response = self.client.get(
+            reverse("stock_opname:opname_detail", args=[self.opname.pk]),
+            secure=True,
+        )
+        complete_response = self.client.post(
+            reverse("stock_opname:opname_complete", args=[self.opname.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(detail_response, "Selesaikan")
+        self.assertEqual(complete_response.status_code, 403)
+        self.opname.refresh_from_db()
+        self.assertEqual(self.opname.status, StockOpname.Status.IN_PROGRESS)
+        self.assertIsNone(self.opname.completed_by)
+        self.assertFalse(
+            AuthorityExercise.objects.filter(delegation=delegation).exists()
+        )
 
     def test_django_permission_user_can_complete_without_current_discrepancy(self):
         permission_user = User.objects.create_user(
