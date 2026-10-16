@@ -626,9 +626,10 @@ From `backend/config/settings.py`:
 
 ### Generic admin import
 
-- Uses django-import-export resources in `backend/apps/items/admin.py` and `backend/apps/stock/admin.py`
+- Uses django-import-export resources in `backend/apps/items/admin.py`
 - `skip_unchanged = True` is enabled in multiple resources
 - Standard flow includes dry-run then confirm import in admin UI
+- `StockResource` remains configured for sanitized stock export, but generic Stock import is disabled. Initial stock must use the dedicated opening-balance importer below so stock and ledger rows are created together.
 
 ### Dedicated receiving CSV import
 
@@ -641,7 +642,7 @@ Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 - Rows are grouped by `import_group`; first-row supplier and header values seed the parent `Receiving`. `import_group` is never copied into the official number field.
 - Row-level `sumber_dana_code` and `location_code` may override the first-row values for each line item; the effective row funding/source layer is retained on `ReceivingItem` for later correction reversal.
 - Blank `expiry_date` values in the dedicated receiving import are accepted only for items with `requires_expiry_date=False`; older sentinel `2099-12-31` values are normalized by follow-up data migrations rather than being generated for new imports
-- The follow-up item backfill migration marks legacy catalog items with null-expiry stock/receiving history as `requires_expiry_date=False`, and stock admin import follows the same conditional blank-expiry rule
+- The follow-up item backfill migration marks legacy catalog items with null-expiry stock/receiving history as `requires_expiry_date=False`, and the opening-balance importer follows the same conditional blank-expiry rule
 - Historical copied sentinel dates in `DistributionItem.issued_expiry_date` and `PuskesmasReceiptConfirmationItem.expiry_date` are normalized to `NULL` by follow-up data migrations so downstream history and reports do not keep rendering `31/12/2099`
 - Parser-level validation normalizes CSV headers and text cells with stripped NFC text, rejects null bytes anywhere in the parsed CSV, enforces model-backed maximum lengths before saving, and rejects receiving/expiry dates whose years are outside `1000` through `9999`
 - Supported date formats in parser:

@@ -154,6 +154,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
                 'item_code',
                 'location_code',
                 'batch_lot',
+                'source_document_number',
                 'expiry_date',
                 'quantity',
                 'reserved',
@@ -165,6 +166,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
             self.item.kode_barang,
             self.location.code,
             'BATCH-EXP-01',
+            'SRC-EXP-01',
             '',
             '10',
             '0',
@@ -185,6 +187,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
                 'item_code',
                 'location_code',
                 'batch_lot',
+                'source_document_number',
                 'expiry_date',
                 'quantity',
                 'reserved',
@@ -196,6 +199,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
             self.item.kode_barang,
             self.location.code,
             'BATCH-NOEXP-01',
+            'SRC-NOEXP-01',
             '',
             '12',
             '0',
@@ -215,6 +219,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
                 'item_code',
                 'location_code',
                 'batch_lot',
+                'source_document_number',
                 'expiry_date',
                 'quantity',
                 'reserved',
@@ -226,6 +231,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
             self.item.kode_barang,
             self.location.code,
             'BATCH-FUND-01',
+            'SRC-FUND-01',
             '01/01/2030',
             '10',
             '0',
@@ -236,6 +242,7 @@ class StockAdminCsvExportSecurityTest(TestCase):
             self.item.kode_barang,
             self.location.code,
             'BATCH-FUND-01',
+            'SRC-FUND-01',
             '01/01/2030',
             '7',
             '0',
@@ -6190,7 +6197,7 @@ class PuskesmasStockViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, reverse('stock:puskesmas_stock'))
-        self.assertNotContains(response, 'Stok Puskesmas')
+        self.assertContains(response, reverse('puskesmas:stock_current'))
 
     def test_puskesmas_stock_defaults_to_current_year(self):
         response = self.client.get(reverse('stock:puskesmas_stock'))
@@ -6491,4 +6498,6 @@ class PuskesmasStockViewTests(TestCase):
             response = self.client.get(reverse('stock:puskesmas_stock'), {'year': str(self.year), 'tab': 'stock'})
 
         self.assertEqual(response.status_code, 200)
-        self.assertLessEqual(len(captured_queries), 60)
+        # The rendered application shell performs constant permission checks for
+        # the distribution and expiry delegation-enabled mobile approval links.
+        self.assertLessEqual(len(captured_queries), 61)
