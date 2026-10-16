@@ -19,16 +19,23 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Integrated delegated authority into Kepala approval, verification, rejection, and conditional completion checkpoints for Receiving, Procurement, Distribution, Allocation, Recall, Expired, Stock Opname, Puskesmas requests, and LPLPO workflows.
 - Kept permanent Kepala authority active alongside a delegation while preserving each workflow's existing object, facility, module-scope, status, transaction, and row-lock requirements.
+- Restricted optional `ADMIN_UMUM` and `GUDANG` facility links to active Puskesmas facilities, kept Puskesmas/LPLPO Acting Kepala access scoped to that linked facility, and added own-facility legacy `REVIEWED` LPLPO queue visibility for currently authorized delegates.
 - Replaced locale-dependent native delegation datetime presentation with locally vendored Flatpickr 4.6.13 controls using Indonesian labels and consistent 24-hour `DD/MM/YYYY HH:mm` display while retaining the existing `YYYY-MM-DDTHH:mm` submission format.
 
 ### Security
 
 - Restricted delegates to active `ADMIN_UMUM` or `GUDANG` users with existing access to the delegated module; delegation does not grant settings, user-management, Django Admin, facility-bypass, or unrelated-module access.
 - Approval checkpoints re-resolve and lock active delegations inside the workflow transaction before recording a successful authority exercise.
+- Revalidated and locked current user, module-scope, facility, delegation-period, and workflow state at delegated creation, revocation, and approval checkpoints using consistent transaction lock ordering.
+- Prevented delegated authority from surviving role, scope, account-status, facility assignment, facility-type, facility-status, expiry, or revocation changes that commit before the locked decision.
+- Protected workflow targets referenced by append-only `AuthorityExercise` records from instance, bulk, or cascading hard deletion.
 
 ### Fixed
 
 - Prevented an older delegated exercise from being rendered as the current signer after a workflow is stepped back and later processed by the permanent Kepala or another delegate; signature snapshots now require an exact match with the current checkpoint actor and timestamp.
+- Bound immutable delegated actor snapshots and workflow ownership fields to the current locked actor rather than a potentially stale session object.
+- Preserved naturally expired delegations as `Berakhir` instead of rewriting them as revoked, and rechecked revoker authority from current locked account state.
+- Kept Puskesmas delegation limited to approve/reject actions, enforced Stock Opname completion scope, and preserved the correct delegated signer on Allocation-generated distributions.
 
 ## [1.34.0] - 2026-10-02
 
