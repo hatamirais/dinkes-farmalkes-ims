@@ -7,6 +7,10 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Fixed
+
+- Restored the Stock regression suite by aligning django-import-export fixtures with the source-document stock-layer identifier, distinguishing the restricted Instalasi stock snapshot link from the valid Puskesmas self-stock link, and accounting for the shared shell's constant Acting Kepala permission queries.
+
 ## [1.35.0] - 2026-10-13
 
 ### Added
