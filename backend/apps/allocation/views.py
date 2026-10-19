@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.decorators import module_scope_required, perm_required
@@ -32,7 +33,15 @@ from .services import (
 )
 
 
-def _redirect_allocation_detail(pk):
+def _redirect_allocation_detail(pk, *, dist_pk=None):
+    if dist_pk is not None:
+        return redirect(
+            reverse(
+                "allocation:allocation_detail",
+                kwargs={"pk": pk},
+                fragment=f"distribution-{dist_pk}",
+            )
+        )
     return redirect("allocation:allocation_detail", pk=pk)
 
 
@@ -714,7 +723,7 @@ def allocation_distribution_prepare(request, pk, dist_pk):
         f"Distribusi {distribution.document_number} ke {distribution.facility} "
         f"ditandai disiapkan.",
     )
-    return _redirect_allocation_detail(pk)
+    return _redirect_allocation_detail(pk, dist_pk=distribution.pk)
 
 
 @login_required
@@ -740,4 +749,4 @@ def allocation_distribution_deliver(request, pk, dist_pk):
         f"Distribusi {distribution.document_number} ke {distribution.facility} "
         f"berhasil dikirim. Stok telah dikurangi.",
     )
-    return _redirect_allocation_detail(pk)
+    return _redirect_allocation_detail(pk, dist_pk=distribution.pk)

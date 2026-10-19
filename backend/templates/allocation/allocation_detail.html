@@ -54,6 +54,7 @@
     .dist-tracking-card.status-verified { border-left-color: #93c5fd; }
     .dist-tracking-card.status-prepared { border-left-color: #fbbf24; }
     .dist-tracking-card.status-distributed { border-left-color: #4ade80; }
+    .dist-tracking-anchor { scroll-margin-top: 1rem; }
     .dist-tracking-card .card-body {
         display: flex;
         flex-direction: column;
@@ -238,7 +239,7 @@
 
         <div class="row g-3">
             {% for dist in distributions %}
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-lg-4 dist-tracking-anchor" id="distribution-{{ dist.pk }}">
                 <div class="card dist-tracking-card status-{{ dist.status|lower }} h-100">
                     <div class="card-body">
                                 <a href="{% url 'distribution:distribution_detail' dist.pk %}"
