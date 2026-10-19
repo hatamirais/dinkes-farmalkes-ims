@@ -109,6 +109,37 @@ test("batch picker stays within the viewport and above Step 2 navigation", async
   expect(pageErrors).toEqual([]);
 });
 
+test("removing a row closes its open batch picker", async ({ page }) => {
+  const stockItemId = await page.locator("#allocation-stock-catalog").evaluate((element) => {
+    return JSON.parse(element.textContent || "[]")[0]?.itemId;
+  });
+  expect(stockItemId).toBeTruthy();
+
+  await page.locator('.wizard-step-btn[data-step="2"]').click();
+  await page.locator('#step-2 .formset-add[data-formset-target="allocation-items"]').click();
+  const firstRow = page.locator("#step-2 .formset-row").first();
+  const itemLabel = await firstRow.locator(".js-item-select").evaluate((select, id) => {
+    return (select as HTMLSelectElement).querySelector(`option[value="${id}"]`)?.textContent || "";
+  }, stockItemId);
+  await firstRow.locator(".typeahead-input").fill(itemLabel);
+  await page.locator(`.typeahead-dropdown.show .typeahead-item[data-value="${stockItemId}"]`).click();
+  await firstRow.locator(".js-batch-picker-toggle").click();
+  const panel = firstRow.locator(".js-batch-picker-panel");
+  await expect(panel).toBeVisible();
+
+  await firstRow.locator(".formset-remove").click();
+  await expect(firstRow).toHaveClass(/d-none/);
+  await expect(panel).toBeHidden();
+  expect(await panel.evaluate((element) => element.matches(":popover-open"))).toBe(false);
+  await expect(firstRow.locator(".js-batch-picker-toggle")).toHaveAttribute("aria-expanded", "false");
+
+  const remainingRow = page.locator("#step-2 .formset-row:not(.d-none)").first();
+  await remainingRow.locator(".typeahead-input").fill(itemLabel);
+  await page.locator(`.typeahead-dropdown.show .typeahead-item[data-value="${stockItemId}"]`).click();
+  await remainingRow.locator(".js-batch-picker-toggle").click();
+  await expect(remainingRow.locator(".js-batch-picker-panel")).toBeVisible();
+});
+
 test("Step 3 and Step 4 retain row and facility labels while scrolling both axes", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));

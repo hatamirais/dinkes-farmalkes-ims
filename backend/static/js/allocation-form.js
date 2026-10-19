@@ -89,7 +89,7 @@ function initAllocationForm() {
     function goToStep(n) {
         if (!canEnterStep(n)) return;
 
-        getPrimaryAllocationRows().forEach((row) => closeBatchPicker(row));
+        getBatchPickerRows().forEach((row) => closeBatchPicker(row));
 
         stepBtns.forEach(btn => btn.classList.toggle('active', parseInt(btn.dataset.step) === n));
         panels.forEach(panel => panel.classList.toggle('active', panel.id === `step-${n}`));
@@ -206,6 +206,11 @@ function initAllocationForm() {
 
     function getPrimaryAllocationRows() {
         return getAllocationRows({ includeGenerated: false });
+    }
+
+    function getBatchPickerRows() {
+        const state = getAllocationFormsetState();
+        return state ? Array.from(state.tableBody.querySelectorAll('.formset-row')) : [];
     }
 
     function getMatchingStocks(itemId) {
@@ -499,7 +504,7 @@ function initAllocationForm() {
             if (!row || !picker || !panel || pickerToggle.disabled) return;
 
             const shouldOpen = !panel.matches(':popover-open');
-            getPrimaryAllocationRows().forEach((candidateRow) => {
+            getBatchPickerRows().forEach((candidateRow) => {
                 if (candidateRow !== row) closeBatchPicker(candidateRow);
             });
             if (shouldOpen) {
@@ -514,7 +519,7 @@ function initAllocationForm() {
         }
 
         if (!e.target.closest('.js-batch-picker')) {
-            getPrimaryAllocationRows().forEach((row) => closeBatchPicker(row));
+            getBatchPickerRows().forEach((row) => closeBatchPicker(row));
         }
 
         const removeButton = e.target.closest('.formset-remove');
@@ -549,7 +554,7 @@ function initAllocationForm() {
     });
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-            getPrimaryAllocationRows().forEach((row) => closeBatchPicker(row));
+            getBatchPickerRows().forEach((row) => closeBatchPicker(row));
         }
     });
 
