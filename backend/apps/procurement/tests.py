@@ -100,7 +100,12 @@ class ProcurementWorkflowTests(TestCase):
             password="secret12345",
             role=User.Role.GUDANG,
         )
-        for user in [cls.kepala, cls.puskesmas, cls.gudang]:
+        cls.auditor = User.objects.create_user(
+            username="proc-auditor",
+            password="secret12345",
+            role=User.Role.AUDITOR,
+        )
+        for user in [cls.kepala, cls.puskesmas, cls.gudang, cls.auditor]:
             ensure_default_module_access(user, overwrite=True)
 
         cls.unit = Unit.objects.create(code="TAB", name="Tablet")
@@ -1132,6 +1137,141 @@ class ProcurementWorkflowTests(TestCase):
             "Dibatalkan oleh pemegang izin Django",
         )
         self.assertEqual(contract.cancelled_by, permission_user)
+
+    def test_view_only_user_does_not_see_or_access_contract_mutations(self):
+        contract, _line = self._create_contract(quantity="10", unit_price="5000")
+        self.client.force_login(self.auditor)
+
+        list_response = self.client.get(reverse("procurement:contract_list"), secure=True)
+        detail_response = self.client.get(
+            reverse("procurement:contract_detail", args=[contract.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, reverse("procurement:contract_create"))
+        self.assertEqual(detail_response.status_code, 200)
+        for route_name in ("contract_edit", "contract_submit", "contract_cancel"):
+            self.assertNotContains(
+                detail_response,
+                reverse(f"procurement:{route_name}", args=[contract.pk]),
+            )
+
+        self.assertEqual(
+            self.client.get(
+                reverse("procurement:contract_create"),
+                secure=True,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse("procurement:contract_edit", args=[contract.pk]),
+                secure=True,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("procurement:contract_submit", args=[contract.pk]),
+                secure=True,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("procurement:contract_cancel", args=[contract.pk]),
+                {"cancel_reason": "Tidak berwenang"},
+                secure=True,
+            ).status_code,
+            403,
+        )
+
+        ProcurementContract.objects.filter(pk=contract.pk).update(
+            status=ProcurementContract.Status.APPROVED,
+        )
+        approved_detail = self.client.get(
+            reverse("procurement:contract_detail", args=[contract.pk]),
+            secure=True,
+        )
+        self.assertNotContains(
+            approved_detail,
+            reverse("procurement:amendment_create", args=[contract.pk]),
+        )
+        self.assertNotContains(
+            approved_detail,
+            reverse("procurement:contract_close", args=[contract.pk]),
+        )
+
+    def test_module_scope_operator_sees_matching_contract_actions(self):
+        contract, _line = self._create_contract(quantity="10", unit_price="5000")
+        self.client.force_login(self.gudang)
+
+        list_response = self.client.get(reverse("procurement:contract_list"), secure=True)
+        detail_response = self.client.get(
+            reverse("procurement:contract_detail", args=[contract.pk]),
+            secure=True,
+        )
+
+        self.assertContains(list_response, reverse("procurement:contract_create"))
+        for route_name in ("contract_edit", "contract_submit", "contract_cancel"):
+            self.assertContains(
+                detail_response,
+                reverse(f"procurement:{route_name}", args=[contract.pk]),
+            )
+        self.assertEqual(
+            self.client.get(
+                reverse("procurement:contract_edit", args=[contract.pk]),
+                secure=True,
+            ).status_code,
+            200,
+        )
+
+    def test_view_only_user_does_not_see_or_access_amendment_mutations(self):
+        contract, line = self._approve_contract(quantity="10", unit_price="5000")
+        amendment = ProcurementAmendment.objects.create(
+            contract=contract,
+            amendment_date=date(2026, 7, 6),
+            notes="Draft terbatas",
+            status=ProcurementAmendment.Status.DRAFT,
+            created_by=self.admin,
+        )
+        ProcurementAmendmentLine.objects.create(
+            amendment=amendment,
+            contract_line=line,
+            revised_quantity=Decimal("12"),
+            revised_unit_price=Decimal("5200"),
+        )
+        self.client.force_login(self.auditor)
+
+        detail_response = self.client.get(
+            reverse("procurement:amendment_detail", args=[amendment.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(
+            detail_response,
+            reverse("procurement:amendment_edit", args=[amendment.pk]),
+        )
+        self.assertNotContains(
+            detail_response,
+            reverse("procurement:amendment_submit", args=[amendment.pk]),
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse("procurement:amendment_edit", args=[amendment.pk]),
+                secure=True,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("procurement:amendment_submit", args=[amendment.pk]),
+                secure=True,
+            ).status_code,
+            403,
+        )
 
     def test_cancelled_contract_cannot_be_mutated_through_other_actions(self):
         contract, _line = self._create_contract(quantity="10", unit_price="5000")

@@ -7,9 +7,11 @@
 <div class="table-container">
     <div class="table-header">
         <h5><i class="bi bi-file-earmark-text me-2"></i>Daftar SPJ / Pengadaan</h5>
+        {% if can_create_contract %}
         <a href="{% url 'procurement:contract_create' %}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i>Buat SPJ
         </a>
+        {% endif %}
     </div>
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">

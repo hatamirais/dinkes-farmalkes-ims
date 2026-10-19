@@ -11,11 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.core.decorators import module_scope_required, perm_required
 from apps.core.rate_limits import item_mutation_ratelimit, procurement_mutation_ratelimit
 from apps.users.access import (
-    can_approve_workflow,
-    has_module_permission,
     record_authority_exercise,
     resolve_approval_authority,
 )
@@ -39,34 +36,31 @@ from .models import (
     ProcurementContractLine,
     ProcurementWorkflowError,
 )
+from .policies import (
+    amendment_actions,
+    can_add_amendment,
+    can_approve_procurement_documents,
+    can_change_amendment,
+    can_change_contract,
+    can_create_contract,
+    can_view_amendment,
+    can_view_contract,
+    contract_accepts_amendment_changes,
+    contract_actions,
+    procurement_policy_required,
+)
 from .services import (
     approve_amendment,
     approve_contract,
     build_contract_summary_rows,
     cancel_contract,
     close_contract,
-    contract_is_cancellable,
     submit_amendment,
     submit_contract,
 )
 
 
 logger = logging.getLogger(__name__)
-
-
-def _can_approve_procurement_documents(user):
-    return can_approve_workflow(
-        user,
-        ModuleAccess.Module.PROCUREMENT,
-    )
-
-
-def _can_change_procurement_contract(user):
-    return (
-        getattr(user, "is_superuser", False)
-        or user.has_perm("procurement.change_procurementcontract")
-        or has_module_permission(user, "procurement.change_procurementcontract")
-    )
 
 
 def _add_form_model_errors(form, exc):
@@ -80,13 +74,6 @@ def _add_form_model_errors(form, exc):
         form.add_error(None, error)
 
 
-def _contract_accepts_amendment_changes(contract):
-    return (
-        contract.status == ProcurementContract.Status.APPROVED
-        and contract.closed_at is None
-    )
-
-
 def _json_form_errors(form):
     errors = []
     for field_errors in form.errors.values():
@@ -95,7 +82,7 @@ def _json_form_errors(form):
 
 
 @login_required
-@perm_required("procurement.add_procurementcontract")
+@procurement_policy_required(can_create_contract, "Anda tidak memiliki izin untuk membuat SPJ.")
 @item_mutation_ratelimit
 @require_POST
 def quick_create_supplier(request):
@@ -112,7 +99,7 @@ def quick_create_supplier(request):
 
 
 @login_required
-@perm_required("procurement.add_procurementcontract")
+@procurement_policy_required(can_create_contract, "Anda tidak memiliki izin untuk membuat SPJ.")
 @item_mutation_ratelimit
 @require_POST
 def quick_create_funding_source(request):
@@ -137,7 +124,7 @@ def _redirect_amendment_detail(pk):
 
 
 @login_required
-@perm_required("procurement.view_procurementcontract")
+@procurement_policy_required(can_view_contract, "Anda tidak memiliki izin untuk melihat SPJ.")
 def contract_list(request):
     queryset = (
         ProcurementContract.objects.select_related(
@@ -175,13 +162,14 @@ def contract_list(request):
             "search": search,
             "selected_status": status,
             "status_choices": ProcurementContract.Status.choices,
+            "can_create_contract": can_create_contract(request.user),
             "page_title": "SPJ / Pengadaan",
         },
     )
 
 
 @login_required
-@perm_required("procurement.view_procurementcontract")
+@procurement_policy_required(can_view_contract, "Anda tidak memiliki izin untuk melihat SPJ.")
 def contract_detail(request, pk):
     contract = get_object_or_404(
         ProcurementContract.objects.select_related(
@@ -209,10 +197,6 @@ def contract_detail(request, pk):
         pk=pk,
     )
     summary_rows, linked_receiving = build_contract_summary_rows(contract)
-    can_cancel_contract = (
-        contract_is_cancellable(contract, linked_receiving)
-        and _can_change_procurement_contract(request.user)
-    )
     return render(
         request,
         "procurement/contract_detail.html",
@@ -221,9 +205,10 @@ def contract_detail(request, pk):
             "summary_rows": summary_rows,
             "linked_receiving": linked_receiving,
             "cancel_form": ProcurementContractCancelForm(),
-            "can_cancel_contract": can_cancel_contract,
-            "can_approve_procurement_documents": _can_approve_procurement_documents(
-                request.user
+            "contract_actions": contract_actions(
+                request.user,
+                contract,
+                linked_receiving,
             ),
             "page_title": "Detail SPJ / Pengadaan",
         },
@@ -231,7 +216,7 @@ def contract_detail(request, pk):
 
 
 @login_required
-@perm_required("procurement.add_procurementcontract")
+@procurement_policy_required(can_create_contract, "Anda tidak memiliki izin untuk membuat SPJ.")
 @procurement_mutation_ratelimit
 def contract_create(request):
     if request.method == "POST":
@@ -267,7 +252,7 @@ def contract_create(request):
 
 
 @login_required
-@perm_required("procurement.change_procurementcontract")
+@procurement_policy_required(can_change_contract, "Anda tidak memiliki izin untuk mengubah SPJ.")
 @procurement_mutation_ratelimit
 def contract_edit(request, pk):
     contract = get_object_or_404(ProcurementContract, pk=pk)
@@ -315,7 +300,7 @@ def contract_edit(request, pk):
 
 
 @login_required
-@perm_required("procurement.change_procurementcontract")
+@procurement_policy_required(can_change_contract, "Anda tidak memiliki izin untuk mengajukan SPJ.")
 @procurement_mutation_ratelimit
 def contract_submit(request, pk):
     contract = get_object_or_404(ProcurementContract, pk=pk)
@@ -334,13 +319,13 @@ def contract_submit(request, pk):
 
 
 @login_required
-@perm_required("procurement.change_procurementcontract")
-@module_scope_required(ModuleAccess.Module.PROCUREMENT, ModuleAccess.Scope.APPROVE)
+@procurement_policy_required(
+    can_approve_procurement_documents,
+    "Hanya Kepala Instalasi atau Admin yang dapat menyetujui SPJ.",
+)
 @procurement_mutation_ratelimit
 def contract_approve(request, pk):
     contract = get_object_or_404(ProcurementContract, pk=pk)
-    if not _can_approve_procurement_documents(request.user):
-        raise PermissionDenied("Hanya Kepala Instalasi atau Admin yang dapat menyetujui SPJ.")
     if request.method != "POST":
         return _redirect_contract_detail(pk)
     if contract.status != ProcurementContract.Status.SUBMITTED:
@@ -379,7 +364,7 @@ def contract_approve(request, pk):
 
 
 @login_required
-@perm_required("procurement.change_procurementcontract")
+@procurement_policy_required(can_change_contract, "Anda tidak memiliki izin untuk menutup SPJ.")
 @procurement_mutation_ratelimit
 def contract_close(request, pk):
     contract = get_object_or_404(ProcurementContract, pk=pk)
@@ -398,7 +383,7 @@ def contract_close(request, pk):
 
 
 @login_required
-@perm_required("procurement.change_procurementcontract")
+@procurement_policy_required(can_change_contract, "Anda tidak memiliki izin untuk membatalkan SPJ.")
 @procurement_mutation_ratelimit
 @require_POST
 def contract_cancel(request, pk):
@@ -419,11 +404,14 @@ def contract_cancel(request, pk):
 
 
 @login_required
-@perm_required("procurement.add_procurementamendment")
+@procurement_policy_required(
+    can_add_amendment,
+    "Anda tidak memiliki izin untuk membuat amandemen SPJ.",
+)
 @procurement_mutation_ratelimit
 def amendment_create(request, pk):
     contract = get_object_or_404(ProcurementContract, pk=pk)
-    if not _contract_accepts_amendment_changes(contract):
+    if not contract_accepts_amendment_changes(contract):
         messages.error(request, "Amandemen hanya dapat dibuat untuk kontrak yang sudah disetujui.")
         return _redirect_contract_detail(pk)
     summary_rows, _linked_receiving = build_contract_summary_rows(contract)
@@ -435,7 +423,7 @@ def amendment_create(request, pk):
     if request.method == "POST":
         with transaction.atomic():
             contract = ProcurementContract.objects.select_for_update().get(pk=pk)
-            if not _contract_accepts_amendment_changes(contract):
+            if not contract_accepts_amendment_changes(contract):
                 messages.error(request, "Amandemen hanya dapat dibuat untuk kontrak yang sudah disetujui.")
                 return _redirect_contract_detail(pk)
             summary_rows, _linked_receiving = build_contract_summary_rows(contract)
@@ -457,7 +445,7 @@ def amendment_create(request, pk):
                     ProcurementContract.objects.only("status", "closed_at")
                     .get(pk=contract.pk)
                 )
-                if not _contract_accepts_amendment_changes(current_contract):
+                if not contract_accepts_amendment_changes(current_contract):
                     messages.error(request, "Amandemen hanya dapat dibuat untuk kontrak yang sudah disetujui.")
                     return _redirect_contract_detail(pk)
                 amendment = form.save(commit=False)
@@ -502,7 +490,10 @@ def amendment_create(request, pk):
 
 
 @login_required
-@perm_required("procurement.view_procurementamendment")
+@procurement_policy_required(
+    can_view_amendment,
+    "Anda tidak memiliki izin untuk melihat amandemen SPJ.",
+)
 def amendment_detail(request, pk):
     amendment = get_object_or_404(
         ProcurementAmendment.objects.select_related(
@@ -527,26 +518,24 @@ def amendment_detail(request, pk):
         {
             "amendment": amendment,
             "contract": amendment.contract,
-            "can_mutate_amendment": _contract_accepts_amendment_changes(
-                amendment.contract
-            ),
-            "can_approve_procurement_documents": _can_approve_procurement_documents(
-                request.user
-            ),
+            "amendment_actions": amendment_actions(request.user, amendment),
             "page_title": "Detail Amandemen SPJ",
         },
     )
 
 
 @login_required
-@perm_required("procurement.change_procurementamendment")
+@procurement_policy_required(
+    can_change_amendment,
+    "Anda tidak memiliki izin untuk mengubah amandemen SPJ.",
+)
 @procurement_mutation_ratelimit
 def amendment_edit(request, pk):
     amendment = get_object_or_404(ProcurementAmendment.objects.select_related("contract"), pk=pk)
     if amendment.status != ProcurementAmendment.Status.DRAFT:
         messages.error(request, "Hanya amandemen Draft yang dapat diubah.")
         return _redirect_amendment_detail(pk)
-    if not _contract_accepts_amendment_changes(amendment.contract):
+    if not contract_accepts_amendment_changes(amendment.contract):
         messages.error(request, "Amandemen hanya dapat diubah untuk kontrak yang masih disetujui.")
         return _redirect_amendment_detail(pk)
     summary_rows, _linked_receiving = build_contract_summary_rows(amendment.contract)
@@ -569,7 +558,7 @@ def amendment_edit(request, pk):
             if amendment.status != ProcurementAmendment.Status.DRAFT:
                 messages.error(request, "Hanya amandemen Draft yang dapat diubah.")
                 return _redirect_amendment_detail(pk)
-            if not _contract_accepts_amendment_changes(contract):
+            if not contract_accepts_amendment_changes(contract):
                 messages.error(request, "Amandemen hanya dapat diubah untuk kontrak yang masih disetujui.")
                 return _redirect_amendment_detail(pk)
             form = ProcurementAmendmentForm(request.POST, instance=amendment)
@@ -587,7 +576,7 @@ def amendment_edit(request, pk):
                     ProcurementContract.objects.only("status", "closed_at")
                     .get(pk=contract.pk)
                 )
-                if not _contract_accepts_amendment_changes(current_status):
+                if not contract_accepts_amendment_changes(current_status):
                     messages.error(request, "Amandemen hanya dapat diubah untuk kontrak yang masih disetujui.")
                     return _redirect_amendment_detail(pk)
                 form.save()
@@ -622,7 +611,10 @@ def amendment_edit(request, pk):
 
 
 @login_required
-@perm_required("procurement.change_procurementamendment")
+@procurement_policy_required(
+    can_change_amendment,
+    "Anda tidak memiliki izin untuk mengajukan amandemen SPJ.",
+)
 @procurement_mutation_ratelimit
 def amendment_submit(request, pk):
     amendment = get_object_or_404(ProcurementAmendment.objects.select_related("contract"), pk=pk)
@@ -641,15 +633,13 @@ def amendment_submit(request, pk):
 
 
 @login_required
-@perm_required("procurement.change_procurementamendment")
-@module_scope_required(ModuleAccess.Module.PROCUREMENT, ModuleAccess.Scope.APPROVE)
+@procurement_policy_required(
+    can_approve_procurement_documents,
+    "Hanya Kepala Instalasi atau Admin yang dapat menyetujui amandemen SPJ.",
+)
 @procurement_mutation_ratelimit
 def amendment_approve(request, pk):
     amendment = get_object_or_404(ProcurementAmendment.objects.select_related("contract"), pk=pk)
-    if not _can_approve_procurement_documents(request.user):
-        raise PermissionDenied(
-            "Hanya Kepala Instalasi atau Admin yang dapat menyetujui amandemen SPJ."
-        )
     if request.method != "POST":
         return _redirect_amendment_detail(pk)
     if amendment.status != ProcurementAmendment.Status.SUBMITTED:
