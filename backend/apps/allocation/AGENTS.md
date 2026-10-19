@@ -24,6 +24,7 @@ App-specific guidance for pre-distribution allocation planning.
 - When allocation approval uses delegated authority, generated children render the delegated signer from the parent Allocation `approve` exercise. Do not create child `verify` exercises: approval is one parent action and child exercises would prevent the documented step-back deletion.
 - Generated child distribution quantities are locked and cannot be edited.
 - Allocation-generated child distributions remain parent-managed by the Allocation module.
+- Successful preparation and delivery redirects return to the acted-on card in parent Allocation detail using a fragment derived from the generated child's ID; the card's scroll margin is a deliberate custom CSS exception.
 - Revert generated child distributions from the parent Allocation workflow, not generic distribution reset/step-back endpoints.
 - Stepping back voids every issued child number before deleting the child rows; sequence values are not reused.
 

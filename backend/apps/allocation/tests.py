@@ -807,6 +807,113 @@ class AllocationRouteTest(TestCase):
         self.assertContains(response, f'action="{allocation_delivery_url}"')
         self.assertNotContains(response, f'action="{generic_delivery_url}"')
 
+    def test_prepare_returns_to_the_updated_distribution_card(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["admin"])
+        distribution = allocation.distributions.first()
+        detail_url = reverse("allocation:allocation_detail", args=[allocation.pk])
+
+        response = self.client.post(
+            reverse(
+                "allocation:allocation_distribution_prepare",
+                args=[allocation.pk, distribution.pk],
+            ),
+            secure=True,
+        )
+
+        self.assertRedirects(
+            response,
+            f"{detail_url}#distribution-{distribution.pk}",
+            fetch_redirect_response=False,
+        )
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.PREPARED)
+        detail_response = self.client.get(detail_url, secure=True)
+        self.assertContains(detail_response, f'id="distribution-{distribution.pk}"')
+        self.assertContains(detail_response, "Disiapkan")
+        self.assertContains(detail_response, "ditandai disiapkan")
+
+    def test_delivery_returns_to_the_updated_distribution_card(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["admin"])
+        distribution = allocation.distributions.first()
+        execute_distribution_preparation(distribution, self.fixtures["admin"])
+        detail_url = reverse("allocation:allocation_detail", args=[allocation.pk])
+
+        response = self.client.post(
+            reverse(
+                "allocation:allocation_distribution_deliver",
+                args=[allocation.pk, distribution.pk],
+            ),
+            secure=True,
+        )
+
+        self.assertRedirects(
+            response,
+            f"{detail_url}#distribution-{distribution.pk}",
+            fetch_redirect_response=False,
+        )
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.DISTRIBUTED)
+        detail_response = self.client.get(detail_url, secure=True)
+        self.assertContains(detail_response, f'id="distribution-{distribution.pk}"')
+        self.assertContains(detail_response, "Terkirim")
+        self.assertContains(detail_response, "berhasil dikirim")
+
+    def test_invalid_distribution_actions_keep_the_unanchored_redirect(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["admin"])
+        distribution = allocation.distributions.first()
+        detail_url = reverse("allocation:allocation_detail", args=[allocation.pk])
+        prepare_url = reverse(
+            "allocation:allocation_distribution_prepare",
+            args=[allocation.pk, distribution.pk],
+        )
+        deliver_url = reverse(
+            "allocation:allocation_distribution_deliver",
+            args=[allocation.pk, distribution.pk],
+        )
+
+        self.assertRedirects(
+            self.client.get(prepare_url, secure=True),
+            detail_url,
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            self.client.post(deliver_url, secure=True),
+            detail_url,
+            fetch_redirect_response=False,
+        )
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.VERIFIED)
+
+    def test_view_only_user_cannot_prepare_a_generated_distribution(self):
+        allocation = _create_allocation(self.fixtures)
+        execute_allocation_submission(allocation, self.fixtures["admin"])
+        execute_allocation_approval(allocation, self.fixtures["admin"])
+        distribution = allocation.distributions.first()
+        auditor = User.objects.create_user(
+            username="allocation_auditor",
+            password="testpass1234",
+            role=User.Role.AUDITOR,
+        )
+        self.client.force_login(auditor)
+
+        response = self.client.post(
+            reverse(
+                "allocation:allocation_distribution_prepare",
+                args=[allocation.pk, distribution.pk],
+            ),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.status, Distribution.Status.VERIFIED)
+
     def test_edit_page_loads(self):
         allocation = _create_allocation(self.fixtures)
         response = self.client.get(
