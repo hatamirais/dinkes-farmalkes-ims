@@ -89,6 +89,8 @@ function initAllocationForm() {
     function goToStep(n) {
         if (!canEnterStep(n)) return;
 
+        getBatchPickerRows().forEach((row) => closeBatchPicker(row));
+
         stepBtns.forEach(btn => btn.classList.toggle('active', parseInt(btn.dataset.step) === n));
         panels.forEach(panel => panel.classList.toggle('active', panel.id === `step-${n}`));
 
@@ -206,6 +208,11 @@ function initAllocationForm() {
         return getAllocationRows({ includeGenerated: false });
     }
 
+    function getBatchPickerRows() {
+        const state = getAllocationFormsetState();
+        return state ? Array.from(state.tableBody.querySelectorAll('.formset-row')) : [];
+    }
+
     function getMatchingStocks(itemId) {
         return stockCatalog.filter((stock) => String(stock.itemId) === String(itemId));
     }
@@ -312,7 +319,36 @@ function initAllocationForm() {
         const panel = row.querySelector('.js-batch-picker-panel');
         if (!picker || !panel) return;
         picker.classList.remove('is-open');
-        panel.classList.add('d-none');
+        row.querySelector('.js-batch-picker-toggle')?.setAttribute('aria-expanded', 'false');
+        if (panel.matches(':popover-open')) panel.hidePopover();
+    }
+
+    function positionBatchPicker(row) {
+        const trigger = row.querySelector('.js-batch-picker-toggle');
+        const panel = row.querySelector('.js-batch-picker-panel');
+        if (!trigger || !panel?.matches(':popover-open')) return;
+
+        const rect = trigger.getBoundingClientRect();
+        const table = trigger.closest('.table-responsive')?.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight
+                || (table && (rect.right < table.left || rect.left > table.right
+                    || rect.bottom < table.top || rect.top > table.bottom))) {
+            closeBatchPicker(row);
+            return;
+        }
+
+        const gap = 6;
+        const edge = 8;
+        const navTop = document.querySelector('#step-2 .js-step-2-nav')?.getBoundingClientRect().top;
+        const below = Math.max(0, Math.min(window.innerHeight - edge, navTop ?? window.innerHeight) - rect.bottom - gap);
+        const above = Math.max(0, rect.top - edge - gap);
+        const openAbove = above > below && below < Math.min(260, panel.scrollHeight);
+        const height = Math.max(0, Math.min(260, openAbove ? above : below));
+
+        panel.style.width = `${Math.min(rect.width, window.innerWidth - edge * 2)}px`;
+        panel.style.left = `${Math.max(edge, Math.min(rect.left, window.innerWidth - panel.offsetWidth - edge))}px`;
+        panel.style.maxHeight = `${height}px`;
+        panel.style.top = `${openAbove ? rect.top - gap - Math.min(panel.scrollHeight, height) : rect.bottom + gap}px`;
     }
 
     function updateBatchPickerSummary(row) {
@@ -456,6 +492,7 @@ function initAllocationForm() {
 
         renderBatchPicker(row);
         refreshDerivedViews();
+        positionBatchPicker(row);
     }
 
     document.addEventListener('click', (e) => {
@@ -466,17 +503,23 @@ function initAllocationForm() {
             const panel = row?.querySelector('.js-batch-picker-panel');
             if (!row || !picker || !panel || pickerToggle.disabled) return;
 
-            const shouldOpen = panel.classList.contains('d-none');
-            getPrimaryAllocationRows().forEach((candidateRow) => {
+            const shouldOpen = !panel.matches(':popover-open');
+            getBatchPickerRows().forEach((candidateRow) => {
                 if (candidateRow !== row) closeBatchPicker(candidateRow);
             });
-            picker.classList.toggle('is-open', shouldOpen);
-            panel.classList.toggle('d-none', !shouldOpen);
+            if (shouldOpen) {
+                panel.showPopover();
+                picker.classList.add('is-open');
+                pickerToggle.setAttribute('aria-expanded', 'true');
+                positionBatchPicker(row);
+            } else {
+                closeBatchPicker(row);
+            }
             return;
         }
 
         if (!e.target.closest('.js-batch-picker')) {
-            getPrimaryAllocationRows().forEach((row) => closeBatchPicker(row));
+            getBatchPickerRows().forEach((row) => closeBatchPicker(row));
         }
 
         const removeButton = e.target.closest('.formset-remove');
@@ -499,6 +542,19 @@ function initAllocationForm() {
                 });
                 refreshDerivedViews();
             }, 0);
+        }
+    });
+
+    document.addEventListener('scroll', (event) => {
+        if (event.target?.closest?.('.js-batch-picker-panel')) return;
+        getPrimaryAllocationRows().forEach((row) => positionBatchPicker(row));
+    }, true);
+    window.addEventListener('resize', () => {
+        getPrimaryAllocationRows().forEach((row) => positionBatchPicker(row));
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            getBatchPickerRows().forEach((row) => closeBatchPicker(row));
         }
     });
 
@@ -933,7 +989,7 @@ function initAllocationForm() {
         }
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
+        wrapper.className = 'table-responsive alloc-matrix-scroll';
 
         const table = document.createElement('table');
         table.className = 'table table-sm table-bordered alloc-matrix';
