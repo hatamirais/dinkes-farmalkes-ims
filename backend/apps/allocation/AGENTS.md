@@ -42,6 +42,7 @@ App-specific guidance for pre-distribution allocation planning.
 - Allocation approval reserves stock only; it does not consume physical stock.
 - Item batch selection can span all available stock sources.
 - Allocation no longer stores a header-level funding source.
+- The create/edit wizard uses a native popover for the Step 2 batch picker so Bootstrap's responsive table cannot clip batch options. Matrix-specific custom CSS bounds Step 3 and Step 4 scrolling and keeps the header and first item column sticky; retain those exceptions when changing the wizard layout.
 
 ## Fulfillment
 

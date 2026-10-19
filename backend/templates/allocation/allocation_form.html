@@ -151,6 +151,36 @@
         text-align: left;
         min-width: 200px;
     }
+    /* Both wizard matrices scroll on two axes; keep their row/column labels in view. */
+    .alloc-matrix-scroll {
+        max-height: min(60vh, 520px);
+        overflow: auto;
+        isolation: isolate;
+    }
+    .alloc-matrix-scroll .alloc-matrix {
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-bottom: 0;
+    }
+    .alloc-matrix-scroll .alloc-matrix thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f8fafc;
+    }
+    .alloc-matrix-scroll .alloc-matrix tr > :first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #fff;
+    }
+    .alloc-matrix-scroll .alloc-matrix tbody tr.over-allocated > :first-child {
+        background: #fee2e2;
+    }
+    .alloc-matrix-scroll .alloc-matrix thead tr > :first-child {
+        z-index: 3;
+        background: #f8fafc;
+    }
     .alloc-matrix .over-allocated { background-color: #fee2e2 !important; }
     .alloc-matrix input[type="number"] {
         width: 80px;
@@ -233,11 +263,11 @@
         transform: rotate(180deg);
     }
     .batch-checkbox-panel {
-        position: absolute;
-        top: calc(100% + 6px);
-        left: 0;
-        right: 0;
-        z-index: 25;
+        /* A popover enters the top layer, outside table-responsive overflow. */
+        position: fixed;
+        inset: auto;
+        margin: 0;
+        box-sizing: border-box;
         background: #fff;
         border: 1px solid #dbe5f0;
         border-radius: 12px;
@@ -502,11 +532,11 @@
                                     <div class="allocation-item-stock-shell">
                                         <div class="allocation-item-stock-source">{{ item_form.stock }}</div>
                                         <div class="batch-checkbox-picker js-batch-picker" data-empty-label="Pilih batch stok">
-                                            <button type="button" class="batch-checkbox-trigger js-batch-picker-toggle" disabled>
+                                            <button type="button" class="batch-checkbox-trigger js-batch-picker-toggle" aria-expanded="false" disabled>
                                                 <span class="batch-checkbox-trigger-text js-batch-picker-summary">Pilih barang terlebih dahulu</span>
                                                 <span class="batch-checkbox-trigger-icon">▾</span>
                                             </button>
-                                            <div class="batch-checkbox-panel js-batch-picker-panel d-none">
+                                            <div class="batch-checkbox-panel js-batch-picker-panel" popover="manual">
                                                 <div class="batch-checkbox-list js-batch-checkbox-list"></div>
                                                 <div class="batch-checkbox-empty js-batch-checkbox-empty">Pilih barang terlebih dahulu.</div>
                                             </div>
@@ -549,11 +579,11 @@
                             <div class="allocation-item-stock-shell">
                                 <div class="allocation-item-stock-source">{{ formset.empty_form.stock }}</div>
                                 <div class="batch-checkbox-picker js-batch-picker" data-empty-label="Pilih batch stok">
-                                    <button type="button" class="batch-checkbox-trigger js-batch-picker-toggle" disabled>
+                                    <button type="button" class="batch-checkbox-trigger js-batch-picker-toggle" aria-expanded="false" disabled>
                                         <span class="batch-checkbox-trigger-text js-batch-picker-summary">Pilih barang terlebih dahulu</span>
                                         <span class="batch-checkbox-trigger-icon">▾</span>
                                     </button>
-                                    <div class="batch-checkbox-panel js-batch-picker-panel d-none">
+                                    <div class="batch-checkbox-panel js-batch-picker-panel" popover="manual">
                                         <div class="batch-checkbox-list js-batch-checkbox-list"></div>
                                         <div class="batch-checkbox-empty js-batch-checkbox-empty">Pilih barang terlebih dahulu.</div>
                                     </div>
@@ -574,7 +604,7 @@
                     </tr>
                 </template>
 
-                <div class="d-flex justify-content-between mt-4">
+                <div class="d-flex justify-content-between mt-4 js-step-2-nav">
                     <button type="button" class="btn btn-outline-secondary btn-sm js-wizard-prev" data-prev-step="1">
                         <i class="bi bi-arrow-left me-1"></i>Sebelumnya
                     </button>
@@ -588,7 +618,7 @@
             <div class="wizard-panel" id="step-3">
                 <div class="mb-2 small text-muted">Tentukan jumlah per fasilitas untuk masing-masing item. Total alokasi tidak boleh melebihi stok tersedia untuk dialokasikan.</div>
 
-                <div class="table-responsive">
+                <div class="table-responsive alloc-matrix-scroll">
                     <table class="table table-sm table-bordered alloc-matrix" id="alloc-matrix-table">
                         <thead class="table-light">
                             <tr id="matrix-header-row">
@@ -656,6 +686,6 @@
 {% if existing_allocations %}
 {{ existing_allocations|json_script:"existing-allocations" }}
 {% endif %}
-<script src="{% static 'js/allocation-form.js' %}?v={{ app_version }}-20260708a"></script>
+<script src="{% static 'js/allocation-form.js' %}?v={{ app_version }}-20261019a"></script>
 {% endblock %}
 
