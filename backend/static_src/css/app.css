@@ -1,0 +1,311 @@
+/*! Generated from backend/static_src/css/app.css. Do not edit backend/static/css/app.tailwind.css directly. */
+@import "tailwindcss" source(none);
+
+@source "../../templates/**/*.html";
+@source "../../apps/**/*.py";
+@source "../../static/js/**/*.js";
+
+/* Target tokens from root DESIGN.md. The current Bootstrap templates do not load this file. */
+@theme static {
+  --color-ims-ink: #112538;
+  --color-ims-muted: #506179;
+  --color-ims-canvas: #f4f8fb;
+  --color-ims-surface: #ffffff;
+  --color-ims-surface-muted: #eef4f8;
+  --color-ims-border: #d6e3ed;
+  --color-ims-sidebar: #112538;
+  --color-ims-sidebar-text: #d9e5ee;
+  --color-ims-primary: #0069ac;
+  --color-ims-primary-hover: #00598f;
+  --color-ims-primary-active: #004b79;
+  --color-ims-focus: #007ba8;
+  --color-ims-success: #127447;
+  --color-ims-success-bg: #e3f4ea;
+  --color-ims-warning: #9a5a00;
+  --color-ims-warning-bg: #fff1d6;
+  --color-ims-danger: #b4232a;
+  --color-ims-danger-bg: #fde8e9;
+  --color-ims-info: #125d9a;
+  --color-ims-info-bg: #e4f1fb;
+  --color-ims-print-ink: #111827;
+  --color-ims-print-rule: #344054;
+
+  --font-ims: "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --text-ims-xs: 0.75rem;
+  --text-ims-sm: 0.8125rem;
+  --text-ims-body: 0.875rem;
+  --text-ims-section: 1.125rem;
+  --text-ims-page: 1.75rem;
+  --leading-ims-tight: 1.2;
+  --leading-ims-heading: 1.35;
+  --leading-ims-body: 1.5;
+
+  --spacing-ims-1: 0.25rem;
+  --spacing-ims-2: 0.5rem;
+  --spacing-ims-3: 0.75rem;
+  --spacing-ims-4: 1rem;
+  --spacing-ims-6: 1.5rem;
+  --spacing-ims-8: 2rem;
+  --radius-ims-control: 0.5rem;
+  --radius-ims-surface: 0.75rem;
+  --shadow-ims-surface: 0 1px 3px rgb(17 37 56 / 8%);
+  --shadow-ims-dialog: 0 16px 40px rgb(17 37 56 / 20%);
+}
+
+@layer components {
+  .ims-btn {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-ims-control);
+    padding: 0.5rem 1rem;
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-body);
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .ims-btn--sm {
+    min-height: 2rem;
+    padding: 0.3rem 0.75rem;
+    font-size: var(--text-ims-sm);
+  }
+
+  .ims-btn--primary {
+    background: var(--color-ims-primary);
+    color: var(--color-ims-surface);
+  }
+
+  .ims-btn--secondary {
+    border-color: var(--color-ims-primary);
+    background: var(--color-ims-surface);
+    color: var(--color-ims-primary);
+  }
+
+  .ims-btn--neutral {
+    border-color: var(--color-ims-border);
+    background: var(--color-ims-surface);
+    color: var(--color-ims-ink);
+  }
+
+  .ims-btn--danger {
+    background: var(--color-ims-danger);
+    color: var(--color-ims-surface);
+  }
+
+  .ims-btn--print {
+    background: var(--color-ims-ink);
+    color: var(--color-ims-surface);
+  }
+
+  @media (hover: hover) {
+    .ims-btn--primary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--color-ims-primary-hover); }
+    .ims-btn--secondary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--color-ims-info-bg); }
+    .ims-btn--neutral:not(:disabled):not([aria-disabled="true"]):hover { background: var(--color-ims-surface-muted); }
+    .ims-btn--danger:not(:disabled):not([aria-disabled="true"]):hover { background: #8f1c24; }
+    .ims-btn--print:not(:disabled):not([aria-disabled="true"]):hover { background: #213c52; }
+  }
+
+  .ims-btn--primary:not(:disabled):not([aria-disabled="true"]):active { background: var(--color-ims-primary-active); }
+  .ims-btn--secondary:not(:disabled):not([aria-disabled="true"]):active { background: #d3e8f7; }
+  .ims-btn--neutral:not(:disabled):not([aria-disabled="true"]):active { background: #e0eaf1; }
+  .ims-btn--danger:not(:disabled):not([aria-disabled="true"]):active { background: #74171e; }
+  .ims-btn--print:not(:disabled):not([aria-disabled="true"]):active { background: #091927; }
+
+  .ims-btn:focus-visible,
+  .ims-control:focus-visible,
+  .ims-choice:focus-visible,
+  .ims-page-link:focus-visible,
+  .ims-table-scroll:focus-visible {
+    outline: 2px solid var(--color-ims-focus);
+    outline-offset: 2px;
+  }
+
+  .ims-btn:disabled,
+  .ims-btn[aria-disabled="true"] {
+    border-color: var(--color-ims-border);
+    background: var(--color-ims-surface-muted);
+    color: var(--color-ims-muted);
+    cursor: not-allowed;
+  }
+
+  .ims-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--color-ims-ink);
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-sm);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .ims-control {
+    display: block;
+    width: 100%;
+    min-height: 2.5rem;
+    border: 1px solid var(--color-ims-border);
+    border-radius: var(--radius-ims-control);
+    background: var(--color-ims-surface);
+    padding: 0.5rem 0.75rem;
+    color: var(--color-ims-ink);
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-body);
+    line-height: var(--leading-ims-body);
+  }
+
+  textarea.ims-control { min-height: 6rem; resize: vertical; }
+  .ims-control::placeholder { color: var(--color-ims-muted); opacity: 1; }
+  .ims-control:disabled { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); cursor: not-allowed; }
+  .ims-control[aria-invalid="true"],
+  .ims-control--invalid { border-color: var(--color-ims-danger); }
+
+  .ims-choice {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--color-ims-primary);
+    cursor: pointer;
+  }
+
+  .ims-choice:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .ims-switch {
+    position: relative;
+    width: 2.25rem;
+    height: 1.25rem;
+    appearance: none;
+    border: 1px solid var(--color-ims-border);
+    border-radius: 999px;
+    background: #a9b8c8;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+
+  .ims-switch::before {
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    background: var(--color-ims-surface);
+    content: "";
+    transition: transform 150ms ease;
+  }
+
+  .ims-switch:checked { border-color: var(--color-ims-primary); background: var(--color-ims-primary); }
+  .ims-switch:checked::before { transform: translateX(1rem); }
+  .ims-switch:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  .ims-switch:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .ims-help,
+  .ims-error {
+    display: block;
+    margin-top: 0.375rem;
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-xs);
+    line-height: 1.45;
+  }
+
+  .ims-help { color: var(--color-ims-muted); }
+  .ims-error { color: var(--color-ims-danger); }
+
+  .ims-table-scroll { max-width: 100%; overflow-x: auto; }
+  .ims-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--color-ims-ink);
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-body);
+    line-height: var(--leading-ims-body);
+  }
+
+  .ims-table th {
+    background: var(--color-ims-surface-muted);
+    color: var(--color-ims-ink);
+    font-size: var(--text-ims-sm);
+    font-weight: 600;
+    text-align: start;
+  }
+
+  .ims-table th,
+  .ims-table td {
+    border-bottom: 1px solid var(--color-ims-border);
+    padding: 0.625rem 0.75rem;
+    vertical-align: top;
+  }
+
+  .ims-table .ims-table-number { text-align: end; font-variant-numeric: tabular-nums; }
+
+  .ims-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-xs);
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .ims-badge--success { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-badge--warning { background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
+  .ims-badge--danger { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-badge--info { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+
+  .ims-alert {
+    border: 1px solid var(--color-ims-border);
+    border-radius: var(--radius-ims-control);
+    padding: 0.75rem 1rem;
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-body);
+    line-height: var(--leading-ims-body);
+  }
+
+  .ims-alert--success { border-color: var(--color-ims-success); background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-alert--warning { border-color: var(--color-ims-warning); background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
+  .ims-alert--danger { border-color: var(--color-ims-danger); background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-alert--info { border-color: var(--color-ims-info); background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+
+  .ims-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+  .ims-page-link {
+    display: inline-flex;
+    min-width: 2rem;
+    min-height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-ims-border);
+    border-radius: var(--radius-ims-control);
+    background: var(--color-ims-surface);
+    padding: 0.25rem 0.5rem;
+    color: var(--color-ims-ink);
+    font-family: var(--font-ims);
+    font-size: var(--text-ims-sm);
+    text-decoration: none;
+  }
+
+  @media (hover: hover) {
+    .ims-page-link:not([aria-disabled="true"]):hover { background: var(--color-ims-surface-muted); }
+  }
+
+  .ims-page-link:not([aria-disabled="true"]):active { background: #e0eaf1; }
+  .ims-page-link[aria-current="page"] { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: var(--color-ims-surface); }
+  .ims-page-link[aria-disabled="true"] { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); cursor: not-allowed; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ims-btn, .ims-switch, .ims-switch::before { transition: none; }
+}
+
+@media print {
+  .ims-print-sheet { background: #fff; color: var(--color-ims-print-ink); box-shadow: none; }
+  .ims-print-sheet .ims-table th,
+  .ims-print-sheet .ims-table td { border-color: var(--color-ims-print-rule); }
+}

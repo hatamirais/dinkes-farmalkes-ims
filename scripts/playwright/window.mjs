@@ -2,7 +2,7 @@ import { launchRoleContext } from "./common.mjs";
 
 const roleCode = process.argv[2];
 if (!roleCode) {
-  throw new Error("Missing role code. Usage: node scripts/playwright/window.mjs <ROLE_CODE> [x] [y]");
+  throw new Error("Missing role code. Usage: bun scripts/playwright/window.mjs <ROLE_CODE> [x] [y]");
 }
 
 const x = Number(process.argv[3]);

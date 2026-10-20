@@ -207,15 +207,15 @@ Untuk prioritas coverage, fase implementasi, dan standar penulisan test, lihat `
 
 ### Playwright lokal untuk verifikasi multi-role
 
-Helper ini ditujukan untuk pengujian manual lokal dengan enam window Chromium terpisah yang tetap menyimpan sesi masing-masing role: `PUSKESMAS`, `GUDANG`, `KEPALA`, `ADMIN_UMUM`, `AUDITOR`, dan `ADMIN`.
+Helper ini ditujukan untuk pengujian manual lokal dengan tujuh window Chromium terpisah untuk enam role: `PUSKESMAS`, `GUDANG`, `GUDANG2`, `KEPALA`, `ADMIN_UMUM`, `AUDITOR`, dan `ADMIN`.
 
 Langkah setup dari root repositori:
 
 ```powershell
 Copy-Item .env.playwright.local.example .env.playwright.local
-npm install
-npm run playwright:bootstrap
-npm run playwright:open
+bun ci
+bun run playwright:bootstrap
+bun run playwright:open
 ```
 
 Isi `.env.playwright.local` dengan kredensial akun lokal yang sudah ada di database:
@@ -223,6 +223,7 @@ Isi `.env.playwright.local` dengan kredensial akun lokal yang sudah ada di datab
 - `PLAYWRIGHT_BASE_URL`
 - `PW_PUSKESMAS_USERNAME`, `PW_PUSKESMAS_PASSWORD`
 - `PW_GUDANG_USERNAME`, `PW_GUDANG_PASSWORD`
+- `PW_GUDANG2_USERNAME`, `PW_GUDANG2_PASSWORD`
 - `PW_KEPALA_USERNAME`, `PW_KEPALA_PASSWORD`
 - `PW_ADMIN_UMUM_USERNAME`, `PW_ADMIN_UMUM_PASSWORD`
 - `PW_AUDITOR_USERNAME`, `PW_AUDITOR_PASSWORD`
@@ -230,14 +231,30 @@ Isi `.env.playwright.local` dengan kredensial akun lokal yang sudah ada di datab
 
 Perintah yang tersedia:
 
-- `npm run playwright:install` untuk mengunduh Chromium Playwright.
-- `npm run playwright:auth` untuk membuat atau memperbarui profil login tiap role tanpa membuka window manual.
-- `npm run playwright:refresh-auth` untuk menghapus profil lokal lalu login ulang dari nol.
-- `npm run playwright:open` untuk membuka enam window role sekaligus memakai profil persisten yang sudah tersimpan.
-- `npm run playwright:test` untuk menjalankan committed browser regression specs di folder `playwright/`.
-- `npm run playwright:bootstrap` untuk instal Chromium lalu menyiapkan sesi role awal.
+- `bun run playwright:install` untuk mengunduh Chromium Playwright.
+- `bun run playwright:auth` untuk membuat atau memperbarui profil login tiap role tanpa membuka window manual.
+- `bun run playwright:refresh-auth` untuk menghapus profil lokal lalu login ulang dari nol.
+- `bun run playwright:open` untuk membuka tujuh window profil memakai sesi persisten yang sudah tersimpan.
+- `bun run playwright:test` untuk menjalankan committed browser regression specs di folder `playwright/`.
+- `bun run playwright:bootstrap` untuk instal Chromium lalu menyiapkan sesi role awal.
 
-Profil browser disimpan secara lokal di `.playwright-profiles/` dan diabaikan oleh git. Bila password akun berubah atau sesi rusak, jalankan `npm run playwright:refresh-auth` lalu buka kembali window dengan `npm run playwright:open`. Committed specs dipakai hemat untuk regresi frontend yang sulit ditutup oleh test Django saja; helper multi-role tetap tersedia untuk verifikasi manual lintas role.
+Profil browser disimpan secara lokal di `.playwright-profiles/` dan diabaikan oleh git. Bila password akun berubah atau sesi rusak, jalankan `bun run playwright:refresh-auth` lalu buka kembali window dengan `bun run playwright:open`. Committed specs dipakai hemat untuk regresi frontend yang sulit ditutup oleh test Django saja; helper multi-role tetap tersedia untuk verifikasi manual lintas role. Browser helper masih memakai runtime Node lokal karena peluncuran Chromium persisten macet ketika dijalankan langsung oleh Bun 1.3.14 di Windows.
+
+### Build CSS Tailwind
+
+Gunakan Bun 1.3.14 untuk frontend development dan verifikasi CI. `bun.lock` mengunci dependensi; instal dengan `bun ci`. Sumber Tailwind berada di `backend/static_src/css/app.css`, di luar `STATICFILES_DIRS`. Hasil produksi yang harus dikomit berada di `backend/static/css/app.tailwind.css`.
+
+```powershell
+bun run css:watch
+bun run css:build
+bun run css:check
+```
+
+`css:check` membangun ulang CSS dan gagal jika hasilnya berbeda dari file yang dikomit. Tailwind memindai template Django, berkas Python app, dan JavaScript proyek yang ditentukan eksplisit di sumber CSS. Nama kelas yang dirangkai secara dinamis tidak dapat dideteksi; tulis token kelas lengkap atau gunakan kelas komponen semantik. CI `.github/workflows/css-check.yml` menjalankan `bun ci` dan `bun run css:check` pada perubahan sumber atau konfigurasi terkait.
+
+File Tailwind belum dimuat oleh template. Bootstrap CSS dan JavaScript tetap aktif untuk halaman lama; Alpine.js ditunda. Tugas migrasi shared shell berikutnya akan memakai fondasi desain yang disetujui dan memuat CSS Tailwind pada base terpisah, tanpa memuat dua stylesheet sekaligus. Deployment Django/WhiteNoise hanya menjalankan `collectstatic` atas CSS hasil build; Bun tidak diperlukan di runtime produksi.
+
+Kontrak visual ada di root `DESIGN.md`, daftar kelas fondasi di `docs/css-refactoring/DESIGN_SYSTEM.md`, dan status halaman di `docs/css-refactoring/MIGRATION_LEDGER.md`. Pratinjau statis `docs/css-refactoring/foundation-preview.html` dipakai untuk QA komponen; halaman itu bukan bagian dari aplikasi. Bila konten, kontrol, tindakan, atau perilaku UI saat ini bertentangan dengan dokumentasi di luar perubahan visual yang disetujui, tanyakan kepada pengguna sebelum mengubah UI tersebut.
 
 ## Versioning
 

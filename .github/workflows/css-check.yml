@@ -1,0 +1,42 @@
+name: Tailwind CSS check
+
+on:
+  push:
+    paths:
+      - package.json
+      - bun.lock
+      - backend/static_src/css/**
+      - backend/static/css/app.tailwind.css
+      - backend/templates/**/*.html
+      - backend/apps/**/*.py
+      - backend/static/js/**/*.js
+      - backend/config/settings.py
+      - scripts/css/**
+      - .github/workflows/css-check.yml
+  pull_request:
+    paths:
+      - package.json
+      - bun.lock
+      - backend/static_src/css/**
+      - backend/static/css/app.tailwind.css
+      - backend/templates/**/*.html
+      - backend/apps/**/*.py
+      - backend/static/js/**/*.js
+      - backend/config/settings.py
+      - scripts/css/**
+      - .github/workflows/css-check.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generated-css:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - run: bun ci
+      - run: bun run css:check

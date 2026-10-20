@@ -6,7 +6,7 @@ Deferred follow-up: Alpine.js and removal of Bootstrap JavaScript
 Application: Django server-rendered Healthcare IMS
 Integration Branch: `chore/tailwind-migration`
 Sub Branch : `tailwind/core`, `tailwind/error`, `tailwind/dashboard`, etc
-Package manager target: Bun (migration occurs in Wave 1)
+Package manager: Bun 1.3.14 (toolchain migration implemented; visual direction approved)
 
 ## 1. Objective
 
@@ -50,7 +50,9 @@ The later Alpine project begins only after the completion criteria in section 18
 
 ## 4. Verified repository baseline
 
-The following facts were reverified on 19 October 2026 at repository commit `9c46dcc`. Counts must be refreshed again at the start of Wave 0 because this project is still under active development.
+The following facts were reverified on 20 October 2026 against repository commit `6288564`, before the Bun and Tailwind toolchain edits. The earlier 19 October snapshot is historical; refresh counts again before later migration waves.
+
+The selected local Python interpreter was `venv/Scripts/python.exe` (Python 3.14.0, Django 6.0.8). `STATICFILES_DIRS` contains `backend/static`, and `STORAGES["staticfiles"]` uses WhiteNoise `CompressedStaticFilesStorage`; `findstatic` and `collectstatic` both included the generated stylesheet after this wave.
 
 ### 4.1 Template and stylesheet footprint
 
@@ -58,10 +60,11 @@ The following facts were reverified on 19 October 2026 at repository commit `9c4
 - 103 templates extend another template.
 - 87 templates extend [`backend/templates/base.html`](../../backend/templates/base.html).
 - 5 templates extend [`backend/templates/mobile/base.html`](../../backend/templates/mobile/base.html).
-- 20 templates contain `data-bs-*` attributes.
+- 20 templates contain 154 `data-bs-*` attributes.
+- Bootstrap stylesheet links appear in 3 templates (`base.html`, `mobile/base.html`, `errors/status.html`); Bootstrap bundle script links appear in the 2 base templates.
 - 18 templates use crispy-forms tags.
 - 51 templates contain at least one inline `style` attribute; there are 346 inline style attributes in total.
-- 33 templates contain a `<style>` block.
+- 33 templates contain 34 `<style>` blocks.
 - [`backend/static/css/style.css`](../../backend/static/css/style.css) has 1,779 lines and directly overrides Bootstrap components.
 - [`backend/static/mobile/css/mobile.css`](../../backend/static/mobile/css/mobile.css) has 826 lines.
 - The vendored Bootstrap minified stylesheet is approximately 233 KB before WhiteNoise compression.
@@ -94,12 +97,12 @@ Bootstrap is not only a stylesheet dependency.
 
 ### 4.4 Static build and deployment constraints
 
-- [`package.json`](../../package.json) currently contains Playwright scripts only and still invokes `npm`, `npx`, and `node`.
-- [`package-lock.json`](../../package-lock.json) is the current committed lockfile. Bun has not yet been adopted in the repository; Wave 1 performs and verifies that migration.
-- There is no Tailwind, PostCSS, Vite, or other frontend build step.
+- Before this wave, `package.json` contained Playwright scripts only and invoked npm, npx, and Node directly. The active scripts now use Bun entrypoints; Playwright browser helpers still launch through a local Node runtime because direct Bun 1.3.14 persistent Chromium launch hung on Windows.
+- The npm lockfile was migrated with `bun pm migrate` to committed text `bun.lock`. The locked Playwright resolution remained 1.61.1; the npm lockfile was removed after the three committed specs (five tests) passed under `bun run playwright:test`.
+- Bun 1.3.14 is declared in `package.json` and used in `.github/workflows/css-check.yml`. Tailwind CSS and its CLI are pinned at 4.3.3. The Tailwind build outputs committed minified CSS, but no template loads it yet.
 - [`backend/config/settings.py`](../../backend/config/settings.py) collects files from `backend/static` into `backend/staticfiles`.
-- WhiteNoise serves collected static assets in production.
-- The current release workflow in [`.github/workflows/release-on-version-change.yml`](../../.github/workflows/release-on-version-change.yml) configures Python but does not configure Bun or another JavaScript runtime.
+- WhiteNoise serves collected static assets in production through the configured `whitenoise.storage.CompressedStaticFilesStorage` backend. The current project does not use WhiteNoise's manifest storage.
+- The release workflow in [`.github/workflows/release-on-version-change.yml`](../../.github/workflows/release-on-version-change.yml) remains Python-only. A separate path-triggered [CSS check workflow](../../.github/workflows/css-check.yml) runs Bun for source and configuration changes, so verification does not depend on a VERSION change.
 - Committed CSS output is therefore the selected deployment-compatible model.
 
 ### 4.5 Security constraints
@@ -117,11 +120,12 @@ Bootstrap is not only a stylesheet dependency.
   - [`playwright/allocation-form.spec.ts`](../../playwright/allocation-form.spec.ts)
   - [`playwright/allocation-layout.spec.ts`](../../playwright/allocation-layout.spec.ts)
   - [`playwright/allocation-detail-scroll.spec.ts`](../../playwright/allocation-detail-scroll.spec.ts)
+- Those three files currently declare five tests. All five passed through the Bun script with the pinned Playwright 1.61.1 browser build on the local server on 20 October 2026.
 - Browser coverage must be expanded before removing the legacy visual layer.
 
 ### 4.7 Post-plan change audit
 
-Work merged after the first version of this plan changed frontend contracts without changing the headline dependency counts. The 19 October 2026 re-audit confirmed that the template, crispy, Bootstrap attribute, inline-style, and Bootstrap JavaScript usage counts in sections 4.1 and 4.2 remain current.
+Work merged after the first version of this plan changed frontend contracts without changing the headline dependency counts. The 20 October 2026 re-audit confirmed the template, crispy, Bootstrap, and inline-style counts above. The launcher has seven profiles, including `GUDANG2`, across six roles; earlier instructions saying six windows were stale.
 
 The following newer behavior must be carried into the migration ledger and preserved:
 
@@ -129,11 +133,11 @@ The following newer behavior must be carried into the migration ledger and prese
 - Allocation matrices in steps 3 and 4 now scroll on both axes with sticky column and row labels. Tailwind conversion must preserve the z-index ordering, opaque sticky backgrounds, editable cells, maximum height, and narrow-viewport behavior verified by [`playwright/allocation-layout.spec.ts`](../../playwright/allocation-layout.spec.ts).
 - Allocation distribution cards now expose `#distribution-<id>` fragment targets and `scroll-margin` behavior. Preserve this return-to-card contract and its coverage in [`playwright/allocation-detail-scroll.spec.ts`](../../playwright/allocation-detail-scroll.spec.ts).
 - Procurement contract and amendment actions now render from server-computed policy objects such as `contract_actions` and `amendment_actions` defined by [`backend/apps/procurement/policies.py`](../../backend/apps/procurement/policies.py). CSS refactoring must preserve these conditions exactly; it must not infer action visibility from status classes or recreate authorization logic in templates or JavaScript.
-- The current Playwright files import Node-compatible built-ins through `node:` specifiers. Bun migration must execute all three committed specs successfully before `package-lock.json` is removed.
+- The Playwright files import Node built-ins through `node:` specifiers. All three committed specs executed successfully through Bun scripts before removal of the npm lockfile.
 
 ## 5. Source-of-truth documentation
 
-Agents must verify current syntax against official documentation at implementation time and pin the selected Bun and package versions. After the verified migration, `bun.lock` becomes the JavaScript dependency source of truth and [`package-lock.json`](../../package-lock.json) is removed. Do not infer a package or runtime version from this plan.
+Agents must verify current syntax against official documentation at implementation time. `bun.lock` is now the JavaScript dependency source of truth; the former `package-lock.json` was removed after browser-test parity. Bun 1.3.14 and Tailwind CSS 4.3.3 were selected from the locally available Bun runtime and the published package versions, then pinned in `package.json` and CI.
 
 - [Tailwind CSS CLI installation](https://tailwindcss.com/docs/installation/tailwind-cli)
 - [Tailwind CSS source detection](https://tailwindcss.com/docs/detecting-classes-in-source-files)
@@ -185,13 +189,13 @@ Keep task definitions in [`package.json`](../../package.json), but invoke them w
 | `css:check` | Rebuild and fail when the committed output differs. |
 | `playwright:test` | Preserve the existing browser test command. |
 
-Wave 1 must migrate the existing JavaScript toolchain in this order:
+The sequence below records the Wave 1 migration. The toolchain, generated stylesheet, and approved Stage 4 design-system foundation are implemented. The shared shell and application templates remain future work.
 
 1. Select and document an exact supported Bun version; configure local and CI use of the same version.
-2. Run `bun install` to import the current [`package-lock.json`](../../package-lock.json) resolution into text-based `bun.lock`.
+2. Run `bun pm migrate` to import the former npm lockfile resolution into text-based `bun.lock`.
 3. Review the dependency graph and execute the existing Playwright commands under Bun before deleting the npm lockfile.
 4. Replace `npx` and direct `node` invocations in [`package.json`](../../package.json) with Bun-compatible commands.
-5. Commit `bun.lock`; remove [`package-lock.json`](../../package-lock.json) only after parity is proven.
+5. Commit `bun.lock`; remove the former npm lockfile only after parity is proven.
 6. Use `bun ci` in CI so installation fails when [`package.json`](../../package.json) and `bun.lock` differ.
 7. Update [`AGENTS.md`](../../AGENTS.md), [`README.md`](../../README.md), [`docs/developer_guide.md`](../developer_guide.md), and [`playwright/README.md`](../../playwright/README.md) in the same implementation change so no npm-only setup instructions remain.
 
@@ -320,6 +324,8 @@ For example, the dynamic Bootstrap flash class in [`backend/templates/base.html`
 ## 9. Design-system preparation gate
 
 The selected scope is careful modernization, so implementation must not begin by mechanically translating every Bootstrap class.
+
+The nine [visual concepts and review brief](CONCEPT_REVIEW.md) were prepared and approved on 20 October 2026. Root [`DESIGN.md`](../../DESIGN.md) records the approved target and conflict gate. Stage 4 added shared Tailwind tokens and foundational components without migrating the shell or application templates; see [the implementation guide](DESIGN_SYSTEM.md) and [migration ledger](MIGRATION_LEDGER.md).
 
 Before the first Tailwind page is coded:
 
@@ -463,7 +469,7 @@ Exit gate:
 Deliverables:
 
 - Exact Bun version selection and repository version declaration.
-- Verified conversion from [`package-lock.json`](../../package-lock.json) to committed text-based `bun.lock`.
+- Verified conversion from the former npm lockfile to committed text-based `bun.lock`.
 - Bun-compatible Playwright scripts with all three committed specs executed successfully before removal of the npm lockfile.
 - CI setup for the selected Bun version and `bun ci`.
 - Tailwind CLI dependency and locked transitive dependencies.
@@ -805,14 +811,8 @@ Any AI agent executing this plan must:
 11. Stop and request input when a visual or operational choice would materially change the product.
 12. Never introduce Alpine during this CSS migration.
 
-## 21. Inputs still required before Wave 0 visual approval
+## 21. Inputs for later template waves
 
-The architecture and execution order are sufficiently defined. The remaining product inputs are:
+The approved concept set in `CONCEPT_REVIEW.md` now supplies the visual reference. Root `DESIGN.md` preserves the exact existing logo and defines the approved target system. The user also confirmed labels above form controls.
 
-- preferred visual references or products whose density and tone are appropriate;
-- whether the existing logo and core teal/blue identity must remain unchanged;
-- minimum supported desktop browsers and mobile OS/browser versions;
-- the preferred pilot workflow if Item List is not acceptable;
-- reviewers who can approve the desktop shell, form system, mobile surface, and print output.
-
-These inputs do not block inventory or test-baseline work, but visual implementation must not pass the design-system gate without them.
+Before browser-sensitive template migrations, confirm the minimum supported desktop browsers and mobile OS/browser versions. If Item List is not the pilot, confirm the alternative workflow. Reviewers for the later shell, form, mobile, and print rollouts remain to be identified. These open inputs do not change the completed toolchain or unused foundation CSS.

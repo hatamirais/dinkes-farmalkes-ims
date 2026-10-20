@@ -128,6 +128,7 @@ Use Graphify selectively to improve codebase understanding while minimizing unne
 - Prefer Django ORM APIs. Use raw SQL only when the ORM is insufficient, and document why.
 - Use `select_related` / `prefetch_related` for relationship-heavy reads, `select_for_update()` for race-prone writes, and `transaction.atomic()` for multi-row workflow mutations.
 - Use crispy-forms / crispy-bootstrap5 and Bootstrap 5 utilities. Document necessary custom CSS exceptions.
+- For Tailwind migration work, read root `DESIGN.md` before editing UI. It defines the approved target visual system while the current Bootstrap interface remains live. If the rendered UI's content, controls, actions, or behavior conflict with the documented contract beyond the planned styling change, ask the user before editing that UI.
 - Scale tests to risk and blast radius. Use Python logging, raise specific exceptions, and do not swallow failures.
 - Do not edit already-applied migrations unless explicitly requested and safe for the current branch state.
 - Do not claim React production paths or a general-purpose REST API; the production mobile surface is server-rendered Django.
@@ -147,7 +148,8 @@ When adding a constraint that existing rows might violate: audit and record the 
 - Every URL pattern ends with `/`. Tests should use `reverse()`; templates must use `{% url %}`. Run `apps.core.tests.test_url_consistency` for routing changes.
 - Setup/run: `docker compose up -d`, then from `backend/`: `python manage.py migrate`, `python manage.py runserver`, `python manage.py app_version`.
 - Windows tests: `.\scripts\run-django-test.ps1 -Target <test.path>`; add `-KeepDb` when appropriate.
-- Playwright: copy `.env.playwright.local.example` to `.env.playwright.local`, use the existing local accounts for all six roles, run `npm install`, `npm run playwright:bootstrap`, then `npm run playwright:open`. Refresh profiles with `npm run playwright:refresh-auth` after credential/session changes.
+- Frontend tooling: use Bun 1.3.14 from `package.json`; run `bun ci` to install the locked dependencies. Tailwind source is `backend/static_src/css/app.css`; commit the generated `backend/static/css/app.tailwind.css` after `bun run css:build`, and verify it with `bun run css:check`. The generated CSS is not loaded by templates yet. Bun is for development and CI verification, not the production Django runtime.
+- Playwright: copy `.env.playwright.local.example` to `.env.playwright.local`, use the existing local accounts for the seven configured profiles (six roles plus GUDANG2), run `bun run playwright:bootstrap`, then `bun run playwright:open`. Refresh profiles with `bun run playwright:refresh-auth` after credential/session changes. The Playwright browser helpers still use a local Node runtime because persistent Chromium launch hung under Bun 1.3.14 on Windows during this migration.
 - Update affected `README.md`, `AGENTS.md`, `SYSTEM_MODEL.md`, `docs/developer_guide.md`, and `backend/seed/README.md` when behavior, setup, schema, routes, permissions, settings, scripts, or import formats change.
 - Before a PR, verify documented routes, model names, environment variables, security behavior, and CSV columns against code.
 - Use Context7 as the primary third-party reference. Known IDs: Django `/django/django`, django-import-export `/websites/django-import-export_readthedocs_io_en`, django-axes `/jazzband/django-axes`, and django-auditlog `/jazzband/django-auditlog`.

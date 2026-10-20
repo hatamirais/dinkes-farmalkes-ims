@@ -134,7 +134,9 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 
 Instruksi setup environment, migrasi database, pengujian, versioning, dan proses import tersedia di `docs/developer_guide.md`.
 
-Repositori juga menyediakan helper Playwright lokal untuk verifikasi manual multi-role. Salin `.env.playwright.local.example` menjadi `.env.playwright.local`, isi akun `PUSKESMAS`, `GUDANG`, `KEPALA`, `ADMIN_UMUM`, `AUDITOR`, dan `ADMIN`, lalu jalankan `npm run playwright:bootstrap` diikuti `npm run playwright:open` dari root repositori. Untuk regresi browser yang sudah dikomitkan di folder `playwright/`, jalankan `npm run playwright:test`.
+Frontend development memakai Bun 1.3.14 sesuai `package.json`. Dari root repositori jalankan `bun ci`, lalu `bun run css:watch` saat mengembangkan CSS, `bun run css:build` untuk menghasilkan `backend/static/css/app.tailwind.css`, dan `bun run css:check` untuk memastikan hasil yang dikomit tetap mutakhir. Sumbernya ada di `backend/static_src/css/app.css`. Arah desain yang disetujui ada di [`DESIGN.md`](DESIGN.md), dan implementasi fondasinya didokumentasikan di `docs/css-refactoring/DESIGN_SYSTEM.md`. CSS hasil build belum dimuat oleh template produksi; Bootstrap CSS/JavaScript tetap dipakai sampai migrasi shell berikutnya. Alpine.js juga ditunda. Deployment Django/WhiteNoise hanya membutuhkan CSS hasil build yang sudah dikomit, tanpa Bun.
+
+Helper Playwright lokal memakai akun `PUSKESMAS`, `GUDANG`, `GUDANG2`, `KEPALA`, `ADMIN_UMUM`, `AUDITOR`, dan `ADMIN`. Salin `.env.playwright.local.example` menjadi `.env.playwright.local`, isi akun lokal, lalu jalankan `bun run playwright:bootstrap` diikuti `bun run playwright:open` dari root repositori. Jalankan `bun run playwright:test` untuk regresi browser yang sudah dikomit. Browser helper Playwright masih memerlukan runtime Node lokal; Bun mengelola paket dan perintahnya.
 
 ## Bantuan dan Kustomisasi
 

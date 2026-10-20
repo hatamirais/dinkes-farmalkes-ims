@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIMFAS Tailwind foundation preview</title>
+  <link rel="stylesheet" href="../../backend/static/css/app.tailwind.css">
+  <style>
+    /* Preview layout only. Application templates do not load this page. */
+    body { margin: 0; background: var(--color-ims-canvas); color: var(--color-ims-ink); font-family: var(--font-ims); font-size: var(--text-ims-body); }
+    main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    header img { width: 44px; height: 44px; }
+    h1 { margin: 0; font-size: var(--text-ims-page); line-height: var(--leading-ims-tight); }
+    h2 { margin: 0 0 16px; font-size: var(--text-ims-section); line-height: var(--leading-ims-heading); }
+    section { margin-bottom: 20px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: var(--color-ims-surface); padding: 24px; box-shadow: var(--shadow-ims-surface); }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .fields { display: grid; max-width: 760px; gap: 24px; }
+    .stack { display: grid; gap: 10px; }
+    .row .ims-label { margin-bottom: 0; }
+    .preview-pagination { margin-top: 16px; }
+    @media (max-width: 640px) { main { padding: 20px 12px 48px; } section { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="../../backend/static/img/default-logo.svg" alt="">
+      <div><h1>SIMFAS foundation preview</h1><span class="ims-help">Static review artifact; no application route or workflow.</span></div>
+    </header>
+
+    <section aria-labelledby="actions-heading">
+      <h2 id="actions-heading">Actions</h2>
+      <div class="row">
+        <button class="ims-btn ims-btn--primary" type="button">Simpan</button>
+        <button class="ims-btn ims-btn--secondary" type="button">Lihat Alokasi Induk</button>
+        <button class="ims-btn ims-btn--neutral" type="button">Batal</button>
+        <button class="ims-btn ims-btn--print" type="button">Cetak SBBK</button>
+        <button class="ims-btn ims-btn--danger" type="button">Hapus</button>
+        <button class="ims-btn ims-btn--primary" type="button" disabled>Simpan</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="fields-heading">
+      <h2 id="fields-heading">Fields</h2>
+      <div class="fields">
+        <div>
+          <label class="ims-label" for="item-name">Nama barang</label>
+          <input class="ims-control" id="item-name" type="text" placeholder="Nama barang">
+          <small class="ims-help">Teks bantuan berada dekat dengan kontrol.</small>
+        </div>
+        <div>
+          <label class="ims-label" for="barcode">Barcode</label>
+          <input class="ims-control ims-control--invalid" id="barcode" type="text" aria-invalid="true" aria-describedby="barcode-error">
+          <small class="ims-error" id="barcode-error">Contoh tampilan pesan validasi.</small>
+        </div>
+        <div>
+          <label class="ims-label" for="category">Kategori</label>
+          <select class="ims-control" id="category"><option>Pilih kategori</option></select>
+        </div>
+        <div class="row">
+          <input class="ims-switch" id="is-program" type="checkbox" role="switch">
+          <label class="ims-label" for="is-program">Barang program [P]</label>
+        </div>
+        <div class="row">
+          <input class="ims-choice" id="requires-expiry" type="checkbox" checked>
+          <label class="ims-label" for="requires-expiry">Memerlukan tanggal kedaluwarsa</label>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="status-heading">
+      <h2 id="status-heading">Status and messages</h2>
+      <div class="stack">
+        <div class="row"><span class="ims-badge ims-badge--success">Terverifikasi</span><span class="ims-badge ims-badge--warning">Diajukan</span><span class="ims-badge ims-badge--danger">Ditolak</span><span class="ims-badge ims-badge--info">Draft</span></div>
+        <div class="ims-alert ims-alert--success" role="status">Contoh tampilan pesan berhasil.</div>
+        <div class="ims-alert ims-alert--danger" role="alert">Contoh tampilan pesan kesalahan.</div>
+      </div>
+    </section>
+
+    <section aria-labelledby="table-heading">
+      <h2 id="table-heading">Table and pagination</h2>
+      <div class="ims-table-scroll" tabindex="0" aria-label="Contoh tabel horizontal">
+        <table class="ims-table">
+          <thead><tr><th scope="col">Barang</th><th scope="col">Satuan</th><th scope="col">Kategori</th><th scope="col" class="ims-table-number">Min. Stok</th><th scope="col">Aksi</th></tr></thead>
+          <tbody><tr><td colspan="5">Pratinjau tampilan tabel; data inventaris tidak ditampilkan.</td></tr></tbody>
+        </table>
+      </div>
+      <nav class="ims-pagination preview-pagination" aria-label="Contoh paginasi">
+        <a class="ims-page-link" href="#table-heading" aria-current="page">1</a>
+        <span class="ims-page-link" aria-disabled="true">2</span>
+      </nav>
+    </section>
+  </main>
+</body>
+</html>
