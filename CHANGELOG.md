@@ -7,8 +7,19 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Added
+
+- Added the approved `DESIGN.md` visual contract, nine CSS migration concepts, a migration ledger, and a static foundation preview for the planned Tailwind rollout.
+- Added a pinned Bun 1.3.14 toolchain, Tailwind CSS 4.3.3 source and generated stylesheet, reproducible CSS build/check commands, and a GitHub Actions check for generated CSS.
+
+### Changed
+
+- Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility. Production templates continue to use Bootstrap; the Tailwind stylesheet is not loaded yet.
+- Documented that migrated forms keep labels above inputs and that UI content or behavior conflicts require review before template changes.
+
 ### Fixed
 
+- Corrected the direct Playwright window helper's usage message to specify Node, matching its Windows runtime requirement.
 - Returned staff to the acted-on Alokasi distribution card after preparing or confirming delivery, instead of reopening the detail page at the top.
 - Kept the Alokasi Step 2 batch picker visible outside the scrolling item table, closed it when a formset row is removed, and retained item and facility context while scrolling the Step 3 and Step 4 matrices.
 - Centralized procurement action authorization decisions so SPJ and amendment buttons now match the corresponding route permissions while preserving Django-permission, module-scope, role, and Acting Kepala rules.

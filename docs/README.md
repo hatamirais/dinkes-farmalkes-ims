@@ -19,6 +19,10 @@ This folder contains implementation notes, developer guidance, ERD references, t
 ## Working Docs
 
 - [Staged Testing Plan](staged-testing-plan/README.md)
+- [Tailwind CSS Migration Plan](css-refactoring/TAILWIND_CSS_MIGRATION_PLAN.md): phased migration and verification gates
+- [Approved UI Design](../DESIGN.md) and [Concept Review](css-refactoring/CONCEPT_REVIEW.md): target visual direction
+- [Tailwind Design System](css-refactoring/DESIGN_SYSTEM.md): implemented foundation tokens and components
+- [Tailwind Migration Ledger](css-refactoring/MIGRATION_LEDGER.md): current surface status and remaining work
 - `work-report/`: historical work reports
 
 ## Data Files
