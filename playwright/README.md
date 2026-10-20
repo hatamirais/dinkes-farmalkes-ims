@@ -1,14 +1,14 @@
 Local Playwright workspace for browser-based verification and focused UI regressions.
 
-Use the root npm scripts and files under `scripts/playwright/` to bootstrap auth and open role windows for manual multi-role checking.
+Use Bun 1.3.14 and the root scripts under `scripts/playwright/` to bootstrap auth and open role windows for manual multi-role checking. Run `bun ci` first. The browser helper processes use a local Node runtime because persistent Chromium launch hung under Bun 1.3.14 on Windows during migration; package installation and script entry use Bun.
 
 Committed specs under `playwright/` are reserved for targeted browser regressions that are hard to cover with Django tests alone, such as frontend-derived wizard state.
 
 Useful commands from repo root:
 
-- `npm run playwright:bootstrap`
-- `npm run playwright:open`
-- `npm run playwright:test`
+- `bun run playwright:bootstrap`
+- `bun run playwright:open`
+- `bun run playwright:test`
 
-Current default launcher set: PUSKESMAS, GUDANG, KEPALA, ADMIN_UMUM, AUDITOR, ADMIN.
+Current launcher set: PUSKESMAS, GUDANG, GUDANG2, KEPALA, ADMIN_UMUM, AUDITOR, ADMIN (seven profiles across six roles).
 

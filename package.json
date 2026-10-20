@@ -2,15 +2,21 @@
   "name": "dinkes-farmalkes-ims-playwright-local",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.14",
   "scripts": {
-    "playwright:install": "npx playwright install chromium",
-    "playwright:auth": "node scripts/playwright/auth.mjs",
-    "playwright:refresh-auth": "node scripts/playwright/auth.mjs --refresh",
-    "playwright:open": "node scripts/playwright/open-windows.mjs",
-    "playwright:test": "npx playwright test",
-    "playwright:bootstrap": "npm run playwright:install && npm run playwright:auth"
+    "css:watch": "bunx --bun --no-install tailwindcss -i backend/static_src/css/app.css -o backend/static/css/app.tailwind.css --watch=always",
+    "css:build": "bunx --bun --no-install tailwindcss -i backend/static_src/css/app.css -o backend/static/css/app.tailwind.css --minify",
+    "css:check": "bun scripts/css/check.mjs",
+    "playwright:install": "bunx --no-install playwright install chromium",
+    "playwright:auth": "bun scripts/playwright/run-helper.mjs auth",
+    "playwright:refresh-auth": "bun scripts/playwright/run-helper.mjs refresh-auth",
+    "playwright:open": "bun scripts/playwright/run-helper.mjs open",
+    "playwright:test": "bunx --no-install playwright test",
+    "playwright:bootstrap": "bun run playwright:install && bun run playwright:auth"
   },
   "devDependencies": {
-    "playwright": "^1.54.2"
+    "@tailwindcss/cli": "4.3.3",
+    "playwright": "^1.54.2",
+    "tailwindcss": "4.3.3"
   }
 }
