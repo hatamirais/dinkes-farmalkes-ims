@@ -469,7 +469,7 @@
   .ims-item-footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 1px solid var(--color-ims-border); border-radius: 8px; padding: 8px 12px; background: var(--color-ims-surface-muted); }
   .ims-item-footer form { display: flex; align-items: center; gap: 8px; }
   .ims-item-footer select { width: 84px; min-height: 32px; padding: 4px 8px; }
-  .ims-item-footer ul { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .ims-item-footer ul { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
   .ims-item-footer .page-link { display: inline-flex; min-height: 30px; align-items: center; justify-content: center; border: 1px solid var(--color-ims-border); border-radius: 6px; padding: 3px 8px; background: #fff; color: var(--color-ims-primary); text-decoration: none; }
   .ims-item-footer .page-item.active .page-link { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
 }
