@@ -11,10 +11,12 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Added the approved `DESIGN.md` visual contract, nine CSS migration concepts, a migration ledger, and a static foundation preview for the planned Tailwind rollout.
 - Added a pinned Bun 1.3.14 toolchain, Tailwind CSS 4.3.3 source and generated stylesheet, reproducible CSS build/check commands, and a GitHub Actions check for generated CSS.
+- Added the authenticated Tailwind desktop shell with shared role-aware navigation, a responsive sidebar, top bar, user menu, and flash messages, plus the Daftar Barang pilot page.
 
 ### Changed
 
-- Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility. Production templates continue to use Bootstrap; the Tailwind stylesheet is not loaded yet.
+- Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility.
+- Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. Legacy pages continue to load Bootstrap CSS; both desktop bases retain Bootstrap JavaScript during the migration.
 - Documented that migrated forms keep labels above inputs and that UI content or behavior conflicts require review before template changes.
 
 ### Fixed
@@ -24,6 +26,11 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Kept the Alokasi Step 2 batch picker visible outside the scrolling item table, closed it when a formset row is removed, and retained item and facility context while scrolling the Step 3 and Step 4 matrices.
 - Centralized procurement action authorization decisions so SPJ and amendment buttons now match the corresponding route permissions while preserving Django-permission, module-scope, role, and Acting Kepala rules.
 - Restored the Stock regression suite by aligning django-import-export fixtures with the source-document stock-layer identifier, distinguishing the restricted Instalasi stock snapshot link from the valid Puskesmas self-stock link, and accounting for the shared shell's constant Acting Kepala permission queries.
+- Kept all Daftar Barang pagination controls reachable at narrow widths and corrected Bootstrap submenu visibility in the Tailwind shell.
+
+### Security
+
+- Upgraded Pillow from 12.3.0 to 13.0.0 after the dependency audit reported known vulnerabilities.
 
 ## [1.35.0] - 2026-10-13
 
