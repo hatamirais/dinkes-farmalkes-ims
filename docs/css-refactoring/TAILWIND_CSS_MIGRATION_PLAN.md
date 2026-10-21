@@ -97,12 +97,12 @@ Bootstrap is not only a stylesheet dependency.
 
 ### 4.4 Static build and deployment constraints
 
-- Before this wave, `package.json` contained Playwright scripts only and invoked npm, npx, and Node directly. The active scripts now use Bun entrypoints; Playwright browser helpers still launch through a local Node runtime because direct Bun 1.3.14 persistent Chromium launch hung on Windows.
+- Before this wave, `package.json` contained Playwright scripts only and invoked npm, npx, and Node directly. Active commands use Bun entrypoints. Playwright browser helpers and the Tailwind CLI use a local Node runtime; Bun 1.3.14 caused persistent Chromium launch hangs and a reproducible Tailwind scanner warning on Windows.
 - The npm lockfile was migrated with `bun pm migrate` to committed text `bun.lock`. The locked Playwright resolution remained 1.61.1; the npm lockfile was removed after the three committed specs (five tests) passed under `bun run playwright:test`.
-- Bun 1.3.14 is declared in `package.json` and used in `.github/workflows/css-check.yml`. Tailwind CSS and its CLI are pinned at 4.3.3. The Tailwind build outputs committed minified CSS, but no template loads it yet.
+- Bun 1.3.14 is declared in `package.json` and used in `.github/workflows/css-check.yml`. The CSS check workflow also sets up Node 24 for the Tailwind CLI. Tailwind CSS and its CLI are pinned at 4.3.3. The build outputs committed minified CSS, now loaded by the Item List pilot.
 - [`backend/config/settings.py`](../../backend/config/settings.py) collects files from `backend/static` into `backend/staticfiles`.
 - WhiteNoise serves collected static assets in production through the configured `whitenoise.storage.CompressedStaticFilesStorage` backend. The current project does not use WhiteNoise's manifest storage.
-- The release workflow in [`.github/workflows/release-on-version-change.yml`](../../.github/workflows/release-on-version-change.yml) remains Python-only. A separate path-triggered [CSS check workflow](../../.github/workflows/css-check.yml) runs Bun for source and configuration changes, so verification does not depend on a VERSION change.
+- The release workflow in [`.github/workflows/release-on-version-change.yml`](../../.github/workflows/release-on-version-change.yml) remains Python-only. A separate path-triggered [CSS check workflow](../../.github/workflows/css-check.yml) runs Bun and Node for source and configuration changes, so verification does not depend on a VERSION change.
 - Committed CSS output is therefore the selected deployment-compatible model.
 
 ### 4.5 Security constraints
@@ -189,12 +189,12 @@ Keep task definitions in [`package.json`](../../package.json), but invoke them w
 | `css:check` | Rebuild and fail when the committed output differs. |
 | `playwright:test` | Preserve the existing browser test command. |
 
-The sequence below records the Wave 1 migration. The toolchain, generated stylesheet, and approved Stage 4 design-system foundation are implemented. The shared shell and application templates remain future work.
+The sequence below records the Wave 1 migration. The toolchain, generated stylesheet, and approved Stage 4 design-system foundation are implemented. The shared desktop shell and Item List pilot are now implemented as a later slice; the migration ledger records their actual state.
 
 1. Select and document an exact supported Bun version; configure local and CI use of the same version.
 2. Run `bun pm migrate` to import the former npm lockfile resolution into text-based `bun.lock`.
 3. Review the dependency graph and execute the existing Playwright commands under Bun before deleting the npm lockfile.
-4. Replace `npx` and direct `node` invocations in [`package.json`](../../package.json) with Bun-compatible commands.
+4. Replace npm-only entrypoints in [`package.json`](../../package.json) with Bun-compatible commands. Retain a Node runtime for Playwright helpers and the Tailwind CLI where Bun 1.3.14 showed the verified Windows issues.
 5. Commit `bun.lock`; remove the former npm lockfile only after parity is proven.
 6. Use `bun ci` in CI so installation fails when [`package.json`](../../package.json) and `bun.lock` differ.
 7. Update [`AGENTS.md`](../../AGENTS.md), [`README.md`](../../README.md), [`docs/developer_guide.md`](../developer_guide.md), and [`playwright/README.md`](../../playwright/README.md) in the same implementation change so no npm-only setup instructions remain.
@@ -211,7 +211,7 @@ bun run playwright:open
 bun run playwright:test
 ```
 
-Do not require Bun at Django application startup or in the production runtime. Developers run the CSS watcher separately when changing styles; CI uses Bun only to verify the committed asset.
+Do not require Bun or Node at Django application startup or in the production runtime. Developers run the CSS watcher separately when changing styles; CI uses Bun and Node to verify the committed asset.
 
 ### 6.3 Template bases during migration
 
@@ -484,7 +484,7 @@ Exit gate:
 
 - A clean checkout can reproduce the committed CSS.
 - A clean checkout can install JavaScript dependencies with `bun ci`.
-- Searches find no active npm/npx/direct-Node workflow instructions outside explicitly historical documentation or vendored files.
+- Searches find no active npm-only workflow instructions. Direct Node use for the Tailwind CLI and Playwright helpers is documented.
 - `collectstatic` includes the generated file.
 - No production Bun or Node runtime is required.
 
@@ -776,7 +776,7 @@ The CSS migration is complete only when all of the following are true:
 - Representative desktop, mobile, validation, modal, and print states have passed visual review.
 - The migration ledger contains no unexplained Bootstrap CSS dependency.
 - Documentation describes CSS development, build, verification, and committed-output policy.
-- Active project documentation uses Bun commands consistently; the npm lockfile and active npm/npx/direct-Node script invocations are removed after verified migration.
+- Active project documentation uses Bun commands consistently; the npm lockfile is removed, and the remaining Node runtime needs for Tailwind and Playwright are documented.
 - Bootstrap JavaScript and its bridge are clearly documented as the only intentional Bootstrap remainder for the Alpine follow-up.
 
 ## 19. Alpine follow-up entry criteria
@@ -815,4 +815,4 @@ Any AI agent executing this plan must:
 
 The approved concept set in `CONCEPT_REVIEW.md` now supplies the visual reference. Root `DESIGN.md` preserves the exact existing logo and defines the approved target system. The user also confirmed labels above form controls.
 
-Before browser-sensitive template migrations, confirm the minimum supported desktop browsers and mobile OS/browser versions. If Item List is not the pilot, confirm the alternative workflow. Reviewers for the later shell, form, mobile, and print rollouts remain to be identified. These open inputs do not change the completed toolchain or unused foundation CSS.
+Before later browser-sensitive template migrations, confirm the minimum supported desktop browsers and mobile OS/browser versions. Item List is the first Tailwind pilot. Reviewers for later form, mobile, and print rollouts remain to be identified; see the migration ledger for the completed shell slice and remaining surfaces.

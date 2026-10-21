@@ -1,0 +1,23 @@
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><span class="dropdown-item-text text-muted small">Jabatan: {{ user.get_role_display }}</span>
+                                </li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li>
+                                    <a href="{% url 'password_change' %}" class="dropdown-item">
+                                        <i class="bi bi-key me-2"></i>Ubah Kata Sandi
+                                    </a>
+                                </li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li>
+                                    <form method="post" action="{% url 'logout' %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="bi bi-box-arrow-right me-2"></i>Keluar
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>

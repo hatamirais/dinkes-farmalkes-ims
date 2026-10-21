@@ -4,9 +4,9 @@
   "type": "module",
   "packageManager": "bun@1.3.14",
   "scripts": {
-    "css:watch": "bunx --bun --no-install tailwindcss -i backend/static_src/css/app.css -o backend/static/css/app.tailwind.css --watch=always",
-    "css:build": "bunx --bun --no-install tailwindcss -i backend/static_src/css/app.css -o backend/static/css/app.tailwind.css --minify",
-    "css:check": "bun scripts/css/check.mjs",
+    "css:watch": "bunx --no-install tailwindcss -i backend/static_src/css/app.css -o backend/static/css/app.tailwind.css --watch=always",
+    "css:build": "bunx --no-install tailwindcss -i backend/static_src/css/app.css -o backend/static/css/app.tailwind.css --minify",
+    "css:check": "node scripts/css/check.mjs",
     "playwright:install": "bunx --no-install playwright install chromium",
     "playwright:auth": "bun scripts/playwright/run-helper.mjs auth",
     "playwright:refresh-auth": "bun scripts/playwright/run-helper.mjs refresh-auth",
