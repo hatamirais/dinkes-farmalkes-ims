@@ -1,6 +1,6 @@
 # Tailwind foundation implementation
 
-Root [`DESIGN.md`](../../DESIGN.md) is the approved visual contract. This file records its CSS implementation and usage rules. The classes below are defined in `backend/static_src/css/app.css`; `bun run css:build` produces the committed `backend/static/css/app.tailwind.css`. No production template imports the output in this stage.
+Root [`DESIGN.md`](../../DESIGN.md) is the approved visual contract. This file records its CSS implementation and usage rules. The classes below are defined in `backend/static_src/css/app.css`; `bun run css:build` produces the committed `backend/static/css/app.tailwind.css` using the Tailwind CLI under Node 24. The authenticated Item List now imports this output through `base_tailwind.html`; legacy pages remain on Bootstrap.
 
 The standalone [foundation preview](foundation-preview.html) is a static QA artifact for desktop and mobile-sized inspection. It is not an application template and contains no inventory records or working form submission.
 
@@ -28,7 +28,7 @@ Shared focus outlines cover buttons, controls, choices, page links, and focusabl
 
 `@import "tailwindcss" source(none)` disables implicit repository scanning. Explicit `@source` declarations cover `backend/templates/**/*.html`, `backend/apps/**/*.py`, and `backend/static/js/**/*.js`. A temporary compile probe verified class detection in all three source types. Tailwind scans text and cannot resolve dynamically assembled names such as `bg-{{ status }}-600`; emit complete class literals or use these semantic component classes.
 
-The next shared-shell task may load this CSS on a separate Tailwind base, with the exact logo, labels, roles, and actions from the existing Django templates. It must not load Bootstrap CSS and Tailwind CSS in one document. Bootstrap JavaScript remains until the later interaction migration; Tom Select, Flatpickr, and crispy forms require separate reviewed changes. Compare rendered desktop and mobile pages with the approved concept images before migrating each surface. If a content, control, action, or behavior conflict is discovered, follow the ask-first rule in `DESIGN.md`.
+`base_tailwind.html` loads this CSS without Bootstrap CSS. `base.html` remains the compatibility base for legacy pages, and `base_bootstrap.html` records the same legacy rendering path. Both desktop bases use shared sidebar and user-menu partials. Bootstrap JavaScript remains on the pilot for collapse, dropdown, and flash toasts; the bridge selectors are inventoried in `MIGRATION_LEDGER.md`. Tom Select, Flatpickr, and crispy forms require separate reviewed changes. Compare each later migrated page with its approved concept and follow the ask-first rule in `DESIGN.md` if a content or behavior conflict is found.
 
 ## Foundation visual QA
 

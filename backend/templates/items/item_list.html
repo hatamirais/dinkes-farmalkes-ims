@@ -1,13 +1,12 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load static %}
 
 {% block title %}Daftar Barang - Healthcare IMS{% endblock %}
 {% block page_title %}Daftar Barang{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column gap-4">
-    <section class="card shadow-sm border-0">
-        <div class="card-header bg-white border-0 pt-4 px-4 pb-3 d-flex flex-column gap-3">
+<div class="ims-item-list">
+    <div class="ims-item-header">
             <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
                 <div>
                     <h5 class="mb-1"><i class="bi bi-box-seam me-2"></i>Daftar Barang</h5>
@@ -23,13 +22,15 @@
                 </div>
             </div>
 
-            <form method="get" class="row g-2 align-items-end">
+    </div>
+    <section class="ims-item-filter-surface" aria-label="Filter barang">
+            <form method="get" class="ims-item-filters">
                 <input type="hidden" name="per_page" value="{{ per_page }}">
-                <div class="col-12 col-lg-3">
+                <div>
                     <label for="item-search" class="form-label small text-muted mb-1">Pencarian</label>
                     <input id="item-search" type="text" name="q" class="form-control" placeholder="Kode, barcode, atau nama barang" value="{{ search }}">
                 </div>
-                <div class="col-12 col-md-6 col-lg-2">
+                <div>
                     <label for="item-category" class="form-label small text-muted mb-1">Kategori</label>
                     <select id="item-category" name="kategori" class="form-select">
                         <option value="">Semua Kategori</option>
@@ -38,7 +39,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12 col-md-6 col-lg-2">
+                <div>
                     <label for="item-program" class="form-label small text-muted mb-1">Tipe</label>
                     <select id="item-program" name="program" class="form-select">
                         <option value="">Semua Tipe</option>
@@ -46,7 +47,7 @@
                         <option value="0" {{ program_0_selected }}>Non-Program</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-6 col-lg-2">
+                <div>
                     <label for="item-essential" class="form-label small text-muted mb-1">Esensial</label>
                     <select id="item-essential" name="essential" class="form-select">
                         <option value="">Semua Esensial</option>
@@ -54,7 +55,7 @@
                         <option value="0" {{ essential_0_selected }}>Non-Esensial</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-6 col-lg-2">
+                <div>
                     <label for="item-therapeutic-class" class="form-label small text-muted mb-1">Terapi Obat</label>
                     <select id="item-therapeutic-class" name="therapeutic_class" class="form-select">
                         <option value="">Semua Terapi Obat</option>
@@ -63,22 +64,23 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-12 col-lg-1 d-grid">
+                <div>
                     <button type="submit" class="btn btn-primary text-nowrap">
                         <i class="bi bi-search"></i><span class="d-lg-none ms-1">Filter</span>
                     </button>
                 </div>
                 {% if filters_active %}
-                <div class="col-12 d-flex justify-content-end">
+                <div class="ims-filter-reset">
                     <a href="{% url 'items:item_list' %}" class="btn btn-outline-secondary btn-sm">Reset filter</a>
                 </div>
                 {% endif %}
             </form>
-        </div>
+    </section>
 
+    <section class="ims-item-surface" aria-label="Hasil daftar barang">
         <div class="card-body p-0">
-            <div class="table-responsive" style="max-height: 65vh;">
-                <table class="table table-hover align-middle mb-0">
+            <div class="ims-item-table-scroll table-responsive" style="max-height: 65vh;" tabindex="0" aria-label="Daftar barang, gulir untuk melihat semua kolom">
+                <table class="ims-item-table table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 320px;">Barang</th>
@@ -168,7 +170,7 @@
             </div>
         </div>
 
-        <div class="card-footer bg-white border-0 px-4 py-3 d-flex justify-content-start justify-content-lg-end">
+        <div class="ims-item-footer card-footer bg-white border-0 px-4 py-3 d-flex justify-content-start justify-content-lg-end">
             <div class="d-inline-flex flex-wrap align-items-center justify-content-start justify-content-lg-end gap-3 bg-light border rounded px-3 py-2">
                 <form method="get" class="d-flex flex-wrap align-items-center gap-2">
                     <input type="hidden" name="q" value="{{ search }}">

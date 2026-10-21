@@ -242,7 +242,7 @@ Profil browser disimpan secara lokal di `.playwright-profiles/` dan diabaikan ol
 
 ### Build CSS Tailwind
 
-Gunakan Bun 1.3.14 untuk frontend development dan verifikasi CI. `bun.lock` mengunci dependensi; instal dengan `bun ci`. Sumber Tailwind berada di `backend/static_src/css/app.css`, di luar `STATICFILES_DIRS`. Hasil produksi yang harus dikomit berada di `backend/static/css/app.tailwind.css`.
+Gunakan Bun 1.3.14 untuk manajemen paket dan perintah frontend, serta Node.js 24 untuk runtime Tailwind CLI. `bun.lock` mengunci dependensi; instal dengan `bun ci`. Sumber Tailwind berada di `backend/static_src/css/app.css`, di luar `STATICFILES_DIRS`. Hasil produksi yang harus dikomit berada di `backend/static/css/app.tailwind.css`.
 
 ```powershell
 bun run css:watch
@@ -252,7 +252,7 @@ bun run css:check
 
 `css:check` membangun ulang CSS dan gagal jika hasilnya berbeda dari file yang dikomit. Tailwind memindai template Django, berkas Python app, dan JavaScript proyek yang ditentukan eksplisit di sumber CSS. Nama kelas yang dirangkai secara dinamis tidak dapat dideteksi; tulis token kelas lengkap atau gunakan kelas komponen semantik. CI `.github/workflows/css-check.yml` menjalankan `bun ci` dan `bun run css:check` pada perubahan sumber atau konfigurasi terkait.
 
-File Tailwind belum dimuat oleh template. Bootstrap CSS dan JavaScript tetap aktif untuk halaman lama; Alpine.js ditunda. Tugas migrasi shared shell berikutnya akan memakai fondasi desain yang disetujui dan memuat CSS Tailwind pada base terpisah, tanpa memuat dua stylesheet sekaligus. Deployment Django/WhiteNoise hanya menjalankan `collectstatic` atas CSS hasil build; Bun tidak diperlukan di runtime produksi.
+`backend/templates/items/item_list.html` memuat `base_tailwind.html` dan CSS hasil build tanpa Bootstrap CSS. Template lain tetap memakai `base.html` dan Bootstrap CSS; `base_bootstrap.html` adalah salinan jalur legacy. Sidebar dan isi menu pengguna pada kedua base memakai partial bersama di `backend/templates/components/navigation/`. Bootstrap JavaScript tetap aktif pada kedua jalur; CSS bridge Tailwind untuk collapse, dropdown, dan flash toast dicatat di `docs/css-refactoring/MIGRATION_LEDGER.md`. Alpine.js ditunda. Deployment Django/WhiteNoise hanya menjalankan `collectstatic` atas CSS hasil build; Bun tidak diperlukan di runtime produksi.
 
 Kontrak visual ada di root `DESIGN.md`, daftar kelas fondasi di `docs/css-refactoring/DESIGN_SYSTEM.md`, dan status halaman di `docs/css-refactoring/MIGRATION_LEDGER.md`. Pratinjau statis `docs/css-refactoring/foundation-preview.html` dipakai untuk QA komponen; halaman itu bukan bagian dari aplikasi. Bila konten, kontrol, tindakan, atau perilaku UI saat ini bertentangan dengan dokumentasi di luar perubahan visual yang disetujui, tanyakan kepada pengguna sebelum mengubah UI tersebut.
 
