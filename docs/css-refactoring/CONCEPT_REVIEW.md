@@ -1,6 +1,6 @@
 # Tailwind visual direction
 
-Status: **Visual direction approved by the user on 20 October 2026.** These are visual concepts, not rendered Tailwind pages. Root [`DESIGN.md`](../../DESIGN.md) is the target visual contract. No shared shell or application template has been migrated from them.
+Status: **Visual direction approved by the user on 20 October 2026.** These images are visual concepts, not screenshots of rendered Tailwind pages. Root [`DESIGN.md`](../../DESIGN.md) is the target visual contract. The shared desktop shell, Item List, and both dashboard variants have since migrated using this direction.
 
 The concepts were grounded in the live local dashboard, item list and form, distribution detail, quick-create modal, login, centralized 404, mobile stock page, and a print-media capture of the SBBK. They preserve the existing Indonesian information architecture and show record-specific content as neutral masks to avoid inventing operational data. The current logo source remains [`backend/static/img/default-logo.svg`](../../backend/static/img/default-logo.svg); implementation must use that asset exactly, even where image generation approximated its edges.
 
@@ -30,4 +30,4 @@ The user confirmed on 20 October 2026 that migrated forms should keep labels **a
 - **Responsive and icons:** retain the separate mobile stock and approval navigation. Keep the current functional icon direction and existing logo; icon details in the generated art are illustrative. Avoid replacing the mobile card layout with a desktop table.
 - **Print:** white A4 sheet, black/dark ink, thin rules, dense seven-column SBBK table, and the existing two signature blocks. No app navigation or colored UI chrome in print.
 
-The user approved this direction on 20 October 2026. Stage 4 translates it into tokens and foundational component CSS under root `DESIGN.md`. The following shared-shell task will load the generated Tailwind CSS on a separate base; this task does not load it or migrate templates.
+The user approved this direction on 20 October 2026. The foundation translated it into tokens and component CSS under root `DESIGN.md`; the subsequent shared-shell and dashboard slices load the generated Tailwind CSS through a separate base. The concepts remain references, while live content, authorized actions, and the approved logo remain authoritative.

@@ -1,6 +1,6 @@
 # SIMFAS visual design contract
 
-Status: approved direction on 20 October 2026. This file defines the **target** visual system for the incremental Tailwind migration. The current production templates still render with Bootstrap and their existing CSS. The nine approved visual references and review notes are in [the concept review](docs/css-refactoring/CONCEPT_REVIEW.md).
+Status: approved direction on 20 October 2026. This file defines the **target** visual system for the incremental Tailwind migration. The desktop and Puskesmas dashboards and Item List now render through the Tailwind base; other pages retain their existing Bootstrap CSS. The nine approved visual references and review notes are in [the concept review](docs/css-refactoring/CONCEPT_REVIEW.md).
 
 ## Authority and conflict gate
 
@@ -64,4 +64,4 @@ The SBBK reference is a white A4 sheet with a centered document heading, metadat
 
 ## Migration boundary
 
-The foundation stage defines tokens and reusable primitives in `backend/static_src/css/app.css` and commits the generated `backend/static/css/app.tailwind.css`. No current template loads that output. Bootstrap CSS/JavaScript, crispy-bootstrap5, Tom Select, Flatpickr, and the present CSP remain until their respective migration tasks. Do not load Bootstrap and Tailwind stylesheets together. Alpine.js is deferred. The later shared-shell task consumes this contract and must compare its browser render with the approved concept before rollout.
+The foundation defines tokens and reusable primitives in `backend/static_src/css/app.css` and commits the generated `backend/static/css/app.tailwind.css`. `base_tailwind.html` loads that output for the two dashboards and Item List; other templates retain the Bootstrap CSS base. Both desktop bases still load Bootstrap JavaScript, and crispy-bootstrap5, Tom Select, Flatpickr, and the present CSP remain until their respective migration tasks. Do not load Bootstrap and Tailwind stylesheets together. Alpine.js is deferred. Each migrated surface must be compared with the approved concept and its live content before rollout.

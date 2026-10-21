@@ -385,6 +385,41 @@ class DashboardViewTests(TestCase):
             defaults={"scope": scope},
         )
 
+    def test_both_dashboard_variants_use_tailwind_without_bootstrap_css(self):
+        admin_user = User.objects.create_superuser(
+            username="dashboard-css-admin",
+            email="dashboard-css-admin@example.com",
+            password="TestPassword123!",
+        )
+        for user, template_name in (
+            (admin_user, "dashboard.html"),
+            (self.puskesmas_user, "dashboard_puskesmas.html"),
+        ):
+            with self.subTest(template_name=template_name):
+                self.client.force_login(user)
+                response = self.client.get(reverse("dashboard"))
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, template_name)
+                self.assertTemplateUsed(response, "base_tailwind.html")
+                self.assertContains(response, "/static/css/app.tailwind.css")
+                self.assertNotContains(response, "bootstrap.min.css")
+
+    def test_dashboards_keep_empty_state_messages(self):
+        admin_user = User.objects.create_superuser(
+            username="dashboard-empty-admin",
+            email="dashboard-empty-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(admin_user)
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "Belum ada transaksi")
+        self.assertContains(response, "Tidak ada barang mendekati kedaluwarsa")
+
+        self.client.force_login(self.puskesmas_user)
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "Belum ada LPLPO untuk puskesmas ini.")
+        self.assertContains(response, "Belum ada permintaan barang untuk puskesmas ini.")
+
     def test_sidebar_brand_uses_configured_navbar_logo(self):
         admin_user = User.objects.create_superuser(
             username="dashboard-logo-admin",

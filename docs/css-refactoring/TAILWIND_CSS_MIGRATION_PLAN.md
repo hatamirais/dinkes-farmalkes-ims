@@ -99,7 +99,7 @@ Bootstrap is not only a stylesheet dependency.
 
 - Before this wave, `package.json` contained Playwright scripts only and invoked npm, npx, and Node directly. Active commands use Bun entrypoints. Playwright browser helpers and the Tailwind CLI use a local Node runtime; Bun 1.3.14 caused persistent Chromium launch hangs and a reproducible Tailwind scanner warning on Windows.
 - The npm lockfile was migrated with `bun pm migrate` to committed text `bun.lock`. The locked Playwright resolution remained 1.61.1; the npm lockfile was removed after the three committed specs (five tests) passed under `bun run playwright:test`.
-- Bun 1.3.14 is declared in `package.json` and used in `.github/workflows/css-check.yml`. The CSS check workflow also sets up Node 24 for the Tailwind CLI. Tailwind CSS and its CLI are pinned at 4.3.3. The build outputs committed minified CSS, now loaded by the Item List pilot.
+- Bun 1.3.14 is declared in `package.json` and used in `.github/workflows/css-check.yml`. The CSS check workflow also sets up Node 24 for the Tailwind CLI. Tailwind CSS and its CLI are pinned at 4.3.3. The build outputs committed minified CSS, now loaded by the Item List and both desktop dashboard variants.
 - [`backend/config/settings.py`](../../backend/config/settings.py) collects files from `backend/static` into `backend/staticfiles`.
 - WhiteNoise serves collected static assets in production through the configured `whitenoise.storage.CompressedStaticFilesStorage` backend. The current project does not use WhiteNoise's manifest storage.
 - The release workflow in [`.github/workflows/release-on-version-change.yml`](../../.github/workflows/release-on-version-change.yml) remains Python-only. A separate path-triggered [CSS check workflow](../../.github/workflows/css-check.yml) runs Bun and Node for source and configuration changes, so verification does not depend on a VERSION change.
@@ -189,7 +189,7 @@ Keep task definitions in [`package.json`](../../package.json), but invoke them w
 | `css:check` | Rebuild and fail when the committed output differs. |
 | `playwright:test` | Preserve the existing browser test command. |
 
-The sequence below records the Wave 1 migration. The toolchain, generated stylesheet, and approved Stage 4 design-system foundation are implemented. The shared desktop shell and Item List pilot are now implemented as a later slice; the migration ledger records their actual state.
+The sequence below records the Wave 1 migration. The toolchain, generated stylesheet, and approved Stage 4 design-system foundation are implemented. The shared desktop shell, Item List pilot, and both dashboard variants were implemented in Wave 2; the migration ledger records their actual state.
 
 1. Select and document an exact supported Bun version; configure local and CI use of the same version.
 2. Run `bun pm migrate` to import the former npm lockfile resolution into text-based `bun.lock`.
@@ -489,6 +489,8 @@ Exit gate:
 - No production Bun or Node runtime is required.
 
 ### Wave 2: Dual bases and desktop shell pilot
+
+Completed 21 October 2026. The shared shell and Item List pilot were delivered in PR #280; the desktop and Puskesmas dashboards complete this wave. The migration ledger records the verification and remaining Bootstrap JavaScript bridge.
 
 Pilot surfaces:
 

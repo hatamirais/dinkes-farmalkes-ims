@@ -1,11 +1,11 @@
 # Tailwind migration ledger
 
-Updated 21 October 2026. The approved foundation is loaded by the authenticated Tailwind desktop shell and the Item List pilot. All other application surfaces retain their existing CSS.
+Updated 21 October 2026. **Wave 2 complete:** the authenticated desktop shell, Item List pilot, and desktop/Puskesmas dashboards load the approved Tailwind foundation. Other application surfaces retain their existing CSS.
 
 | Surface | Source template | Base / CSS dependency | Interaction or form contract | Existing verification | Status |
 | --- | --- | --- | --- | --- | --- |
-| Desktop shell | `backend/templates/base_tailwind.html`; legacy `base.html` / `base_bootstrap.html` | Tailwind CSS on pilot; Bootstrap CSS and `style.css` on legacy | Shared sidebar and user-menu semantics; Bootstrap JS collapse, dropdown and toast bridge | Six-role browser link comparison; core tests; desktop/narrow screenshots | Tailwind pilot active; legacy preserved |
-| Dashboard | `backend/templates/dashboard.html` and role-specific dashboard variants | Desktop base | Server-computed quick links, transactions, expiry list | Browser review; core tests | Legacy |
+| Desktop shell | `backend/templates/base_tailwind.html`; legacy `base.html` / `base_bootstrap.html` | Tailwind CSS on migrated pages; Bootstrap CSS and `style.css` on legacy | Shared sidebar and user-menu semantics; Bootstrap JS collapse, dropdown and toast bridge | Seven-profile browser link check; core tests; desktop/narrow screenshots | Tailwind active; legacy preserved |
+| Desktop and Puskesmas dashboards | `backend/templates/dashboard.html`, `dashboard_puskesmas.html` | Tailwind desktop base | Server-computed quick links, transactions, expiry list, auditor reports, facility metrics and recent lists | Dashboard/core tests; GUDANG, PUSKESMAS and AUDITOR browser checks; seven-profile navigation check | Tailwind Wave 2 |
 | Dense item list | `backend/templates/items/item_list.html` | Tailwind desktop base | Existing filters, XLSX export, create/edit/delete links, pagination, table scroll | Browser desktop/narrow, items tests | Tailwind pilot |
 | Item form and quick-create modal | `backend/templates/items/item_form.html` | Desktop base; Bootstrap modal `data-bs-*` | Item form classes, lookup POST validation, native checkbox/toggle semantics | Browser review; items tests | Legacy |
 | Distribution workflow detail | `backend/templates/distribution/distribution_detail.html` | Desktop base; Bootstrap collapse/modal `data-bs-*` | Server-authorized actions, `confirm-actions.js` print hook, SBBK print sheet | Browser review; distribution tests | Legacy |
@@ -18,7 +18,7 @@ Updated 21 October 2026. The approved foundation is loaded by the authenticated 
 
 - `backend/static_src/css/app.css` contains approved tokens and reusable buttons, fields, tables, badges, alerts, pagination, focus, disabled, and print foundations.
 - `backend/static/css/app.tailwind.css` is committed generated output. `bun run css:check` verifies it; CI runs this check on relevant source and configuration changes.
-- The Item List loads generated Tailwind CSS and Bootstrap Icons, without Bootstrap CSS. Legacy templates continue through `base.html` with Bootstrap CSS and `style.css`. Both desktop bases keep Bootstrap JavaScript and `app.js`; Alpine.js is deferred.
+- The Item List and both dashboards load generated Tailwind CSS and Bootstrap Icons, without Bootstrap CSS. Legacy templates continue through `base.html` with Bootstrap CSS and `style.css`. Both desktop bases keep Bootstrap JavaScript and `app.js`; Alpine.js is deferred.
 - `components/navigation/desktop_navigation.html` owns the unchanged sidebar conditions, destinations, labels, and active-route expressions. `components/navigation/user_menu_items.html` owns the unchanged role text, password link, and logout form.
 - Temporary Bootstrap JavaScript bridge selectors on the Tailwind shell: `.collapse`, `.collapsing`, `.show`, `.dropdown-menu`, `.dropdown-menu-end`, `.dropdown-item`, `.dropdown-divider`, `.toast`, `.toast-container`, `.toast-body`, and `.btn-close`. The sidebar bridge also overrides Tailwind's `.collapse` visibility utility for Bootstrap submenus. These cover sidebar navigation collapse, top-bar dropdowns, and flash toast dismissal used by the pilot. Modal, tooltip, and other component bridges await a page that uses them.
 - The Item List keeps its existing fields, search/filter submission, rows, badges, export URL, create/edit/delete destinations, and pagination. The table scrolls inside its frame on narrow viewports; pagination links wrap within the footer so the edge controls remain reachable.
@@ -52,6 +52,21 @@ Reference: `concepts/dense-item-list.png` and `concepts/desktop-dashboard.png`. 
 | Data and actions | Live record text, badges, both row actions, filters, and pagination remain; concept mask bars are intentionally absent. |
 
 No content or behavior conflict beyond the planned visual change was found in this pilot.
+
+## Wave 2 dashboard completion
+
+The dashboard baseline was captured before editing at 1440×900 and 390×900 for the configured GUDANG, PUSKESMAS, and AUDITOR accounts. The final pages were captured at the same sizes and compared with the approved `concepts/desktop-dashboard.png` and the live baseline. The Puskesmas variant has no separate concept; it follows the approved tokens and keeps its live facility summary, three LPLPO counts, last period, recent LPLPO list, and request list. Template-tag comparison confirmed that every Django condition, loop, URL, and value expression outside the base selection stayed in order.
+
+| Comparison point | Result |
+| --- | --- |
+| Desktop dashboard | The navy shell, pale canvas, white surfaces, compact transaction table, semantic status labels, and quick-action hierarchy follow the approved direction. The existing ten transaction rows and ten expiry entries remain. |
+| Puskesmas dashboard | The facility actions, four summary surfaces, recent document link, and request empty state remain visible; at 390px the cards and actions reflow without page overflow. |
+| Concept differences | The concept has a second large page heading, a `Pengguna` transaction column, and an expiry table with extra columns. The live dashboard has the top-bar title and a linked expiry list; `Pengguna` appears only when the server's existing permission condition allows it. These were preserved without adding metrics, columns, or masked records. Live permissions also determine which quick actions appear. |
+| Responsive and focus | At 390px the transaction table scrolls within its card (`356px` viewport, `620px` content), with a focusable named scroll region. At 1440px the expiry title and action remain on one row. Focus on a header link showed a 2px solid outline. No document overflow was measured. |
+
+Wave 2 exit gate passed: the two dashboards and Item List load Tailwind without Bootstrap CSS; visited legacy transaction, LPLPO, and reports pages still load Bootstrap CSS; the shared navigation retained the prior six-role link counts (PUSKESMAS 7, GUDANG 25, KEPALA 29, ADMIN_UMUM 21, AUDITOR 7, ADMIN 34), and GUDANG2 retained 25. The shared Tailwind CSS URL cache key advances to `wave2` so browsers fetch the rebuilt stylesheet. Bootstrap JavaScript remains for the shared shell. Dashboard core tests cover authorization, context, empty states, and stylesheet isolation. Browser checks covered quick-link destinations, the auditor report landing, status text, narrow table scroll, mobile sidebar, collapse visibility, user dropdown Escape, console/CSP errors, and both dashboard variants at desktop/narrow widths. The existing five Playwright allocation regressions passed. No unrelated page template was migrated.
+
+Wave 2 commands passed: `bun ci`, `bun run css:build`, `bun run css:check`, `.\venv\Scripts\python.exe backend/manage.py check`, `.\venv\Scripts\python.exe backend/manage.py findstatic css/app.tailwind.css --verbosity 0`, `.\scripts\run-django-test.ps1 -Target apps.core.tests.test_core.DashboardViewTests` (20 tests), `bun run playwright:test` (5 tests), and `git diff --check`. An initial dashboard test run failed two auditor assertions after a presentation-class cleanup removed the `dashboard-reports-landing` marker; the marker was restored and the 20-test rerun passed. URL-consistency tests were not rerun because no route changed. The Puskesmas unlinked-facility branch returns the existing 403 and was verified by a focused Django test; it has no accessible browser render.
 
 ## Verification record
 
