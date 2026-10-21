@@ -1,6 +1,6 @@
 # Tailwind foundation implementation
 
-Root [`DESIGN.md`](../../DESIGN.md) is the approved visual contract. This file records its CSS implementation and usage rules. The classes below are defined in `backend/static_src/css/app.css`; `bun run css:build` produces the committed `backend/static/css/app.tailwind.css` using the Tailwind CLI under Node 24. The authenticated Item List now imports this output through `base_tailwind.html`; legacy pages remain on Bootstrap.
+Root [`DESIGN.md`](../../DESIGN.md) is the approved visual contract. This file records its CSS implementation and usage rules. The classes below are defined in `backend/static_src/css/app.css`; `bun run css:build` produces the committed `backend/static/css/app.tailwind.css` using the Tailwind CLI under Node 24. The desktop and Puskesmas dashboards and authenticated Item List import this output through `base_tailwind.html`; other pages remain on Bootstrap.
 
 The standalone [foundation preview](foundation-preview.html) is a static QA artifact for desktop and mobile-sized inspection. It is not an application template and contains no inventory records or working form submission.
 
@@ -28,7 +28,7 @@ Shared focus outlines cover buttons, controls, choices, page links, and focusabl
 
 `@import "tailwindcss" source(none)` disables implicit repository scanning. Explicit `@source` declarations cover `backend/templates/**/*.html`, `backend/apps/**/*.py`, and `backend/static/js/**/*.js`. A temporary compile probe verified class detection in all three source types. Tailwind scans text and cannot resolve dynamically assembled names such as `bg-{{ status }}-600`; emit complete class literals or use these semantic component classes.
 
-`base_tailwind.html` loads this CSS without Bootstrap CSS. `base.html` remains the compatibility base for legacy pages, and `base_bootstrap.html` records the same legacy rendering path. Both desktop bases use shared sidebar and user-menu partials. Bootstrap JavaScript remains on the pilot for collapse, dropdown, and flash toasts; the bridge selectors are inventoried in `MIGRATION_LEDGER.md`. Tom Select, Flatpickr, and crispy forms require separate reviewed changes. Compare each later migrated page with its approved concept and follow the ask-first rule in `DESIGN.md` if a content or behavior conflict is found.
+`base_tailwind.html` loads this CSS without Bootstrap CSS. `base.html` remains the compatibility base for legacy pages, and `base_bootstrap.html` records the same legacy rendering path. Both desktop bases use shared sidebar and user-menu partials. Bootstrap JavaScript remains on the migrated pages for collapse, dropdown, and flash toasts; the bridge selectors are inventoried in `MIGRATION_LEDGER.md`. Dashboard cards, responsive grids, lists, empty states, and the Puskesmas status summary are scoped under `.ims-dashboard`; actions, transaction status badges, and the transaction table reuse the foundation components. The transaction table retains `.table` because `app.js` uses it for row keyboard handling. Tom Select, Flatpickr, and crispy forms require separate reviewed changes. Compare each later migrated page with its approved concept and follow the ask-first rule in `DESIGN.md` if a content or behavior conflict is found.
 
 ## Foundation visual QA
 
@@ -37,7 +37,7 @@ The built-in browser was used first on `foundation-preview.html` at desktop widt
 | Comparison point | Observation |
 | --- | --- |
 | Palette and surface | Preview primary computed as `rgb(0, 105, 172)` (`#0069AC`); white surfaces, pale canvas, and navy text follow the approved direction. |
-| Typography and density | System UI text, compact labels, controls, badges, and table headers render readably. Full shell and operational row density await template migration. |
+| Typography and density | System UI text, compact labels, controls, badges, and table headers render readably in this foundation preview. The later shell, Item List, and dashboard renders are recorded in the migration ledger. |
 | Actions and focus | Filled, outline, neutral, dark print, danger, and disabled states render separately. Keyboard Tab showed a visible outline on the primary button. The initial pale-blue disabled fill made white text weak; it was replaced with muted dark text on a pale surface (measured 5.69:1). |
 | Forms | Labels, help, error border/text, native checkbox, and existing-style program toggle render distinctly. The user confirmed that future forms keep labels above inputs, resolving the concept/current-UI mismatch. No application form was changed. |
 | Status and tables | Semantic badge text remains visible alongside color. The table header, numeric alignment class, and pagination render without replacing table markup. |

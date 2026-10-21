@@ -1,21 +1,22 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Dashboard — Healthcare IMS{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<div class="ims-dashboard">
 {% if show_linked_dashboard_sections %}
-<div class="row g-3">
-    <div class="col-lg-8">
-        <div class="card content-card">
-            <div class="card-header">
-                <span><i class="bi bi-clock-history me-2"></i>Transaksi Terakhir</span>
-                <a href="{% url 'stock:transaction_list' %}" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+<div class="ims-dashboard-layout">
+    <div class="ims-dashboard-primary">
+        <section class="ims-dashboard-card">
+            <div class="ims-dashboard-card-header">
+                <span><i class="bi bi-clock-history"></i>Transaksi Terakhir</span>
+                <a href="{% url 'stock:transaction_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm">Lihat Semua</a>
             </div>
-            <div class="card-body p-0">
+            <div class="ims-dashboard-card-body ims-dashboard-card-body--flush">
                 {% if recent_transactions %}
-                <div class="table-responsive">
-                    <table class="table">
+                <div class="ims-table-scroll" tabindex="0" aria-label="Transaksi terakhir, gulir untuk melihat semua kolom">
+                    <table class="ims-table table">
                         <thead>
                             <tr>
                                 <th>Tanggal</th>
@@ -33,17 +34,17 @@
                                 <td>{{ tx.created_at|date:"d/m/Y H:i" }}</td>
                                 <td>
                                     {% if tx.transaction_type == 'IN' %}
-                                    <span class="badge bg-success-subtle text-success">Masuk</span>
+                                    <span class="ims-badge ims-badge--success">Masuk</span>
                                     {% elif tx.transaction_type == 'OUT' %}
-                                    <span class="badge bg-danger-subtle text-danger">Keluar</span>
+                                    <span class="ims-badge ims-badge--danger">Keluar</span>
                                     {% elif tx.transaction_type == 'ADJUST' %}
-                                    <span class="badge bg-warning-subtle text-warning">Penyesuaian</span>
+                                    <span class="ims-badge ims-badge--warning">Penyesuaian</span>
                                     {% else %}
-                                    <span class="badge bg-info-subtle text-info">Retur</span>
+                                    <span class="ims-badge ims-badge--info">Retur</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ tx.item.nama_barang|truncatechars:40 }}</td>
-                                <td>{{ tx.quantity }}</td>
+                                <td class="ims-table-number">{{ tx.quantity }}</td>
                                 {% if show_transaction_user %}
                                 <td>{{ tx.user }}</td>
                                 {% endif %}
@@ -53,57 +54,57 @@
                     </table>
                 </div>
                 {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-journal-text d-block"></i>
+                <div class="ims-dashboard-empty">
+                    <i class="bi bi-journal-text"></i>
                     <p>Belum ada transaksi</p>
                 </div>
                 {% endif %}
             </div>
-        </div>
+        </section>
     </div>
 
-    <div class="col-lg-4 d-flex flex-column gap-3">
-        <div class="card content-card">
-            <div class="card-header">
-                <span><i class="bi bi-lightning-charge me-2"></i>Aksi Cepat</span>
+    <div class="ims-dashboard-secondary">
+        <section class="ims-dashboard-card">
+            <div class="ims-dashboard-card-header">
+                <span><i class="bi bi-lightning-charge"></i>Aksi Cepat</span>
             </div>
-            <div class="card-body d-grid gap-2">
+            <div class="ims-dashboard-card-body ims-dashboard-actions">
                 {% if show_receiving_quick_action %}
-                <a href="{% url 'receiving:receiving_create' %}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-1"></i>Buat Penerimaan
+                <a href="{% url 'receiving:receiving_create' %}" class="ims-btn ims-btn--primary">
+                    <i class="bi bi-plus-circle"></i>Buat Penerimaan
                 </a>
                 {% endif %}
                 {% if show_distribution_quick_action %}
-                <a href="{% url 'distribution:special_request_create' %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-send-plus me-1"></i>Buat Permintaan Khusus
+                <a href="{% url 'distribution:special_request_create' %}" class="ims-btn ims-btn--neutral">
+                    <i class="bi bi-send-plus"></i>Buat Permintaan Khusus
                 </a>
                 {% endif %}
                 {% if show_transfer_quick_action %}
-                <a href="{% url 'stock:transfer_create' %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left-right me-1"></i>Buat Mutasi Lokasi
+                <a href="{% url 'stock:transfer_create' %}" class="ims-btn ims-btn--neutral">
+                    <i class="bi bi-arrow-left-right"></i>Buat Mutasi Lokasi
                 </a>
                 {% endif %}
-                <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-clock-history me-1"></i>Lihat Transaksi
+                <a href="{% url 'stock:transaction_list' %}" class="ims-btn ims-btn--neutral">
+                    <i class="bi bi-clock-history"></i>Lihat Transaksi
                 </a>
             </div>
-        </div>
+        </section>
 
         {% if show_expiring_metrics %}
-        <div class="card content-card">
-            <div class="card-header">
-                <span><i class="bi bi-calendar-x me-2"></i>Mendekati Kedaluwarsa</span>
-                <a href="{% url 'expired:expired_alerts' %}?level=all&pending=1" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+        <section class="ims-dashboard-card">
+            <div class="ims-dashboard-card-header">
+                <span><i class="bi bi-calendar-x"></i>Mendekati Kedaluwarsa</span>
+                <a href="{% url 'expired:expired_alerts' %}?level=all&pending=1" class="ims-btn ims-btn--neutral ims-btn--sm">Lihat Semua</a>
             </div>
-            <div class="card-body p-0">
+            <div class="ims-dashboard-card-body ims-dashboard-card-body--flush">
                 {% if expiring_soon %}
-                <div class="list-group list-group-flush">
+                <div class="ims-dashboard-list">
                     {% for stock in expiring_soon %}
-                    <a href="{% url 'expired:expired_alerts' %}?q={{ stock.item.kode_barang }}&location={{ stock.location_id }}&pending=1" class="list-group-item list-group-item-action px-3 py-2">
-                        <div class="fw-semibold small">{{ stock.item.nama_barang|truncatechars:30 }}</div>
-                        <div class="d-flex justify-content-between text-muted small">
+                    <a href="{% url 'expired:expired_alerts' %}?q={{ stock.item.kode_barang }}&location={{ stock.location_id }}&pending=1" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">{{ stock.item.nama_barang|truncatechars:30 }}</div>
+                        <div class="ims-dashboard-item-meta">
                             <span>Batch: {{ stock.batch_lot|default:"-" }}</span>
-                            <span class="{% if stock.is_expired %}text-danger fw-bold{% else %}text-warning{% endif %}">
+                            <span class="{% if stock.is_expired %}ims-dashboard-expiry--danger{% else %}ims-dashboard-expiry--warning{% endif %}">
                                 {{ stock.expiry_date|date:"d/m/Y" }}
                             </span>
                         </div>
@@ -111,50 +112,51 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="empty-state py-4">
-                    <i class="bi bi-check-circle d-block text-success"></i>
-                    <p class="small">Tidak ada barang mendekati kedaluwarsa</p>
+                <div class="ims-dashboard-empty">
+                    <i class="bi bi-check-circle ims-dashboard-success-icon"></i>
+                    <p>Tidak ada barang mendekati kedaluwarsa</p>
                 </div>
                 {% endif %}
             </div>
-        </div>
+        </section>
         {% endif %}
     </div>
 </div>
 {% elif show_reports_landing %}
-<div class="row g-3">
-    <div class="col-lg-8">
-        <div class="card content-card dashboard-reports-landing">
-            <div class="card-header">
-                <span><i class="bi bi-file-earmark-bar-graph me-2"></i>Laporan</span>
+<div class="ims-dashboard-reports">
+    <div class="ims-dashboard-primary">
+        <section class="ims-dashboard-card dashboard-reports-landing">
+            <div class="ims-dashboard-card-header">
+                <span><i class="bi bi-file-earmark-bar-graph"></i>Laporan</span>
             </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                    <a href="{% url 'reports:index' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Daftar Laporan</div>
+            <div class="ims-dashboard-card-body ims-dashboard-card-body--flush">
+                <div class="ims-dashboard-list">
+                    <a href="{% url 'reports:index' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Daftar Laporan</div>
                     </a>
-                    <a href="{% url 'reports:numbering_history' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Riwayat Penomoran</div>
+                    <a href="{% url 'reports:numbering_history' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Riwayat Penomoran</div>
                     </a>
-                    <a href="{% url 'reports:rekap' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Rekapitulasi</div>
+                    <a href="{% url 'reports:rekap' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Rekapitulasi</div>
                     </a>
-                    <a href="{% url 'reports:penerimaan_hibah' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Penerimaan Hibah</div>
+                    <a href="{% url 'reports:penerimaan_hibah' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Penerimaan Hibah</div>
                     </a>
-                    <a href="{% url 'reports:pengadaan' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Pengadaan</div>
+                    <a href="{% url 'reports:pengadaan' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Pengadaan</div>
                     </a>
-                    <a href="{% url 'reports:kadaluarsa' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Kadaluarsa</div>
+                    <a href="{% url 'reports:kadaluarsa' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Kadaluarsa</div>
                     </a>
-                    <a href="{% url 'reports:pengeluaran' %}" class="list-group-item list-group-item-action px-3 py-3">
-                        <div class="fw-semibold">Pengeluaran</div>
+                    <a href="{% url 'reports:pengeluaran' %}" class="ims-dashboard-list-item">
+                        <div class="ims-dashboard-item-title">Pengeluaran</div>
                     </a>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 </div>
 {% endif %}
+</div>
 {% endblock %}

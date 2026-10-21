@@ -1,105 +1,97 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Dashboard Puskesmas — Healthcare IMS{% endblock %}
 {% block page_title %}Dashboard Puskesmas{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-dashboard ims-dashboard-puskesmas">
     {% if facility %}
-    <div class="card content-card mb-4">
-        <div class="card-body d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+    <section class="ims-dashboard-card ims-dashboard-facility">
+        <div class="ims-dashboard-facility-body">
             <div>
-                <div class="text-muted small mb-1">Fasilitas Aktif</div>
-                <h4 class="mb-1">{{ facility.name }}</h4>
-                <div class="text-muted">{{ facility.code }}</div>
+                <div class="ims-dashboard-eyebrow">Fasilitas Aktif</div>
+                <h4 class="ims-dashboard-facility-name">{{ facility.name }}</h4>
+                <div class="ims-dashboard-muted">{{ facility.code }}</div>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{% url 'lplpo:lplpo_create' %}" class="btn btn-primary">
-                    <i class="bi bi-file-earmark-plus me-1"></i>Buat LPLPO
+            <div class="ims-dashboard-facility-actions">
+                <a href="{% url 'lplpo:lplpo_create' %}" class="ims-btn ims-btn--primary">
+                    <i class="bi bi-file-earmark-plus"></i>Buat LPLPO
                 </a>
-                <a href="{% url 'lplpo:lplpo_my_list' %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-journal-text me-1"></i>Lihat LPLPO
+                <a href="{% url 'lplpo:lplpo_my_list' %}" class="ims-btn ims-btn--neutral">
+                    <i class="bi bi-journal-text"></i>Lihat LPLPO
                 </a>
-                <a href="{% url 'puskesmas:request_create' %}" class="btn btn-outline-secondary">
-                    <i class="bi bi-plus-circle me-1"></i>Buat Permintaan
+                <a href="{% url 'puskesmas:request_create' %}" class="ims-btn ims-btn--neutral">
+                    <i class="bi bi-plus-circle"></i>Buat Permintaan
                 </a>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card h-100">
-                <div class="card-body">
-                    <div class="stat-value">{{ draft_lplpo_count }}</div>
-                    <div class="stat-label">LPLPO Draft</div>
-                </div>
+    <div class="ims-dashboard-stats">
+        <div class="ims-dashboard-card ims-dashboard-stat">
+            <div class="ims-dashboard-card-body">
+                <div class="ims-dashboard-stat-value">{{ draft_lplpo_count }}</div>
+                <div class="ims-dashboard-stat-label">LPLPO Draft</div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card h-100">
-                <div class="card-body">
-                    <div class="stat-value">{{ submitted_lplpo_count }}</div>
-                    <div class="stat-label">Menunggu Tinjauan</div>
-                </div>
+        <div class="ims-dashboard-card ims-dashboard-stat">
+            <div class="ims-dashboard-card-body">
+                <div class="ims-dashboard-stat-value">{{ submitted_lplpo_count }}</div>
+                <div class="ims-dashboard-stat-label">Menunggu Tinjauan</div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card h-100">
-                <div class="card-body">
-                    <div class="stat-value">{{ reviewed_lplpo_count }}</div>
-                    <div class="stat-label">Siap Distribusi</div>
-                </div>
+        <div class="ims-dashboard-card ims-dashboard-stat">
+            <div class="ims-dashboard-card-body">
+                <div class="ims-dashboard-stat-value">{{ reviewed_lplpo_count }}</div>
+                <div class="ims-dashboard-stat-label">Siap Distribusi</div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card h-100">
-                <div class="card-body">
-                    <div class="text-muted small mb-1">Periode Terakhir</div>
-                    {% if latest_lplpo %}
-                    <div class="h5 mb-1">{{ latest_lplpo.period_display }}</div>
-                    <div class="stat-label">
-                        {% if latest_lplpo.status == 'DRAFT' %}
-                        Draft
-                        {% elif latest_lplpo.status == 'SUBMITTED' %}
-                        Menunggu Tinjauan
-                        {% elif latest_lplpo.status == 'REVIEWED' %}
-                        Ditinjau PIC (Legacy)
-                        {% elif latest_lplpo.status == 'APPROVED' %}
-                        Dokumen Distribusi Diproses
-                        {% elif latest_lplpo.status == 'DISTRIBUTED' %}
-                        Dokumen Distribusi Dibuat
-                        {% elif latest_lplpo.status == 'CLOSED' %}
-                        Sudah Didistribusikan
-                        {% endif %}
-                    </div>
-                    {% else %}
-                    <div class="h5 mb-1">Belum Ada</div>
-                    <div class="stat-label">LPLPO belum dibuat</div>
+        <div class="ims-dashboard-card ims-dashboard-stat">
+            <div class="ims-dashboard-card-body">
+                <div class="ims-dashboard-eyebrow">Periode Terakhir</div>
+                {% if latest_lplpo %}
+                <div class="ims-dashboard-period">{{ latest_lplpo.period_display }}</div>
+                <div class="ims-dashboard-stat-label">
+                    {% if latest_lplpo.status == 'DRAFT' %}
+                    Draft
+                    {% elif latest_lplpo.status == 'SUBMITTED' %}
+                    Menunggu Tinjauan
+                    {% elif latest_lplpo.status == 'REVIEWED' %}
+                    Ditinjau PIC (Legacy)
+                    {% elif latest_lplpo.status == 'APPROVED' %}
+                    Dokumen Distribusi Diproses
+                    {% elif latest_lplpo.status == 'DISTRIBUTED' %}
+                    Dokumen Distribusi Dibuat
+                    {% elif latest_lplpo.status == 'CLOSED' %}
+                    Sudah Didistribusikan
                     {% endif %}
                 </div>
+                {% else %}
+                <div class="ims-dashboard-period">Belum Ada</div>
+                <div class="ims-dashboard-stat-label">LPLPO belum dibuat</div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card content-card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-file-earmark-medical me-2"></i>LPLPO Puskesmas</span>
-                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+    <div class="ims-dashboard-recent-grid">
+        <div>
+            <section class="ims-dashboard-card ims-dashboard-recent-card">
+                <div class="ims-dashboard-card-header">
+                    <span><i class="bi bi-file-earmark-medical"></i>LPLPO Puskesmas</span>
+                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm">Lihat Semua</a>
                 </div>
-                <div class="card-body p-0">
+                <div class="ims-dashboard-card-body ims-dashboard-card-body--flush">
                     {% if recent_lplpos %}
-                    <div class="list-group list-group-flush">
+                    <div class="ims-dashboard-list">
                         {% for lplpo in recent_lplpos %}
-                        <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="list-group-item list-group-item-action px-3 py-3">
-                            <div class="d-flex justify-content-between align-items-start gap-2">
+                        <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="ims-dashboard-list-item">
+                            <div class="ims-dashboard-list-row">
                                 <div>
-                                    <div class="fw-semibold">{{ lplpo.document_number }}</div>
-                                    <div class="text-muted small">{{ lplpo.period_display }}</div>
+                                    <div class="ims-dashboard-item-title">{{ lplpo.document_number }}</div>
+                                    <div class="ims-dashboard-muted ims-dashboard-small">{{ lplpo.period_display }}</div>
                                 </div>
-                                <span class="badge text-bg-light border">
+                                <span class="ims-badge ims-dashboard-status">
                                     {% if lplpo.status == 'DRAFT' %}
                                     Draft
                                     {% elif lplpo.status == 'SUBMITTED' %}
@@ -119,52 +111,52 @@
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="empty-state py-4">
-                        <i class="bi bi-file-earmark d-block"></i>
-                        <p class="mb-0">Belum ada LPLPO untuk puskesmas ini.</p>
+                    <div class="ims-dashboard-empty">
+                        <i class="bi bi-file-earmark"></i>
+                        <p>Belum ada LPLPO untuk puskesmas ini.</p>
                     </div>
                     {% endif %}
                 </div>
-            </div>
+            </section>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card content-card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-file-earmark-arrow-up me-2"></i>Permintaan Barang</span>
-                    <a href="{% url 'puskesmas:request_list' %}" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+        <div>
+            <section class="ims-dashboard-card ims-dashboard-recent-card">
+                <div class="ims-dashboard-card-header">
+                    <span><i class="bi bi-file-earmark-arrow-up"></i>Permintaan Barang</span>
+                    <a href="{% url 'puskesmas:request_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm">Lihat Semua</a>
                 </div>
-                <div class="card-body p-0">
+                <div class="ims-dashboard-card-body ims-dashboard-card-body--flush">
                     {% if recent_requests %}
-                    <div class="list-group list-group-flush">
+                    <div class="ims-dashboard-list">
                         {% for req in recent_requests %}
-                        <a href="{% url 'puskesmas:request_detail' req.pk %}" class="list-group-item list-group-item-action px-3 py-3">
-                            <div class="d-flex justify-content-between align-items-start gap-2">
+                        <a href="{% url 'puskesmas:request_detail' req.pk %}" class="ims-dashboard-list-item">
+                            <div class="ims-dashboard-list-row">
                                 <div>
-                                    <div class="fw-semibold">{{ req.document_number }}</div>
-                                    <div class="text-muted small">{{ req.request_date|date:"d M Y" }}</div>
+                                    <div class="ims-dashboard-item-title">{{ req.document_number }}</div>
+                                    <div class="ims-dashboard-muted ims-dashboard-small">{{ req.request_date|date:"d M Y" }}</div>
                                 </div>
-                                <span class="badge text-bg-light border">{{ req.get_status_display }}</span>
+                                <span class="ims-badge ims-dashboard-status">{{ req.get_status_display }}</span>
                             </div>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="empty-state py-4">
-                        <i class="bi bi-inbox d-block"></i>
-                        <p class="mb-0">Belum ada permintaan barang untuk puskesmas ini.</p>
+                    <div class="ims-dashboard-empty">
+                        <i class="bi bi-inbox"></i>
+                        <p>Belum ada permintaan barang untuk puskesmas ini.</p>
                     </div>
                     {% endif %}
                 </div>
-            </div>
+            </section>
         </div>
     </div>
     {% else %}
-    <div class="card content-card">
-        <div class="card-body py-5 text-center">
-            <i class="bi bi-building-exclamation fs-1 text-warning d-block mb-3"></i>
-            <h5 class="mb-2">Akun belum terhubung ke puskesmas</h5>
-            <p class="text-muted mb-0">Hubungi administrator agar akun operator ini dihubungkan ke fasilitas yang sesuai.</p>
+    <div class="ims-dashboard-card">
+        <div class="ims-dashboard-empty ims-dashboard-empty--unlinked">
+            <i class="bi bi-building-exclamation ims-dashboard-warning-icon"></i>
+            <h5>Akun belum terhubung ke puskesmas</h5>
+            <p>Hubungi administrator agar akun operator ini dihubungkan ke fasilitas yang sesuai.</p>
         </div>
     </div>
     {% endif %}
