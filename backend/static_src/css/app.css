@@ -385,6 +385,11 @@
   .ims-tailwind-shell [data-mobile-discovery] a { color: var(--color-ims-primary); }
 }
 
+/* Tailwind's collapse utility sets visibility: collapse; Bootstrap keeps the class on open submenus. */
+@layer utilities {
+  .ims-tailwind-shell .sidebar-submenu.collapse { visibility: visible; }
+}
+
 @media (min-width: 992px) {
   .ims-tailwind-shell .d-lg-none { display: none !important; }
   .ims-tailwind-shell .d-lg-flex { display: flex; }
