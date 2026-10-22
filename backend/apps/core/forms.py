@@ -1,10 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
-from crispy_forms.helper import FormHelper
-from crispy_forms.bootstrap import FieldWithButtons, StrictButton
-from crispy_forms.layout import Field, HTML, Layout
-
 from .models import DocumentNumberRule, SystemSettings
 from .upload_validation import validate_image_upload
 
@@ -13,7 +9,7 @@ LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024
 
 
 class CrispyAuthenticationForm(AuthenticationForm):
-    """AuthenticationForm rendered through crispy-forms on the login page."""
+    """Project authentication form shared with the Tailwind login renderer."""
 
     error_messages = {
         "invalid_login": "Invalid username or password",
@@ -27,7 +23,7 @@ class CrispyAuthenticationForm(AuthenticationForm):
             {
                 "autocomplete": "username",
                 "autofocus": True,
-                "class": "form-control form-control-lg",
+                "class": "ims-control",
                 "id": "id_username",
                 "placeholder": "Masukkan username",
             }
@@ -39,7 +35,7 @@ class CrispyAuthenticationForm(AuthenticationForm):
         self.fields["password"].widget.attrs.update(
             {
                 "autocomplete": "current-password",
-                "class": "form-control form-control-lg",
+                "class": "ims-control",
                 "id": "id_password",
                 "placeholder": "Masukkan kata sandi",
             }
@@ -52,48 +48,21 @@ class CrispyAuthenticationForm(AuthenticationForm):
             ):
                 field = self.fields[field_name]
                 css_classes = field.widget.attrs.get("class", "")
-                if "is-invalid" not in css_classes:
-                    field.widget.attrs["class"] = f"{css_classes} is-invalid".strip()
+                if "ims-control--invalid" not in css_classes:
+                    field.widget.attrs["class"] = f"{css_classes} ims-control--invalid".strip()
                 field.widget.attrs["aria-invalid"] = "true"
                 field.widget.attrs["aria-describedby"] = feedback_id
 
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.form_show_errors = False
-        self.helper.layout = Layout(
-            Field("username", wrapper_class="auth-field-group"),
-            HTML(
-                "{% if form.non_field_errors %}"
-                '<div id="id_username_invalid_feedback" class="invalid-feedback d-block">'
-                "Invalid username or password"
-                "</div>"
-                "{% endif %}"
-            ),
-            FieldWithButtons(
-                Field("password"),
-                StrictButton(
-                    '<i class="bi bi-eye" aria-hidden="true"></i><span class="visually-hidden">Tampilkan kata sandi</span>',
-                    css_id="passwordToggle",
-                    css_class="btn-outline-secondary auth-password-toggle",
-                    type="button",
-                    **{
-                        "aria-label": "Tampilkan kata sandi",
-                        "aria-pressed": "false",
-                        "data-password-toggle": "id_password",
-                    },
-                ),
-                input_size="input-group-lg",
-                css_class="auth-password-group flex-nowrap",
-            ),
-            HTML(
-                "{% if form.non_field_errors %}"
-                '<div id="id_password_invalid_feedback" class="invalid-feedback d-block">'
-                "Invalid username or password"
-                "</div>"
-                "{% endif %}"
-            ),
-        )
+        if self.is_bound:
+            for field_name in ("username", "password"):
+                if self.errors.get(field_name):
+                    field = self.fields[field_name]
+                    field.widget.attrs["aria-invalid"] = "true"
+                    described_by = field.widget.attrs.get("aria-describedby", "")
+                    field.widget.attrs["aria-describedby"] = (
+                        f"{described_by} id_{field_name}_field_error".strip()
+                    )
+
 
 
 class SystemSettingsForm(forms.ModelForm):

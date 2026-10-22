@@ -715,7 +715,16 @@ def user_reset_password(request, pk):
 
 @method_decorator(password_change_ratelimit, name="dispatch")
 class RateLimitedPasswordChangeView(auth_views.PasswordChangeView):
-    pass
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["old_password"].widget.attrs["autofocus"] = True
+        if form.is_bound:
+            for name in ("old_password", "new_password1", "new_password2"):
+                if form.errors.get(name):
+                    widget = form.fields[name].widget
+                    widget.attrs["aria-invalid"] = "true"
+                    widget.attrs["aria-describedby"] = f"id_{name}_error"
+        return form
 
 
 class _Echo:

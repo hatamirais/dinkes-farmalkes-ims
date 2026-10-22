@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     fallbackLabel.textContent = previousLabel;
                 }
                 if (fallbackIcon) {
-                    fallbackIcon.className = 'bi bi-clock-history me-2';
+                    fallbackIcon.className = 'bi bi-clock-history';
                 }
             }
         } catch (error) {

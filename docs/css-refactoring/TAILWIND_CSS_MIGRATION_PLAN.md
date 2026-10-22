@@ -490,7 +490,7 @@ Exit gate:
 
 ### Wave 2: Dual bases and desktop shell pilot
 
-Completed 21 October 2026. The shared shell and Item List pilot were delivered in PR #280; the desktop and Puskesmas dashboards complete this wave. The migration ledger records the verification and remaining Bootstrap JavaScript bridge.
+Completed 21 October 2026. The shared shell and Item List pilot were delivered in PR #280; the desktop and Puskesmas dashboards completed this wave in PR #281. The migration ledger records the verification and remaining Bootstrap JavaScript bridge.
 
 Pilot surfaces:
 
@@ -514,6 +514,8 @@ Exit gate:
 - All six roles receive the correct navigation.
 
 ### Wave 3: Authentication and centralized errors
+
+Implemented 22 October 2026. Current code has four authentication templates, not only the login/lockout pair previously grouped in the ledger: `registration/login.html`, `lockout.html`, `password_change.html`, and `password_change_done.html`. The six status templates inherit one standalone `errors/status.html`; 429 is rendered through the centralized permission handler, and 503 through `/maintenance/`. The ledger records their individual migration and verification evidence. Login now renders bound fields from the existing project `AuthenticationForm` subclass without its former crispy-bootstrap5 layout; other legacy forms still use crispy-bootstrap5. Bootstrap JavaScript remains on the Tailwind desktop base; standalone errors do not load it.
 
 Surfaces:
 

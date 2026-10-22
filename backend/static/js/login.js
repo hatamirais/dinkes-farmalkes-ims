@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (toggle) {
         var input = document.getElementById(toggle.dataset.passwordToggle);
         var icon = toggle.querySelector("i");
-        var label = toggle.querySelector(".visually-hidden");
+        var label = toggle.querySelector(".sr-only");
 
         if (input) {
             toggle.addEventListener("click", function () {
@@ -42,10 +42,10 @@ document.addEventListener("DOMContentLoaded", function () {
             submitButton.disabled = true;
             submitButton.setAttribute("aria-busy", "true");
             if (spinner) {
-                spinner.classList.remove("d-none");
+                spinner.classList.remove("hidden");
             }
             if (icon) {
-                icon.classList.add("d-none");
+                icon.classList.add("hidden");
             }
             if (label) {
                 label.textContent = "Memproses...";

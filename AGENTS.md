@@ -14,7 +14,7 @@ Rules in this file apply repository-wide. Before changing an app, also read `bac
 | Django | 6.0.8 |
 | Database | PostgreSQL 16 |
 | Cache/Broker | Redis when `REDIS_URL` is set; otherwise In-Memory / LocMemCache |
-| UI | Django templates; Tailwind CSS on the desktop dashboards and Item List, Bootstrap 5 on other pages; locally vendored Flatpickr 4.6.13 on the delegation form; server-rendered mobile/PWA surface |
+| UI | Django templates; Tailwind CSS on desktop dashboards, Item List, authentication, and centralized errors; Bootstrap 5 on remaining pages; locally vendored Flatpickr 4.6.13 on the delegation form; server-rendered mobile/PWA surface |
 | Static serving | WhiteNoise for collected static assets |
 | Auth model | `apps.users.User` |
 | Object audit | django-auditlog |
@@ -148,7 +148,7 @@ When adding a constraint that existing rows might violate: audit and record the 
 - Every URL pattern ends with `/`. Tests should use `reverse()`; templates must use `{% url %}`. Run `apps.core.tests.test_url_consistency` for routing changes.
 - Setup/run: `docker compose up -d`, then from `backend/`: `python manage.py migrate`, `python manage.py runserver`, `python manage.py app_version`.
 - Windows tests: `.\scripts\run-django-test.ps1 -Target <test.path>`; add `-KeepDb` when appropriate.
-- Frontend tooling: use Bun 1.3.14 from `package.json` and Node.js 24 for the Tailwind CLI; run `bun ci` to install the locked dependencies. Tailwind source is `backend/static_src/css/app.css`; commit the generated `backend/static/css/app.tailwind.css` after `bun run css:build`, and verify it with `bun run css:check`. The generated CSS is loaded by `base_tailwind.html` for both desktop dashboards and the Item List; `base.html` remains the Bootstrap compatibility path. Bun and Node are for development and CI verification, not the production Django runtime.
+- Frontend tooling: use Bun 1.3.14 from `package.json` and Node.js 24 for the Tailwind CLI; run `bun ci` to install the locked dependencies. Tailwind source is `backend/static_src/css/app.css`; commit the generated `backend/static/css/app.tailwind.css` after `bun run css:build`, and verify it with `bun run css:check`. The generated CSS is loaded by `base_tailwind.html` for desktop dashboards, the Item List, and authentication; centralized errors load it directly. `base.html` remains the Bootstrap compatibility path. Bun and Node are for development and CI verification, not the production Django runtime.
 - Playwright: copy `.env.playwright.local.example` to `.env.playwright.local`, use the existing local accounts for the seven configured profiles (six roles plus GUDANG2), run `bun run playwright:bootstrap`, then `bun run playwright:open`. Refresh profiles with `bun run playwright:refresh-auth` after credential/session changes. The Playwright browser helpers still use a local Node runtime because persistent Chromium launch hung under Bun 1.3.14 on Windows during this migration.
 - Update affected `README.md`, `AGENTS.md`, `SYSTEM_MODEL.md`, `docs/developer_guide.md`, and `backend/seed/README.md` when behavior, setup, schema, routes, permissions, settings, scripts, or import formats change.
 - Before a PR, verify documented routes, model names, environment variables, security behavior, and CSV columns against code.

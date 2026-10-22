@@ -33,7 +33,7 @@ Workflow-specific issuance checkpoints, dates, migration metadata, and delete/vo
 
 - `django-axes` controls login brute force by username and resolved source IP using `AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]` and the configured `AXES_CLIENT_IP_CALLABLE`.
 - `AXES_RESET_ON_SUCCESS=False`; project-owned successful-login cleanup deletes only the successful username's failed attempts, never unrelated attempts sharing an IP.
-- Login uses Django `LoginView` with `apps.core.forms.CrispyAuthenticationForm`; do not hand-code username/password inputs in `registration/login.html`.
+- Login uses Django `LoginView` with `apps.core.forms.CrispyAuthenticationForm`; the Tailwind template renders its bound fields and keeps their widget attributes and generic errors. Do not hand-code username/password inputs in `registration/login.html`.
 - Authentication and centralized error logs use `apps.core.client_ip.get_client_ip()`. Trust `X-Forwarded-For` only when the immediate peer matches `AUTH_AUDIT_TRUSTED_PROXIES`; otherwise use `REMOTE_ADDR`.
 - Authenticated POST throttling uses `django-ratelimit`, `CACHES["default"]`, and `RATELIMIT_USE_CACHE`. `RATELIMIT_FAIL_OPEN=True` is the default graceful-degradation policy.
 - Settings-backed limits include `LOGIN_RATE_LIMIT`, `USER_BULK_ACTION_RATE_LIMIT`, `USER_MUTATION_RATE_LIMIT`, `ITEM_MUTATION_RATE_LIMIT`, `RECEIVING_MUTATION_RATE_LIMIT`, `USER_PASSWORD_RESET_RATE_LIMIT`, `PASSWORD_CHANGE_RATE_LIMIT`, `PUSKESMAS_RECEIPT_CONFIRMATION_MUTATION_RATE_LIMIT`, `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`, `PROCUREMENT_MUTATION_RATE_LIMIT`, and `LPLPO_IMPORT_RATE_LIMIT`. `PUSKESMAS_SBBK_MUTATION_RATE_LIMIT` remains a compatibility fallback.
