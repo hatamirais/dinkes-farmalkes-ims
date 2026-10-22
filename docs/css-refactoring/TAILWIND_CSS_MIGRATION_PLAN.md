@@ -533,7 +533,7 @@ Special checks:
 
 ### Wave 4: Read-only lists, details, and reports
 
-First slice implemented 22 October 2026: the desktop stock list, stock-card picker and detail, and transaction history. These four templates use `base_tailwind.html`; their routes, view queries, filters, ledger values, and permission decorators are unchanged. The Puskesmas stock snapshot is a separate three-tab facility report with crispy-bootstrap5 filter fields and is reserved for the Puskesmas read-only report slice. The stock transfer list belongs with transfer detail/workflow screens. Stock-card print and opening-balance admin/import remain in the print/admin slices. Wave 4 as a whole is still in progress; per-page evidence is in `MIGRATION_LEDGER.md`.
+The first slice, committed as `ca88550` on `feat/tailwind-wave4-stock-readonly`, migrated the desktop stock list, stock-card picker and detail, and transaction history. A second, separate slice migrated the cross-facility Puskesmas stock snapshot and its three read-only tabs. These five templates use `base_tailwind.html`; their routes, view queries, filters, ledger values, and permission decorators are unchanged. The Puskesmas snapshot renders its existing bound Django filter fields directly with Tailwind control classes, without a new form renderer. The stock transfer list belongs with transfer detail/workflow screens. Stock-card print and opening-balance admin/import remain in the print/admin slices. Wave 4 as a whole is still in progress; per-page evidence is in `MIGRATION_LEDGER.md`.
 
 Prioritize surfaces with low mutation risk:
 

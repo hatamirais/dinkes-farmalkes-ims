@@ -1,7 +1,5 @@
 import unicodedata
 
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Layout
 from django import forms
 from django.utils import timezone
 
@@ -71,13 +69,13 @@ class PuskesmasStockFilterForm(forms.Form):
         label="Tahun",
         coerce=int,
         choices=[],
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
     facility = forms.ChoiceField(
         label="Puskesmas",
         required=False,
         choices=[],
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
     q = forms.CharField(
         label="Cari Barang",
@@ -85,7 +83,7 @@ class PuskesmasStockFilterForm(forms.Form):
         max_length=100,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
+                "class": "ims-control",
                 "placeholder": "Cari kode atau nama barang",
             }
         ),
@@ -108,16 +106,6 @@ class PuskesmasStockFilterForm(forms.Form):
         )
         self.year_choices = self._build_year_choices()
         super().__init__(*args, **kwargs)
-
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("year", css_class="mb-0"),
-            Div("facility", css_class="mb-0"),
-            Div("q", css_class="mb-0"),
-            Div("tab", css_class="mb-0"),
-        )
 
         self.fields["year"].choices = [
             (str(year), str(year)) for year in self.year_choices

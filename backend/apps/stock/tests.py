@@ -6172,6 +6172,9 @@ class PuskesmasStockViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/puskesmas_stock.html')
         self.assertEqual(response.context['active_tab'], 'stock')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'class="ims-control"')
 
     def test_puskesmas_stock_denies_puskesmas_role_even_with_stock_scope(self):
         puskesmas_user = User.objects.create_user(

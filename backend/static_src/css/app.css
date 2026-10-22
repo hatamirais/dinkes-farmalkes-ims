@@ -555,6 +555,47 @@
 }
 
 /* Wave 3: standalone authentication and centralized error surfaces. */
+/* Wave 4: cross-facility Puskesmas stock report (read-only). */
+@layer components {
+  .ims-pkm-report, .ims-pkm-panel { min-width: 0; }
+  .ims-pkm-panel-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; }
+  .ims-pkm-panel-body > * { min-width: 0; }
+  .ims-pkm-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
+  .ims-pkm-header > div:first-child { min-width: 0; max-width: 760px; }
+  .ims-pkm-header h5 { margin: 0 0 4px; color: var(--color-ims-ink); font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-pkm-header h5 .bi { color: var(--color-ims-primary); }
+  .ims-pkm-pill { border: 1px solid var(--color-ims-border); padding: 6px 12px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); white-space: normal; }
+  .ims-pkm-filters { display: grid; grid-template-columns: minmax(120px, .65fr) minmax(190px, 1fr) minmax(220px, 1.35fr) auto; align-items: end; gap: 12px; }
+  .ims-pkm-filter-field, .ims-pkm-filter-actions { min-width: 0; }
+  .ims-pkm-filters .ims-label { margin-bottom: 5px; color: var(--color-ims-muted); text-transform: uppercase; }
+  .ims-pkm-filter-actions { display: flex; gap: 8px; }
+  .ims-pkm-summary { overflow: hidden; border-top: 1px solid var(--color-ims-border); border-bottom: 1px solid var(--color-ims-border); }
+  .ims-pkm-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ims-pkm-summary-cell + .ims-pkm-summary-cell { border-left: 1px solid var(--color-ims-border); }
+  .ims-pkm-summary-cell > div { padding: 16px; }
+  .ims-pkm-summary-cell .text-3xl { font-variant-numeric: tabular-nums; }
+  .ims-pkm-tabs { display: flex; flex-wrap: wrap; gap: 4px 24px; border-bottom: 1px solid var(--color-ims-border); margin: 0; padding: 0; list-style: none; }
+  .ims-pkm-tab { display: inline-flex; align-items: center; min-height: 40px; border-bottom: 2px solid transparent; color: var(--color-ims-muted); font-weight: 600; text-decoration: none; }
+  .ims-pkm-tab.active { border-bottom-color: var(--color-ims-primary); color: var(--color-ims-ink); }
+  .ims-pkm-tab:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  .ims-pkm-note { border-left: 3px solid var(--color-ims-border); padding-left: 12px; color: var(--color-ims-muted); font-size: var(--text-ims-sm); }
+  .ims-pkm-table-scroll { min-width: 0; width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); }
+  .ims-pkm-table { min-width: 950px; font-size: var(--text-ims-sm); }
+  .ims-pkm-table th { position: sticky; top: 0; z-index: 2; background: var(--color-ims-surface-muted); box-shadow: inset 0 -1px 0 var(--color-ims-border); font-size: var(--text-ims-xs); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  .ims-pkm-table td { vertical-align: middle; }
+  .ims-pkm-table tbody tr:hover { background: #f8fbfd; }
+  .ims-pkm-table .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+  .ims-pkm-table .kode-barang { color: var(--color-ims-primary); font-family: ui-monospace, monospace; font-size: var(--text-ims-sm); }
+  .ims-pkm-table .month-pill, .ims-pkm-table .batch-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 10px; background: var(--color-ims-surface-muted); color: var(--color-ims-muted); font-size: var(--text-ims-xs); font-weight: 600; }
+  .ims-pkm-table .stock-below-threshold { color: var(--color-ims-danger); }
+  .ims-pkm-empty { position: sticky; left: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: calc(100vw - 400px); max-width: calc(100% - 32px); min-height: 150px; border: 1px dashed var(--color-ims-border); border-radius: var(--radius-ims-surface); margin: 16px; padding: 24px; background: #f8fbfd; color: var(--color-ims-muted); text-align: center; }
+  .ims-pkm-pagination { justify-content: flex-end; }
+  .ims-pkm-page-item.disabled .ims-page-link { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  @media (max-width: 1050px) { .ims-pkm-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ims-pkm-filter-actions { align-self: end; } }
+  @media (max-width: 767px) { .ims-pkm-panel-body { gap: 20px; padding: 16px; } .ims-pkm-filters, .ims-pkm-summary-grid { grid-template-columns: minmax(0, 1fr); } .ims-pkm-summary-cell + .ims-pkm-summary-cell { border-left: 0; border-top: 1px solid var(--color-ims-border); } .ims-pkm-summary-cell > div { padding: 12px; } .ims-pkm-empty { width: calc(100vw - 100px); } .ims-pkm-pagination { justify-content: flex-start; } }
+}
+
+/* Wave 3: standalone authentication and centralized error surfaces. */
 /* Wave 4 stock read-only list: dense rows and an internally scrolling table. */
 @layer components {
   .ims-stock-stat, .ims-stock-panel { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: var(--color-ims-surface); box-shadow: var(--shadow-ims-surface); }
