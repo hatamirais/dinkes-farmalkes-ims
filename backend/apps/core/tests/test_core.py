@@ -1025,6 +1025,18 @@ class ErrorPageTemplateTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertContains(response, "Kembali ke Halaman Sebelumnya", status_code=404)
         self.assertContains(response, "Buka Login", status_code=404)
+        self.assertContains(response, 'src="/static/img/default-logo.svg"', status_code=404)
+
+    def test_404_page_uses_configured_logo(self):
+        system_settings = SystemSettings.get_settings()
+        system_settings.logo.name = "settings/custom-error-logo.png"
+        system_settings.save(update_fields=["logo"])
+
+        response = self.client.get("/halaman-yang-tidak-ada/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'src="/media/settings/custom-error-logo.png"', status_code=404)
+        self.assertNotContains(response, 'src="/static/img/default-logo.svg"', status_code=404)
 
     def test_403_page_keeps_same_error_layout_actions(self):
         user = User.objects.create_user(
