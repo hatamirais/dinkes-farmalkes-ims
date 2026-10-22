@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility.
 - Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. Legacy pages continue to load Bootstrap CSS; both desktop bases retain Bootstrap JavaScript during the migration.
+- Migrated login, account lockout, password change, password-change completion, and centralized 400/403/404/429/500/503 pages to Tailwind CSS while preserving authentication and error-handler behavior. Other legacy pages continue to use Bootstrap CSS.
 - Documented that migrated forms keep labels above inputs and that UI content or behavior conflicts require review before template changes.
 
 ### Fixed
@@ -27,6 +28,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Centralized procurement action authorization decisions so SPJ and amendment buttons now match the corresponding route permissions while preserving Django-permission, module-scope, role, and Acting Kepala rules.
 - Restored the Stock regression suite by aligning django-import-export fixtures with the source-document stock-layer identifier, distinguishing the restricted Instalasi stock snapshot link from the valid Puskesmas self-stock link, and accounting for the shared shell's constant Acting Kepala permission queries.
 - Kept all Daftar Barang pagination controls reachable at narrow widths and corrected Bootstrap submenu visibility in the Tailwind shell.
+- Kept the configured system logo on centralized error pages and grouped multiple password-validation messages under one accessible field description.
 
 ### Security
 
