@@ -40,6 +40,7 @@ from apps.core.views import (
     maintenance_mode,
     page_not_found_handler,
     permission_denied_handler,
+    server_error_handler,
 )
 from apps.core.versioning import DEFAULT_VERSION, SemanticVersion, read_version, write_version
 from apps.distribution.models import Distribution
@@ -907,6 +908,17 @@ class DashboardViewTests(TestCase):
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class ErrorPageTemplateTests(TestCase):
+    def test_password_change_pages_use_tailwind_without_bootstrap_css(self):
+        user = User.objects.create_user(username="password-style", password="TestPassword123!")
+        self.client.force_login(user)
+        for route in ("password_change", "password_change_done"):
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "css/app.tailwind.css", status_code=200)
+                self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
+                self.assertNotContains(response, "css/style.css")
+
     def test_login_page_renders_for_anonymous_user(self):
         response = self.client.get(reverse("login"))
 
@@ -920,15 +932,16 @@ class ErrorPageTemplateTests(TestCase):
         self.assertContains(response, 'name="next"', status_code=200)
         self.assertNotContains(response, "auth-showcase")
         self.assertContains(response, 'class="auth-layout auth-layout-centered"', status_code=200)
-        self.assertContains(response, 'class="auth-panel px-3 px-md-0"', status_code=200)
+        self.assertContains(response, 'class="auth-panel"', status_code=200)
         self.assertContains(response, 'class="auth-card-brand auth-login-brand"', status_code=200)
         self.assertContains(response, 'class="auth-brand-name"', status_code=200)
         self.assertContains(response, 'id="passwordToggle"', status_code=200)
         self.assertContains(response, 'type="button"', status_code=200)
         self.assertContains(response, 'aria-pressed="false"', status_code=200)
         self.assertContains(response, 'data-password-toggle="id_password"', status_code=200)
-        self.assertContains(response, 'css/style.css?v=', status_code=200)
-        self.assertContains(response, f'css/style.css?v={settings.APP_VERSION}-20260901a', status_code=200)
+        self.assertContains(response, f'css/app.tailwind.css?v={settings.APP_VERSION}-wave3', status_code=200)
+        self.assertNotContains(response, 'vendor/bootstrap/css/bootstrap.min.css')
+        self.assertNotContains(response, 'css/style.css')
         self.assertContains(response, f'js/app.js?v={settings.APP_VERSION}-20260909a', status_code=200)
         self.assertContains(response, 'js/login.js', status_code=200)
         self.assertNotContains(response, 'value="super_admin"')
@@ -953,13 +966,13 @@ class ErrorPageTemplateTests(TestCase):
         self.assertTemplateUsed(known_response, "registration/login.html")
         self.assertContains(
             known_response,
-            '<div class="alert alert-danger auth-alert" role="alert" aria-live="polite">',
+            '<div class="ims-alert ims-alert--danger auth-alert" role="alert" aria-live="polite">',
             status_code=200,
             html=False,
         )
         self.assertContains(known_response, "Invalid username or password", status_code=200)
-        self.assertContains(known_response, "is-invalid", status_code=200)
-        self.assertContains(known_response, "invalid-feedback", status_code=200)
+        self.assertContains(known_response, "ims-control--invalid", status_code=200)
+        self.assertContains(known_response, "id_username_invalid_feedback", status_code=200)
         self.assertTrue(known_response.context["form"].non_field_errors())
         self.assertEqual(
             list(known_response.context["form"].non_field_errors()),
@@ -1085,9 +1098,11 @@ class LoginLockoutTests(TestCase):
 
         self.assertEqual(response.status_code, 429)
         self.assertTemplateUsed(response, "registration/lockout.html")
+        self.assertContains(response, "css/app.tailwind.css", status_code=429)
+        self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css", status_code=429)
         self.assertContains(
             response,
-            '<div class="alert alert-warning auth-alert auth-alert-lockout" role="alert" aria-live="polite">',
+            '<div class="ims-alert ims-alert--warning auth-alert auth-alert-lockout" role="alert" aria-live="polite">',
             status_code=429,
             html=False,
         )
@@ -1553,6 +1568,28 @@ class SystemSettingsAccessTests(TestCase):
 class ErrorHandlerTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
+
+    def test_all_centralized_errors_use_standalone_tailwind_css(self):
+        request = self.factory.get("/missing-wave3/")
+        request.user = AnonymousUser()
+        responses = (
+            bad_request(request, ValueError("bad request")),
+            permission_denied_handler(request, PermissionDenied()),
+            page_not_found_handler(request, FileNotFoundError()),
+            permission_denied_handler(request, Ratelimited()),
+            server_error_handler(request),
+            maintenance_mode(request),
+        )
+        for status, response in zip((400, 403, 404, 429, 500, 503), responses):
+            with self.subTest(status=status):
+                self.assertEqual(response.status_code, status)
+                self.assertContains(response, str(status), status_code=status)
+                self.assertContains(response, "css/app.tailwind.css", status_code=status)
+                self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css", status_code=status)
+                self.assertNotContains(response, "css/style.css", status_code=status)
+                self.assertContains(response, 'id="fallbackLink"', status_code=status)
+        self.assertContains(responses[3], "Terlalu banyak percobaan pada aksi ini", status_code=429)
+        self.assertContains(responses[4], "Terjadi kesalahan pada server", status_code=500)
 
     def test_maintenance_route_and_error_handlers_are_registered(self):
         from config import urls as root_urls

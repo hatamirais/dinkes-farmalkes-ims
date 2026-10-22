@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 {% load static %}
 
@@ -13,7 +13,7 @@
     <div class="auth-layout auth-layout-centered">
         <div class="auth-panel auth-panel-full">
             <div class="auth-card auth-card-lockout">
-                <div class="auth-card-brand justify-content-center">
+                <div class="auth-card-brand auth-card-brand-centered">
                     <div class="auth-brand-mark auth-brand-mark-card">
                         {% if system_settings and system_settings.logo %}
                         {% with logo_url=system_settings.logo.url|safe_media_url %}
@@ -30,7 +30,7 @@
                     <span class="auth-eyebrow auth-eyebrow-card">{{ system_settings.platform_label|default:system_settings.facility_name|default:"Healthcare Inventory Management System" }}</span>
                 </div>
 
-                <div class="auth-card-header text-center">
+                <div class="auth-card-header">
                     <div class="auth-status-icon auth-status-icon-danger">
                         <i class="bi bi-shield-lock"></i>
                     </div>
@@ -42,7 +42,7 @@
                     <p>Terlalu banyak percobaan login yang gagal terdeteksi pada akun ini.</p>
                 </div>
 
-                <div class="alert alert-warning auth-alert auth-alert-lockout" role="alert" aria-live="polite">
+                <div class="ims-alert ims-alert--warning auth-alert auth-alert-lockout" role="alert" aria-live="polite">
                     <i class="bi bi-clock-history"></i>
                     <div>
                         {% if cooloff_timedelta %}
@@ -78,7 +78,7 @@
                     </div>
                 </div>
 
-                <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg auth-secondary-btn">
+                <a href="{% url 'login' %}" class="ims-btn ims-btn--secondary auth-secondary-btn">
                     <i class="bi bi-arrow-left"></i>
                     Kembali ke Halaman Masuk
                 </a>

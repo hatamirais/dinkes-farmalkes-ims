@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 {% load static %}
 
@@ -8,7 +7,7 @@
 {% block public_content %}
 <section class="auth-shell">
     <div class="auth-layout auth-layout-centered">
-        <div class="auth-panel px-3 px-md-0">
+        <div class="auth-panel">
             <div class="auth-card-brand auth-login-brand">
                 <div class="auth-brand-mark auth-brand-mark-card">
                     {% if system_settings and system_settings.logo %}
@@ -26,15 +25,15 @@
                 <span class="auth-brand-name">{{ system_settings.platform_label|default:system_settings.facility_name|default:"Healthcare IMS" }}</span>
             </div>
 
-            <div class="auth-card auth-card-login px-4 px-sm-5 py-4 py-sm-5">
+            <div class="auth-card auth-card-login">
 
-                <div class="auth-card-header text-center">
+                <div class="auth-card-header">
                     <h2>Selamat Datang</h2>
                     <p>Silakan masuk untuk melanjutkan ke sistem.</p>
                 </div>
 
                 {% if form.errors %}
-                <div class="alert alert-danger auth-alert" role="alert" aria-live="polite">
+                <div class="ims-alert ims-alert--danger auth-alert" role="alert" aria-live="polite">
                     <i class="bi bi-exclamation-circle"></i>
                     <div>
                         <strong>Invalid username or password</strong>
@@ -45,7 +44,22 @@
 
                 <form method="post" action="{% url 'login' %}" class="auth-form" autocomplete="on">
                     {% csrf_token %}
-                    {% crispy form %}
+                    <div class="auth-field-group">
+                        <label for="id_username" class="ims-label">{{ form.username.label }}</label>
+                        {{ form.username }}
+                        {% for error in form.username.errors %}<span id="id_username_field_error" class="ims-error">{{ error }}</span>{% endfor %}
+                        {% if form.non_field_errors %}<span id="id_username_invalid_feedback" class="ims-error">Invalid username or password</span>{% endif %}
+                    </div>
+                    <div class="auth-field-group">
+                        <label for="id_password" class="ims-label">{{ form.password.label }}</label>
+                        <div class="auth-password-group">
+                            {{ form.password }}
+                            <button id="passwordToggle" type="button" class="auth-password-toggle" aria-label="Tampilkan kata sandi" aria-pressed="false" data-password-toggle="id_password"><i class="bi bi-eye" aria-hidden="true"></i><span class="sr-only">Tampilkan kata sandi</span></button>
+                        </div>
+                        {% if form.password.help_text %}<span class="ims-help">{{ form.password.help_text }}</span>{% endif %}
+                        {% for error in form.password.errors %}<span id="id_password_field_error" class="ims-error">{{ error }}</span>{% endfor %}
+                        {% if form.non_field_errors %}<span id="id_password_invalid_feedback" class="ims-error">Invalid username or password</span>{% endif %}
+                    </div>
 
                     <div class="auth-support-row">
                         <div class="auth-support-note">
@@ -54,8 +68,8 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-lg auth-submit-btn" data-submit-label="Masuk">
-                        <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                    <button type="submit" class="ims-btn ims-btn--primary auth-submit-btn" data-submit-label="Masuk">
+                        <span class="spinner-border spinner-border-sm hidden" aria-hidden="true"></span>
                         <i class="bi bi-box-arrow-in-left"></i>
                         <span class="auth-submit-label">Masuk</span>
                     </button>
