@@ -919,6 +919,29 @@ class ErrorPageTemplateTests(TestCase):
                 self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
                 self.assertNotContains(response, "css/style.css")
 
+    def test_password_change_groups_multiple_validator_errors_for_accessibility(self):
+        user = User.objects.create_user(
+            username="password-multiple-errors", password="TestPassword123!"
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("password_change"),
+            {
+                "old_password": "TestPassword123!",
+                "new_password1": "123456789",
+                "new_password2": "123456789",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.context["form"].errors["new_password2"]), 2)
+        html = response.content.decode()
+        self.assertEqual(html.count('id="id_new_password2_error"'), 1)
+        self.assertIn('aria-describedby="id_new_password2_error"', html)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("TestPassword123!"))
+
     def test_login_page_renders_for_anonymous_user(self):
         response = self.client.get(reverse("login"))
 
