@@ -1,6 +1,6 @@
 # Tailwind foundation implementation
 
-Root [`DESIGN.md`](../../DESIGN.md) is the approved visual contract. This file records its CSS implementation and usage rules. The classes below are defined in `backend/static_src/css/app.css`; `bun run css:build` produces the committed `backend/static/css/app.tailwind.css` using the Tailwind CLI under Node 24. The desktop and Puskesmas dashboards, Item List, four desktop stock read-only screens, Puskesmas stock report, and authentication templates import this output through `base_tailwind.html`; centralized errors load it directly. Other pages remain on Bootstrap.
+Root [`DESIGN.md`](../../DESIGN.md) is the approved visual contract. This file records its CSS implementation and usage rules. The classes below are defined in `backend/static_src/css/app.css`; `bun run css:build` produces the committed `backend/static/css/app.tailwind.css` using the Tailwind CLI under Node 24. The desktop and Puskesmas dashboards, Item List, four desktop stock read-only screens, Puskesmas stock report, receiving lists/details, and authentication templates import this output through `base_tailwind.html`; centralized errors load it directly. Other pages remain on Bootstrap.
 
 The standalone [foundation preview](foundation-preview.html) is a static QA artifact for desktop and mobile-sized inspection. It is not an application template and contains no inventory records or working form submission.
 
@@ -33,6 +33,8 @@ Shared focus outlines cover buttons, controls, choices, page links, and focusabl
 The first Wave 4 stock slice uses `.ims-stock-*`, `.ims-stock-card-detail`, and `.ims-transaction-*` for dense stock summaries, filters, card metadata, and internally scrolling tables. Its table elements retain `.table` for `app.js` row keyboard handling. The stock-card typeahead keeps its `#itemSearch`, `#searchResults`, `.search-result-item`, and URL data attributes; the card detail keeps Bootstrap JavaScript collapse hooks and a scoped visibility bridge because Tailwind also defines `.collapse`. Model-provided expiry and funding badge classes are styled only under `.ims-stock-badge`, without loading Bootstrap CSS. The separate stock-card print view remains legacy.
 
 The next Wave 4 slice scopes `.ims-pkm-*` styles to the read-only cross-facility Puskesmas stock report. It renders the existing bound Django year, facility, and search fields directly, retaining field IDs, labels, choices, validation, and the hidden tab control. The report grid constrains wide tables to an internally scrolling frame, with sticky headings and compact numeric columns. No new form renderer or JavaScript was added. The Puskesmas operator's separate stock self-check remains outside this slice.
+
+The receiving Wave 4 slice uses `.ims-receiving-*` styles for the regular and planned lists/details. The four templates keep all values, conditions, POST forms, download links, and destination URLs; only their presentation moved to the Tailwind base. Status classes emitted from existing model values receive explicit scoped styles. Dense tables keep `.table` for the shared `app.js` keyboard hook and scroll within their panels at narrow widths. Receiving mutation forms and admin imports remain legacy.
 
 ## Foundation visual QA
 

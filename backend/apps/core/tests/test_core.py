@@ -962,7 +962,7 @@ class ErrorPageTemplateTests(TestCase):
         self.assertContains(response, 'type="button"', status_code=200)
         self.assertContains(response, 'aria-pressed="false"', status_code=200)
         self.assertContains(response, 'data-password-toggle="id_password"', status_code=200)
-        self.assertContains(response, f'css/app.tailwind.css?v={settings.APP_VERSION}-wave4-puskesmas', status_code=200)
+        self.assertContains(response, f'css/app.tailwind.css?v={settings.APP_VERSION}-wave4-receiving', status_code=200)
         self.assertNotContains(response, 'vendor/bootstrap/css/bootstrap.min.css')
         self.assertNotContains(response, 'css/style.css')
         self.assertContains(response, f'js/app.js?v={settings.APP_VERSION}-20260909a', status_code=200)

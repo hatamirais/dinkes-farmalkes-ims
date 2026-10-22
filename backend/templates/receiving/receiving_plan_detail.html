@@ -1,131 +1,131 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}Detail Rencana {{ receiving.document_number|default:"draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Rencana Penerimaan{% endblock %}
 
 {% block content %}
-<div class="row g-3">
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header"><span>Informasi Rencana</span></div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-5 text-muted">No. Dokumen</dt>
-                    <dd class="col-7 fw-semibold">{{ receiving.document_number|default:"Belum diterbitkan" }}</dd>
+<div class="ims-receiving-detail">
+    <div class="ims-receiving-detail-section">
+        <div class="ims-stock-panel ims-receiving-card">
+            <div class="ims-receiving-card-header"><span>Informasi Rencana</span></div>
+            <div class="ims-receiving-card-body">
+                <dl class="ims-receiving-meta">
+                    <dt class="ims-receiving-meta-label text-ims-muted">No. Dokumen</dt>
+                    <dd class="ims-receiving-meta-value font-semibold">{{ receiving.document_number|default:"Belum diterbitkan" }}</dd>
 
-                    <dt class="col-5 text-muted">Tanggal</dt>
-                    <dd class="col-7">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Tanggal</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>
 
-                    <dt class="col-5 text-muted">Tipe</dt>
-                    <dd class="col-7">{{ receiving.receiving_type_label }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Tipe</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.receiving_type_label }}</dd>
 
-                    <dt class="col-5 text-muted">Supplier</dt>
-                    <dd class="col-7">{{ receiving.supplier.name|default:"-" }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Supplier</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.supplier.name|default:"-" }}</dd>
 
-                    <dt class="col-5 text-muted">Sumber Dana</dt>
-                    <dd class="col-7">{{ receiving.sumber_dana.name }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Sumber Dana</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.sumber_dana.name }}</dd>
 
-                    <dt class="col-5 text-muted">Status</dt>
-                    <dd class="col-7">
+                    <dt class="ims-receiving-meta-label text-ims-muted">Status</dt>
+                    <dd class="ims-receiving-meta-value">
                         <span class="badge-status badge-{{ receiving.status|lower }}">{{ receiving.get_status_display }}</span>
                     </dd>
 
-                    <dt class="col-5 text-muted">Dibuat oleh</dt>
-                    <dd class="col-7">{{ receiving.created_by }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Dibuat oleh</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.created_by }}</dd>
 
                     {% if receiving.contract_id %}
-                    <dt class="col-5 text-muted">Kontrak SPJ</dt>
-                    <dd class="col-7">
+                    <dt class="ims-receiving-meta-label text-ims-muted">Kontrak SPJ</dt>
+                    <dd class="ims-receiving-meta-value">
                         <a href="{% url 'procurement:contract_detail' receiving.contract_id %}">{{ receiving.contract.document_number }}</a>
                     </dd>
                     {% endif %}
 
                     {% if receiving.approved_by %}
-                    <dt class="col-5 text-muted">Disetujui</dt>
-                    <dd class="col-7">{{ receiving.approved_by }} <br><small class="text-muted">{{ receiving.approved_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Disetujui</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.approved_by }} <br><small class="text-ims-muted">{{ receiving.approved_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
                     {% if receiving.closed_by %}
-                    <dt class="col-5 text-muted">Ditutup</dt>
-                    <dd class="col-7">{{ receiving.closed_by }} <br><small class="text-muted">{{ receiving.closed_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Ditutup</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.closed_by }} <br><small class="text-ims-muted">{{ receiving.closed_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
                     {% if receiving.closed_reason %}
-                    <dt class="col-5 text-muted">Alasan</dt>
-                    <dd class="col-7">{{ receiving.closed_reason }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Alasan</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.closed_reason }}</dd>
                     {% endif %}
 
                     {% if receiving.cancelled_by %}
-                    <dt class="col-5 text-muted">Dibatalkan</dt>
-                    <dd class="col-7">{{ receiving.cancelled_by }} <br><small class="text-muted">{{ receiving.cancelled_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Dibatalkan</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.cancelled_by }} <br><small class="text-ims-muted">{{ receiving.cancelled_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
                     {% if receiving.cancel_reason %}
-                    <dt class="col-5 text-muted">Alasan Batal</dt>
-                    <dd class="col-7">{{ receiving.cancel_reason }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Alasan Batal</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.cancel_reason }}</dd>
                     {% endif %}
 
                     {% if receiving.notes %}
-                    <dt class="col-5 text-muted">Catatan</dt>
-                    <dd class="col-7">{{ receiving.notes }}</dd>
+                    <dt class="ims-receiving-meta-label text-ims-muted">Catatan</dt>
+                    <dd class="ims-receiving-meta-value">{{ receiving.notes }}</dd>
                     {% endif %}
                 </dl>
             </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2 mt-3">
+        <div class="ims-receiving-actions">
             {% if not receiving.contract_id and receiving.status == 'DRAFT' %}
             <form method="post" action="{% url 'receiving:receiving_plan_submit' receiving.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="bi bi-send me-1"></i>Ajukan
+                <button type="submit" class="ims-btn ims-btn--primary ims-btn--sm">
+                    <i class="bi bi-send mr-1"></i>Ajukan
                 </button>
             </form>
             {% elif not receiving.contract_id and receiving.status == 'SUBMITTED' %}
             <form method="post" action="{% url 'receiving:receiving_plan_approve' receiving.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm">
-                    <i class="bi bi-patch-check me-1"></i>Setujui
+                <button type="submit" class="ims-btn ims-btn--primary ims-btn--sm">
+                    <i class="bi bi-patch-check mr-1"></i>Setujui
                 </button>
             </form>
             {% endif %}
 
             {% if receiving.status == 'APPROVED' or receiving.status == 'PARTIAL' %}
-            <a href="{% url 'receiving:receiving_plan_receive' receiving.pk %}" class="btn btn-primary btn-sm">
-                <i class="bi bi-inbox-arrow-down me-1"></i>Terima Barang
+            <a href="{% url 'receiving:receiving_plan_receive' receiving.pk %}" class="ims-btn ims-btn--primary ims-btn--sm">
+                <i class="bi bi-inbox-arrow-down mr-1"></i>Terima Barang
             </a>
             {% if receiving.contract_id %}
-            <a href="{% url 'procurement:amendment_create' receiving.contract_id %}" class="btn btn-outline-danger btn-sm">
-                <i class="bi bi-file-earmark-text me-1"></i>Buat Amandemen
+            <a href="{% url 'procurement:amendment_create' receiving.contract_id %}" class="ims-btn ims-receiving-danger-action ims-btn--sm">
+                <i class="bi bi-file-earmark-text mr-1"></i>Buat Amandemen
             </a>
             {% else %}
-            <a href="{% url 'receiving:receiving_plan_close_items' receiving.pk %}" class="btn btn-outline-danger btn-sm">
-                <i class="bi bi-x-circle me-1"></i>Tutup Sisa
+            <a href="{% url 'receiving:receiving_plan_close_items' receiving.pk %}" class="ims-btn ims-receiving-danger-action ims-btn--sm">
+                <i class="bi bi-x-circle mr-1"></i>Tutup Sisa
             </a>
             {% endif %}
             {% endif %}
 
-            <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i>Kembali
+            <a href="{% url 'receiving:receiving_plan_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm">
+                <i class="bi bi-arrow-left mr-1"></i>Kembali
             </a>
         </div>
     </div>
 
-    <div class="col-12">
-        <div class="card content-card mb-3">
-            <div class="card-header"><span>Item Rencana</span></div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table">
+    <div class="ims-receiving-detail-section">
+        <div class="ims-stock-panel ims-receiving-card mb-3">
+            <div class="ims-receiving-card-header"><span>Item Rencana</span></div>
+            <div class="ims-receiving-card-body--flush">
+                <div class="ims-table-scroll ims-receiving-detail-scroll" tabindex="0" role="region" aria-label="Tabel detail penerimaan, gulir untuk kolom lainnya">
+                    <table class="table ims-table ims-receiving-detail-table">
                         <thead>
                             <tr>
                                 <th>#</th>
                                 <th>Kode</th>
                                 <th>Nama Barang</th>
-                                <th class="text-end">Rencana</th>
-                                <th class="text-end">Diterima</th>
-                                <th class="text-end">Sisa</th>
+                                <th class="text-right">Rencana</th>
+                                <th class="text-right">Diterima</th>
+                                <th class="text-right">Sisa</th>
                                 <th>Catatan</th>
                             </tr>
                         </thead>
@@ -135,14 +135,14 @@
                                 <td>{{ forloop.counter }}</td>
                                 <td><code>{{ ri.item.kode_barang }}</code></td>
                                 <td>{{ ri.item.nama_barang }}</td>
-                                <td class="text-end">{{ ri.planned_quantity|plain_decimal }}</td>
-                                <td class="text-end">{{ ri.received_quantity|plain_decimal }}</td>
-                                <td class="text-end fw-semibold">{{ ri.remaining_quantity|plain_decimal }}</td>
-                                <td class="text-muted small">
+                                <td class="text-right">{{ ri.planned_quantity|plain_decimal }}</td>
+                                <td class="text-right">{{ ri.received_quantity|plain_decimal }}</td>
+                                <td class="text-right font-semibold">{{ ri.remaining_quantity|plain_decimal }}</td>
+                                <td class="text-ims-muted text-xs">
                                     {% if ri.is_cancelled %}
-                                        <span class="text-danger">Dibatalkan</span>
+                                        <span class="text-ims-danger">Dibatalkan</span>
                                         {% if ri.cancel_reason %}
-                                            <div class="small text-muted">{{ ri.cancel_reason }}</div>
+                                            <div class="text-xs text-ims-muted">{{ ri.cancel_reason }}</div>
                                         {% endif %}
                                     {% else %}
                                         {{ ri.notes|default:"-" }}
@@ -152,8 +152,8 @@
                             {% empty %}
                             <tr>
                                 <td colspan="7">
-                                    <div class="empty-state">
-                                        <i class="bi bi-inbox d-block"></i>
+                                    <div class="ims-receiving-empty">
+                                        <i class="bi bi-inbox block"></i>
                                         <p>Belum ada item rencana</p>
                                     </div>
                                 </td>
@@ -165,18 +165,18 @@
             </div>
         </div>
 
-        <div class="card content-card">
-            <div class="card-header"><span>Riwayat Penerimaan</span></div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table">
+        <div class="ims-stock-panel ims-receiving-card">
+            <div class="ims-receiving-card-header"><span>Riwayat Penerimaan</span></div>
+            <div class="ims-receiving-card-body--flush">
+                <div class="ims-table-scroll ims-receiving-detail-scroll" tabindex="0" role="region" aria-label="Tabel detail penerimaan, gulir untuk kolom lainnya">
+                    <table class="table ims-table ims-receiving-detail-table">
                         <thead>
                             <tr>
                                 <th>#</th>
                                 <th>Barang</th>
                                 <th>Batch</th>
                                 <th>Lokasi</th>
-                                <th class="text-end">Kuantitas</th>
+                                <th class="text-right">Kuantitas</th>
                                 <th>Petugas</th>
                                 <th>Waktu</th>
                             </tr>
@@ -188,15 +188,15 @@
                                 <td>{{ ri.item.nama_barang }}</td>
                                 <td>{{ ri.batch_lot }}</td>
                                 <td>{{ ri.location.name|default:"-" }}</td>
-                                <td class="text-end fw-semibold">{{ ri.quantity|id_decimal }}</td>
+                                <td class="text-right font-semibold">{{ ri.quantity|id_decimal }}</td>
                                 <td>{{ ri.received_by|default:"-" }}</td>
                                 <td>{{ ri.received_at|date:"d/m/Y H:i"|default:"-" }}</td>
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="7">
-                                    <div class="empty-state">
-                                        <i class="bi bi-inbox d-block"></i>
+                                    <div class="ims-receiving-empty">
+                                        <i class="bi bi-inbox block"></i>
                                         <p>Belum ada penerimaan untuk rencana ini</p>
                                     </div>
                                 </td>

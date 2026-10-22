@@ -535,6 +535,8 @@ Special checks:
 
 The first slice, committed as `ca88550` on `feat/tailwind-wave4-stock-readonly`, migrated the desktop stock list, stock-card picker and detail, and transaction history. A second, separate slice migrated the cross-facility Puskesmas stock snapshot and its three read-only tabs. These five templates use `base_tailwind.html`; their routes, view queries, filters, ledger values, and permission decorators are unchanged. The Puskesmas snapshot renders its existing bound Django filter fields directly with Tailwind control classes, without a new form renderer. The stock transfer list belongs with transfer detail/workflow screens. Stock-card print and opening-balance admin/import remain in the print/admin slices. Wave 4 as a whole is still in progress; per-page evidence is in `MIGRATION_LEDGER.md`.
 
+The next receiving slice covers regular and planned receiving lists/details only. It preserves filters, server-computed correction access, legacy planned-receiving status actions, authenticated attachment downloads, and the existing workflow destinations. Receiving forms, execution, admin CSV import, and print remain outside this slice. The migration ledger records its per-page checks. The other Wave 4 app groups and reports remain pending.
+
 Prioritize surfaces with low mutation risk:
 
 - stock lists/cards and transaction history;

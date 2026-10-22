@@ -555,6 +555,60 @@
 }
 
 /* Wave 3: standalone authentication and centralized error surfaces. */
+/* Wave 4 receiving lists and details. */
+@layer components {
+  .ims-receiving-list, .ims-receiving-detail { min-width: 0; }
+  .ims-receiving-list-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 60px; border-bottom: 1px solid var(--color-ims-border); padding: 12px 20px; }
+  .ims-receiving-list-header h5 { margin: 0; color: var(--color-ims-ink); font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-receiving-list-header .bi { color: var(--color-ims-primary); }
+  .ims-receiving-filter-wrap { border-bottom: 1px solid var(--color-ims-border); padding: 12px 20px; background: var(--color-ims-surface-muted); }
+  .ims-receiving-filter-wrap .ims-alert { margin-bottom: 12px; }
+  .ims-receiving-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .ims-receiving-filters > input { flex: 1 1 210px; max-width: 360px; }
+  .ims-receiving-filters > select { flex: 0 1 180px; }
+  .ims-receiving-table-scroll { max-width: 100%; overflow-x: auto; }
+  .ims-receiving-table { min-width: 1080px; font-size: var(--text-ims-sm); }
+  .ims-receiving-list--planned .ims-receiving-table { min-width: 1200px; }
+  .ims-receiving-table th { white-space: nowrap; }
+  .ims-receiving-table td { vertical-align: middle; }
+  .ims-receiving-table tbody tr:hover { background: #f8fbfd; }
+  .ims-receiving-table a:not(.ims-btn), .ims-receiving-detail a:not(.ims-btn) { color: var(--color-ims-primary); }
+  .ims-receiving-list .text-right, .ims-receiving-detail .text-right { text-align: right; }
+  .ims-receiving-list .badge-status, .ims-receiving-detail .badge-status { display: inline-flex; align-items: center; border-radius: 6px; padding: 3px 8px; font-size: var(--text-ims-xs); font-weight: 600; }
+  .ims-receiving-list .badge-draft, .ims-receiving-detail .badge-draft, .ims-receiving-list .badge-closed, .ims-receiving-detail .badge-closed { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-receiving-list .badge-submitted, .ims-receiving-detail .badge-submitted { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+  .ims-receiving-list .badge-approved, .ims-receiving-detail .badge-approved, .ims-receiving-list .badge-received, .ims-receiving-detail .badge-received, .ims-receiving-list .badge-verified, .ims-receiving-detail .badge-verified { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-receiving-list .badge-partial, .ims-receiving-detail .badge-partial { background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
+  .ims-receiving-list .badge-cancelled, .ims-receiving-detail .badge-cancelled, .ims-receiving-list .badge-rejected, .ims-receiving-detail .badge-rejected { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-receiving-empty { display: flex; min-height: 130px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--color-ims-muted); text-align: center; }
+  .ims-receiving-empty .bi { font-size: 1.75rem; }
+  .ims-receiving-empty p { margin: 0; }
+  .ims-receiving-page-item.active .ims-page-link { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
+  .ims-receiving-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .ims-receiving-detail-section { min-width: 0; }
+  .ims-receiving-card { margin-bottom: 16px; }
+  .ims-receiving-card-header { border-bottom: 1px solid var(--color-ims-border); padding: 12px 16px; color: var(--color-ims-ink); font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-receiving-card-body { padding: 16px; }
+  .ims-receiving-card-body--flush { padding: 0; }
+  .ims-receiving-meta { display: grid; grid-template-columns: minmax(115px, 220px) minmax(0, 1fr); gap: 8px 16px; margin: 0; }
+  .ims-receiving-meta dt, .ims-receiving-meta dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+  .ims-receiving-meta-label { font-weight: 600; }
+  .ims-receiving-detail-scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
+  .ims-receiving-detail-table { min-width: 860px; font-size: var(--text-ims-sm); }
+  .ims-receiving-detail-table th { white-space: nowrap; }
+  .ims-receiving-detail-table td { vertical-align: middle; }
+  .ims-receiving-detail-table code { color: var(--color-ims-primary); font-family: ui-monospace, monospace; }
+  .ims-receiving-attachments { display: grid; }
+  .ims-receiving-attachment { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; border-bottom: 1px solid var(--color-ims-border); padding: 12px 16px; }
+  .ims-receiving-attachment:last-child { border-bottom: 0; }
+  .ims-receiving-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .ims-receiving-danger-action { border-color: var(--color-ims-danger); color: var(--color-ims-danger); }
+  .ims-receiving-danger-action:hover { background: var(--color-ims-danger-bg); }
+  @media (max-width: 639px) { .ims-receiving-list-header, .ims-receiving-filter-wrap { padding-inline: 16px; } .ims-receiving-filters > input, .ims-receiving-filters > select { flex: 1 1 100%; max-width: none; } }
+  @media (max-width: 639px) { .ims-receiving-meta { grid-template-columns: minmax(108px, .5fr) minmax(0, 1fr); gap: 8px; } }
+}
+
+/* Wave 3: standalone authentication and centralized error surfaces. */
 /* Wave 4: cross-facility Puskesmas stock report (read-only). */
 @layer components {
   .ims-pkm-report, .ims-pkm-panel { min-width: 0; }
