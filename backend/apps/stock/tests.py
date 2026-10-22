@@ -4179,6 +4179,20 @@ class StockCardTest(TestCase):
         response = self.client.get(reverse('stock:stock_card_select'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_card_select.html')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'id="itemSearch"')
+        self.assertContains(response, 'id="searchResults"')
+
+    def test_transaction_list_renders_existing_ledger_values_with_tailwind(self):
+        response = self.client.get(reverse('stock:transaction_list'), {'type': 'OUT'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'stock/transaction_list.html')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'Paracetamol 500mg')
+        self.assertContains(response, 'Keluar')
+        self.assertNotContains(response, 'Masuk</span>')
 
     def test_api_item_search(self):
         response = self.client.get(reverse('stock:api_item_search'), {'q': 'Parace'})
@@ -4194,6 +4208,9 @@ class StockCardTest(TestCase):
         response = self.client.get(reverse('stock:stock_card_detail', args=[self.item.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_card_detail.html')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'data-bs-toggle="collapse"')
 
         # Verify context contains funding_source_cards
         cards = response.context['funding_source_cards']
@@ -5849,7 +5866,9 @@ class StockListViewTests(TestCase):
         self.assertEqual(stocks_by_batch['EXP-01'].source_fund_badge_class, 'text-bg-warning')
         self.assertEqual(stocks_by_batch['WARN-01'].source_fund_badge_class, 'text-bg-info')
         self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
-        self.assertContains(response, 'sticky-top')
+        self.assertContains(response, 'ims-stock-table-scroll')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
         self.assertContains(response, '>55<', html=False)
         self.assertContains(response, '>3<', html=False)
         self.assertContains(response, '>52<', html=False)

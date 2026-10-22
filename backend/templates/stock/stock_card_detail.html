@@ -1,143 +1,25 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}Kartu Stok {{ item.kode_barang }} - Healthcare IMS{% endblock %}
 {% block page_title %}Kartu Stok: {{ item.kode_barang }}{% endblock %}
 
-{% block extra_css %}
-<style>
-@media print {
-    body { background-color: white; }
-    .sidebar, .navbar-top, .filter-form, .btn, .pagination, .print-hide { display: none !important; }
-    #page-content-wrapper { margin: 0; padding: 0; }
-    .card { border: none !important; box-shadow: none !important; }
-    .table-container { box-shadow: none; border: none; padding: 0; margin: 0; }
-}
-.stock-card-paper {
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    background: #fff;
-    overflow: hidden;
-}
-.stock-card-headline {
-    text-align: center;
-    border-bottom: 2px solid #cbd5e1;
-    padding: 14px 18px;
-}
-.stock-card-headline h5 {
-    margin: 0;
-    letter-spacing: .08em;
-    font-weight: 700;
-}
-.stock-meta-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 22px;
-    padding: 12px 18px;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: .92rem;
-}
-.stock-meta-line {
-    display: flex;
-    gap: 8px;
-}
-.stock-meta-line b {
-    min-width: 120px;
-}
-.sd-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    overflow: hidden;
-    background: #fff;
-}
-.sd-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-    cursor: pointer;
-    user-select: none;
-}
-.sd-card-header:hover {
-    background: #f1f5f9;
-}
-.sd-card-header h6 {
-    margin: 0;
-    font-weight: 700;
-    font-size: 0.95rem;
-}
-.sd-card-header .sd-price {
-    font-weight: 700;
-    color: #1e40af;
-    font-size: 0.95rem;
-}
-.sd-card-body {
-    /* collapsible via Bootstrap */
-}
-.sd-summary {
-    display: flex;
-    gap: 16px;
-    padding: 8px 16px;
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
-    font-size: 0.85rem;
-}
-.sd-summary .badge-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-.ledger-table {
-    font-size: 0.88rem;
-}
-.ledger-table thead th {
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    font-size: 0.75rem;
-    background: #f8fafc;
-    border-color: #cbd5e1 !important;
-}
-.ledger-table th,
-.ledger-table td {
-    border-color: #d1d5db !important;
-    vertical-align: middle;
-}
-.ledger-table tbody td {
-    padding-top: 6px;
-    padding-bottom: 6px;
-}
-.ledger-table .num-cell {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-variant-numeric: tabular-nums;
-}
-.ledger-table .doc-ref {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.8rem;
-}
-@media (max-width: 768px) {
-    .stock-meta-grid { grid-template-columns: 1fr; }
-}
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-end mb-2 gap-2 print-hide">
-    <a href="{% url 'stock:stock_card_select' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali
+<div class="ims-stock-card-detail">
+<div class="flex justify-end mb-2 gap-2 print-hide">
+    <a href="{% url 'stock:stock_card_select' %}" class="ims-btn ims-btn--neutral">
+        <i class="bi bi-arrow-left mr-1"></i>Kembali
     </a>
-    <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-clock-history me-1"></i>Log Mutasi
+    <a href="{% url 'stock:transaction_list' %}" class="ims-btn ims-btn--neutral">
+        <i class="bi bi-clock-history mr-1"></i>Log Mutasi
     </a>
     <a href="{% url 'stock:stock_card_print' item.id %}{% if date_from or date_to or selected_location or selected_sumber_dana %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if selected_location %}location={{ selected_location }}&{% endif %}{% if selected_sumber_dana %}sumber_dana={{ selected_sumber_dana }}{% endif %}{% endif %}"
-       class="btn btn-outline-primary" target="_blank">
-        <i class="bi bi-printer me-1"></i>Cetak
+       class="ims-btn ims-btn--secondary" target="_blank">
+        <i class="bi bi-printer mr-1"></i>Cetak
     </a>
 </div>
 
-<div class="stock-card-paper shadow-sm">
+<div class="stock-card-paper shadow-ims-surface">
     <div class="stock-card-headline">
         <h5>KARTU STOK</h5>
     </div>
@@ -150,29 +32,29 @@
     </div>
 
     <!-- ── Filters ───────────────────────────────────────────────── -->
-    <div class="px-3 py-3 border-bottom bg-light print-hide">
-        <form method="get" class="filter-form d-flex gap-2 flex-wrap align-items-center" data-date-validate="dmy">
-            <div class="input-group input-group-sm" style="width: auto;">
-                <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
-                <input type="text" name="date_from" class="form-control js-date-mask" value="{{ date_from }}" placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" maxlength="10" inputmode="numeric">
-                <span class="input-group-text">s/d</span>
-                <input type="text" name="date_to" class="form-control js-date-mask" value="{{ date_to }}" placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" maxlength="10" inputmode="numeric">
+    <div class="px-3 py-3 border-b bg-ims-surface-muted print-hide">
+        <form method="get" class="filter-form flex gap-2 flex-wrap items-center" data-date-validate="dmy">
+            <div class="ims-stock-card-date-group">
+                <span class="ims-stock-card-date-label"><i class="bi bi-calendar3"></i></span>
+                <input type="text" name="date_from" class="ims-control js-date-mask" value="{{ date_from }}" placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" maxlength="10" inputmode="numeric">
+                <span class="ims-stock-card-date-label">s/d</span>
+                <input type="text" name="date_to" class="ims-control js-date-mask" value="{{ date_to }}" placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" maxlength="10" inputmode="numeric">
             </div>
-            <select name="location" class="form-select form-select-sm" style="width: auto; min-width: 140px;">
+            <select name="location" class="ims-control">
                 <option value="">Semua Lokasi</option>
                 {% for loc in locations %}
                 <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
                 {% endfor %}
             </select>
-            <select name="sumber_dana" class="form-select form-select-sm" style="width: auto; min-width: 160px;">
+            <select name="sumber_dana" class="ims-control">
                 <option value="">Semua Sumber Dana</option>
                 {% for sd in funding_sources %}
                 <option value="{{ sd.id }}" {{ sd.selected }}>{{ sd.name }}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+            <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm">Filter</button>
             {% if date_from or date_to or selected_location or selected_sumber_dana %}
-            <a href="{% url 'stock:stock_card_detail' item.id %}" class="btn btn-outline-danger btn-sm">Atur Ulang</a>
+            <a href="{% url 'stock:stock_card_detail' item.id %}" class="ims-btn ims-btn--neutral ims-btn--sm">Atur Ulang</a>
             {% endif %}
         </form>
     </div>
@@ -183,26 +65,26 @@
         <div class="sd-card">
             <div class="sd-card-header" data-bs-toggle="collapse" data-bs-target="#sdCard{{ forloop.counter }}" aria-expanded="true">
                 <h6>
-                    <i class="bi bi-wallet2 me-1"></i>
+                    <i class="bi bi-wallet2 mr-1"></i>
                     {% if card.sumber_dana %}
                         {{ card.sumber_dana.code }} — {{ card.sumber_dana.name }}
                     {% else %}
                         Tanpa Sumber Dana
                     {% endif %}
-                    <span class="badge bg-secondary-subtle text-secondary ms-2">{{ card.transactions|length }} transaksi</span>
+                    <span class="ims-badge ims-stock-card-muted-badge text-ims-muted ml-2">{{ card.transactions|length }} transaksi</span>
                 </h6>
-                <div class="text-end">
+                <div class="text-right">
                     <div class="sd-price">Harga Satuan: Rp {{ card.unit_price|id_price_exact }}</div>
-                    <small class="text-muted d-block">Dokumen Sumber: {{ card.source_document_number|default:"-" }}</small>
-                    <small class="text-muted d-block">Lokasi: {{ card.location_name|default:"-" }}</small>
-                    <small class="text-muted d-block">Batch: {{ card.batch_lot|default:"-" }}</small>
+                    <small class="text-ims-muted block">Dokumen Sumber: {{ card.source_document_number|default:"-" }}</small>
+                    <small class="text-ims-muted block">Lokasi: {{ card.location_name|default:"-" }}</small>
+                    <small class="text-ims-muted block">Batch: {{ card.batch_lot|default:"-" }}</small>
                 </div>
             </div>
 
             <div class="collapse show" id="sdCard{{ forloop.counter }}">
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle mb-0 ledger-table">
-                        <thead class="table-light">
+                <div class="ims-table-scroll">
+                    <table class="table ims-table ims-stock-card-ruled ims-stock-card-middle mb-0 ledger-table">
+                        <thead class="ims-stock-card-table-head">
                             <tr>
                                 <th style="width: 80px;">Tgl</th>
                                 <th style="width: 115px;">Dokumen</th>
@@ -211,57 +93,57 @@
                                 <th style="width: 135px;">Lokasi Stok</th>
                                 <th style="width: 100px;">No Batch</th>
                                 <th style="width: 82px;">Exp Date</th>
-                                <th class="text-end" style="width: 75px;">Terima</th>
-                                <th class="text-end" style="width: 75px;">Keluar</th>
-                                <th class="text-end" style="width: 80px;">Mutasi</th>
-                                <th class="text-end" style="width: 85px;">Sisa</th>
+                                <th class="text-right" style="width: 75px;">Terima</th>
+                                <th class="text-right" style="width: 75px;">Keluar</th>
+                                <th class="text-right" style="width: 80px;">Mutasi</th>
+                                <th class="text-right" style="width: 85px;">Sisa</th>
                                 <th style="width: 80px;">Ketr</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% if card.show_opening_balance %}
-                            <tr class="table-info">
-                                <td colspan="7" class="text-end fw-bold">SALDO AWAL</td>
-                                <td class="text-end">-</td>
-                                <td class="text-end">-</td>
-                                <td class="text-end">-</td>
-                                <td class="text-end fw-bold num-cell">{{ card.opening_balance|id_decimal:0 }}</td>
+                            <tr class="ims-stock-card-opening">
+                                <td colspan="7" class="text-right font-bold">SALDO AWAL</td>
+                                <td class="text-right">-</td>
+                                <td class="text-right">-</td>
+                                <td class="text-right">-</td>
+                                <td class="text-right font-bold num-cell">{{ card.opening_balance|id_decimal:0 }}</td>
                                 <td></td>
                             </tr>
                             {% endif %}
 
                             {% for tx in card.transactions %}
                             <tr>
-                                <td class="text-nowrap">{{ tx.created_at|date:"d/m/Y" }}</td>
+                                <td class="whitespace-nowrap">{{ tx.created_at|date:"d/m/Y" }}</td>
                                 <td>
                                     <code class="doc-ref">{{ tx.reference_label }}</code>
                                 </td>
                                 <td>
                                     {% if tx.is_transfer_transaction %}
-                                        <span class="badge bg-info-subtle text-info-emphasis">{{ tx.activity_label }}</span>
+                                        <span class="ims-badge ims-badge--info text-ims-info">{{ tx.activity_label }}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ tx.activity_label }}</span>
+                                        <span class="ims-badge ims-stock-card-muted-badge text-ims-muted">{{ tx.activity_label }}</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ tx.dari_kepada|default:"" }}</td>
                                 <td>{{ tx.location_label|default:"" }}</td>
                                 <td>{{ tx.batch_lot }}</td>
                                 <td class="text-center">{{ tx.expiry_display }}</td>
-                                <td class="text-end text-success fw-semibold num-cell">{% if tx.tx_in > 0 and not tx.is_transfer_transaction %}{{ tx.tx_in|id_decimal:0 }}{% endif %}</td>
-                                <td class="text-end fw-semibold num-cell">
+                                <td class="text-right text-ims-success font-semibold num-cell">{% if tx.tx_in > 0 and not tx.is_transfer_transaction %}{{ tx.tx_in|id_decimal:0 }}{% endif %}</td>
+                                <td class="text-right font-semibold num-cell">
                                     {% if tx.tx_out > 0 and not tx.is_transfer_transaction %}
-                                        <span class="text-danger fw-semibold">{{ tx.tx_out|id_decimal:0 }}</span>
+                                        <span class="text-ims-danger font-semibold">{{ tx.tx_out|id_decimal:0 }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-end text-info fw-semibold num-cell">{% if tx.is_transfer_transaction %}{{ tx.transfer_quantity|id_decimal:0 }}{% endif %}</td>
-                                <td class="text-end fw-bold bg-light num-cell">{{ tx.running_balance|id_decimal:0 }}</td>
-                                <td class="small">{{ tx.notes|truncatewords:8 }}</td>
+                                <td class="text-right text-ims-info font-semibold num-cell">{% if tx.is_transfer_transaction %}{{ tx.transfer_quantity|id_decimal:0 }}{% endif %}</td>
+                                <td class="text-right font-bold bg-ims-surface-muted num-cell">{{ tx.running_balance|id_decimal:0 }}</td>
+                                <td class="text-xs">{{ tx.notes|truncatewords:8 }}</td>
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="12">
-                                    <div class="text-center py-3 text-muted">
-                                        <i class="bi bi-journal-x d-block fs-4 mb-1"></i>
+                                    <div class="text-center py-3 text-ims-muted">
+                                        <i class="bi bi-journal-x block text-xl mb-1"></i>
                                         Tidak ada riwayat transaksi.
                                     </div>
                                 </td>
@@ -269,13 +151,13 @@
                             {% endfor %}
                         </tbody>
                         {% if card.transactions %}
-                        <tfoot class="table-light fw-bold">
+                        <tfoot class="ims-stock-card-table-head font-bold">
                             <tr>
-                                <td colspan="7" class="text-end">TOTAL</td>
-                                <td class="text-end text-success num-cell">{{ card.total_in|id_decimal:0 }}</td>
-                                <td class="text-end text-danger num-cell">{{ card.total_out|id_decimal:0 }}</td>
-                                <td class="text-end">-</td>
-                                <td class="text-end bg-light num-cell">{{ card.closing_balance|id_decimal:0 }}</td>
+                                <td colspan="7" class="text-right">TOTAL</td>
+                                <td class="text-right text-ims-success num-cell">{{ card.total_in|id_decimal:0 }}</td>
+                                <td class="text-right text-ims-danger num-cell">{{ card.total_out|id_decimal:0 }}</td>
+                                <td class="text-right">-</td>
+                                <td class="text-right bg-ims-surface-muted num-cell">{{ card.closing_balance|id_decimal:0 }}</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -286,20 +168,21 @@
                 <div class="sd-summary">
                     <span class="badge-stat"><strong>T.A:</strong> {{ card.tahun_anggaran|stringformat:"d" }}</span>
                     <span class="badge-stat"><strong>Saldo Akhir:</strong> {{ card.closing_balance|id_decimal:0 }}</span>
-                    <span class="badge-stat"><strong>Total Masuk:</strong> <span class="text-success">{{ card.total_in|id_decimal:0 }}</span></span>
-                    <span class="badge-stat"><strong>Total Keluar:</strong> <span class="text-danger">{{ card.total_out|id_decimal:0 }}</span></span>
+                    <span class="badge-stat"><strong>Total Masuk:</strong> <span class="text-ims-success">{{ card.total_in|id_decimal:0 }}</span></span>
+                    <span class="badge-stat"><strong>Total Keluar:</strong> <span class="text-ims-danger">{{ card.total_out|id_decimal:0 }}</span></span>
                 </div>
-                <div class="px-3 py-2 border-top small text-muted bg-light">
+                <div class="px-3 py-2 border-t text-xs text-ims-muted bg-ims-surface-muted">
                     Kolom <strong>Dari / Kepada</strong> menunjukkan fasilitas atau mitra dokumen, sedangkan <strong>Lokasi Stok</strong> menunjukkan lokasi penyimpanan batch pada transaksi tersebut. Kolom <strong>Mutasi</strong> dipakai untuk perpindahan internal antar lokasi dan tetap memengaruhi <strong>Sisa</strong>, tetapi tidak dihitung ke <strong>Total Masuk</strong> atau <strong>Total Keluar</strong>.
                 </div>
             </div>
         </div>
     {% empty %}
-        <div class="text-center py-5 text-muted">
-            <i class="bi bi-journal-x d-block fs-1 mb-2"></i>
+        <div class="text-center py-5 text-ims-muted">
+            <i class="bi bi-journal-x block text-3xl mb-2"></i>
             <p class="mb-0">Tidak ada riwayat transaksi untuk item ini.</p>
         </div>
     {% endfor %}
     </div>
+</div>
 </div>
 {% endblock %}

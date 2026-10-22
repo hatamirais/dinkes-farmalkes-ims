@@ -1,6 +1,6 @@
 # Tailwind visual direction
 
-Status: **Visual direction approved by the user on 20 October 2026.** These images are visual concepts, not screenshots of rendered Tailwind pages. Root [`DESIGN.md`](../../DESIGN.md) is the target visual contract. The shared desktop shell, Item List, and both dashboard variants have since migrated using this direction.
+Status: **Visual direction approved by the user on 20 October 2026.** These images are visual concepts, not screenshots of rendered Tailwind pages. Root [`DESIGN.md`](../../DESIGN.md) is the target visual contract. The shared desktop shell, Item List, both dashboard variants, authentication/errors, and the first desktop stock read-only slice have since migrated using this direction.
 
 The concepts were grounded in the live local dashboard, item list and form, distribution detail, quick-create modal, login, centralized 404, mobile stock page, and a print-media capture of the SBBK. They preserve the existing Indonesian information architecture and show record-specific content as neutral masks to avoid inventing operational data. The current logo source remains [`backend/static/img/default-logo.svg`](../../backend/static/img/default-logo.svg); implementation must use that asset exactly, even where image generation approximated its edges.
 

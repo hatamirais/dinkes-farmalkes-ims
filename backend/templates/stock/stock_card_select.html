@@ -1,97 +1,23 @@
-{% extends "base.html" %}
-
+{% extends "base_tailwind.html" %}
 {% block title %}Pilih Barang - Kartu Stok{% endblock %}
 {% block page_title %}Kartu Stok{% endblock %}
-
-{% block extra_css %}
-<style>
-    .search-container {
-        max-width: 600px;
-        margin: 2rem auto;
-    }
-    .search-results {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 1000;
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        display: none;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .search-result-item {
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #dee2e6;
-        cursor: pointer;
-        text-decoration: none;
-        color: inherit;
-        display: block;
-        transition: background-color 0.15s ease-in-out;
-    }
-    .search-result-item:last-child {
-        border-bottom: none;
-    }
-    .search-result-item:hover {
-        background-color: #f8f9fa;
-    }
-    .search-result-item.active {
-        background-color: #e8efff;
-        outline: none;
-    }
-    .search-result-item .item-code {
-        font-family: monospace;
-        color: #6c757d;
-        font-size: 0.875em;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="card mb-4">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0"><i class="bi bi-search me-2"></i>Pilih Barang untuk Kartu Stok</h5>
-    </div>
-    <div class="card-body py-5 text-center">
-        <div class="search-container position-relative text-start">
-            <div class="input-group input-group-lg">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="bi bi-search text-muted"></i>
-                </span>
-                <input type="text" id="itemSearch" class="form-control border-start-0 ps-0" 
-                    placeholder="Ketik kode atau nama barang..." autocomplete="off"
-                    data-search-url="{% url 'stock:api_item_search' %}"
-                    data-detail-template="{% url 'stock:stock_card_detail' 0 %}">
+<section class="ims-stock-panel ims-stock-card-select">
+    <header class="ims-stock-panel-head ims-stock-card-select-header"><h2 class="text-lg font-bold"><i class="bi bi-search mr-2 text-ims-primary"></i>Pilih Barang untuk Kartu Stok</h2></header>
+    <div class="ims-stock-card-select-body">
+        <div class="search-container">
+            <div class="ims-stock-search-input"><i class="bi bi-search text-ims-muted" aria-hidden="true"></i>
+                <input type="text" id="itemSearch" class="ims-control" aria-label="Cari kode atau nama barang" placeholder="Ketik kode atau nama barang..." autocomplete="off" data-search-url="{% url 'stock:api_item_search' %}" data-detail-template="{% url 'stock:stock_card_detail' 0 %}">
             </div>
-            <div id="searchResults" class="search-results">
-                <!-- Results will be populated here by JavaScript -->
-            </div>
+            <div id="searchResults" class="search-results"><!-- Results will be populated here by JavaScript --></div>
         </div>
-        <p class="text-muted mt-4">
-            Mulai mengetik nama atau kode barang untuk melihat Kartu Stok (riwayat transaksi).
-        </p>
-
-        <div class="d-flex justify-content-center gap-2 mt-3">
-            <a href="{% url 'stock:transaction_list' %}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-clock-history me-1"></i>Lihat Log Semua Mutasi
-            </a>
-        </div>
-
+        <p class="mt-5 text-center text-ims-muted">Mulai mengetik nama atau kode barang untuk melihat Kartu Stok (riwayat transaksi).</p>
+        <div class="mt-3 flex justify-center"><a href="{% url 'stock:transaction_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"><i class="bi bi-clock-history"></i>Lihat Log Semua Mutasi</a></div>
         {% if recent_items %}
-        <div class="mt-4 text-start">
-            <div class="small text-muted mb-2">Barang Terakhir Dilihat</div>
-            <div class="d-flex flex-wrap gap-2">
-                {% for recent in recent_items %}
-                <a href="{% url 'stock:stock_card_detail' recent.id %}" class="btn btn-outline-primary btn-sm">
-                    <span class="font-monospace">{{ recent.kode_barang }}</span> - {{ recent.nama_barang|truncatechars:30 }}
-                </a>
-                {% endfor %}
-            </div>
-        </div>
+        <div class="mt-6"><div class="mb-2 text-xs text-ims-muted">Barang Terakhir Dilihat</div><div class="flex flex-wrap gap-2">
+            {% for recent in recent_items %}<a href="{% url 'stock:stock_card_detail' recent.id %}" class="ims-btn ims-btn--secondary ims-btn--sm"><span class="font-mono">{{ recent.kode_barang }}</span> - {{ recent.nama_barang|truncatechars:30 }}</a>{% endfor %}
+        </div></div>
         {% endif %}
     </div>
-</div>
+</section>
 {% endblock %}
