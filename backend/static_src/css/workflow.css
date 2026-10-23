@@ -17,6 +17,9 @@
   .ims-workflow input.form-control, .ims-workflow select.form-select, .ims-workflow textarea.form-control { min-height: 38px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 7px 10px; background: #fff; }
   .ims-workflow .table-responsive { min-width: 0; max-width: 100%; overflow-x: auto; }
   .ims-workflow .ims-table { min-width: 720px; margin: 0; font-size: var(--text-ims-sm); }
+  .ims-workflow.ims-transfer-list .ims-table { min-width: 920px; }
+  .ims-workflow.ims-transfer-detail .ims-table { min-width: 1080px; }
+  .ims-workflow.ims-transfer-list .empty-state, .ims-workflow.ims-transfer-detail .empty-state { align-items: flex-start; padding-left: 12px; text-align: left; }
   .ims-workflow .ims-table th { white-space: nowrap; }
   .ims-workflow .ims-table td { vertical-align: middle; }
   .ims-workflow .ims-table tbody tr:hover { background: #f8fbfd; }

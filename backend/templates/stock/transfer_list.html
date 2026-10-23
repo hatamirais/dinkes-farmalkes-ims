@@ -1,36 +1,36 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Mutasi Lokasi - Healthcare IMS{% endblock %}
 {% block page_title %}Mutasi Lokasi{% endblock %}
 
 {% block content %}
-<div class="table-container">
+<div class="ims-workflow ims-workflow-list ims-transfer-list table-container">
     <div class="table-header">
         <h5><i class="bi bi-arrow-left-right me-2"></i>Daftar Mutasi Lokasi</h5>
-        <a href="{% url 'stock:transfer_create' %}" class="btn btn-primary btn-sm">
+        <a href="{% url 'stock:transfer_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
             <i class="bi bi-plus-lg me-1"></i>Buat Mutasi
         </a>
     </div>
 
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari no dokumen / lokasi..." value="{{ search }}">
-            <select name="status" class="form-select">
+            <input type="text" name="q" class="form-control ims-control" placeholder="Cari no dokumen / lokasi..." value="{{ search }}">
+            <select name="status" class="form-select ims-control">
                 <option value="">Semua Status</option>
                 <option value="DRAFT" {{ status_draft }}>Draft</option>
                 <option value="COMPLETED" {{ status_completed }}>Selesai</option>
             </select>
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral" aria-label="Cari mutasi"><i class="bi bi-search"></i></button>
                 {% if search or selected_status %}
-                <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+                <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger" aria-label="Reset filter"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
         </form>
     </div>
 
-    <div class="table-responsive">
-        <table class="table">
+    <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel mutasi lokasi" tabindex="0">
+        <table class="table ims-table">
             <thead>
                 <tr>
                     <th>No. Dokumen</th>
@@ -54,7 +54,7 @@
                     </td>
                     <td>{{ trf.created_by }}</td>
                     <td class="text-end">
-                        <a href="{% url 'stock:transfer_detail' trf.pk %}" class="btn btn-sm btn-outline-secondary">
+                        <a href="{% url 'stock:transfer_detail' trf.pk %}" class="btn btn-sm btn-outline-secondary ims-btn ims-btn--sm ims-btn--neutral" aria-label="Lihat mutasi {{ trf.document_number|default:'draft' }}">
                             <i class="bi bi-eye"></i>
                         </a>
                     </td>
@@ -72,5 +72,20 @@
             </tbody>
         </table>
     </div>
+    {% if transfers.has_other_pages %}
+    <nav class="d-flex justify-content-center py-3 border-top" aria-label="Halaman mutasi lokasi">
+        <ul class="pagination pagination-sm mb-0">
+            {% if transfers.has_previous %}
+            <li class="page-item"><a class="page-link ims-page-link" href="{% querystring page=transfers.previous_page_number %}" aria-label="Halaman sebelumnya">&laquo;</a></li>
+            {% endif %}
+            {% for num in transfers.paginator.page_range %}
+            <li class="page-item {% if transfers.number == num %}active{% endif %}"><a class="page-link ims-page-link" href="{% querystring page=num %}" {% if transfers.number == num %}aria-current="page"{% endif %}>{{ num }}</a></li>
+            {% endfor %}
+            {% if transfers.has_next %}
+            <li class="page-item"><a class="page-link ims-page-link" href="{% querystring page=transfers.next_page_number %}" aria-label="Halaman berikutnya">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

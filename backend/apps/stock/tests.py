@@ -5721,6 +5721,40 @@ class StockTransferCreateValidationTests(TestCase):
         self.assertContains(response, 'RCV-TRF-CREATE-DETAIL')
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
+class StockTransferListPaginationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser(
+            username='admin_transfer_list', password='secret12345'
+        )
+        cls.source = Location.objects.create(code='TRF-LIST-SRC', name='Gudang Transfer')
+        cls.destination = Location.objects.create(code='TRF-LIST-DST', name='Tujuan Transfer')
+        for _ in range(26):
+            StockTransfer.objects.create(
+                transfer_date=date(2026, 7, 13),
+                source_location=cls.source,
+                destination_location=cls.destination,
+                created_by=cls.user,
+            )
+
+    def test_page_links_reach_remaining_rows_and_preserve_filters(self):
+        self.client.force_login(self.user)
+        url = reverse('stock:transfer_list')
+        response = self.client.get(url, {'q': 'Gudang', 'status': 'DRAFT'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['transfers']), 25)
+        self.assertContains(response, 'page=2')
+        self.assertContains(response, 'q=Gudang')
+        self.assertContains(response, 'status=DRAFT')
+
+        next_page = self.client.get(
+            url, {'q': 'Gudang', 'status': 'DRAFT', 'page': '2'}
+        )
+        self.assertEqual(next_page.status_code, 200)
+        self.assertEqual(len(next_page.context['transfers']), 1)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
