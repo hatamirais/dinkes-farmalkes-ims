@@ -174,10 +174,10 @@
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
                                     <td class="fw-semibold">{{ row.kategori|default:"Lainnya" }}</td>
-                                    <td class="text-end">Rp {{ row.saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ row.nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ row.nilai_keluar|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ row.saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ row.saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ row.nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ row.nilai_keluar|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ row.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
@@ -194,10 +194,10 @@
                             <tr>
                                 <td></td>
                                 <td class="text-center fw-bold">Total</td>
-                                <td class="text-end">Rp {{ totals.saldo_awal|id_value_exact }}</td>
-                                <td class="text-end">Rp {{ totals.nilai_terima|id_value_exact }}</td>
-                                <td class="text-end">Rp {{ totals.nilai_keluar|id_value_exact }}</td>
-                                <td class="text-end">Rp {{ totals.saldo_akhir|id_value_exact }}</td>
+                                <td class="text-end">Rp {{ totals.saldo_awal|id_decimal:2 }}</td>
+                                <td class="text-end">Rp {{ totals.nilai_terima|id_decimal:2 }}</td>
+                                <td class="text-end">Rp {{ totals.nilai_keluar|id_decimal:2 }}</td>
+                                <td class="text-end">Rp {{ totals.saldo_akhir|id_decimal:2 }}</td>
                             </tr>
                         </tfoot>
                         {% endif %}

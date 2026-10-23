@@ -230,22 +230,22 @@
                                 <tr class="rekap-sd-header">
                                     <td></td>
                                     <td>{{ sd_group.sd_name }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_distribusi|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_ed|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_distribusi|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_ed|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 <!-- Category Rows -->
                                 {% for cat in sd_group.categories %}
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
                                     <td>{{ cat.kategori }}</td>
-                                    <td class="text-end">Rp {{ cat.saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.nilai_distribusi|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.nilai_ed|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ cat.saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.nilai_distribusi|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.nilai_ed|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
                                 {% endfor %}
@@ -253,11 +253,11 @@
                                 <tr class="rekap-total-row">
                                     <td></td>
                                     <td class="text-center fw-bold">Total</td>
-                                    <td class="text-end">Rp {{ grand_totals.saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.nilai_distribusi|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.nilai_ed|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.nilai_distribusi|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.nilai_ed|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                             {% else %}
                             <tr>

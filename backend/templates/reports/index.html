@@ -210,7 +210,7 @@
                                     <td>{{ row.source_document_number }}</td>
                                     <td>{% if row.expiry_date %}{{ row.expiry_date|date:"d M Y" }}{% else %}-{% endif %}</td>
                                     <td>{{ row.sumber_dana__name }}</td>
-                                    <td class="text-end">{{ row.unit_price|id_price_exact }}</td>
+                                    <td class="text-end">{{ row.unit_price|id_decimal:2 }}</td>
                                     <td class="text-end">{{ row.initial_stock|floatformat:2 }}</td>
                                     <td class="text-end">{{ row.received|floatformat:2 }}</td>
                                     <td class="text-end">{{ row.transfer_in|floatformat:2 }}</td>

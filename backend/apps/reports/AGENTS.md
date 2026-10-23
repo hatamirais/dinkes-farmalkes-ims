@@ -14,4 +14,5 @@ App-specific guidance for report authorization and stock/accounting semantics.
 - Detailed reports and stock cards preserve `source_document_number` and location where rows are location-specific.
 - Do not average unit prices across source-document layers.
 - Puskesmas inventory reporting derives from the LPLPO baseline plus confirmed receipts and detailed consumption according to the owning app rules.
+- Report HTML shows monetary amounts with two Indonesian decimal digits. Keep underlying Decimal calculations and Excel export precision intact; quantity formatting is separate.
 - Keep report links, route names, and documented report variants synchronized with actual URLconfs.

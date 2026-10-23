@@ -147,15 +147,15 @@
                                     <td>{{ row.batch_lot }}</td>
                                     <td class="text-center">{{ row.expiry_date|date:"d/m/Y"|default:"-" }}</td>
                                     <td>{{ row.sumber_dana }}</td>
-                                    <td class="text-end">Rp {{ row.unit_price|id_price_exact }}</td>
+                                    <td class="text-end">Rp {{ row.unit_price|id_decimal:2 }}</td>
                                     <td class="text-end">{{ row.quantity|id_decimal:0 }}</td>
-                                    <td class="text-end">Rp {{ row.total_price|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ row.total_price|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
                                 <tr class="table-warning fw-bold">
                                     <td colspan="8" class="text-center">TOTAL</td>
                                     <td class="text-end">{{ total_quantity|id_decimal:0 }}</td>
-                                    <td class="text-end">Rp {{ total_value|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ total_value|id_decimal:2 }}</td>
                                 </tr>
                             {% else %}
                             <tr>
