@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}{{ contract.document_number|default:"SPJ draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail SPJ / Pengadaan{% endblock %}
 
 {% block content %}
-<div class="row g-3">
+<div class="ims-workflow ims-workflow-detail row g-3">
     <div class="col-12 col-xl-4">
         <div class="card content-card">
             <div class="card-header"><span>Informasi SPJ</span></div>
@@ -51,30 +51,30 @@
 
         <div class="d-flex flex-wrap gap-2 mt-3">
             {% if contract_actions.can_edit %}
-            <a href="{% url 'procurement:contract_edit' contract.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <a href="{% url 'procurement:contract_edit' contract.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
             {% endif %}
             {% if contract_actions.can_submit %}
             <form method="post" action="{% url 'procurement:contract_submit' contract.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Ajukan</button>
+                <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-send me-1"></i>Ajukan</button>
             </form>
             {% endif %}
             {% if contract_actions.can_approve %}
             <form method="post" action="{% url 'procurement:contract_approve' contract.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-patch-check me-1"></i>Setujui</button>
+                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-patch-check me-1"></i>Setujui</button>
             </form>
             {% endif %}
             {% if contract_actions.can_create_amendment %}
-            <a href="{% url 'procurement:amendment_create' contract.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Buat Amandemen</a>
+            <a href="{% url 'procurement:amendment_create' contract.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-plus-circle me-1"></i>Buat Amandemen</a>
             {% endif %}
             {% if contract_actions.can_close %}
             <form method="post" action="{% url 'procurement:contract_close' contract.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-circle me-1"></i>Tutup Kontrak</button>
+                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-circle me-1"></i>Tutup Kontrak</button>
             </form>
             {% endif %}
-            <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
+            <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
         </div>
 
         {% if contract_actions.can_cancel %}
@@ -83,7 +83,7 @@
             <div class="mb-2">
                 {{ cancel_form.cancel_reason }}
             </div>
-            <button type="submit" class="btn btn-outline-danger btn-sm" data-confirm-submit="Batalkan SPJ ini?">
+            <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger" data-confirm-submit="Batalkan SPJ ini?">
                 <i class="bi bi-x-circle me-1"></i>Batalkan SPJ
             </button>
         </form>
@@ -94,8 +94,8 @@
         <div class="card content-card mb-3">
             <div class="card-header"><span>Ringkasan Kontrak vs Realisasi</span></div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table mb-0">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table mb-0 ims-table">
                         <thead>
                             <tr>
                                 <th>Barang</th>
@@ -132,8 +132,8 @@
         <div class="card content-card">
             <div class="card-header"><span>Riwayat Amandemen</span></div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table mb-0">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table mb-0 ims-table">
                         <thead>
                             <tr>
                                 <th>Nomor</th>

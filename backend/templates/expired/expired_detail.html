@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Detail Kedaluwarsa {{ expired_doc.document_number|default:"draft" }} — Healthcare IMS{% endblock %}
 {% block page_title %}Detail Barang Kedaluwarsa{% endblock %}
 
 {% block content %}
-<div class="row g-3">
+<div class="ims-workflow ims-workflow-detail row g-3">
     <div class="col-12">
         <div class="card content-card">
             <div class="card-header"><span>Informasi Dokumen</span></div>
@@ -42,36 +42,36 @@
 
         <div class="d-flex flex-wrap gap-2 mt-3">
             {% if expired_doc.status == 'DRAFT' %}
-            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
             <form method="post" action="{% url 'expired:expired_submit' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm" data-confirm="Ajukan dokumen ini?">
+                <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Ajukan dokumen ini?">
                     <i class="bi bi-send me-1"></i>Ajukan
                 </button>
             </form>
             <form method="post" action="{% url 'expired:expired_delete' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm" data-confirm="Hapus dokumen draft ini? Tindakan ini tidak dapat dibatalkan.">
+                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger" data-confirm="Hapus dokumen draft ini? Tindakan ini tidak dapat dibatalkan.">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
             </form>
             {% elif expired_doc.status == 'SUBMITTED' %}
-            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
             {% if can_approve_expired_actions %}
             <form method="post" action="{% url 'expired:expired_verify' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm" data-confirm="Verifikasi dokumen ini? Stok akan dikurangi sesuai item yang dilaporkan.">
+                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Verifikasi dokumen ini? Stok akan dikurangi sesuai item yang dilaporkan.">
                     <i class="bi bi-patch-check me-1"></i>Verifikasi
                 </button>
             </form>
             {% endif %}
             <form method="post" action="{% url 'expired:expired_reset_to_draft' expired_doc.pk %}" data-confirm-submit="Kembalikan dokumen ini ke Draft?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-warning btn-sm">
+                <button type="submit" class="btn btn-outline-warning btn-sm ims-btn ims-btn--sm">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
                 </button>
             </form>
@@ -79,7 +79,7 @@
             {% if can_dispose_expired_actions %}
             <form method="post" action="{% url 'expired:expired_dispose' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">
+                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">
                     <i class="bi bi-check2-circle me-1"></i>Tandai Dimusnahkan
                 </button>
             </form>
@@ -87,7 +87,7 @@
             {% elif expired_doc.status == 'DISPOSED' %}
             <form method="post" action="{% url 'expired:expired_step_back' expired_doc.pk %}" data-confirm-submit="Kembalikan status dokumen ke Terverifikasi?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke Terverifikasi
                 </button>
             </form>
@@ -95,12 +95,12 @@
             {% if expired_doc.status == 'SUBMITTED' %}
             <form method="post" action="{% url 'expired:expired_step_back' expired_doc.pk %}" data-confirm-submit="Kembalikan dokumen ini ke status sebelumnya?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke status sebelumnya
                 </button>
             </form>
             {% endif %}
-            <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-arrow-left me-1"></i>Kembali
             </a>
         </div>
@@ -110,8 +110,8 @@
         <div class="card content-card">
             <div class="card-header"><span>Daftar Item Kedaluwarsa</span></div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table ims-table">
                         <thead>
                             <tr>
                                 <th>#</th>

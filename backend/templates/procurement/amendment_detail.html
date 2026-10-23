@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}{{ amendment.document_number|default:"Amandemen draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Amandemen SPJ{% endblock %}
 
 {% block content %}
-<div class="row g-3">
+<div class="ims-workflow ims-workflow-detail row g-3">
     <div class="col-12 col-xl-4">
         <div class="card content-card">
             <div class="card-header"><span>Informasi Amandemen</span></div>
@@ -34,29 +34,29 @@
         </div>
         <div class="d-flex flex-wrap gap-2 mt-3">
             {% if amendment_actions.can_edit %}
-            <a href="{% url 'procurement:amendment_edit' amendment.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <a href="{% url 'procurement:amendment_edit' amendment.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
             {% endif %}
             {% if amendment_actions.can_submit %}
             <form method="post" action="{% url 'procurement:amendment_submit' amendment.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>Ajukan</button>
+                <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-send me-1"></i>Ajukan</button>
             </form>
             {% endif %}
             {% if amendment_actions.can_approve %}
             <form method="post" action="{% url 'procurement:amendment_approve' amendment.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-patch-check me-1"></i>Setujui</button>
+                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-patch-check me-1"></i>Setujui</button>
             </form>
             {% endif %}
-            <a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali ke Kontrak</a>
+            <a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-arrow-left me-1"></i>Kembali ke Kontrak</a>
         </div>
     </div>
     <div class="col-12 col-xl-8">
         <div class="card content-card">
             <div class="card-header"><span>Baris Amandemen</span></div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table mb-0">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table mb-0 ims-table">
                         <thead>
                             <tr>
                                 <th>Barang</th>

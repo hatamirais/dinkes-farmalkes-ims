@@ -1,5 +1,6 @@
 /*! Generated from backend/static_src/css/app.css. Do not edit backend/static/css/app.tailwind.css directly. */
 @import "tailwindcss" source(none);
+@import "./workflow.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

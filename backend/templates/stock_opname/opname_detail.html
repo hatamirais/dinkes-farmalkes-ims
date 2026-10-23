@@ -1,11 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
 {% load number_format %}
 
 {% block title %}Detail Stock Opname {{ opname.document_number|default:"draft" }} - Healthcare IMS{% endblock %}
 {% block page_title %}Detail Stock Opname{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="ims-workflow ims-workflow-detail row justify-content-center">
     <div class="col-lg-12">
         <div class="card content-card mb-3">
             <div class="card-body">
@@ -85,41 +85,41 @@
                     </div>
                     <div class="d-flex gap-2">
                         {% if opname.status == "IN_PROGRESS" %}
-                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="btn btn-outline-primary btn-sm">
+                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">
                             <i class="bi bi-arrow-clockwise me-1"></i>Refresh Stok Update
                         </a>
                         {% endif %}
                         {% if opname.status == "DRAFT" %}
                         <form method="post" action="{% url 'stock_opname:opname_start' opname.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm" data-confirm-click="Mulai stock opname?">
+                            <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm-click="Mulai stock opname?">
                                 <i class="bi bi-play-fill me-1"></i>Mulai Opname
                             </button>
                         </form>
                         {% elif opname.status == "IN_PROGRESS" %}
-                        <a href="{% url 'stock_opname:opname_input' opname.pk %}" class="btn btn-primary btn-sm">
+                        <a href="{% url 'stock_opname:opname_input' opname.pk %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
                             <i class="bi bi-pencil-square me-1"></i>Input Hitung
                         </a>
                         {% if can_complete_opname %}
                         <form method="post" action="{% url 'stock_opname:opname_complete' opname.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm" data-confirm-click="Selesaikan stock opname ini?">
+                            <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm-click="Selesaikan stock opname ini?">
                                 <i class="bi bi-check-circle me-1"></i>Selesaikan
                             </button>
                         </form>
                         {% endif %}
                         {% endif %}
                         {% if opname.status != "DRAFT" %}
-                        <a href="{% url 'stock_opname:opname_report_print' opname.pk %}" class="btn btn-outline-dark btn-sm" target="_blank">
+                        <a href="{% url 'stock_opname:opname_report_print' opname.pk %}" class="btn btn-outline-dark btn-sm ims-btn ims-btn--sm" target="_blank">
                             <i class="bi bi-printer me-1"></i>Cetak Opname
                         </a>
                         {% endif %}
                         {% if opname.status != "DRAFT" and discrepancy_count > 0 %}
-                        <a href="{% url 'stock_opname:opname_print' opname.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                        <a href="{% url 'stock_opname:opname_print' opname.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral" target="_blank">
                             <i class="bi bi-printer me-1"></i>Cetak Selisih
                         </a>
                         {% endif %}
-                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-secondary btn-sm">
+                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                             <i class="bi bi-arrow-left me-1"></i>Kembali
                         </a>
                     </div>
@@ -132,8 +132,8 @@
                 <span><i class="bi bi-geo-alt me-1"></i>{{ loc_data.location.code }} &mdash; {{ loc_data.location.name }}</span>
                 <span class="text-muted small">{{ loc_data.counted }} / {{ loc_data.total }} dihitung | {{ loc_data.discrepancies }} selisih</span>
             </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0">
+            <div class="table-responsive ims-table-scroll">
+                <table class="table table-sm table-hover align-middle mb-0 ims-table">
                     <thead>
                         <tr>
                             <th>Nama Barang</th>
