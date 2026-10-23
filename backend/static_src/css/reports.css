@@ -33,6 +33,12 @@
   .ims-numbering-history .ims-table { min-width: 1180px; }
   .ims-report-index .ims-table { min-width: 1680px; }
   .ims-report-pengeluaran .ims-table, .ims-report-pengadaan .ims-table { min-width: 1200px; }
+  .ims-report-puskesmas-penerimaan .ims-table { min-width: 1450px; }
+  .ims-report-puskesmas-pemakaian .ims-table { min-width: 1080px; }
+  .ims-report-puskesmas-persediaan .ims-table { min-width: 620px; }
+  .ims-report-puskesmas-rekap-persediaan .ims-table { min-width: 900px; }
+  .ims-report-puskesmas .alert-dismissible .btn-close { float: right; margin-left: 12px; }
+  .ims-report-puskesmas .ims-report-empty { text-align: left; }
   @media (max-width: 639px) { .ims-report-filters > [class*="col-"] { flex: 1 1 100%; } .ims-report-filters .col.d-flex { flex-wrap: wrap; } }
   @media print {
     body:has(.ims-report) .sidebar, body:has(.ims-report) .navbar-top, body:has(.ims-report) .sidebar-overlay, body:has(.ims-report) [data-mobile-discovery], body:has(.ims-report) .d-print-none { display: none !important; }

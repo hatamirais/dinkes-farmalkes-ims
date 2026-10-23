@@ -327,6 +327,7 @@
   .ims-tailwind-shell .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 10px 28px; scrollbar-color: #557084 transparent; }
   .ims-tailwind-shell .sidebar-section-title { padding: 20px 12px 6px; color: #b5cddd; font-size: 0.75rem; font-weight: 600; }
   .ims-tailwind-shell .sidebar-link { display: flex; width: 100%; min-height: 42px; align-items: center; gap: 12px; border: 0; border-radius: 7px; padding: 8px 12px; background: transparent; color: var(--color-ims-sidebar-text); font-size: 0.875rem; text-align: left; text-decoration: none; }
+  .ims-tailwind-shell .sidebar-nav > .sidebar-link + .sidebar-link { margin-top: 4px; }
   .ims-tailwind-shell .sidebar-link > .bi:first-child { width: 20px; flex: none; text-align: center; font-size: 1.1rem; }
   .ims-tailwind-shell .sidebar-link .chevron { margin-left: auto; font-size: 0.75rem; transition: transform 150ms ease; }
   .ims-tailwind-shell .sidebar-link[aria-expanded="true"] .chevron { transform: rotate(180deg); }
