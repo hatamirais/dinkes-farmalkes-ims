@@ -1,0 +1,49 @@
+/* Wave 4 report screens. Print document content and Bootstrap JS hooks remain intact. */
+@layer components {
+  .ims-report { min-width: 0; }
+  .ims-report .card { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: var(--color-ims-surface); box-shadow: var(--shadow-ims-surface); }
+  .ims-report .card-body { min-width: 0; }
+  .ims-report .card-body.bg-light { background: var(--color-ims-surface-muted); }
+  .ims-report .card-header { color: var(--color-ims-ink); }
+  .ims-report .card-header h5 { margin: 0 0 4px; font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-report .card-header p { margin: 0; color: var(--color-ims-muted); }
+  .ims-report .card-header .badge { border-radius: 6px; background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-report .row.ims-report-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+  .ims-report-filters > [class*="col-"] { flex: 0 1 auto; min-width: min(100%, 165px); }
+  .ims-report-filters > .col { flex: 1 1 360px; }
+  .ims-report-filters > .col-md-4 { flex: 1 1 250px; }
+  .ims-report-filters > .col-md-2 { flex: 1 1 125px; }
+  .ims-report-filters label { display: block; margin-bottom: 6px; font-weight: 600; }
+  .ims-report-filters .form-control, .ims-report-filters .form-select { width: 100%; }
+  .ims-report-filters .col.d-flex { min-width: 0; }
+  .ims-report .table-responsive { border-radius: 6px; }
+  .ims-report .ims-table { min-width: 1080px; }
+  .ims-report .ims-table td, .ims-report .ims-table th { border: 1px solid var(--color-ims-border); }
+  .ims-report .ims-table .table-secondary { background: var(--color-ims-surface-muted); font-weight: 700; }
+  .ims-report .ims-table .table-warning, .ims-report .ims-table .rekap-total-row { background: var(--color-ims-warning-bg); font-weight: 700; }
+  .ims-report .ims-table .rekap-sd-header { background: var(--color-ims-surface-muted); font-weight: 700; }
+  .ims-report .ims-table code { color: var(--color-ims-ink); white-space: nowrap; }
+  .ims-report .badge.bg-danger-subtle { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-report .badge.bg-success-subtle { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-report .nav-pills { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+  .ims-report .nav-link { display: inline-flex; align-items: center; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 8px 12px; background: #fff; color: var(--color-ims-ink); text-decoration: none; }
+  .ims-report .nav-link.active { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
+  .ims-report .nav-link:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  .ims-report .d-print-block, .ims-report .d-print-flex { display: none; }
+  .ims-numbering-history .ims-table { min-width: 1180px; }
+  .ims-report-index .ims-table { min-width: 1680px; }
+  .ims-report-pengeluaran .ims-table, .ims-report-pengadaan .ims-table { min-width: 1200px; }
+  @media (max-width: 639px) { .ims-report-filters > [class*="col-"] { flex: 1 1 100%; } .ims-report-filters .col.d-flex { flex-wrap: wrap; } }
+  @media print {
+    body:has(.ims-report) .sidebar, body:has(.ims-report) .navbar-top, body:has(.ims-report) .sidebar-overlay, body:has(.ims-report) [data-mobile-discovery], body:has(.ims-report) .d-print-none { display: none !important; }
+    body:has(.ims-report) #page-content-wrapper { margin: 0; width: 100%; }
+    body:has(.ims-report) .main-content { padding: 0 !important; }
+    .ims-report .d-print-block { display: block !important; }
+    .ims-report .d-print-flex { display: flex !important; }
+    .ims-report .card { border: 0; border-radius: 0; box-shadow: none; }
+    .ims-report .card-body { padding: 0; }
+    .ims-report .table-responsive { overflow: visible; }
+    .ims-report .ims-table { min-width: 0; font-size: 9px; }
+    .ims-report .ims-table th, .ims-report .ims-table td { padding: 3px 4px; }
+  }
+}

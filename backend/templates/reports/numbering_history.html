@@ -1,14 +1,15 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Riwayat Penomoran — Healthcare IMS{% endblock %}
 {% block page_title %}Riwayat Penomoran Dokumen{% endblock %}
 
 {% block content %}
+<div class="ims-workflow ims-report ims-numbering-history">
 <div class="row mb-4 d-print-none">
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body bg-light">
-                <form method="get" class="row g-3 align-items-end">
+                <form method="get" class="row g-3 align-items-end ims-report-filters">
                     <div class="col-md-4">
                         {{ form.rule_key.label_tag }}
                         {{ form.rule_key }}
@@ -18,10 +19,10 @@
                         {{ form.year }}
                     </div>
                     <div class="col-md-auto d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-filter"></i> Terapkan Filter</button>
-                        <a href="{% url 'reports:numbering_history' %}" class="btn btn-outline-secondary">Reset</a>
-                        <button type="button" class="btn btn-dark" data-action="print"><i class="bi bi-printer"></i> Cetak</button>
-                        <button type="submit" name="format" value="excel" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
+                        <button type="submit" class="btn btn-primary ims-btn ims-btn--primary"><i class="bi bi-filter"></i> Terapkan Filter</button>
+                        <a href="{% url 'reports:numbering_history' %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral">Reset</a>
+                        <button type="button" class="btn btn-dark ims-btn ims-btn--neutral" data-action="print"><i class="bi bi-printer"></i> Cetak</button>
+                        <button type="submit" name="format" value="excel" class="btn btn-success ims-btn ims-btn--secondary"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
                     </div>
                 </form>
             </div>
@@ -47,8 +48,8 @@
         <span class="badge text-bg-light">{{ history_rows|length }} nomor</span>
     </div>
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover table-bordered align-middle mb-0">
+        <div class="table-responsive ims-table-scroll" role="region" aria-label="Riwayat penomoran dokumen" tabindex="0">
+            <table class="table table-hover table-bordered align-middle mb-0 ims-table">
                 <thead class="table-light">
                     <tr>
                         <th class="text-center" style="width:56px">No</th>
@@ -99,7 +100,7 @@
                         </td>
                         <td class="d-print-none">
                             {% if row.workflow_url %}
-                            <a href="{{ row.workflow_url }}" class="btn btn-outline-primary btn-sm">Buka</a>
+                            <a href="{{ row.workflow_url }}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">Buka</a>
                             {% else %}
                             <span class="text-muted">Dokumen dihapus</span>
                             {% endif %}
@@ -112,5 +113,6 @@
             </table>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}

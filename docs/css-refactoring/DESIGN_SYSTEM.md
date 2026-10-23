@@ -40,6 +40,8 @@ The workflow list/detail slice uses `static_src/css/workflow.css`, imported by `
 
 The LPLPO Wave 4 follow-up applies `.ims-lplpo-*` rules within that same workflow layer to the shared all/own-facility list and detail. The list keeps its two role-dependent filter sets and compact rows; the detail keeps the 13-column item table, status banner, audit trail, and server-gated action panel. The wide table scrolls internally on narrow screens. The existing rejection modal uses the scoped Bootstrap-JavaScript bridge; LPLPO forms and print output remain on their legacy paths.
 
+The reports and numbering-history slice imports `static_src/css/reports.css` for `.ims-report-*` surfaces. It reuses the workflow and shared button/table/control primitives while keeping report-specific filter layout, dense financial tables, internal horizontal scrolling, tab states, and the existing inline print sheets. The Rekap funding-source modal uses the retained Bootstrap JavaScript bridge and `rekap-filter.js`. Dedicated print redesign is deferred to Wave 8.
+
 The shared Tailwind sidebar distinguishes the active group from its active child: the group uses muted navy, the child uses solid blue, and a hovered sibling uses muted navy. Submenu row gaps keep those states visually separate. Icons inherit each link's foreground; every icon class used by the shared navigation must exist in the vendored Bootstrap Icons font.
 
 ## Foundation visual QA
