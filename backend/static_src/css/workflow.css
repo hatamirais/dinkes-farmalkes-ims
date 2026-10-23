@@ -73,6 +73,38 @@
   .ims-workflow .alert { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 10px 12px; }
   .ims-workflow .alert-warning { border-color: var(--color-ims-warning); background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
   .ims-workflow .alert-info { border-color: var(--color-ims-info); background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+  .ims-lplpo .card { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: var(--color-ims-surface); box-shadow: var(--shadow-ims-surface); }
+  .ims-lplpo .card-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--color-ims-border); padding: 12px 18px; }
+  .ims-lplpo-list-header { flex-wrap: wrap; gap: 12px 20px; }
+  .ims-lplpo-list-header h4 { margin: 0 0 4px; font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-lplpo-list-header p { margin: 0; color: var(--color-ims-muted); }
+  .ims-lplpo-list-header > .d-flex { flex-wrap: wrap; }
+  .ims-workflow.ims-lplpo .row.ims-lplpo-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+  .ims-lplpo-filters > .col-md-4 { flex: 1 1 260px; }
+  .ims-lplpo-filters > .col-md-3 { flex: 1 1 180px; }
+  .ims-lplpo-filters > .col-md-2 { flex: 1 1 150px; }
+  .ims-lplpo-filters > .col-auto { flex: 0 1 auto; }
+  .ims-lplpo-filters .ims-control { width: 100%; }
+  .ims-lplpo-list .ims-table { min-width: 740px; }
+  .ims-lplpo .ims-table a:not(.ims-btn) { text-decoration: none; }
+  .ims-lplpo .badge.text-bg-secondary { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-lplpo .badge.text-bg-warning { background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
+  .ims-lplpo .badge.text-bg-info, .ims-lplpo .badge.text-bg-primary { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+  .ims-lplpo .badge.text-bg-danger { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-lplpo .badge.text-bg-success { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-lplpo .alert-secondary { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-lplpo .alert-danger { border-color: var(--color-ims-danger); background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-lplpo .alert-primary { border-color: var(--color-ims-primary); background: var(--color-ims-info-bg); color: var(--color-ims-primary); }
+  .ims-lplpo .alert-success { border-color: var(--color-ims-success); background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-lplpo .alert a { color: inherit; font-weight: 700; text-decoration: underline; }
+  .ims-lplpo-detail .card-header h6 { margin: 0; font-size: var(--text-ims-body); font-weight: 700; }
+  .ims-lplpo-detail .card-header.bg-light { background: var(--color-ims-surface-muted); }
+  .ims-lplpo-detail .ims-table { min-width: 1450px; }
+  .ims-lplpo-detail .list-group { margin: 0; padding: 0; list-style: none; }
+  .ims-lplpo-detail .list-group-item { display: flex; align-items: start; justify-content: space-between; gap: 12px; border-top: 1px solid var(--color-ims-border); padding: 10px 16px; }
+  .ims-lplpo-detail .list-group-item:first-child { border-top: 0; }
+  .ims-lplpo-detail .list-group-item span:last-child { text-align: right; }
+  .ims-lplpo-detail .ims-btn.btn-warning { border-color: var(--color-ims-warning); background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
   .ims-workflow-modal { position: fixed; inset: 0; z-index: 1055; display: none; width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; outline: 0; }
   .ims-workflow-modal.show { display: block; }
   .ims-workflow-modal .modal-dialog { position: relative; width: min(calc(100% - 32px), 520px); margin: 28px auto; pointer-events: none; }
@@ -138,6 +170,7 @@
   @media (min-width: 768px) { .ims-workflow .row:not(dl) > .col-md-2 { grid-column: span 2 !important; } .ims-workflow .row:not(dl) > .col-md-3 { grid-column: span 3 !important; } .ims-workflow .row:not(dl) > .col-md-4 { grid-column: span 4 !important; } .ims-workflow .row:not(dl) > .col-md-6 { grid-column: span 6 !important; } }
   @media (min-width: 768px) { .ims-workflow-modal .row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ims-workflow-modal .row > .col-md-6 { grid-column: span 1 !important; } }
   @media (min-width: 992px) { .ims-workflow .row:not(dl) > .col-lg-4 { grid-column: span 4 !important; } .ims-workflow .row:not(dl) > .col-lg-12 { grid-column: span 12 !important; } }
+  @media (min-width: 992px) { .ims-workflow.ims-lplpo .row.ims-lplpo-detail-main > .col-lg-9 { grid-column: span 9 !important; } .ims-workflow.ims-lplpo .row.ims-lplpo-detail-main > .col-lg-3 { grid-column: span 3 !important; } }
   @media (min-width: 1200px) { .ims-workflow-detail.row:has(> .col-xl-4) { grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr); align-items: start; } .ims-workflow-detail.row > .col-xl-4, .ims-workflow-detail.row > .col-xl-8 { grid-column: auto !important; } .ims-workflow .row:not(dl) > .col-xl-4 { grid-column: span 4 !important; } .ims-workflow .row:not(dl) > .col-xl-8 { grid-column: span 8 !important; } }
   @media (max-width: 767px) { .ims-workflow .filter-form > .form-control, .ims-workflow .filter-form > .form-select { flex: 1 1 100%; max-width: none; } .ims-workflow .table-header, .ims-workflow .card-header, .ims-workflow .card-body { padding: 14px; } .ims-workflow .badge-status, .ims-workflow .badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; } .ims-workflow .d-grid { grid-template-columns: minmax(0, 1fr); } .ims-workflow .d-grid > .ims-btn, .ims-workflow .d-grid > form, .ims-workflow .d-grid > form .ims-btn { width: 100%; min-width: 0; white-space: normal; } .ims-workflow .d-flex.gap-2 { flex-wrap: wrap; } }
   @media print { body:has(.sbbk-print-sheet.d-print-block) .sidebar, body:has(.sbbk-print-sheet.d-print-block) .navbar-top, body:has(.sbbk-print-sheet.d-print-block) .sidebar-overlay, body:has(.sbbk-print-sheet.d-print-block) .d-print-none { display: none !important; } body:has(.sbbk-print-sheet.d-print-block) .sbbk-print-sheet { display: block !important; } body:has(.sbbk-print-sheet.d-print-block) #page-content-wrapper { margin: 0; } }

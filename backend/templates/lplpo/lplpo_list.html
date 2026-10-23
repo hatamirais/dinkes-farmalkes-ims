@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}LPLPO – Healthcare IMS{% endblock %}
 {% block page_title %}LPLPO{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-lplpo ims-lplpo-list container-fluid">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 ims-lplpo-list-header">
         <div>
             {% if is_all %}
             {% if can_manage_all_lplpo %}
@@ -23,17 +23,17 @@
         </div>
         <div class="d-flex gap-2">
             {% if request.user.role == 'PUSKESMAS' or can_manage_all_lplpo %}
-            <a href="{% url 'lplpo:lplpo_create' %}" class="btn btn-primary" id="create-lplpo-btn">
+            <a href="{% url 'lplpo:lplpo_create' %}" class="btn btn-primary ims-btn ims-btn--primary" id="create-lplpo-btn">
                 <i class="bi bi-plus-lg me-1"></i> Buat LPLPO Baru
             </a>
             {% endif %}
             {% if is_all and can_create_manual_lplpo_distribution %}
-            <a href="{% url 'distribution:manual_lplpo_create' %}" class="btn btn-primary" id="create-manual-lplpo-distribution-btn">
+            <a href="{% url 'distribution:manual_lplpo_create' %}" class="btn btn-primary ims-btn ims-btn--primary" id="create-manual-lplpo-distribution-btn">
                 <i class="bi bi-plus-lg me-1"></i> Buat Distribusi LPLPO
             </a>
             {% endif %}
             {% if is_all %}
-            <a href="{% url 'lplpo:lplpo_print_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-secondary" target="_blank" id="print-report-btn">
+            <a href="{% url 'lplpo:lplpo_print_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral" target="_blank" id="print-report-btn">
                 <i class="bi bi-printer me-1"></i> Cetak Laporan
             </a>
             {% endif %}
@@ -43,15 +43,15 @@
     <!-- Filters -->
     <div class="card mb-4">
         <div class="card-body py-2">
-            <form method="get" class="row g-2 align-items-end">
+            <form method="get" class="row g-2 align-items-end ims-lplpo-filters">
                 {% if is_all %}
                 <div class="col-12 col-md-4">
                     <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor / puskesmas..."
-                        class="form-control form-control-sm" id="search-input">
+                        class="form-control form-control-sm ims-control" id="search-input">
                 </div>
                 {% endif %}
                 <div class="col-6 col-md-3">
-                    <select name="status" class="form-select form-select-sm" id="status-filter">
+                    <select name="status" class="form-select form-select-sm ims-control" id="status-filter">
                         <option value="">Semua Status</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>
@@ -84,7 +84,7 @@
                 </div>
                 {% if is_all %}
                         <div class="col-6 col-md-2">
-                            <select name="submitted_month" class="form-select form-select-sm" id="submitted-month-filter">
+                            <select name="submitted_month" class="form-select form-select-sm ims-control" id="submitted-month-filter">
                                 <option value="">Bulan Pengajuan</option>
                                 {% for value, label in submission_month_choices %}
                                 <option value="{{ value }}" {% if value == selected_submitted_month %}selected{% endif %}>{{ label }}</option>
@@ -93,17 +93,17 @@
                         </div>
                         <div class="col-6 col-md-2">
                             <input type="number" name="submitted_year" value="{{ selected_submitted_year }}" placeholder="Tahun Pengajuan"
-                                class="form-control form-control-sm" id="submitted-year-filter">
+                                class="form-control form-control-sm ims-control" id="submitted-year-filter">
                 </div>
                 {% endif %}
                 <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-primary" id="filter-btn">
+                    <button type="submit" class="btn btn-sm btn-primary ims-btn ims-btn--sm ims-btn--primary" id="filter-btn">
                         <i class="bi bi-funnel me-1"></i>Filter
                     </button>
                     {% if is_all %}
-                    <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-sm btn-outline-secondary ms-1" id="reset-btn">Reset</a>
+                    <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-sm btn-outline-secondary ms-1 ims-btn ims-btn--sm ims-btn--neutral" id="reset-btn">Reset</a>
                     {% else %}
-                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="btn btn-sm btn-outline-secondary ms-1" id="reset-btn">Reset</a>
+                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="btn btn-sm btn-outline-secondary ms-1 ims-btn ims-btn--sm ims-btn--neutral" id="reset-btn">Reset</a>
                     {% endif %}
                 </div>
             </form>
@@ -113,8 +113,8 @@
     <!-- Table -->
     <div class="card">
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0" id="lplpo-table">
+            <div class="table-responsive ims-table-scroll">
+                <table class="table table-hover mb-0 ims-table" id="lplpo-table">
                     <thead class="table-light">
                         <tr>
                             <th>Nomor</th>
@@ -164,7 +164,7 @@
                             <td class="text-muted small">{{ lp.created_by }}</td>
                             <td class="text-end">
                                 <a href="{% url 'lplpo:lplpo_detail' lp.pk %}"
-                                    class="btn btn-sm btn-outline-primary" id="view-lplpo-{{ lp.pk }}">
+                                    class="btn btn-sm btn-outline-primary ims-btn ims-btn--sm ims-btn--secondary" id="view-lplpo-{{ lp.pk }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -191,12 +191,12 @@
                 <ul class="pagination pagination-sm mb-0">
                     {% if lplpos.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ lplpos.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&laquo;</a>
+                        <a class="page-link ims-page-link" href="?page={{ lplpos.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&laquo;</a>
                     </li>
                     {% endif %}
                     {% if lplpos.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ lplpos.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&raquo;</a>
+                        <a class="page-link ims-page-link" href="?page={{ lplpos.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&raquo;</a>
                     </li>
                     {% endif %}
                 </ul>

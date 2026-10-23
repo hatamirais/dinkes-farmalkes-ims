@@ -38,6 +38,8 @@ The receiving Wave 4 slice uses `.ims-receiving-*` styles for the regular and pl
 
 The workflow list/detail slice uses `static_src/css/workflow.css`, imported by `app.css`, for `.ims-workflow-*` surfaces. It reuses the existing `ims-btn`, `ims-control`, `ims-table`, `ims-table-scroll`, and `ims-page-link` components. Scoped layout rules support current table/card markup, semantic status badges, and narrow internal table scrolling. The modal and collapse rules provide the states required by the retained Bootstrap JavaScript on distribution, allocation, and expired pages. Legacy `col-12`, `w-100`, and `collapse` classes conflict with Tailwind utilities, so this slice scopes explicit overrides; removing remaining Bootstrap presentation class names remains future cleanup. Allocation detail progress initialization now runs in a local static script to satisfy the existing CSP.
 
+The LPLPO Wave 4 follow-up applies `.ims-lplpo-*` rules within that same workflow layer to the shared all/own-facility list and detail. The list keeps its two role-dependent filter sets and compact rows; the detail keeps the 13-column item table, status banner, audit trail, and server-gated action panel. The wide table scrolls internally on narrow screens. The existing rejection modal uses the scoped Bootstrap-JavaScript bridge; LPLPO forms and print output remain on their legacy paths.
+
 The shared Tailwind sidebar distinguishes the active group from its active child: the group uses muted navy, the child uses solid blue, and a hovered sibling uses muted navy. Submenu row gaps keep those states visually separate. Icons inherit each link's foreground; every icon class used by the shared navigation must exist in the vendored Bootstrap Icons font.
 
 ## Foundation visual QA

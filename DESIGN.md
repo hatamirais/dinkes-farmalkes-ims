@@ -1,6 +1,6 @@
 # SIMFAS visual design contract
 
-Status: approved direction on 20 October 2026. This file defines the **target** visual system for the incremental Tailwind migration. The desktop and Puskesmas dashboards, Item List, four desktop stock read-only screens, the Puskesmas stock report, receiving lists/details, procurement/distribution/allocation/recall/expired/stock-opname lists/details, and authentication pages now render through the Tailwind base; centralized errors load Tailwind directly. Other pages retain their existing Bootstrap CSS. The nine approved visual references and review notes are in [the concept review](docs/css-refactoring/CONCEPT_REVIEW.md).
+Status: approved direction on 20 October 2026. This file defines the **target** visual system for the incremental Tailwind migration. The desktop and Puskesmas dashboards, Item List, four desktop stock read-only screens, the Puskesmas stock report, receiving lists/details, procurement/distribution/allocation/recall/expired/stock-opname and LPLPO lists/details, and authentication pages now render through the Tailwind base; centralized errors load Tailwind directly. Other pages retain their existing Bootstrap CSS. The nine approved visual references and review notes are in [the concept review](docs/css-refactoring/CONCEPT_REVIEW.md).
 
 ## Authority and conflict gate
 
