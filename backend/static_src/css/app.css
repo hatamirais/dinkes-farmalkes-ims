@@ -330,8 +330,11 @@
   .ims-tailwind-shell .sidebar-link .chevron { margin-left: auto; font-size: 0.75rem; transition: transform 150ms ease; }
   .ims-tailwind-shell .sidebar-link[aria-expanded="true"] .chevron { transform: rotate(180deg); }
   .ims-tailwind-shell .sidebar-link:hover, .ims-tailwind-shell .sidebar-link.active { background: #0069ac; color: #fff; }
-  .ims-tailwind-shell .sidebar-submenu { padding-left: 14px; }
+  .ims-tailwind-shell .sidebar-dropdown-toggle.active, .ims-tailwind-shell .sidebar-dropdown-toggle.active:hover { background: #24465f; color: #fff; }
+  .ims-tailwind-shell .sidebar-submenu { padding: 4px 0 4px 14px; }
   .ims-tailwind-shell .sidebar-submenu .sidebar-link { min-height: 36px; font-size: 0.8125rem; }
+  .ims-tailwind-shell .sidebar-submenu .sidebar-link + .sidebar-link { margin-top: 4px; }
+  .ims-tailwind-shell .sidebar-submenu .sidebar-link:hover:not(.active) { background: #24465f; color: #fff; }
   .ims-tailwind-shell .sidebar.collapsed { width: 64px; }
   .ims-tailwind-shell .sidebar.collapsed .sidebar-header { justify-content: center; padding-inline: 8px; }
   .ims-tailwind-shell .sidebar.collapsed .sidebar-brand span, .ims-tailwind-shell .sidebar.collapsed .sidebar-section-title, .ims-tailwind-shell .sidebar.collapsed .sidebar-link span, .ims-tailwind-shell .sidebar.collapsed .sidebar-link .chevron, .ims-tailwind-shell .sidebar.collapsed .sidebar-submenu { display: none; }
@@ -561,7 +564,7 @@
   .ims-receiving-list, .ims-receiving-detail { min-width: 0; }
   .ims-receiving-list-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 60px; border-bottom: 1px solid var(--color-ims-border); padding: 12px 20px; }
   .ims-receiving-list-header h5 { margin: 0; color: var(--color-ims-ink); font-size: var(--text-ims-section); font-weight: 700; }
-  .ims-receiving-list-header .bi { color: var(--color-ims-primary); }
+  .ims-receiving-list-header h5 .bi { color: var(--color-ims-primary); }
   .ims-receiving-filter-wrap { border-bottom: 1px solid var(--color-ims-border); padding: 12px 20px; background: var(--color-ims-surface-muted); }
   .ims-receiving-filter-wrap .ims-alert { margin-bottom: 12px; }
   .ims-receiving-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
