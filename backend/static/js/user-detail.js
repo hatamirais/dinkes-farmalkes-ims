@@ -1,3 +1,14 @@
+function toSafeSameOriginUrl(urlValue) {
+    try {
+        var parsed = new URL(urlValue, window.location.origin);
+        if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+            parsed.origin === window.location.origin) {
+            return parsed.href;
+        }
+    } catch (e) {}
+    return null;
+}
+
 document.querySelectorAll('.ims-user-detail .copy-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
         var text = this.getAttribute('data-copy');
@@ -12,6 +23,7 @@ document.querySelectorAll('.ims-user-detail .copy-btn').forEach(function (btn) {
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) {
         var listUrl = document.querySelector('.ims-user-detail')?.getAttribute('data-users-list-url');
-        if (listUrl) window.location.href = listUrl;
+        var safeListUrl = listUrl ? toSafeSameOriginUrl(listUrl) : null;
+        if (safeListUrl) window.location.href = safeListUrl;
     }
 });
