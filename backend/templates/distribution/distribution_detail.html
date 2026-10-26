@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}{{ page_title|default:"Detail Distribusi" }} {{ distribution.document_number|default:"draft" }} — Healthcare IMS{% endblock %}
@@ -120,12 +120,12 @@
 
 {% block content %}
 <div
-    class="row g-3 {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}d-print-none{% endif %}">
+    class="ims-workflow ims-workflow-detail row g-3 {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}d-print-none{% endif %}">
     <div class="col-12">
         <div class="card content-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>Informasi {{ module_label|default:"Distribusi" }}</span>
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
+                <button class="btn btn-sm btn-outline-secondary ims-btn ims-btn--sm ims-btn--neutral" type="button" data-bs-toggle="collapse"
                     data-bs-target="#distributionInfoPanel" aria-expanded="true" aria-controls="distributionInfoPanel"
                     title="Tampilkan/Sembunyikan Informasi Distribusi">
                     <i class="bi bi-list"></i>
@@ -201,7 +201,7 @@
                                     {# Allocation-generated: limited actions, managed by parent allocation #}
                                     {% if distribution.allocation and can_view_allocation_parent %}
                                     <a href="{% url 'allocation:allocation_detail' distribution.allocation.pk %}"
-                                        class="btn btn-outline-primary btn-sm">
+                                        class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">
                                         <i class="bi bi-diagram-3 me-1"></i>Lihat Alokasi Induk
                                     </a>
                                     {% endif %}
@@ -210,19 +210,19 @@
                                     <form method="post"
                                         action="{% url 'allocation:allocation_distribution_prepare' distribution.allocation.pk distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-info btn-sm w-100">
+                                        <button type="submit" class="btn btn-info btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-box-seam me-1"></i>Siapkan Barang
                                         </button>
                                     </form>
                                     {% elif distribution.status == 'PREPARED' %}
-                                    <button type="button" class="btn btn-success btn-sm w-100" data-bs-toggle="modal"
+                                    <button type="button" class="btn btn-success btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary" data-bs-toggle="modal"
                                         data-bs-target="#distributeModal">
                                         <i class="bi bi-truck me-1"></i>Distribusikan
                                     </button>
                                     {% endif %}
                                     {% endif %}
                                     {% if can_print_sbbk %}
-                                    <button type="button" class="btn btn-dark btn-sm" data-action="print">
+                                    <button type="button" class="btn btn-dark btn-sm ims-btn ims-btn--sm ims-btn--neutral" data-action="print">
                                         <i class="bi bi-printer me-1"></i>Cetak SBBK
                                     </button>
                                     {% endif %}
@@ -230,12 +230,12 @@
                                     {# Regular distribution: full workflow actions #}
                                     {% if can_edit_distribution %}
                                     <a href="{% url 'distribution:distribution_edit' distribution.pk %}"
-                                        class="btn btn-outline-secondary btn-sm">
+                                        class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                                         <i class="bi bi-pencil me-1"></i>Ubah
                                     </a>
                                     {% endif %}
                                     {% if can_return_lplpo_to_puskesmas %}
-                                    <button type="button" class="btn btn-outline-danger btn-sm w-100"
+                                    <button type="button" class="btn btn-outline-danger btn-sm w-100 ims-btn ims-btn--sm ims-btn--danger"
                                         data-bs-toggle="modal" data-bs-target="#returnLplpoModal" id="return-lplpo-btn">
                                         <i class="bi bi-arrow-counterclockwise me-1"></i>Batalkan & Kembalikan ke
                                         Puskesmas
@@ -247,7 +247,7 @@
                                         action="{% url 'distribution:distribution_delete' distribution.pk %}"
                                         data-confirm-submit="Hapus distribusi ini? Tindakan ini tidak dapat dibatalkan.">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100 ims-btn ims-btn--sm ims-btn--danger">
                                             <i class="bi bi-trash me-1"></i>Hapus Dokumen
                                         </button>
                                     </form>
@@ -256,7 +256,7 @@
                                     <form method="post"
                                         action="{% url 'distribution:distribution_prepare' distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-info btn-sm w-100">
+                                        <button type="submit" class="btn btn-info btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-box-seam me-1"></i>Siap untuk Diajukan
                                         </button>
                                     </form>
@@ -265,7 +265,7 @@
                                     <form method="post"
                                         action="{% url 'distribution:distribution_submit' distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                                        <button type="submit" class="btn btn-primary btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-send me-1"></i>Ajukan ke Kepala
                                         </button>
                                     </form>
@@ -273,7 +273,7 @@
                                     <form method="post"
                                         action="{% url 'distribution:distribution_verify' distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-success btn-sm w-100">
+                                        <button type="submit" class="btn btn-success btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-patch-check me-1"></i>Setujui
                                         </button>
                                     </form>
@@ -282,13 +282,13 @@
                                         action="{% url 'distribution:distribution_reject' distribution.pk %}"
                                         data-confirm-submit="Yakin ingin mengembalikan distribusi ini ke petugas yang ditugaskan?">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100 ims-btn ims-btn--sm ims-btn--danger">
                                             <i class="bi bi-x-circle me-1"></i>Kembalikan ke Petugas
                                         </button>
                                     </form>
                                     {% endif %}
                                     {% elif can_distribute_distribution %}
-                                    <button type="button" class="btn btn-success btn-sm w-100" data-bs-toggle="modal"
+                                    <button type="button" class="btn btn-success btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary" data-bs-toggle="modal"
                                         data-bs-target="#distributeModal">
                                         <i class="bi bi-truck me-1"></i>Distribusikan
                                     </button>
@@ -298,7 +298,7 @@
                                         action="{% url 'distribution:distribution_reset_to_draft' distribution.pk %}"
                                         data-confirm-submit="Kembalikan status distribusi ke Draft?">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-warning btn-sm w-100">
+                                        <button type="submit" class="btn btn-outline-warning btn-sm w-100 ims-btn ims-btn--sm">
                                             <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
                                         </button>
                                     </form>
@@ -308,19 +308,19 @@
                                         action="{% url 'distribution:distribution_step_back' distribution.pk %}"
                                         data-confirm-submit="Kembalikan ke status sebelumnya?">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100 ims-btn ims-btn--sm ims-btn--neutral">
                                             <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke status sebelumnya
                                         </button>
                                     </form>
                                     {% endif %}
                                     {% if can_print_sbbk %}
-                                    <button type="button" class="btn btn-dark btn-sm" data-action="print">
+                                    <button type="button" class="btn btn-dark btn-sm ims-btn ims-btn--sm ims-btn--neutral" data-action="print">
                                         <i class="bi bi-printer me-1"></i>Cetak SBBK
                                     </button>
                                     {% endif %}
                                     {% endif %}
                                     <a href="{% url module_back_url_name|default:'distribution:distribution_list' %}"
-                                        class="btn btn-outline-secondary btn-sm">
+                                        class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                                         <i class="bi bi-arrow-left me-1"></i>Kembali
                                     </a>
                                 </div>
@@ -341,8 +341,8 @@
                     Distribusi ini dibuat dari review LPLPO. Kolom <strong>Jumlah {{ module_label|default:"Distribusi" }}</strong> menampilkan kuantitas yang disetujui saat review LPLPO, sedangkan nilai permintaan asal tetap tersimpan pada dokumen distribusi dan ditampilkan terkunci di layar <strong>Ubah</strong>.
                 </div>
                 {% endif %}
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle mb-0">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table table-bordered align-middle mb-0 ims-table">
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 70px;">No</th>
@@ -385,7 +385,7 @@
 
 {# ─── Distribute Confirmation Modal ─── #}
 {% if can_distribute_distribution or is_allocation and can_manage_allocation_distribution and distribution.status == 'PREPARED' %}
-<div class="modal fade" id="distributeModal" tabindex="-1" aria-labelledby="distributeModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal" id="distributeModal" tabindex="-1" aria-labelledby="distributeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             {% if is_allocation %}
@@ -414,9 +414,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                    <button type="button" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"
                         data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-success btn-sm">
+                    <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary">
                         <i class="bi bi-truck me-1"></i>Ya, Distribusikan
                     </button>
                 </div>
@@ -427,7 +427,7 @@
 {% endif %}
 
 {% if can_return_lplpo_to_puskesmas %}
-<div class="modal fade" id="returnLplpoModal" tabindex="-1" aria-labelledby="returnLplpoModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal" id="returnLplpoModal" tabindex="-1" aria-labelledby="returnLplpoModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="post"
@@ -443,12 +443,12 @@
                         Puskesmas untuk diperbaiki lalu diajukan ulang.
                     </p>
                     <label for="return_rejection_reason" class="form-label">Alasan Penolakan</label>
-                    <textarea class="form-control" id="return_rejection_reason" name="rejection_reason" rows="4"
+                    <textarea class="form-control ims-control" id="return_rejection_reason" name="rejection_reason" rows="4"
                         required></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-danger">Batalkan Distribusi</button>
+                    <button type="button" class="btn btn-outline-secondary ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger ims-btn ims-btn--danger">Batalkan Distribusi</button>
                 </div>
             </form>
         </div>
@@ -480,7 +480,7 @@
         </div>
     </div>
 
-    <table class="table table-bordered sbbk-print-table mb-0">
+    <table class="table table-bordered sbbk-print-table mb-0 ims-table">
         <thead>
             <tr>
                 <th class="text-center" style="width: 56px;">No</th>

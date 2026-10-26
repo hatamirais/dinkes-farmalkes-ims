@@ -1,163 +1,78 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}Stok Puskesmas - Healthcare IMS{% endblock %}
 {% block page_title %}Stok Puskesmas{% endblock %}
 
 {% block content %}
-<div id="puskesmas-stock-shell" class="d-flex flex-column gap-4">
-    <style>
-        /* Scoped exceptions: ledger tabs, summary strip, and sticky header need small custom CSS beyond Bootstrap utilities. */
-        #puskesmas-stock-shell .ledger-panel {
-            border: 1px solid var(--bs-border-color);
-            border-radius: 1rem;
-            background: var(--bs-body-bg);
-        }
-        #puskesmas-stock-shell .ledger-filter-grid .filter-field > div {
-            margin-bottom: 0 !important;
-        }
-        #puskesmas-stock-shell .ledger-filter-grid .filter-field > div > label {
-            display: none;
-        }
-        #puskesmas-stock-shell .summary-strip {
-            border-top: 1px solid var(--bs-border-color);
-            border-bottom: 1px solid var(--bs-border-color);
-        }
-        #puskesmas-stock-shell .summary-cell + .summary-cell {
-            border-left: 1px solid var(--bs-border-color);
-        }
-        #puskesmas-stock-shell .ledger-tabs .nav-link {
-            color: var(--bs-secondary-color);
-            font-weight: 600;
-            border: 0;
-            border-bottom: 2px solid transparent;
-            border-radius: 0;
-            padding-left: 0;
-            padding-right: 0;
-            margin-right: 1.5rem;
-        }
-        #puskesmas-stock-shell .ledger-tabs .nav-link.active {
-            color: var(--bs-body-color);
-            background: transparent;
-            border-bottom-color: var(--bs-dark);
-        }
-        #puskesmas-stock-shell .ledger-table-wrap {
-            max-height: 70vh;
-        }
-        #puskesmas-stock-shell .ledger-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            background: var(--bs-tertiary-bg);
-            box-shadow: inset 0 -1px 0 var(--bs-border-color);
-            font-size: 0.78rem;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-        #puskesmas-stock-shell .ledger-table tbody tr:hover {
-            background: rgba(var(--bs-dark-rgb), 0.03);
-        }
-        #puskesmas-stock-shell .kode-barang {
-            color: var(--bs-primary-text-emphasis);
-            font-size: 0.9rem;
-        }
-        #puskesmas-stock-shell .month-pill,
-        #puskesmas-stock-shell .batch-pill {
-            border-radius: 999px;
-            background-color: var(--bs-secondary-bg);
-            color: var(--bs-secondary-color);
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 0.2rem 0.65rem;
-            display: inline-flex;
-            align-items: center;
-        }
-        #puskesmas-stock-shell .stock-below-threshold {
-            color: var(--bs-danger);
-        }
-        #puskesmas-stock-shell .empty-panel {
-            border: 1px dashed var(--bs-border-color);
-            border-radius: 1rem;
-            background: var(--bs-light-bg-subtle, #f8f9fa);
-        }
-        @media (max-width: 991.98px) {
-            #puskesmas-stock-shell .summary-cell + .summary-cell {
-                border-left: 0;
-                border-top: 1px solid var(--bs-border-color);
-            }
-            #puskesmas-stock-shell .ledger-tabs .nav-link {
-                margin-right: 1rem;
-            }
-        }
-    </style>
+<div id="puskesmas-stock-shell" class="ims-pkm-report">
 
-    <section class="ledger-panel shadow-sm">
-        <div class="p-3 p-lg-4 d-flex flex-column gap-4">
-            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-start">
+    <section class="ims-stock-panel ims-pkm-panel">
+        <div class="ims-pkm-panel-body">
+            <div class="ims-pkm-header">
                 <div>
-                    <div class="text-uppercase text-muted small fw-semibold mb-1">Report Ledger</div>
-                    <h5 class="mb-1"><i class="bi bi-journal-text me-2"></i>Stok Puskesmas</h5>
-                    <p class="text-muted mb-0">Halaman ini menyajikan ledger penerimaan, pemakaian, dan stok saat ini untuk pencarian cepat per barang dan per puskesmas.</p>
+                    <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Report Ledger</div>
+                    <h5 class="mb-1"><i class="bi bi-journal-text mr-2"></i>Stok Puskesmas</h5>
+                    <p class="text-ims-muted mb-0">Halaman ini menyajikan ledger penerimaan, pemakaian, dan stok saat ini untuk pencarian cepat per barang dan per puskesmas.</p>
                 </div>
-                <div class="d-flex flex-wrap gap-2 align-self-start">
-                    <span class="badge text-bg-light border px-3 py-2">Tab aktif: {{ active_tab|capfirst }}</span>
+                <div class="flex flex-wrap gap-2 self-start">
+                    <span class="ims-badge ims-pkm-pill">Tab aktif: {{ active_tab|capfirst }}</span>
                     {% if selected_facility %}
-                    <span class="badge text-bg-light border px-3 py-2">{{ selected_facility.name }}</span>
+                    <span class="ims-badge ims-pkm-pill">{{ selected_facility.name }}</span>
                     {% endif %}
                 </div>
             </div>
 
-            <form method="get" action="{% url 'stock:puskesmas_stock' %}" class="ledger-filter-grid row g-3 align-items-end">
+            <form method="get" action="{% url 'stock:puskesmas_stock' %}" class="ims-pkm-filters">
                 {{ filter_form.tab }}
-                <div class="col-12 col-lg-2">
-                    <label for="id_year" class="form-label text-uppercase text-muted small fw-semibold">Tahun</label>
-                    <div class="filter-field">{{ filter_form.year|as_crispy_field }}</div>
+                <div class="ims-pkm-filter-field">
+                    <label for="id_year" class="ims-label">Tahun</label>
+                    <div class="filter-field">{{ filter_form.year }}</div>
                 </div>
-                <div class="col-12 col-lg-3">
-                    <label for="id_facility" class="form-label text-uppercase text-muted small fw-semibold">Puskesmas</label>
-                    <div class="filter-field">{{ filter_form.facility|as_crispy_field }}</div>
+                <div class="ims-pkm-filter-field">
+                    <label for="id_facility" class="ims-label">Puskesmas</label>
+                    <div class="filter-field">{{ filter_form.facility }}</div>
                 </div>
-                <div class="col-12 col-lg-4">
-                    <label for="id_q" class="form-label text-uppercase text-muted small fw-semibold">Cari Barang</label>
-                    <div class="filter-field">{{ filter_form.q|as_crispy_field }}</div>
+                <div class="ims-pkm-filter-field">
+                    <label for="id_q" class="ims-label">Cari Barang</label>
+                    <div class="filter-field">{{ filter_form.q }}</div>
                 </div>
-                <div class="col-12 col-lg-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-dark flex-grow-1">
-                        <i class="bi bi-funnel me-1"></i>Terapkan Filter
+                <div class="ims-pkm-filter-actions">
+                    <button type="submit" class="ims-btn ims-btn--primary flex-1">
+                        <i class="bi bi-funnel mr-1"></i>Terapkan Filter
                     </button>
-                    <a href="{% url 'stock:puskesmas_stock' %}" class="btn btn-outline-secondary">Reset</a>
+                    <a href="{% url 'stock:puskesmas_stock' %}" class="ims-btn ims-btn--neutral">Reset</a>
                 </div>
             </form>
             {% if filter_form.errors %}
-            <div class="text-danger small">
+            <div class="ims-error" role="alert">
                 {% for field in filter_form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
                 {% for error in filter_form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
             </div>
             {% endif %}
 
-            <div class="summary-strip overflow-hidden">
-                <div class="row g-0 text-center text-lg-start">
-                    <div class="col-12 col-lg-4 summary-cell">
+            <div class="ims-pkm-summary">
+                <div class="ims-pkm-summary-grid">
+                    <div class="ims-pkm-summary-cell">
                         <div class="p-3">
-                            <div class="text-uppercase text-muted small fw-semibold mb-1">Puskesmas Tampil</div>
-                            <div class="fs-2 fw-bold">{{ ledger_stats.total_facilities|id_decimal:0 }}</div>
-                            <div class="small text-muted">Fasilitas pada hasil tab aktif</div>
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Puskesmas Tampil</div>
+                            <div class="text-3xl font-bold">{{ ledger_stats.total_facilities|id_decimal:0 }}</div>
+                            <div class="text-xs text-ims-muted">Fasilitas pada hasil tab aktif</div>
                         </div>
                     </div>
-                    <div class="col-12 col-lg-4 summary-cell">
+                    <div class="ims-pkm-summary-cell">
                         <div class="p-3">
-                            <div class="text-uppercase text-muted small fw-semibold mb-1">Baris Ledger</div>
-                            <div class="fs-2 fw-bold">{{ ledger_stats.total_rows|id_decimal:0 }}</div>
-                            <div class="small text-muted">Baris hasil pada tab aktif</div>
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Baris Ledger</div>
+                            <div class="text-3xl font-bold">{{ ledger_stats.total_rows|id_decimal:0 }}</div>
+                            <div class="text-xs text-ims-muted">Baris hasil pada tab aktif</div>
                         </div>
                     </div>
-                    <div class="col-12 col-lg-4 summary-cell">
+                    <div class="ims-pkm-summary-cell">
                         <div class="p-3">
-                            <div class="text-uppercase text-muted small fw-semibold mb-1">
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">
                                 {% if active_tab == 'receiving' %}Total Penerimaan{% elif active_tab == 'consumption' %}Total Pemakaian{% else %}Stok Saat Ini{% endif %}
                             </div>
-                            <div class="fs-2 fw-bold">
+                            <div class="text-3xl font-bold">
                                 {% if active_tab == 'receiving' %}
                                     {{ receiving_stats.total_received|id_decimal:0 }}
                                 {% elif active_tab == 'consumption' %}
@@ -166,30 +81,30 @@
                                     {{ stock_stats.total_stock|id_decimal:0 }}
                                 {% endif %}
                             </div>
-                            <div class="small text-muted">Akumulasi kuantitas pada hasil tab aktif</div>
+                            <div class="text-xs text-ims-muted">Akumulasi kuantitas pada hasil tab aktif</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="d-flex flex-column gap-3">
-                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
-                    <ul class="nav ledger-tabs border-bottom" role="tablist">
+            <div class="flex flex-col gap-3">
+                <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
+                    <ul class="ims-pkm-tabs" role="tablist">
                         {% for tab in tabs %}
-                        <li class="nav-item" role="presentation">
-                            <a href="{% querystring tab=tab.key page=None %}" class="nav-link {% if active_tab == tab.key %}active{% endif %}" aria-current="{% if active_tab == tab.key %}page{% endif %}">
+                        <li class="ims-pkm-tab-item" role="presentation">
+                            <a href="{% querystring tab=tab.key page=None %}" class="ims-pkm-tab {% if active_tab == tab.key %}active{% endif %}" aria-current="{% if active_tab == tab.key %}page{% endif %}">
                                 {{ tab.label }}
-                                <span class="text-muted small ms-1">{{ tab.count|id_decimal:0 }}</span>
+                                <span class="text-ims-muted text-xs ml-1">{{ tab.count|id_decimal:0 }}</span>
                             </a>
                         </li>
                         {% endfor %}
                     </ul>
-                    <div class="small text-muted">
+                    <div class="text-xs text-ims-muted">
                         {{ ledger_page.paginator.count|id_decimal:0 }} baris total, halaman {{ ledger_page.number|id_decimal:0 }} dari {{ ledger_page.paginator.num_pages|id_decimal:0 }}
                     </div>
                 </div>
 
-                <div class="small text-muted border-start border-3 ps-3">
+                <div class="ims-pkm-note">
                     {% if active_tab == 'receiving' %}
                     Ledger penerimaan menampilkan akumulasi barang yang benar-benar diterima Puskesmas dari Instalasi Farmasi, diringkas per batch, ED, dan harga satuan.
                     {% elif active_tab == 'consumption' %}
@@ -199,8 +114,8 @@
                     {% endif %}
                 </div>
 
-                <div class="ledger-table-wrap table-responsive border rounded-4">
-                    <table class="table table-sm align-middle mb-0 ledger-table">
+                <div class="ims-table-scroll ims-pkm-table-scroll" tabindex="0" role="region" aria-label="Ledger stok Puskesmas, gulir untuk kolom lainnya">
+                    <table class="table ims-table ims-pkm-table">
                         <thead>
                             <tr>
                                 <th style="min-width: 180px;">Puskesmas</th>
@@ -209,54 +124,54 @@
                                 {% if active_tab == 'receiving' %}
                                 <th style="min-width: 150px;">Batch</th>
                                 <th style="min-width: 130px;">ED</th>
-                                <th class="text-end" style="min-width: 140px;">Harga Satuan</th>
-                                <th class="text-end" style="min-width: 160px;">Total Penerimaan</th>
+                                <th class="text-right" style="min-width: 140px;">Harga Satuan</th>
+                                <th class="text-right" style="min-width: 160px;">Total Penerimaan</th>
                                 {% elif active_tab == 'consumption' %}
                                 <th style="min-width: 150px;">Kategori</th>
                                 <th style="min-width: 100px;">Satuan</th>
-                                <th class="text-end" style="min-width: 160px;">Total Pemakaian</th>
+                                <th class="text-right" style="min-width: 160px;">Total Pemakaian</th>
                                 {% else %}
                                 <th style="min-width: 150px;">Kategori</th>
                                 <th style="min-width: 100px;">Satuan</th>
-                                <th class="text-end" style="min-width: 140px;">Stok Saat Ini</th>
+                                <th class="text-right" style="min-width: 140px;">Stok Saat Ini</th>
                                 <th style="min-width: 130px;">Bulan LPLPO</th>
-                                <th class="text-end" style="min-width: 180px;">Penyesuaian Penerimaan</th>
-                                <th class="text-end" style="min-width: 170px;">Penyesuaian Pemakaian</th>
+                                <th class="text-right" style="min-width: 180px;">Penyesuaian Penerimaan</th>
+                                <th class="text-right" style="min-width: 170px;">Penyesuaian Pemakaian</th>
                                 {% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in ledger_page.object_list %}
                             <tr>
-                                <td class="fw-semibold">{{ row.facility_name }}</td>
+                                <td class="font-semibold">{{ row.facility_name }}</td>
                                 <td><code class="kode-barang">{{ row.kode_barang }}</code></td>
                                 <td>{{ row.nama_barang }}</td>
                                 {% if active_tab == 'receiving' %}
                                 <td><span class="batch-pill">{{ row.batch_lot }}</span></td>
                                 <td>{{ row.expiry_display }}</td>
-                                <td class="text-end">Rp {{ row.unit_price|id_price_exact }}</td>
-                                <td class="text-end fw-semibold">{{ row.total_received|id_decimal:0 }}</td>
+                                <td class="text-right">Rp {{ row.unit_price|id_price_exact }}</td>
+                                <td class="text-right font-semibold">{{ row.total_received|id_decimal:0 }}</td>
                                 {% elif active_tab == 'consumption' %}
                                 <td>{{ row.kategori }}</td>
                                 <td>{{ row.satuan }}</td>
-                                <td class="text-end fw-semibold">{{ row.total_consumption|id_decimal:0 }}</td>
+                                <td class="text-right font-semibold">{{ row.total_consumption|id_decimal:0 }}</td>
                                 {% else %}
                                 <td>{{ row.kategori }}</td>
                                 <td>{{ row.satuan }}</td>
-                                <td class="text-end fw-semibold {% if row.is_below_threshold %}stock-below-threshold{% endif %}">{{ row.stock_current|id_decimal:0 }}</td>
+                                <td class="text-right font-semibold {% if row.is_below_threshold %}stock-below-threshold{% endif %}">{{ row.stock_current|id_decimal:0 }}</td>
                                 <td><span class="month-pill">{{ row.base_month_label|default:row.base_month }}</span></td>
-                                <td class="text-end">{{ row.receipt_adjustment|id_decimal:0 }}</td>
-                                <td class="text-end">{{ row.consumption_adjustment|id_decimal:0 }}</td>
+                                <td class="text-right">{{ row.receipt_adjustment|id_decimal:0 }}</td>
+                                <td class="text-right">{{ row.consumption_adjustment|id_decimal:0 }}</td>
                                 {% endif %}
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="{% if active_tab == 'receiving' %}7{% elif active_tab == 'consumption' %}6{% else %}8{% endif %}" class="p-0 border-0">
-                                    <div class="empty-panel p-4 m-3 text-center text-muted">
-                                        <div class="d-flex flex-column align-items-center gap-2">
-                                            <i class="bi bi-journal-x fs-2"></i>
-                                            <div class="fw-semibold text-dark">Tidak ada data untuk tab ini.</div>
-                                            <div class="small">Ubah filter tahun, puskesmas, atau pencarian barang untuk melihat hasil lain.</div>
+                                <td colspan="{% if active_tab == 'receiving' %}7{% elif active_tab == 'consumption' %}6{% else %}8{% endif %}" class="p-0">
+                                    <div class="ims-pkm-empty">
+                                        <div class="flex flex-col items-center gap-2">
+                                            <i class="bi bi-journal-x text-3xl"></i>
+                                            <div class="font-semibold text-ims-ink">Tidak ada data untuk tab ini.</div>
+                                            <div class="text-xs">Ubah filter tahun, puskesmas, atau pencarian barang untuk melihat hasil lain.</div>
                                         </div>
                                     </div>
                                 </td>
@@ -268,25 +183,25 @@
 
                 {% if ledger_page.paginator.num_pages > 1 %}
                 <nav aria-label="Paginasi stok puskesmas">
-                    <ul class="pagination pagination-sm mb-0 justify-content-end">
+                    <ul class="ims-pagination ims-pkm-pagination">
                         {% if ledger_page.has_previous %}
-                        <li class="page-item"><a class="page-link" href="{% querystring page=1 %}">Awal</a></li>
-                        <li class="page-item"><a class="page-link" href="{% querystring page=ledger_page.previous_page_number %}">Sebelumnya</a></li>
+                        <li class="ims-pkm-page-item"><a class="ims-page-link" href="{% querystring page=1 %}">Awal</a></li>
+                        <li class="ims-pkm-page-item"><a class="ims-page-link" href="{% querystring page=ledger_page.previous_page_number %}">Sebelumnya</a></li>
                         {% else %}
-                        <li class="page-item disabled"><span class="page-link">Awal</span></li>
-                        <li class="page-item disabled"><span class="page-link">Sebelumnya</span></li>
+                        <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Awal</span></li>
+                        <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Sebelumnya</span></li>
                         {% endif %}
 
-                        <li class="page-item disabled">
-                            <span class="page-link">{{ ledger_page.number|id_decimal:0 }} / {{ ledger_page.paginator.num_pages|id_decimal:0 }}</span>
+                        <li class="ims-pkm-page-item disabled">
+                            <span class="ims-page-link">{{ ledger_page.number|id_decimal:0 }} / {{ ledger_page.paginator.num_pages|id_decimal:0 }}</span>
                         </li>
 
                         {% if ledger_page.has_next %}
-                        <li class="page-item"><a class="page-link" href="{% querystring page=ledger_page.next_page_number %}">Berikutnya</a></li>
-                        <li class="page-item"><a class="page-link" href="{% querystring page=ledger_page.paginator.num_pages %}">Akhir</a></li>
+                        <li class="ims-pkm-page-item"><a class="ims-page-link" href="{% querystring page=ledger_page.next_page_number %}">Berikutnya</a></li>
+                        <li class="ims-pkm-page-item"><a class="ims-page-link" href="{% querystring page=ledger_page.paginator.num_pages %}">Akhir</a></li>
                         {% else %}
-                        <li class="page-item disabled"><span class="page-link">Berikutnya</span></li>
-                        <li class="page-item disabled"><span class="page-link">Akhir</span></li>
+                        <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Berikutnya</span></li>
+                        <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Akhir</span></li>
                         {% endif %}
                     </ul>
                 </nav>

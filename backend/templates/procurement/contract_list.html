@@ -1,37 +1,37 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}SPJ / Pengadaan - Healthcare IMS{% endblock %}
 {% block page_title %}SPJ / Pengadaan{% endblock %}
 
 {% block content %}
-<div class="table-container">
+<div class="ims-workflow ims-workflow-list table-container">
     <div class="table-header">
         <h5><i class="bi bi-file-earmark-text me-2"></i>Daftar SPJ / Pengadaan</h5>
         {% if can_create_contract %}
-        <a href="{% url 'procurement:contract_create' %}" class="btn btn-primary btn-sm">
+        <a href="{% url 'procurement:contract_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
             <i class="bi bi-plus-lg me-1"></i>Buat SPJ
         </a>
         {% endif %}
     </div>
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari nomor internal / eksternal / supplier / barang..." value="{{ search }}">
-            <select name="status" class="form-select">
+            <input type="text" name="q" class="form-control ims-control" placeholder="Cari nomor internal / eksternal / supplier / barang..." value="{{ search }}">
+            <select name="status" class="form-select ims-control">
                 <option value="">Semua Status</option>
                 {% for value, label in status_choices %}
                 <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-search"></i></button>
                 {% if search or selected_status %}
-                <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+                <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
         </form>
     </div>
-    <div class="table-responsive">
-        <table class="table">
+    <div class="table-responsive ims-table-scroll">
+        <table class="table ims-table">
             <thead>
                 <tr>
                     <th>Nomor Internal IMS</th>
@@ -56,7 +56,7 @@
                     <td class="text-end">{{ contract.line_count }}</td>
                     <td class="text-end">{{ contract.amendment_count }}</td>
                     <td><span class="badge-status badge-{{ contract.status|lower }}">{{ contract.get_status_display }}</span></td>
-                    <td class="text-end"><a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td>
+                    <td class="text-end"><a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-sm btn-outline-secondary ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-eye"></i></a></td>
                 </tr>
                 {% empty %}
                 <tr>

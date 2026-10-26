@@ -222,6 +222,10 @@ class PuskesmasStockCurrentViewTests(SecureClientDefaultsMixin, TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertTemplateUsed(response, "puskesmas/stock_current.html")
+		self.assertContains(response, "css/app.tailwind.css")
+		self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
+		self.assertContains(response, 'name="year"')
+		self.assertContains(response, 'name="mismatch"')
 		self.assertEqual(response.context["facility"], self.facility)
 		self.assertEqual(response.context["latest_lplpo"], self.latest_lplpo)
 		self.assertContains(response, "Paracetamol 500 mg")
@@ -3008,7 +3012,7 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertIn(sbbk_own.document_number, document_numbers)
 		self.assertNotIn(sbbk_other.document_number, document_numbers)
 
-	def test_penerimaan_report_displays_exact_high_precision_unit_price(self):
+	def test_penerimaan_report_displays_two_decimal_unit_price(self):
 		from datetime import date as dt
 
 		sbbk = self._make_sbbk(self.facility, received_date=dt(2026, 3, 15))
@@ -3026,8 +3030,8 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		)
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "Rp 1.000,123456789")
-		self.assertNotContains(response, "Rp 1.000,12</td>", html=False)
+		self.assertContains(response, "Rp 1.000,12")
+		self.assertNotContains(response, "Rp 1.000,123456789")
 
 	# ────────────── Pemakaian data correctness ──────────────
 
@@ -3526,12 +3530,11 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.context["totals"]["saldo_akhir"], expected_total)
 		self.assertContains(
 			response,
-			"Rp 21.474.836.469.998.117.637.788,7033778477",
+			"Rp 21.474.836.469.998.117.637.788,70",
 		)
 		self.assertNotContains(
 			response,
-			'<td class="text-end">Rp 21.474.836.469.998.117.637.788,70</td>',
-			html=True,
+			"Rp 21.474.836.469.998.117.637.788,7033778477",
 		)
 
 	def test_rekap_persediaan_admin_aggregates_across_facilities(self):

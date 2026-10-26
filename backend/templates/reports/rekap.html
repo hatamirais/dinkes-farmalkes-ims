@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load static %}
 {% load number_format %}
 
@@ -132,12 +132,13 @@
 {% endblock %}
 
 {% block content %}
+<div class="ims-workflow ims-report ims-report-rekap">
 <!-- Filter Bar -->
 <div class="row mb-4 d-print-none">
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body bg-light">
-                <form method="get" id="rekapFilterForm" class="row g-3 align-items-end">
+                <form method="get" id="rekapFilterForm" class="row g-3 align-items-end ims-report-filters">
                     <div class="col-md-auto">
                         {{ form.start_date.label_tag }}
                         {{ form.start_date }}
@@ -153,18 +154,18 @@
                         {% endfor %}
                     </div>
                     <div class="col d-flex flex-wrap align-items-end gap-2">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary ims-btn ims-btn--primary">
                             <i class="bi bi-filter"></i> Terapkan Filter
                         </button>
-                        <a href="{% url 'reports:rekap' %}" class="btn btn-outline-secondary">Reset</a>
-                        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#sumberDanaModal">
+                        <a href="{% url 'reports:rekap' %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral">Reset</a>
+                        <button type="button" class="btn btn-info ims-btn ims-btn--secondary" data-bs-toggle="modal" data-bs-target="#sumberDanaModal">
                             <i class="bi bi-funnel"></i> Sumber Dana
                             {% if selected_sd_ids %}<span class="badge bg-white text-info ms-1">{{ selected_sd_ids|length }}</span>{% endif %}
                         </button>
-                        <button type="button" class="btn btn-dark" data-action="print">
+                        <button type="button" class="btn btn-dark ims-btn ims-btn--neutral" data-action="print">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
-                        <button type="submit" name="format" value="excel" class="btn btn-success">
+                        <button type="submit" name="format" value="excel" class="btn btn-success ims-btn ims-btn--secondary">
                             <i class="bi bi-file-earmark-excel"></i> Export Excel
                         </button>
                     </div>
@@ -209,8 +210,8 @@
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle rekap-table mb-0">
+                <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel laporan" tabindex="0">
+                    <table class="table ims-table table-bordered align-middle rekap-table mb-0">
                         <thead class="table-light text-center">
                             <tr>
                                 <th style="width: 50px;">NO</th>
@@ -229,22 +230,22 @@
                                 <tr class="rekap-sd-header">
                                     <td></td>
                                     <td>{{ sd_group.sd_name }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_distribusi|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_ed|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_distribusi|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_nilai_ed|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ sd_group.subtotal_saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 <!-- Category Rows -->
                                 {% for cat in sd_group.categories %}
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
                                     <td>{{ cat.kategori }}</td>
-                                    <td class="text-end">Rp {{ cat.saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.nilai_distribusi|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.nilai_ed|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ cat.saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ cat.saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.nilai_distribusi|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.nilai_ed|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ cat.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
                                 {% endfor %}
@@ -252,11 +253,11 @@
                                 <tr class="rekap-total-row">
                                     <td></td>
                                     <td class="text-center fw-bold">Total</td>
-                                    <td class="text-end">Rp {{ grand_totals.saldo_awal|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.nilai_terima|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.nilai_distribusi|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.nilai_ed|id_value_exact }}</td>
-                                    <td class="text-end">Rp {{ grand_totals.saldo_akhir|id_value_exact }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.saldo_awal|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.nilai_terima|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.nilai_distribusi|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.nilai_ed|id_decimal:2 }}</td>
+                                    <td class="text-end">Rp {{ grand_totals.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                             {% else %}
                             <tr>
@@ -291,7 +292,7 @@
 </div>
 
 <!-- Sumber Dana Selection Modal -->
-<div class="modal fade" id="sumberDanaModal" tabindex="-1" aria-labelledby="sumberDanaModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal" id="sumberDanaModal" tabindex="-1" aria-labelledby="sumberDanaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
@@ -304,7 +305,7 @@
                 <p class="text-muted small mb-3">Pilih sumber dana yang ingin ditampilkan dalam laporan. Kosongkan untuk menampilkan semua.</p>
                 <div class="mb-3">
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="sdSelectAll">
+                        <input class="form-check-input ims-choice" type="checkbox" id="sdSelectAll">
                         <label class="form-check-label fw-semibold" for="sdSelectAll">
                             Pilih Semua / Hapus Semua
                         </label>
@@ -312,7 +313,7 @@
                     <hr class="my-2">
                     {% for sd in all_sumber_dana %}
                     <div class="form-check mb-2">
-                        <input class="form-check-input sd-checkbox" type="checkbox" value="{{ sd.id }}" id="sd_{{ sd.id }}"
+                        <input class="form-check-input ims-choice sd-checkbox" type="checkbox" value="{{ sd.id }}" id="sd_{{ sd.id }}"
                             {% if sd.id in selected_sd_ids %}checked{% endif %}>
                         <label class="form-check-label" for="sd_{{ sd.id }}">
                             {{ sd.code }} — {{ sd.name }}
@@ -324,13 +325,14 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" id="applySumberDana">
+                <button type="button" class="btn btn-outline-secondary ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary ims-btn ims-btn--primary" id="applySumberDana">
                     <i class="bi bi-check-lg me-1"></i>Terapkan
                 </button>
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 

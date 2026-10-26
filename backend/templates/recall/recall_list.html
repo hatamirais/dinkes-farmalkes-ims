@@ -1,30 +1,30 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Recall Barang - Healthcare IMS{% endblock %}
 {% block page_title %}Recall / Retur Barang{% endblock %}
 
 {% block content %}
-<div class="table-container">
+<div class="ims-workflow ims-workflow-list table-container">
     <div class="table-header">
         <h5><i class="bi bi-arrow-return-left me-2"></i>Daftar Recall</h5>
-        <a href="{% url 'recall:recall_create' %}" class="btn btn-primary btn-sm">
+        <a href="{% url 'recall:recall_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
             <i class="bi bi-plus-lg me-1"></i>Buat Dokumen Recall
         </a>
     </div>
 
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari no. dokumen / supplier..." value="{{ search }}">
-            <select name="status" class="form-select">
+            <input type="text" name="q" class="form-control ims-control" placeholder="Cari no. dokumen / supplier..." value="{{ search }}">
+            <select name="status" class="form-select ims-control">
                 <option value="">Semua Status</option>
                 {% for value, label in status_choices %}
                 <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-search"></i></button>
                 {% if search or selected_status %}
-                <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+                <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
         </form>
@@ -36,8 +36,8 @@
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table">
+    <div class="table-responsive ims-table-scroll">
+        <table class="table ims-table">
             <thead>
                 <tr>
                     <th>No. Dokumen</th>
@@ -78,17 +78,17 @@
             <ul class="pagination pagination-sm mb-0">
                 {% if recalls.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ recalls.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&laquo;</a>
+                    <a class="page-link ims-page-link" href="?page={{ recalls.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&laquo;</a>
                 </li>
                 {% endif %}
                 {% for num in recalls.paginator.page_range %}
                 <li class="page-item {% if recalls.number == num %}active{% endif %}">
-                    <a class="page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
+                    <a class="page-link ims-page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
                 </li>
                 {% endfor %}
                 {% if recalls.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ recalls.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&raquo;</a>
+                    <a class="page-link ims-page-link" href="?page={{ recalls.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&raquo;</a>
                 </li>
                 {% endif %}
             </ul>

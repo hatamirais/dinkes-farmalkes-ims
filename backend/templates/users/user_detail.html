@@ -1,11 +1,12 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load static %}
 
 {% block title %}{{ target_user.username }} — Healthcare IMS{% endblock %}
 {% block page_title %}Detail Pengguna{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-5 mb-4">
+<div class="ims-workflow ims-user-detail grid gap-4 lg:grid-cols-12" data-users-list-url="{% url 'users:user_list' %}">
+    <div class="min-w-0 lg:col-span-5">
         <div class="card content-card">
             <div class="card-header">
                 <span><i class="bi bi-person-vcard me-2"></i>Profil</span>
@@ -17,7 +18,7 @@
                     </span>
                     <h5 class="mt-2 mb-1">{{ target_user.full_name|default:target_user.username }}</h5>
                     <code>{{ target_user.username }}</code>
-                    <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 copy-btn" data-copy="{{ target_user.username }}" title="Salin username">
+                    <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 copy-btn" data-copy="{{ target_user.username }}" title="Salin username" aria-label="Salin username">
                         <i class="bi bi-clipboard"></i>
                     </button>
                     <div class="mt-2">
@@ -37,7 +38,7 @@
                     <dt class="col-sm-4 text-muted">Email</dt>
                     <dd class="col-sm-8">
                         {{ target_user.email|default:'-' }}
-                        {% if target_user.email %}<button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 copy-btn" data-copy="{{ target_user.email }}" title="Salin email"><i class="bi bi-clipboard"></i></button>{% endif %}
+                        {% if target_user.email %}<button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 copy-btn" data-copy="{{ target_user.email }}" title="Salin email" aria-label="Salin email"><i class="bi bi-clipboard"></i></button>{% endif %}
                     </dd>
 
                     <dt class="col-sm-4 text-muted">Fasilitas</dt>
@@ -66,26 +67,26 @@
             </div>
             <div class="card-footer d-flex gap-2">
                 {% if can_manage_users %}
-                <a href="{% url 'users:user_update' target_user.pk %}" class="btn btn-outline-primary btn-sm">
+                <a href="{% url 'users:user_update' target_user.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
                 {% endif %}
-                <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm">
+                <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left me-1"></i>Kembali
                 </a>
             </div>
         </div>
     </div>
 
-    <div class="col-lg-7">
+    <div class="min-w-0 lg:col-span-7">
         <div class="card content-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-shield-lock me-2"></i>Akses Modul (UAC)</span>
                 <span class="badge bg-light text-dark border">{{ effective_scopes|length }} modul</span>
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel akses modul" tabindex="0">
+                    <table class="table ims-table ims-user-scopes-table table-sm align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Modul</th>
@@ -126,12 +127,12 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-person-check me-2"></i>Riwayat Delegasi Wewenang</span>
                 {% if can_manage_authority_delegations %}
-                <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-primary btn-sm">Kelola</a>
+                <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">Kelola</a>
                 {% endif %}
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel riwayat delegasi" tabindex="0">
+                    <table class="table ims-table ims-user-delegations-table table-sm align-middle mb-0">
                         <thead><tr><th>Modul</th><th>Periode</th><th>Status</th></tr></thead>
                         <tbody>
                             {% for delegation in authority_delegations %}
@@ -162,22 +163,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.querySelectorAll('.copy-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        var text = this.getAttribute('data-copy');
-        navigator.clipboard.writeText(text).then(function() {
-            var icon = btn.querySelector('i');
-            icon.className = 'bi bi-check text-success';
-            setTimeout(function() { icon.className = 'bi bi-clipboard'; }, 1500);
-        }).catch(function() {});
-    });
-});
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) {
-        window.location.href = '{% url "users:user_list" %}';
-    }
-});
-</script>
+<script src="{% static 'js/user-detail.js' %}?v={{ app_version }}-wave4-user-detail"></script>
 {% endblock %}

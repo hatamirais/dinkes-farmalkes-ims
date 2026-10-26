@@ -12,6 +12,7 @@ App-specific guidance for Puskesmas facility workflows.
 - `OPERATOR PUSKESMAS` users must never read or write another facility's documents.
 - Puskesmas report routes require `reports.view_reports` or REPORTS module-scope `VIEW`.
 - Superusers may query all facilities in reports; non-superusers are forced to their linked `facility` and receive `403` when no facility is linked.
+- Report HTML displays money with two Indonesian decimal digits; this presentation rule does not round stored prices, report calculations, or Excel exports.
 - An active Puskesmas-specific Acting Kepala delegation may satisfy only the request approval/rejection authority check; it does not authorize reset-to-draft. It never bypasses linked-facility or same-facility isolation, which is rechecked between the locked actor and locked request before mutation. Delegated use must be recorded atomically in `AuthorityExercise`.
 
 ## Stock Self-Check
@@ -21,6 +22,7 @@ App-specific guidance for Puskesmas facility workflows.
 - It compares `stock_keseluruhan` (digital stock) with `stock_gudang_puskesmas` (physical stock recorded on that LPLPO).
 - It does not apply post-LPLPO receipt or consumption adjustments.
 - It does not mutate stock.
+- Its desktop page at `/puskesmas/stok/` uses the Tailwind base and renders the existing bound year/search/mismatch filter fields directly; facility scope, values, and pagination remain view-owned.
 
 ## Receipt Confirmations
 

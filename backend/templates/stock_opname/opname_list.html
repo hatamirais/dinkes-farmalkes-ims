@@ -1,15 +1,15 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
 
 {% block title %}Stock Opname — Healthcare IMS{% endblock %}
 {% block page_title %}Stock Opname{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="ims-workflow ims-workflow-list row justify-content-center">
     <div class="col-lg-12">
         <div class="card content-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-clipboard-check me-2"></i>Daftar Stock Opname</span>
-                <a href="{% url 'stock_opname:opname_create' %}" class="btn btn-primary btn-sm">
+                <a href="{% url 'stock_opname:opname_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
                     <i class="bi bi-plus-lg me-1"></i>Buat Baru
                 </a>
             </div>
@@ -17,11 +17,11 @@
                 <!-- Filters -->
                 <form method="get" class="row g-2 mb-3">
                     <div class="col-md-3">
-                        <input type="text" name="q" class="form-control form-control-sm"
+                        <input type="text" name="q" class="form-control form-control-sm ims-control"
                             placeholder="Cari nomor dokumen..." value="{{ search }}">
                     </div>
                     <div class="col-md-2">
-                        <select name="status" class="form-select form-select-sm">
+                        <select name="status" class="form-select form-select-sm ims-control">
                             <option value="">Semua Status</option>
                             {% for val, label in status_choices %}
                             <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}
@@ -30,7 +30,7 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <select name="period" class="form-select form-select-sm">
+                        <select name="period" class="form-select form-select-sm ims-control">
                             <option value="">Semua Periode</option>
                             {% for val, label in period_choices %}
                             <option value="{{ val }}" {% if selected_period == val %}selected{% endif %}>{{ label }}
@@ -39,17 +39,17 @@
                         </select>
                     </div>
                     <div class="col-auto">
-                        <button type="submit" class="btn btn-outline-primary btn-sm"><i
+                        <button type="submit" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary"><i
                                 class="bi bi-search"></i></button>
                         {% if search or selected_status or selected_period %}
-                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-danger btn-sm"><i
+                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i
                                 class="bi bi-x-lg"></i></a>
                         {% endif %}
                     </div>
                 </form>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table table-hover align-middle ims-table">
                         <thead>
                             <tr>
                                 <th>No. Dokumen</th>
@@ -90,13 +90,13 @@
                                 <td class="text-center">
                                     {% if o.status == 'DRAFT' %}
                                     <a href="{% url 'stock_opname:opname_edit' o.pk %}"
-                                        class="btn btn-outline-warning btn-sm me-1" title="Ubah">
+                                        class="btn btn-outline-warning btn-sm me-1 ims-btn ims-btn--sm" title="Ubah">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
                                     {% endif %}
                                     {% if o.status == 'DRAFT' or o.status == 'IN_PROGRESS' %}
                                     <a href="{% url 'stock_opname:opname_delete' o.pk %}"
-                                        class="btn btn-outline-danger btn-sm" title="Hapus">
+                                        class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger" title="Hapus">
                                         <i class="bi bi-trash"></i>
                                     </a>
                                     {% endif %}
@@ -119,16 +119,16 @@
                 <nav>
                     <ul class="pagination pagination-sm justify-content-center">
                         {% if opnames.has_previous %}
-                        <li class="page-item"><a class="page-link"
+                        <li class="page-item"><a class="page-link ims-page-link"
                                 href="{% querystring page=opnames.previous_page_number %}">&laquo;</a></li>
                         {% endif %}
                         {% for num in opnames.paginator.page_range %}
                         <li class="page-item {% if opnames.number == num %}active{% endif %}">
-                            <a class="page-link" href="{% querystring page=num %}">{{ num }}</a>
+                            <a class="page-link ims-page-link" href="{% querystring page=num %}">{{ num }}</a>
                         </li>
                         {% endfor %}
                         {% if opnames.has_next %}
-                        <li class="page-item"><a class="page-link"
+                        <li class="page-item"><a class="page-link ims-page-link"
                                 href="{% querystring page=opnames.next_page_number %}">&raquo;</a></li>
                         {% endif %}
                     </ul>

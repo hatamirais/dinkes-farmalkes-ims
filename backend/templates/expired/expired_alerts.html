@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load l10n %}
 
 {% block title %}Stok Mendekati/Kedaluwarsa - Healthcare IMS{% endblock %}
@@ -66,17 +66,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="table-container">
+<div class="ims-workflow ims-workflow-list table-container">
     <div class="table-header">
         <h5><i class="bi bi-exclamation-triangle me-2"></i>Pemantauan Stok Kedaluwarsa</h5>
         <div class="d-flex gap-2">
             <form method="get" action="{% url 'expired:expired_create' %}" id="createExpiredFromSelectedForm">
                 <input type="hidden" name="stocks" id="selectedExpiredStocks">
-                <button type="submit" id="createExpiredFromSelected" class="btn btn-primary btn-sm" disabled>
+                <button type="submit" id="createExpiredFromSelected" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary" disabled>
                     <i class="bi bi-plus-lg me-1"></i>Buat Dokumen dari Pilihan
                 </button>
             </form>
-            <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-arrow-left me-1"></i>Daftar Dokumen
             </a>
         </div>
@@ -84,14 +84,14 @@
 
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form expired-alert-filter">
-            <input type="text" name="q" class="form-control" placeholder="Cari kode / nama / kategori / batch..." value="{{ search }}">
-            <select name="location" class="form-select">
+            <input type="text" name="q" class="form-control ims-control" placeholder="Cari kode / nama / kategori / batch..." value="{{ search }}">
+            <select name="location" class="form-select ims-control">
                 <option value="">Semua Lokasi</option>
                 {% for loc in locations %}
                 <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
                 {% endfor %}
             </select>
-            <select name="level" class="form-select">
+            <select name="level" class="form-select ims-control">
                 <option value="all" {% if selected_level == 'all' %}selected{% endif %}>Semua Level</option>
                 <option value="expired" {% if selected_level == 'expired' %}selected{% endif %}>Sudah Kedaluwarsa</option>
                 <option value="near" {% if selected_level == 'near' %}selected{% endif %}>Mendekati Kedaluwarsa (<= 90 hari)</option>
@@ -99,14 +99,14 @@
 
             <input type="hidden" name="sort" value="{{ selected_sort }}">
             <input type="hidden" name="dir" value="{{ selected_dir }}">
-            <select name="pending" class="form-select" id="pendingFilter">
+            <select name="pending" class="form-select ims-control" id="pendingFilter">
                 <option value="1" {% if pending_only %}selected{% endif %}>Tampilkan yang belum diproses</option>
                 <option value="0" {% if not pending_only %}selected{% endif %}>Tampilkan semua</option>
             </select>
             <div class="filter-actions">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-search"></i></button>
                 {% if search or selected_location or selected_level != 'all' or selected_sort != 'expiry' or selected_dir != 'asc' or not pending_only %}
-                <a href="{% url 'expired:expired_alerts' %}?" class="btn btn-outline-danger btn-sm">
+                <a href="{% url 'expired:expired_alerts' %}?" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger">
                     <i class="bi bi-x-lg me-1"></i>Bersihkan Filter
                 </a>
                 {% endif %}
@@ -114,8 +114,8 @@
         </form>
     </div>
 
-    <div class="table-responsive">
-        <table class="table" id="expiredAlertsTable">
+    <div class="table-responsive ims-table-scroll">
+        <table class="table ims-table" id="expiredAlertsTable">
             <thead>
                 <tr>
                     <th style="width: 40px;"><input type="checkbox" id="selectAllExpiredRows"></th>
@@ -194,17 +194,17 @@
         <ul class="pagination pagination-sm mb-0">
             {% if items.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">&laquo;</a>
+                <a class="page-link ims-page-link" href="?page={{ items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">&laquo;</a>
             </li>
             {% endif %}
             {% for num in items.paginator.page_range %}
             <li class="page-item {% if items.number == num %}active{% endif %}">
-                <a class="page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">{{ num }}</a>
+                <a class="page-link ims-page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">{{ num }}</a>
             </li>
             {% endfor %}
             {% if items.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">&raquo;</a>
+                <a class="page-link ims-page-link" href="?page={{ items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_location %}&location={{ selected_location }}{% endif %}{% if selected_level %}&level={{ selected_level }}{% endif %}&sort={{ selected_sort }}&dir={{ selected_dir }}{% if pending_only %}&pending=1{% endif %}">&raquo;</a>
             </li>
             {% endif %}
         </ul>

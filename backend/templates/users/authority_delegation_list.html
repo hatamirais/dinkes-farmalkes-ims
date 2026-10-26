@@ -1,21 +1,21 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Delegasi Wewenang - Healthcare IMS{% endblock %}
 {% block page_title %}Delegasi Wewenang{% endblock %}
 
 {% block content %}
-<div class="table-container">
+<div class="ims-workflow ims-workflow-list ims-authority-list table-container">
     <div class="table-header">
         <div>
             <h5 class="mb-1"><i class="bi bi-person-check me-2"></i>Delegasi Wewenang</h5>
             <p class="text-muted small mb-0">Penugasan sementara Plh. Kepala Instalasi per modul.</p>
         </div>
-        <a href="{% url 'users:authority_delegation_create' %}" class="btn btn-primary btn-sm">
+        <a href="{% url 'users:authority_delegation_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
             <i class="bi bi-plus-lg me-1"></i>Buat Delegasi
         </a>
     </div>
-    <div class="table-responsive">
-        <table class="table align-middle mb-0">
+    <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel delegasi wewenang" tabindex="0">
+        <table class="table ims-table align-middle mb-0">
             <thead>
                 <tr>
                     <th>Pelaksana Harian</th>
@@ -44,7 +44,7 @@
                     <td>{{ delegation.granted_by.full_name|default:delegation.granted_by.username }}</td>
                     <td class="text-end">
                         {% if delegation.can_revoke %}
-                        <a href="{% url 'users:authority_delegation_revoke' delegation.pk %}" class="btn btn-outline-danger btn-sm">
+                        <a href="{% url 'users:authority_delegation_revoke' delegation.pk %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger">
                             <i class="bi bi-x-circle me-1"></i>Cabut
                         </a>
                         {% else %}
@@ -61,7 +61,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">Belum ada delegasi wewenang.</td></tr>
+                <tr><td colspan="6" class="ims-authority-empty text-muted py-4">Belum ada delegasi wewenang.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

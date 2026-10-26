@@ -3150,6 +3150,8 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.get(reverse("receiving:receiving_list"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "css/app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
         self.assertNotContains(response, 'name="status"', html=False)
         self.assertNotContains(response, 'Status:</span>', html=False)
         self.assertContains(response, 'badge-status badge-verified', html=False)
@@ -3282,6 +3284,8 @@ class ReceivingWorkflowCleanupTest(TestCase):
         response = self.client.get(reverse("receiving:receiving_plan_list"), secure=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "css/app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
         self.assertNotContains(response, reverse("receiving:receiving_plan_create"))
         self.assertNotContains(response, "Buat Rencana")
         self.assertContains(

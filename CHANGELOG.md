@@ -12,27 +12,36 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Added the approved `DESIGN.md` visual contract, nine CSS migration concepts, a migration ledger, and a static foundation preview for the planned Tailwind rollout.
 - Added a pinned Bun 1.3.14 toolchain, Tailwind CSS 4.3.3 source and generated stylesheet, reproducible CSS build/check commands, and a GitHub Actions check for generated CSS.
 - Added the authenticated Tailwind desktop shell with shared role-aware navigation, a responsive sidebar, top bar, user menu, and flash messages, plus the Daftar Barang pilot page.
+- Added page links to the existing 25-row stock transfer list paginator so later transfers are reachable.
 
 ### Changed
 
 - Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility.
 - Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. Legacy pages continue to load Bootstrap CSS; both desktop bases retain Bootstrap JavaScript during the migration.
 - Migrated login, account lockout, password change, password-change completion, and centralized 400/403/404/429/500/503 pages to Tailwind CSS while preserving authentication and error-handler behavior. Other legacy pages continue to use Bootstrap CSS.
+- Completed the Wave 4 Tailwind migration for read-only stock lists/cards/history, the Puskesmas stock snapshot and self-check, receiving lists/details, and procurement, distribution, allocation, recall, expired, stock-opname, LPLPO, and stock transfer lists/details.
+- Migrated central inventory reports and numbering history, four Puskesmas reports, user detail, and the authority delegation list to Tailwind while retaining their existing filters, values, links, exports, and permission gates. Editable settings, creation/editing forms, mobile, print documents, and admin pages remain in later waves.
+- Displayed monetary values in affected central and Puskesmas reports with two Indonesian decimal digits without changing the underlying calculations.
 - Documented that migrated forms keep labels above inputs and that UI content or behavior conflicts require review before template changes.
 
 ### Fixed
 
 - Corrected the direct Playwright window helper's usage message to specify Node, matching its Windows runtime requirement.
 - Returned staff to the acted-on Alokasi distribution card after preparing or confirming delivery, instead of reopening the detail page at the top.
+- Restored whole-card links on Alokasi distribution tracking cards after the Tailwind base switch while keeping preparation and delivery buttons independently clickable.
 - Kept the Alokasi Step 2 batch picker visible outside the scrolling item table, closed it when a formset row is removed, and retained item and facility context while scrolling the Step 3 and Step 4 matrices.
 - Centralized procurement action authorization decisions so SPJ and amendment buttons now match the corresponding route permissions while preserving Django-permission, module-scope, role, and Acting Kepala rules.
 - Restored the Stock regression suite by aligning django-import-export fixtures with the source-document stock-layer identifier, distinguishing the restricted Instalasi stock snapshot link from the valid Puskesmas self-stock link, and accounting for the shared shell's constant Acting Kepala permission queries.
 - Kept all Daftar Barang pagination controls reachable at narrow widths and corrected Bootstrap submenu visibility in the Tailwind shell.
 - Kept the configured system logo on centralized error pages and grouped multiple password-validation messages under one accessible field description.
+- Separated adjacent sidebar highlights, restored contrast for the `Buat Penerimaan` plus icon, and corrected the missing Penerimaan sidebar glyph.
+- Fitted all stock-card ledger columns within browser-printed A4 pages and kept the stock-card search dropdown visible beyond its selector panel.
+- Restored mouse-selectable Barang suggestions in the expired-audit report modal on Tailwind pages by styling the shared typeahead dropdown above the modal backdrop.
 
 ### Security
 
 - Upgraded Pillow from 12.3.0 to 13.0.0 after the dependency audit reported known vulnerabilities.
+- Restricted the user-detail Escape shortcut to same-origin HTTP(S) destinations.
 
 ## [1.35.0] - 2026-10-13
 

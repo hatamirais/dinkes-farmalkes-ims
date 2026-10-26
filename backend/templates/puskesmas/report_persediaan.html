@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}Rincian Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
@@ -46,12 +46,13 @@
 {% endblock %}
 
 {% block content %}
+<div class="ims-workflow ims-report ims-report-puskesmas ims-report-puskesmas-persediaan">
 <!-- Filter Bar -->
 <div class="row mb-4 d-print-none">
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body bg-light">
-                <form method="get" class="row g-3 align-items-end">
+                <form method="get" class="row g-3 align-items-end ims-report-filters">
                     <div class="col-md-auto">
                         {{ form.year.label_tag }}
                         {{ form.year }}
@@ -74,14 +75,14 @@
                     </div>
                     {% endif %}
                     <div class="col d-flex flex-wrap align-items-end gap-2">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary ims-btn ims-btn--primary">
                             <i class="bi bi-filter"></i> Terapkan Filter
                         </button>
-                        <a href="{% url 'puskesmas:report_persediaan' %}" class="btn btn-outline-secondary">Reset</a>
-                        <button type="button" class="btn btn-dark" data-action="print">
+                        <a href="{% url 'puskesmas:report_persediaan' %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral">Reset</a>
+                        <button type="button" class="btn btn-dark ims-btn ims-btn--neutral" data-action="print">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
-                        <button type="submit" name="format" value="excel" class="btn btn-success">
+                        <button type="submit" name="format" value="excel" class="btn btn-success ims-btn ims-btn--secondary">
                             <i class="bi bi-file-earmark-excel"></i> Export Excel
                         </button>
                     </div>
@@ -145,8 +146,8 @@
                     ditambah distribusi yang diterima setelahnya.
                 </div>
                 {% endif %}
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle mb-0">
+                <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel laporan" tabindex="0">
+                    <table class="table ims-table table-bordered align-middle mb-0">
                         <thead class="table-light text-center">
                             <tr>
                                 <th style="width: 50px;">NO</th>
@@ -175,7 +176,7 @@
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">
+                                <td colspan="4" class="ims-report-empty text-muted py-4">
                                     <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data persediaan untuk periode ini.
                                 </td>
@@ -187,5 +188,6 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}

@@ -1,21 +1,21 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Penerimaan Barang - Healthcare IMS{% endblock %}
 {% block page_title %}Penerimaan Barang{% endblock %}
 
 {% block content %}
-<div class="table-container">
-    <div class="table-header">
-        <h5><i class="bi bi-inbox-fill me-2"></i>Daftar Penerimaan</h5>
-        <a href="{% url 'receiving:receiving_create' %}" class="btn btn-primary btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>Buat Penerimaan
+<div class="ims-stock-panel ims-receiving-list">
+    <div class="ims-receiving-list-header">
+        <h5><i class="bi bi-inbox-fill mr-2"></i>Daftar Penerimaan</h5>
+        <a href="{% url 'receiving:receiving_create' %}" class="ims-btn ims-btn--primary ims-btn--sm">
+            <i class="bi bi-plus-lg mr-1"></i>Buat Penerimaan
         </a>
     </div>
 
-    <div class="px-3 py-2 border-bottom bg-light">
-        <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari no. dokumen / supplier..." value="{{ search }}">
-            <select name="type" class="form-select">
+    <div class="ims-receiving-filter-wrap">
+        <form method="get" class="ims-receiving-filters">
+            <input type="text" name="q" class="ims-control" placeholder="Cari no. dokumen / supplier..." value="{{ search }}">
+            <select name="type" class="ims-control">
                 <option value="">Semua Tipe</option>
                 {% for option in receiving_type_options %}
                 <option value="{{ option.code }}" {% if selected_type == option.code %}selected{% endif %}>
@@ -23,17 +23,17 @@
                 </option>
                 {% endfor %}
             </select>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            <div class="flex gap-2">
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm" aria-label="Cari penerimaan"><i class="bi bi-search"></i></button>
                 {% if search or selected_type %}
-                <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+                <a href="{% url 'receiving:receiving_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm" aria-label="Reset filter"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
         </form>
     </div>
 
-    <div class="table-responsive">
-        <table class="table">
+    <div class="ims-table-scroll ims-receiving-table-scroll" tabindex="0" role="region" aria-label="Tabel penerimaan, gulir untuk kolom lainnya">
+        <table class="table ims-table ims-receiving-table">
             <thead>
                 <tr>
                     <th>No. Dokumen</th>
@@ -43,16 +43,16 @@
                     <th>Sumber Dana</th>
                     <th>Status</th>
                     <th>Dibuat oleh</th>
-                    <th class="text-end">Aksi</th>
+                    <th class="text-right">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 {% for r in receivings %}
                 <tr>
-                    <td><a href="{% url 'receiving:receiving_detail' r.pk %}" class="fw-semibold text-decoration-none">{{ r.document_number }}</a></td>
+                    <td><a href="{% url 'receiving:receiving_detail' r.pk %}" class="font-semibold no-underline">{{ r.document_number }}</a></td>
                     <td>{{ r.receiving_date|date:"d/m/Y" }}</td>
                     <td>
-                        <span class="badge bg-info-subtle text-info">{{ r.receiving_type_display_label }}</span>
+                        <span class="ims-badge ims-badge--info text-ims-info">{{ r.receiving_type_display_label }}</span>
                     </td>
                     <td>{{ r.supplier.name|default:"-" }}</td>
                     <td>{{ r.sumber_dana.name }}</td>
@@ -60,8 +60,8 @@
                         <span class="badge-status badge-{{ r.status|lower }}">{{ r.get_status_display }}</span>
                     </td>
                     <td>{{ r.created_by }}</td>
-                    <td class="text-end">
-                        <a href="{% url 'receiving:receiving_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <td class="text-right">
+                        <a href="{% url 'receiving:receiving_detail' r.pk %}" class="ims-btn ims-btn--sm ims-btn--neutral" aria-label="Lihat detail">
                             <i class="bi bi-eye"></i>
                         </a>
                     </td>
@@ -69,8 +69,8 @@
                 {% empty %}
                 <tr>
                     <td colspan="8">
-                        <div class="empty-state">
-                            <i class="bi bi-inbox d-block"></i>
+                        <div class="ims-receiving-empty">
+                            <i class="bi bi-inbox block"></i>
                             <p>Belum ada data penerimaan</p>
                         </div>
                     </td>
@@ -81,20 +81,20 @@
     </div>
 
     {% if receivings.has_other_pages %}
-    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">{{ receivings.start_index }}-{{ receivings.end_index }} dari {{ receivings.paginator.count }}</small>
+    <div class="ims-stock-footer">
+        <small class="text-ims-muted">{{ receivings.start_index }}-{{ receivings.end_index }} dari {{ receivings.paginator.count }}</small>
         <nav>
-            <ul class="pagination pagination-sm mb-0">
+            <ul class="ims-pagination">
                 {% if receivings.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ receivings.previous_page_number }}">&laquo;</a></li>
+                <li class="ims-receiving-page-item"><a class="ims-page-link" href="?page={{ receivings.previous_page_number }}">&laquo;</a></li>
                 {% endif %}
                 {% for num in receivings.paginator.page_range %}
                     {% if receivings.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    <li class="ims-receiving-page-item active"><span class="ims-page-link">{{ num }}</span></li>
                     {% endif %}
                 {% endfor %}
                 {% if receivings.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ receivings.next_page_number }}">&raquo;</a></li>
+                <li class="ims-receiving-page-item"><a class="ims-page-link" href="?page={{ receivings.next_page_number }}">&raquo;</a></li>
                 {% endif %}
             </ul>
         </nav>

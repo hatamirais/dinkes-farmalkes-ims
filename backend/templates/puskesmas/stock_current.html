@@ -1,51 +1,53 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}Stok Puskesmas - Healthcare IMS{% endblock %}
 {% block page_title %}Stok Puskesmas{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column gap-4">
-    <section class="border rounded-3 bg-body shadow-sm">
-        <div class="p-3 p-lg-4 d-flex flex-column gap-4">
-            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-start">
+<div class="ims-pkm-report ims-pkm-self-check">
+    <section class="ims-stock-panel ims-pkm-panel">
+        <div class="ims-pkm-panel-body">
+            <div class="ims-pkm-header">
                 <div>
-                    <div class="text-uppercase text-muted small fw-semibold mb-1">Cek Stok Mandiri</div>
-                    <h5 class="mb-1"><i class="bi bi-clipboard2-check me-2"></i>Stok Puskesmas</h5>
-                    <p class="text-muted mb-0">
+                    <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Cek Stok Mandiri</div>
+                    <h5><i class="bi bi-clipboard2-check mr-2"></i>Stok Puskesmas</h5>
+                    <p class="text-ims-muted">
                         Bandingkan stok digital LPLPO terakhir dengan stok fisik gudang Puskesmas yang tercatat pada dokumen yang sama.
                     </p>
                 </div>
-                <div class="d-flex flex-wrap gap-2">
-                    <span class="badge text-bg-light border px-3 py-2">{{ facility.name }}</span>
+                <div class="flex flex-wrap gap-2 self-start">
+                    <span class="ims-badge ims-pkm-pill">{{ facility.name }}</span>
                     {% if latest_lplpo %}
-                    <span class="badge text-bg-light border px-3 py-2">{{ latest_lplpo.period_display }}</span>
-                    <span class="badge text-bg-light border px-3 py-2">{{ latest_lplpo.get_status_display }}</span>
+                    <span class="ims-badge ims-pkm-pill">{{ latest_lplpo.period_display }}</span>
+                    <span class="ims-badge ims-pkm-pill">{{ latest_lplpo.get_status_display }}</span>
                     {% endif %}
                 </div>
             </div>
 
-            <form method="get" action="{% url 'puskesmas:stock_current' %}" class="row g-3 align-items-end">
-                <div class="col-12 col-lg-2">
-                    {{ form.year|as_crispy_field }}
+            <form method="get" action="{% url 'puskesmas:stock_current' %}" class="ims-pkm-filters">
+                <div class="ims-pkm-filter-field">
+                    <label for="{{ form.year.id_for_label }}" class="ims-label">{{ form.year.label }}</label>
+                    {{ form.year }}
                 </div>
-                <div class="col-12 col-lg-5">
-                    {{ form.q|as_crispy_field }}
+                <div class="ims-pkm-filter-field">
+                    <label for="{{ form.q.id_for_label }}" class="ims-label">{{ form.q.label }}</label>
+                    {{ form.q }}
                 </div>
-                <div class="col-12 col-lg-3">
-                    {{ form.mismatch|as_crispy_field }}
+                <div class="ims-pkm-filter-field">
+                    <label for="{{ form.mismatch.id_for_label }}" class="ims-label">{{ form.mismatch.label }}</label>
+                    {{ form.mismatch }}
                 </div>
-                <div class="col-12 col-lg-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-dark flex-grow-1">
-                        <i class="bi bi-funnel me-1"></i>Filter
+                <div class="ims-pkm-filter-actions">
+                    <button type="submit" class="ims-btn ims-btn--primary flex-1">
+                        <i class="bi bi-funnel mr-1"></i>Filter
                     </button>
-                    <a href="{% url 'puskesmas:stock_current' %}" class="btn btn-outline-secondary">Reset</a>
+                    <a href="{% url 'puskesmas:stock_current' %}" class="ims-btn ims-btn--neutral">Reset</a>
                 </div>
             </form>
 
             {% if form.errors %}
-            <div class="alert alert-danger mb-0">
+            <div class="ims-error" role="alert">
                 {% for field in form %}
                     {% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}
                 {% endfor %}
@@ -53,72 +55,74 @@
             </div>
             {% endif %}
 
-            <div class="row g-0 border-top border-bottom text-center text-lg-start">
-                <div class="col-12 col-lg-3 border-end">
-                    <div class="p-3">
-                        <div class="text-uppercase text-muted small fw-semibold mb-1">Baris Barang</div>
-                        <div class="fs-3 fw-bold">{{ stats.total_rows|id_decimal:0 }}</div>
+            <div class="ims-pkm-summary">
+                <div class="ims-pkm-summary-grid">
+                    <div class="ims-pkm-summary-cell">
+                        <div class="p-3">
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Baris Barang</div>
+                            <div class="text-3xl font-bold">{{ stats.total_rows|id_decimal:0 }}</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-12 col-lg-3 border-end">
-                    <div class="p-3">
-                        <div class="text-uppercase text-muted small fw-semibold mb-1">Ada Selisih</div>
-                        <div class="fs-3 fw-bold">{{ stats.mismatch_count|id_decimal:0 }}</div>
+                    <div class="ims-pkm-summary-cell">
+                        <div class="p-3">
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Ada Selisih</div>
+                            <div class="text-3xl font-bold">{{ stats.mismatch_count|id_decimal:0 }}</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-12 col-lg-3 border-end">
-                    <div class="p-3">
-                        <div class="text-uppercase text-muted small fw-semibold mb-1">Total Digital</div>
-                        <div class="fs-3 fw-bold">{{ stats.total_digital_stock|id_decimal:0 }}</div>
+                    <div class="ims-pkm-summary-cell">
+                        <div class="p-3">
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Total Digital</div>
+                            <div class="text-3xl font-bold">{{ stats.total_digital_stock|id_decimal:0 }}</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-12 col-lg-3">
-                    <div class="p-3">
-                        <div class="text-uppercase text-muted small fw-semibold mb-1">Total Fisik</div>
-                        <div class="fs-3 fw-bold">{{ stats.total_physical_stock|id_decimal:0 }}</div>
+                    <div class="ims-pkm-summary-cell">
+                        <div class="p-3">
+                            <div class="uppercase text-ims-muted text-xs font-semibold mb-1">Total Fisik</div>
+                            <div class="text-3xl font-bold">{{ stats.total_physical_stock|id_decimal:0 }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {% if latest_lplpo %}
-            <div class="table-responsive border rounded-3">
-                <table class="table table-sm align-middle mb-0">
-                    <thead class="table-light">
+            <div class="ims-pkm-table-scroll ims-table-scroll" role="region" aria-label="Tabel stok Puskesmas" tabindex="0">
+                <table class="ims-table ims-pkm-table">
+                    <thead>
                         <tr>
                             <th style="min-width: 130px;">Kode Barang</th>
                             <th style="min-width: 260px;">Nama Barang</th>
                             <th style="min-width: 150px;">Kategori</th>
                             <th style="min-width: 100px;">Satuan</th>
-                            <th class="text-end" style="min-width: 140px;">Stok Digital</th>
-                            <th class="text-end" style="min-width: 140px;">Stok Fisik</th>
-                            <th class="text-end" style="min-width: 120px;">Selisih</th>
+                            <th class="ims-table-number" style="min-width: 140px;">Stok Digital</th>
+                            <th class="ims-table-number" style="min-width: 140px;">Stok Fisik</th>
+                            <th class="ims-table-number" style="min-width: 120px;">Selisih</th>
                             <th style="min-width: 120px;">Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in page_obj.object_list %}
                         <tr>
-                            <td><code>{{ row.kode_barang }}</code></td>
+                            <td><code class="kode-barang">{{ row.kode_barang }}</code></td>
                             <td>{{ row.nama_barang }}</td>
                             <td>{{ row.kategori }}</td>
                             <td>{{ row.satuan }}</td>
-                            <td class="text-end fw-semibold">{{ row.digital_stock|id_decimal:0 }}</td>
-                            <td class="text-end fw-semibold">{{ row.physical_stock|id_decimal:0 }}</td>
-                            <td class="text-end fw-semibold {% if row.has_mismatch %}text-danger{% else %}text-success{% endif %}">
+                            <td class="ims-table-number font-semibold">{{ row.digital_stock|id_decimal:0 }}</td>
+                            <td class="ims-table-number font-semibold">{{ row.physical_stock|id_decimal:0 }}</td>
+                            <td class="ims-table-number font-semibold {% if row.has_mismatch %}text-ims-danger{% else %}text-ims-success{% endif %}">
                                 {{ row.difference|id_decimal:0 }}
                             </td>
                             <td>
                                 {% if row.has_mismatch %}
-                                <span class="badge text-bg-warning">Perlu Dicek</span>
+                                <span class="ims-badge ims-badge--warning">Perlu Dicek</span>
                                 {% else %}
-                                <span class="badge text-bg-success">Sesuai</span>
+                                <span class="ims-badge ims-badge--success">Sesuai</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
-                                Tidak ada barang yang cocok dengan filter.
+                            <td colspan="8">
+                                <div class="ims-pkm-empty">Tidak ada barang yang cocok dengan filter.</div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -128,32 +132,32 @@
 
             {% if page_obj.paginator.num_pages > 1 %}
             <nav aria-label="Paginasi stok Puskesmas">
-                <ul class="pagination pagination-sm justify-content-end mb-0">
+                <ul class="ims-pagination ims-pkm-pagination">
                     {% if page_obj.has_previous %}
-                    <li class="page-item"><a class="page-link" href="{% querystring page=1 %}">Awal</a></li>
-                    <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Sebelumnya</a></li>
+                    <li><a class="ims-page-link" href="{% querystring page=1 %}">Awal</a></li>
+                    <li><a class="ims-page-link" href="{% querystring page=page_obj.previous_page_number %}">Sebelumnya</a></li>
                     {% else %}
-                    <li class="page-item disabled"><span class="page-link">Awal</span></li>
-                    <li class="page-item disabled"><span class="page-link">Sebelumnya</span></li>
+                    <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Awal</span></li>
+                    <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Sebelumnya</span></li>
                     {% endif %}
-                    <li class="page-item disabled">
-                        <span class="page-link">{{ page_obj.number|id_decimal:0 }} / {{ page_obj.paginator.num_pages|id_decimal:0 }}</span>
+                    <li class="ims-pkm-page-item disabled">
+                        <span class="ims-page-link">{{ page_obj.number|id_decimal:0 }} / {{ page_obj.paginator.num_pages|id_decimal:0 }}</span>
                     </li>
                     {% if page_obj.has_next %}
-                    <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Berikutnya</a></li>
-                    <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.paginator.num_pages %}">Akhir</a></li>
+                    <li><a class="ims-page-link" href="{% querystring page=page_obj.next_page_number %}">Berikutnya</a></li>
+                    <li><a class="ims-page-link" href="{% querystring page=page_obj.paginator.num_pages %}">Akhir</a></li>
                     {% else %}
-                    <li class="page-item disabled"><span class="page-link">Berikutnya</span></li>
-                    <li class="page-item disabled"><span class="page-link">Akhir</span></li>
+                    <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Berikutnya</span></li>
+                    <li class="ims-pkm-page-item disabled"><span class="ims-page-link">Akhir</span></li>
                     {% endif %}
                 </ul>
             </nav>
             {% endif %}
             {% else %}
-            <div class="border rounded-3 bg-light p-4 text-center text-muted">
-                <i class="bi bi-journal-x fs-2 d-block mb-2"></i>
-                <div class="fw-semibold text-body">Belum ada LPLPO yang dapat digunakan untuk tahun {{ selected_year }}.</div>
-                <div class="small">Buat atau selesaikan LPLPO terlebih dahulu agar stok digital dapat dibandingkan.</div>
+            <div class="ims-self-check-no-lplpo">
+                <i class="bi bi-journal-x text-2xl mb-2"></i>
+                <div class="font-semibold text-ims-ink">Belum ada LPLPO yang dapat digunakan untuk tahun {{ selected_year }}.</div>
+                <div class="text-xs">Buat atau selesaikan LPLPO terlebih dahulu agar stok digital dapat dibandingkan.</div>
             </div>
             {% endif %}
         </div>

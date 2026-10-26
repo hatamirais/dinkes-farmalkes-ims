@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}{{ lplpo.document_number }} – Healthcare IMS{% endblock %}
 {% block page_title %}Detail LPLPO{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-lplpo ims-lplpo-detail container-fluid">
 
     <!-- Status Banner -->
     <div class="alert
@@ -82,7 +82,7 @@
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 ims-lplpo-detail-main">
         <!-- Main -->
         <div class="col-12 col-lg-9">
             <!-- Header Card -->
@@ -147,8 +147,8 @@
                     <span class="badge text-bg-secondary ms-1">{{ cat_items|length }}</span>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                    <div class="table-responsive ims-table-scroll">
+                        <table class="table table-sm table-hover align-middle mb-0 ims-table">
                             <thead class="table-light">
                             <tr>
                                 <th>#</th>
@@ -220,50 +220,50 @@
                 <div class="card-body d-grid gap-2">
 
                     {% if lplpo.status == 'DRAFT' and can_manage_draft %}
-                    <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100" id="edit-btn">
+                    <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100 ims-btn ims-btn--secondary" id="edit-btn">
                         <i class="bi bi-pencil me-1"></i>Isi Data
                     </a>
-                    <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="export-xlsx-btn">
+                    <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100 ims-btn ims-btn--neutral" id="export-xlsx-btn">
                         <i class="bi bi-download me-1"></i>Export XLSX
                     </a>
-                    <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="import-xlsx-btn">
+                    <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100 ims-btn ims-btn--neutral" id="import-xlsx-btn">
                         <i class="bi bi-upload me-1"></i>Import XLSX
                     </a>
                     <form method="post" action="{% url 'lplpo:lplpo_submit' lplpo.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-primary w-100" id="submit-btn"
+                        <button type="submit" class="btn btn-primary w-100 ims-btn ims-btn--primary" id="submit-btn"
                             data-confirm-click="Ajukan LPLPO ini?">
                             <i class="bi bi-send me-1"></i>Ajukan
                         </button>
                     </form>
                     <form method="post" action="{% url 'lplpo:lplpo_delete' lplpo.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-danger w-100" id="delete-btn"
+                        <button type="submit" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="delete-btn"
                             data-confirm-click="Hapus LPLPO ini? Tindakan ini tidak dapat dibatalkan.">
                             <i class="bi bi-trash me-1"></i>Hapus
                         </button>
                     </form>
 
                     {% elif lplpo.status == 'REJECTED_PUSKESMAS' and can_manage_draft %}
-                    <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100" id="edit-rejected-btn">
+                    <a href="{% url 'lplpo:lplpo_edit' lplpo.pk %}" class="btn btn-outline-primary w-100 ims-btn ims-btn--secondary" id="edit-rejected-btn">
                         <i class="bi bi-pencil me-1"></i>Perbaiki Data
                     </a>
-                    <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="export-rejected-xlsx-btn">
+                    <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100 ims-btn ims-btn--neutral" id="export-rejected-xlsx-btn">
                         <i class="bi bi-download me-1"></i>Export XLSX
                     </a>
-                    <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100" id="import-rejected-xlsx-btn">
+                    <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary w-100 ims-btn ims-btn--neutral" id="import-rejected-xlsx-btn">
                         <i class="bi bi-upload me-1"></i>Import XLSX
                     </a>
                     <form method="post" action="{% url 'lplpo:lplpo_submit' lplpo.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-primary w-100" id="resubmit-btn"
+                        <button type="submit" class="btn btn-primary w-100 ims-btn ims-btn--primary" id="resubmit-btn"
                             data-confirm-click="Ajukan ulang LPLPO ini?">
                             <i class="bi bi-send me-1"></i>Ajukan Ulang
                         </button>
                     </form>
                     <form method="post" action="{% url 'lplpo:lplpo_delete' lplpo.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-danger w-100" id="delete-rejected-btn"
+                        <button type="submit" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="delete-rejected-btn"
                             data-confirm-click="Hapus LPLPO ini? Tindakan ini tidak dapat dibatalkan.">
                             <i class="bi bi-trash me-1"></i>Hapus
                         </button>
@@ -272,13 +272,13 @@
                     {% elif lplpo.status == 'SUBMITTED' and can_review %}
                     <form method="post" action="{% url 'lplpo:lplpo_verify' lplpo.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-info w-100 text-white" id="verify-btn"
+                        <button type="submit" class="btn btn-info w-100 text-white ims-btn ims-btn--primary" id="verify-btn"
                             data-confirm-click="Verifikasi awal LPLPO ini dan lanjutkan ke tahap tinjauan PIC?">
                             <i class="bi bi-shield-check me-1"></i>Verifikasi Awal PIC
                         </button>
                     </form>
                     {% if can_review %}
-                    <button type="button" class="btn btn-outline-danger w-100" id="reject-btn"
+                    <button type="button" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="reject-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-1"></i>Tolak
                     </button>
@@ -286,11 +286,11 @@
 
                     {% elif lplpo.status == 'PIC_VERIFIED' and can_review %}
                     <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}"
-                        class="btn btn-info w-100 text-white" id="review-btn">
+                        class="btn btn-info w-100 text-white ims-btn ims-btn--primary" id="review-btn">
                         <i class="bi bi-clipboard-check me-1"></i>Tinjau & Isi Pemberian
                     </a>
                     {% if can_admin_reject %}
-                    <button type="button" class="btn btn-outline-danger w-100" id="admin-reject-btn"
+                    <button type="button" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="admin-reject-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-1"></i>Tolak ke Puskesmas
                     </button>
@@ -298,11 +298,11 @@
 
                     {% elif lplpo.status == 'REJECTED_PIC' and can_review %}
                     <a href="{% url 'lplpo:lplpo_review' lplpo.pk %}"
-                        class="btn btn-warning w-100" id="review-rejected-btn">
+                        class="btn btn-warning w-100 ims-btn" id="review-rejected-btn">
                         <i class="bi bi-arrow-repeat me-1"></i>Perbaiki Tinjauan PIC
                     </a>
                     {% if can_admin_reject %}
-                    <button type="button" class="btn btn-outline-danger w-100" id="admin-reject-btn"
+                    <button type="button" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="admin-reject-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-1"></i>Tolak ke Puskesmas
                     </button>
@@ -311,43 +311,43 @@
                     {% elif lplpo.status == 'REVIEWED' and can_approve and not lplpo.distribution %}
                     <form method="post" action="{% url 'lplpo:lplpo_finalize' lplpo.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-success w-100" id="finalize-btn"
+                        <button type="submit" class="btn btn-success w-100 ims-btn ims-btn--primary" id="finalize-btn"
                             data-confirm-click="Buat dokumen distribusi untuk LPLPO legacy ini?">
                             <i class="bi bi-check2-all me-1"></i>Buat Distribusi Legacy
                         </button>
                     </form>
-                    <button type="button" class="btn btn-outline-danger w-100" id="reject-reviewed-btn"
+                    <button type="button" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="reject-reviewed-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-1"></i>
                         {% if can_admin_reject %}Tolak ke Puskesmas{% else %}Kembalikan Tinjauan{% endif %}
                     </button>
 
                     {% elif can_admin_reject %}
-                    <button type="button" class="btn btn-outline-danger w-100" id="admin-reject-btn"
+                    <button type="button" class="btn btn-outline-danger w-100 ims-btn ims-btn--danger" id="admin-reject-btn"
                         data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-1"></i>Tolak ke Puskesmas
                     </button>
 
                     {% elif lplpo.distribution and request.user.role != 'PUSKESMAS' %}
                     <a href="{% url 'distribution:distribution_detail' lplpo.distribution.pk %}"
-                        class="btn btn-outline-success w-100" id="view-dist-btn">
+                        class="btn btn-outline-success w-100 ims-btn" id="view-dist-btn">
                         <i class="bi bi-truck me-1"></i>Lihat Distribusi
                     </a>
                     {% endif %}
 
                     <a href="{% url 'lplpo:lplpo_print' lplpo.pk %}"
-                        class="btn btn-outline-secondary w-100" target="_blank" id="print-btn">
+                        class="btn btn-outline-secondary w-100 ims-btn ims-btn--neutral" target="_blank" id="print-btn">
                         <i class="bi bi-printer me-1"></i>Cetak
                     </a>
 
                     {% if request.user.role == 'PUSKESMAS' %}
                     <a href="{% url 'lplpo:lplpo_my_list' %}"
-                        class="btn btn-link w-100 text-muted" id="back-btn">
+                        class="btn btn-link w-100 text-muted ims-btn" id="back-btn">
                         <i class="bi bi-arrow-left me-1"></i>Kembali
                     </a>
                     {% else %}
                     <a href="{% url 'lplpo:lplpo_list' %}"
-                        class="btn btn-link w-100 text-muted" id="back-btn">
+                        class="btn btn-link w-100 text-muted ims-btn" id="back-btn">
                         <i class="bi bi-arrow-left me-1"></i>Kembali
                     </a>
                     {% endif %}
@@ -391,7 +391,7 @@
 </div>
 
 {% if lplpo.status == 'SUBMITTED' and can_review or lplpo.status == 'REVIEWED' and can_approve or can_admin_reject %}
-<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="post" action="{% url 'lplpo:lplpo_reject' lplpo.pk %}">
@@ -415,11 +415,11 @@
                         {% endif %}
                     </p>
                     <label for="rejection_reason" class="form-label">Alasan Penolakan</label>
-                    <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="4" required></textarea>
+                    <textarea class="form-control ims-control" id="rejection_reason" name="rejection_reason" rows="4" required></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-danger" id="reject-submit-btn">
+                    <button type="button" class="btn btn-outline-secondary ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger ims-btn ims-btn--danger" id="reject-submit-btn">
                         <i class="bi bi-x-circle me-1"></i>
                         {% if can_admin_reject or lplpo.status == 'SUBMITTED' %}Tolak LPLPO{% else %}Kembalikan ke PIC{% endif %}
                     </button>

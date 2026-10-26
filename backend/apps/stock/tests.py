@@ -4179,6 +4179,20 @@ class StockCardTest(TestCase):
         response = self.client.get(reverse('stock:stock_card_select'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_card_select.html')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'id="itemSearch"')
+        self.assertContains(response, 'id="searchResults"')
+
+    def test_transaction_list_renders_existing_ledger_values_with_tailwind(self):
+        response = self.client.get(reverse('stock:transaction_list'), {'type': 'OUT'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'stock/transaction_list.html')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'Paracetamol 500mg')
+        self.assertContains(response, 'Keluar')
+        self.assertNotContains(response, 'Masuk</span>')
 
     def test_api_item_search(self):
         response = self.client.get(reverse('stock:api_item_search'), {'q': 'Parace'})
@@ -4194,6 +4208,9 @@ class StockCardTest(TestCase):
         response = self.client.get(reverse('stock:stock_card_detail', args=[self.item.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/stock_card_detail.html')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'data-bs-toggle="collapse"')
 
         # Verify context contains funding_source_cards
         cards = response.context['funding_source_cards']
@@ -5704,6 +5721,40 @@ class StockTransferCreateValidationTests(TestCase):
         self.assertContains(response, 'RCV-TRF-CREATE-DETAIL')
 
 @override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
+class StockTransferListPaginationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser(
+            username='admin_transfer_list', password='secret12345'
+        )
+        cls.source = Location.objects.create(code='TRF-LIST-SRC', name='Gudang Transfer')
+        cls.destination = Location.objects.create(code='TRF-LIST-DST', name='Tujuan Transfer')
+        for _ in range(26):
+            StockTransfer.objects.create(
+                transfer_date=date(2026, 7, 13),
+                source_location=cls.source,
+                destination_location=cls.destination,
+                created_by=cls.user,
+            )
+
+    def test_page_links_reach_remaining_rows_and_preserve_filters(self):
+        self.client.force_login(self.user)
+        url = reverse('stock:transfer_list')
+        response = self.client.get(url, {'q': 'Gudang', 'status': 'DRAFT'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['transfers']), 25)
+        self.assertContains(response, 'page=2')
+        self.assertContains(response, 'q=Gudang')
+        self.assertContains(response, 'status=DRAFT')
+
+        next_page = self.client.get(
+            url, {'q': 'Gudang', 'status': 'DRAFT', 'page': '2'}
+        )
+        self.assertEqual(next_page.status_code, 200)
+        self.assertEqual(len(next_page.context['transfers']), 1)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver', 'localhost', '127.0.0.1'])
 class StockListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
@@ -5849,7 +5900,9 @@ class StockListViewTests(TestCase):
         self.assertEqual(stocks_by_batch['EXP-01'].source_fund_badge_class, 'text-bg-warning')
         self.assertEqual(stocks_by_batch['WARN-01'].source_fund_badge_class, 'text-bg-info')
         self.assertEqual(stocks_by_batch['SAFE-01'].source_fund_badge_class, 'text-bg-success')
-        self.assertContains(response, 'sticky-top')
+        self.assertContains(response, 'ims-stock-table-scroll')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
         self.assertContains(response, '>55<', html=False)
         self.assertContains(response, '>3<', html=False)
         self.assertContains(response, '>52<', html=False)
@@ -6153,6 +6206,9 @@ class PuskesmasStockViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'stock/puskesmas_stock.html')
         self.assertEqual(response.context['active_tab'], 'stock')
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertContains(response, 'class="ims-control"')
 
     def test_puskesmas_stock_denies_puskesmas_role_even_with_stock_scope(self):
         puskesmas_user = User.objects.create_user(

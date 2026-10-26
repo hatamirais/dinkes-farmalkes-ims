@@ -334,7 +334,7 @@ class RekapOpeningBalanceReportTests(TestCase):
 		self.assertEqual(row["nilai_terima"], Decimal("0"))
 		self.assertEqual(row["saldo_akhir"], Decimal("1000"))
 
-	def test_rekap_preserves_large_precise_values_in_post_processing(self):
+	def test_rekap_preserves_precise_values_and_displays_two_decimals(self):
 		precise_total = Decimal("99999999999891234567891.008765432109")
 		OpeningBalanceImportItem.objects.filter(
 			opening_balance=self.opening_balance,
@@ -368,11 +368,11 @@ class RekapOpeningBalanceReportTests(TestCase):
 		self.assertEqual(response.context["grand_totals"]["saldo_akhir"], precise_total)
 		self.assertContains(
 			response,
-			"Rp 99.999.999.999.891.234.567.891,008765432109",
+			"Rp 99.999.999.999.891.234.567.891,01",
 		)
 		self.assertNotContains(
 			response,
-			"Rp 99.999.999.999.891.234.567.891,01",
+			"Rp 99.999.999.999.891.234.567.891,008765432109",
 		)
 
 	def test_rekap_negates_large_precise_outbound_values_without_rounding(self):
@@ -704,7 +704,7 @@ class RekapOpeningBalanceReportTests(TestCase):
 		self.assertIn("SALDO-AWAL-SOURCE-A", source_values)
 		self.assertIn("SALDO-AWAL-SOURCE-B", source_values)
 
-	def test_detailed_report_displays_exact_high_precision_unit_prices(self):
+	def test_detailed_report_displays_two_decimal_unit_prices(self):
 		Transaction.objects.create(
 			transaction_type=Transaction.TransactionType.IN,
 			item=self.item,
@@ -738,9 +738,9 @@ class RekapOpeningBalanceReportTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "1.000,123456789")
-		self.assertContains(response, "1.000,124")
-		self.assertNotContains(response, "1000.12")
+		self.assertContains(response, "1.000,12")
+		self.assertNotContains(response, "1.000,123456789")
+		self.assertNotContains(response, "1.000,124")
 
 	def test_detailed_report_nets_receiving_reversal_rows(self):
 		Transaction.objects.create(
@@ -1478,7 +1478,7 @@ class ProcurementReportTests(TestCase):
         self.assertEqual(sheet["K5"].value, "99999999999891234567891.008765432109")
         self.assertEqual(sheet["K6"].value, "99999999999891234567891.008765432109")
 
-    def test_procurement_report_html_displays_exact_prices_and_values(self):
+    def test_procurement_report_html_displays_two_decimal_prices_and_values(self):
         ReceivingItem.objects.filter(receiving=self.receiving, item=self.item).update(
             quantity=Decimal("9999999999.99"),
             unit_price=Decimal("9999999999999.1234567891"),
@@ -1491,15 +1491,14 @@ class ProcurementReportTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Rp 9.999.999.999.999,1234567891")
+        self.assertContains(response, "Rp 9.999.999.999.999,12")
         self.assertContains(
             response,
-            "Rp 99.999.999.999.891.234.567.891,008765432109",
+            "Rp 99.999.999.999.891.234.567.891,01",
         )
         self.assertNotContains(
             response,
-            '<td class="text-end">Rp 9.999.999.999.999,12</td>',
-            html=True,
+            "Rp 9.999.999.999.999,1234567891",
         )
 
     def test_procurement_report_excludes_cancelled_receiving(self):

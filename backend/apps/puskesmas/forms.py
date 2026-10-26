@@ -1097,7 +1097,7 @@ class PuskesmasStockSelfCheckFilterForm(forms.Form):
         label="Tahun",
         coerce=int,
         choices=[],
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
     q = forms.CharField(
         label="Cari Barang",
@@ -1105,7 +1105,7 @@ class PuskesmasStockSelfCheckFilterForm(forms.Form):
         max_length=100,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
+                "class": "ims-control",
                 "placeholder": "Cari kode atau nama barang",
             }
         ),
@@ -1117,7 +1117,7 @@ class PuskesmasStockSelfCheckFilterForm(forms.Form):
             (MISMATCH_ALL, "Semua Barang"),
             (MISMATCH_ONLY, "Hanya Ada Selisih"),
         ],
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -1140,15 +1140,6 @@ class PuskesmasStockSelfCheckFilterForm(forms.Form):
         self.fields["year"].choices = [
             (str(year), str(year)) for year in self.year_choices
         ]
-
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("year", css_class="mb-0"),
-            Div("q", css_class="mb-0"),
-            Div("mismatch", css_class="mb-0"),
-        )
 
     @classmethod
     def get_default_initial(cls):

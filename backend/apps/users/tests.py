@@ -715,6 +715,9 @@ class UserManagementViewsTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.target.full_name)
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'vendor/bootstrap/css/bootstrap.min.css')
+        self.assertContains(response, 'js/user-detail.js')
         self.assertNotContains(
             response,
             reverse("users:user_update", args=[self.target.pk]),

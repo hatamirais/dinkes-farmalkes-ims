@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Detail Recall {{ recall.document_number|default:"draft" }} — Healthcare IMS{% endblock %}
 {% block page_title %}Detail Recall{% endblock %}
 
 {% block content %}
-<div class="row g-3">
+<div class="ims-workflow ims-workflow-detail row g-3">
     <div class="col-12">
         <div class="card content-card">
             <div class="card-header"><span>Informasi Recall</span></div>
@@ -45,48 +45,48 @@
 
         <div class="d-flex flex-wrap gap-2 mt-3">
             {% if recall.status == 'DRAFT' %}
-            <a href="{% url 'recall:recall_edit' recall.pk %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'recall:recall_edit' recall.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
             <form method="post" action="{% url 'recall:recall_submit' recall.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm">
+                <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
                     <i class="bi bi-send me-1"></i>Ajukan
                 </button>
             </form>
             <form method="post" action="{% url 'recall:recall_delete' recall.pk %}" data-confirm-submit="Yakin ingin menghapus recall ini?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm">
+                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
             </form>
             {% elif recall.status == 'SUBMITTED' %}
-            <a href="{% url 'recall:recall_edit' recall.pk %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'recall:recall_edit' recall.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
             <form method="post" action="{% url 'recall:recall_verify' recall.pk %}" data-confirm-submit="Verifikasi recall? Stok akan dikurangi dan tidak dapat dibatalkan.">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm">
+                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary">
                     <i class="bi bi-patch-check me-1"></i>Verifikasi
                 </button>
             </form>
             <form method="post" action="{% url 'recall:recall_reset_to_draft' recall.pk %}" data-confirm-submit="Kembalikan recall ini ke Draft?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-warning btn-sm">
+                <button type="submit" class="btn btn-outline-warning btn-sm ims-btn ims-btn--sm">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
                 </button>
             </form>
             {% elif recall.status == 'VERIFIED' %}
             <form method="post" action="{% url 'recall:recall_complete' recall.pk %}" data-confirm-submit="Tandai recall ini selesai?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm">
+                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary">
                     <i class="bi bi-check2-circle me-1"></i>Tandai Selesai
                 </button>
             </form>
             {% elif recall.status == 'COMPLETED' %}
             <form method="post" action="{% url 'recall:recall_step_back' recall.pk %}" data-confirm-submit="Kembalikan status recall ke Terverifikasi?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke Terverifikasi
                 </button>
             </form>
@@ -94,12 +94,12 @@
             {% if recall.status == 'SUBMITTED' %}
             <form method="post" action="{% url 'recall:recall_step_back' recall.pk %}" data-confirm-submit="Kembalikan recall ini ke status sebelumnya?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke status sebelumnya
                 </button>
             </form>
             {% endif %}
-            <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-arrow-left me-1"></i>Kembali
             </a>
         </div>
@@ -109,8 +109,8 @@
         <div class="card content-card">
             <div class="card-header"><span>Daftar Item Recall</span></div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table">
+                <div class="table-responsive ims-table-scroll">
+                    <table class="table ims-table">
                         <thead>
                             <tr>
                                 <th>#</th>
