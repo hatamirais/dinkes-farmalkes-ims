@@ -22,6 +22,7 @@ App-specific guidance for Puskesmas facility workflows.
 - It compares `stock_keseluruhan` (digital stock) with `stock_gudang_puskesmas` (physical stock recorded on that LPLPO).
 - It does not apply post-LPLPO receipt or consumption adjustments.
 - It does not mutate stock.
+- Its desktop page at `/puskesmas/stok/` uses the Tailwind base and renders the existing bound year/search/mismatch filter fields directly; facility scope, values, and pagination remain view-owned.
 
 ## Receipt Confirmations
 

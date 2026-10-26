@@ -653,6 +653,11 @@
   .ims-pkm-page-item.disabled .ims-page-link { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
   @media (max-width: 1050px) { .ims-pkm-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ims-pkm-filter-actions { align-self: end; } }
   @media (max-width: 767px) { .ims-pkm-panel-body { gap: 20px; padding: 16px; } .ims-pkm-filters, .ims-pkm-summary-grid { grid-template-columns: minmax(0, 1fr); } .ims-pkm-summary-cell + .ims-pkm-summary-cell { border-left: 0; border-top: 1px solid var(--color-ims-border); } .ims-pkm-summary-cell > div { padding: 12px; } .ims-pkm-empty { width: calc(100vw - 100px); } .ims-pkm-pagination { justify-content: flex-start; } }
+  .ims-pkm-self-check .ims-pkm-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ims-pkm-self-check .ims-pkm-table { min-width: 1160px; }
+  .ims-pkm-self-check .ims-error { border: 1px solid var(--color-ims-danger); border-radius: var(--radius-ims-control); padding: 12px; background: var(--color-ims-danger-bg); }
+  .ims-self-check-no-lplpo { display: flex; flex-direction: column; align-items: center; border: 1px dashed var(--color-ims-border); border-radius: var(--radius-ims-surface); padding: 24px; background: var(--color-ims-surface-muted); color: var(--color-ims-muted); text-align: center; }
+  @media (max-width: 767px) { .ims-pkm-self-check .ims-pkm-summary-grid { grid-template-columns: minmax(0, 1fr); } }
 }
 
 /* Wave 3: standalone authentication and centralized error surfaces. */

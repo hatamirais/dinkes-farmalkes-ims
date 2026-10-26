@@ -222,6 +222,10 @@ class PuskesmasStockCurrentViewTests(SecureClientDefaultsMixin, TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertTemplateUsed(response, "puskesmas/stock_current.html")
+		self.assertContains(response, "css/app.tailwind.css")
+		self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
+		self.assertContains(response, 'name="year"')
+		self.assertContains(response, 'name="mismatch"')
 		self.assertEqual(response.context["facility"], self.facility)
 		self.assertEqual(response.context["latest_lplpo"], self.latest_lplpo)
 		self.assertContains(response, "Paracetamol 500 mg")
