@@ -49,7 +49,8 @@
   .ims-item-form .ts-wrapper.input-hidden .ts-control input { position: absolute; width: 1px; opacity: 0; }
   .ims-item-form .ts-wrapper.single .ts-control { padding-right: 32px; }
   .ims-item-form .ts-wrapper.single .ts-control::after { position: absolute; right: 13px; top: 50%; width: 7px; height: 7px; border-right: 1.5px solid var(--color-ims-muted); border-bottom: 1.5px solid var(--color-ims-muted); content: ""; transform: translateY(-65%) rotate(45deg); pointer-events: none; }
-  .ims-item-form .ts-wrapper .ts-dropdown { position: absolute; z-index: 30; top: 100%; left: 0; width: 100%; max-height: 240px; overflow-y: auto; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); margin-top: 4px; background: #fff; box-shadow: var(--shadow-ims-dialog); }
+  .ims-item-form .ts-wrapper .ts-dropdown { position: absolute; z-index: 30; top: 100%; left: 0; width: 100%; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); margin-top: 4px; background: #fff; box-shadow: var(--shadow-ims-dialog); }
+  .ims-item-form .ts-wrapper .ts-dropdown-content { max-height: 240px; overflow: hidden auto; }
   .ims-item-form .ts-wrapper .ts-dropdown .option { padding: 8px 10px; cursor: pointer; }
   .ims-item-form .ts-wrapper .ts-dropdown .option.active { background: var(--color-ims-info-bg); color: var(--color-ims-ink); }
   .ims-item-form .ts-wrapper .ts-dropdown .option.selected { color: var(--color-ims-primary); font-weight: 600; }
