@@ -701,6 +701,7 @@
   @media (max-width: 639px) { .ims-stock-stat { padding: 12px; } .ims-stock-stat-value { font-size: 1.5rem; } .ims-stock-panel-head { padding: 16px; } .ims-stock-filters { grid-template-columns: minmax(0, 1fr); } .ims-stock-footer { padding: 12px 16px; } }
 
   .ims-stock-card-select-header { border-bottom: 1px solid var(--color-ims-border); }
+  .ims-stock-card-select { overflow: visible; }
   .ims-stock-card-select-body { padding: 32px 20px; }
   .ims-stock-card-select .search-container { position: relative; max-width: 600px; margin: 0 auto; }
   .ims-stock-search-input { display: flex; align-items: center; gap: 8px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding-left: 12px; background: #fff; }
