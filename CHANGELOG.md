@@ -28,6 +28,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Corrected the direct Playwright window helper's usage message to specify Node, matching its Windows runtime requirement.
 - Returned staff to the acted-on Alokasi distribution card after preparing or confirming delivery, instead of reopening the detail page at the top.
+- Restored whole-card links on Alokasi distribution tracking cards after the Tailwind base switch while keeping preparation and delivery buttons independently clickable.
 - Kept the Alokasi Step 2 batch picker visible outside the scrolling item table, closed it when a formset row is removed, and retained item and facility context while scrolling the Step 3 and Step 4 matrices.
 - Centralized procurement action authorization decisions so SPJ and amendment buttons now match the corresponding route permissions while preserving Django-permission, module-scope, role, and Acting Kepala rules.
 - Restored the Stock regression suite by aligning django-import-export fixtures with the source-document stock-layer identifier, distinguishing the restricted Instalasi stock snapshot link from the valid Puskesmas self-stock link, and accounting for the shared shell's constant Acting Kepala permission queries.
