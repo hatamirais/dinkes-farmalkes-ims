@@ -152,6 +152,14 @@
   .ims-tailwind-shell .modal-backdrop { position: fixed; inset: 0; z-index: 1050; background: #0b2239; opacity: 0; }
   .ims-tailwind-shell .modal-backdrop.show { opacity: .55; }
   .ims-tailwind-shell.modal-open { overflow: hidden; }
+  /* app.js portals typeahead results to body, outside the workflow modal. */
+  .ims-tailwind-shell .typeahead-select { position: relative; display: block; }
+  .ims-tailwind-shell .typeahead-dropdown { position: fixed; z-index: 1085; display: none; max-height: 240px; overflow-y: auto; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); background: #fff; box-shadow: var(--shadow-ims-dialog); }
+  .ims-tailwind-shell .typeahead-dropdown.show { display: block; }
+  .ims-tailwind-shell .typeahead-item { display: block; width: 100%; border: 0; padding: 8px 12px; background: transparent; color: var(--color-ims-ink); font-size: var(--text-ims-sm); text-align: left; }
+  .ims-tailwind-shell .typeahead-item:hover, .ims-tailwind-shell .typeahead-item.active { background: var(--color-ims-info-bg); }
+  .ims-tailwind-shell .typeahead-item:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: -2px; }
+  .ims-tailwind-shell .typeahead-item.empty { color: var(--color-ims-muted); cursor: default; }
   .ims-workflow .d-flex { display: flex; }
   .ims-workflow .d-grid { display: grid; }
   .ims-workflow .d-block { display: block; }
