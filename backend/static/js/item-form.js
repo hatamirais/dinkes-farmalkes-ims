@@ -4,13 +4,13 @@
 document.addEventListener('DOMContentLoaded', function () {
     var checkbox = document.getElementById('id_is_program_item');
     var programSelect = document.getElementById('id_program');
-    var programField = programSelect ? programSelect.closest('.mb-3') : null;
+    var programField = programSelect ? programSelect.closest('[data-program-field]') : null;
 
     function initTomSelect(selectId, placeholder, isRequired, config) {
         var select = document.getElementById(selectId);
         if (!select || typeof TomSelect === 'undefined') return null;
         if (isRequired && !select.value) select.selectedIndex = -1;
-        return new TomSelect(select, Object.assign({
+        var instance = new TomSelect(select, Object.assign({
             create: false,
             allowEmptyOption: !isRequired,
             maxOptions: 500,
@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', function () {
             searchField: ['text'],
             sortField: [{ field: '$score' }, { field: 'text' }],
         }, config || {}));
+        if (instance.control_input) {
+            ['aria-describedby', 'aria-invalid'].forEach(function (name) {
+                var value = select.getAttribute(name);
+                if (value) instance.control_input.setAttribute(name, value);
+            });
+        }
+        return instance;
     }
 
     function toggleProgramField() {
@@ -25,8 +32,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (programSelect) {
             if (checkbox && checkbox.checked) {
                 programSelect.required = true;
+                if (programTom && programTom.control_input) programTom.control_input.setAttribute('aria-required', 'true');
             } else {
                 programSelect.required = false;
+                if (programTom && programTom.control_input) programTom.control_input.removeAttribute('aria-required');
                 if (programTom) programTom.clear(true);
                 else programSelect.value = '';
             }

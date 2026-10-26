@@ -251,7 +251,7 @@ class ItemEssentialTagTests(TestCase):
         self.assertContains(response, "css/app.tailwind.css")
         self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
 
-        legacy = self.client.get(reverse("dashboard"), secure=True)
+        legacy = self.client.get(reverse("settings"), secure=True)
         self.assertContains(legacy, "vendor/bootstrap/css/bootstrap.min.css")
         self.assertNotContains(legacy, "css/app.tailwind.css")
 
@@ -712,3 +712,84 @@ class ItemLookupRedirectSecurityTests(TestCase):
             html=False,
         )
         self.assertNotContains(response, r"/\evil.example/phish")
+
+
+class ItemTailwindFormViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="items_form_admin", email="items_form_admin@example.com", password="password12345"
+        )
+        self.client.force_login(self.user)
+        self.unit = Unit.objects.create(code="TAB", name="Tablet")
+        self.category = Category.objects.create(code="OBAT", name="Obat")
+        self.therapy = TherapeuticClass.objects.create(code="ABX", name="Antibiotik")
+
+    def _item_data(self, **overrides):
+        data = {
+            "barcode": "8991234567890", "nama_barang": "Paracetamol",
+            "satuan": str(self.unit.pk), "kategori": str(self.category.pk),
+            "therapeutic_classes": [str(self.therapy.pk)],
+            "requires_expiry_date": "on", "minimum_stock": "1.25",
+            "description": "Keterangan",
+        }
+        data.update(overrides)
+        return data
+
+    def test_create_edit_validation_and_bound_field_accessibility(self):
+        url = reverse("items:item_create")
+        response = self.client.get(url, secure=True)
+        self.assertTemplateUsed(response, "base_tailwind.html")
+        self.assertContains(response, "app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
+        self.assertContains(response, 'id="modal-satuan"')
+        self.assertContains(response, 'id="modal-therapeutic-class"')
+        self.assertContains(response, 'name="therapeutic_classes"')
+
+        invalid = self.client.post(url, self._item_data(nama_barang=""), secure=True)
+        self.assertEqual(invalid.status_code, 200)
+        self.assertContains(invalid, 'id="id_nama_barang_errors"')
+        self.assertContains(invalid, 'aria-describedby="id_nama_barang_errors"')
+        self.assertContains(invalid, 'aria-invalid="true"')
+
+        created = self.client.post(url, self._item_data(), secure=True)
+        self.assertRedirects(created, reverse("items:item_list"))
+        item = Item.objects.get(barcode="8991234567890")
+        self.assertEqual(list(item.therapeutic_classes.all()), [self.therapy])
+        self.assertTrue(item.requires_expiry_date)
+
+        edit_url = reverse("items:item_update", args=[item.pk])
+        self.assertTemplateUsed(self.client.get(edit_url, secure=True), "base_tailwind.html")
+        invalid_edit = self.client.post(edit_url, self._item_data(minimum_stock="-1"), secure=True)
+        self.assertEqual(invalid_edit.status_code, 200)
+        self.assertContains(invalid_edit, 'id="id_minimum_stock_errors"')
+        edited = self.client.post(edit_url, self._item_data(nama_barang="Paracetamol baru"), secure=True)
+        self.assertRedirects(edited, reverse("items:item_list"))
+        item.refresh_from_db()
+        self.assertEqual(item.nama_barang, "Paracetamol baru")
+
+    def test_lookup_forms_and_delete_confirmation_use_tailwind(self):
+        for route in ("unit_create", "category_create", "program_create", "therapeutic_class_create"):
+            with self.subTest(route=route):
+                response = self.client.get(reverse(f"items:{route}"), secure=True)
+                self.assertTemplateUsed(response, "base_tailwind.html")
+                self.assertContains(response, 'name="code"')
+                self.assertNotContains(response, "bootstrap.min.css")
+        invalid = self.client.post(reverse("items:unit_create"), {"code": "", "name": ""}, secure=True)
+        self.assertContains(invalid, 'id="id_code_errors"')
+        self.assertContains(invalid, 'aria-describedby="id_code_errors"')
+        item = Item.objects.create(nama_barang="Hapus", satuan=self.unit, kategori=self.category)
+        delete_url = reverse("items:item_delete", args=[item.pk])
+        confirmation = self.client.get(delete_url, secure=True)
+        self.assertTemplateUsed(confirmation, "base_tailwind.html")
+        self.assertContains(confirmation, "Konfirmasi Penghapusan")
+        self.assertRedirects(self.client.post(delete_url, secure=True), reverse("items:item_list"))
+        item.refresh_from_db()
+        self.assertFalse(item.is_active)
+
+    def test_permission_denials_remain_centralized(self):
+        self.client.logout()
+        viewer = User.objects.create_user(username="items_viewer", password="password12345")
+        self.client.force_login(viewer)
+        for url in (reverse("items:item_create"), reverse("items:unit_create")):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url, secure=True).status_code, 403)
