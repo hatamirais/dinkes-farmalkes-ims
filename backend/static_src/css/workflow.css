@@ -17,6 +17,9 @@
   .ims-workflow input.form-control, .ims-workflow select.form-select, .ims-workflow textarea.form-control { min-height: 38px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 7px 10px; background: #fff; }
   .ims-workflow .table-responsive { min-width: 0; max-width: 100%; overflow-x: auto; }
   .ims-workflow .ims-table { min-width: 720px; margin: 0; font-size: var(--text-ims-sm); }
+  .ims-user-detail .ims-user-scopes-table { min-width: 420px; }
+  .ims-user-detail .ims-user-delegations-table { min-width: 620px; }
+  .ims-workflow.ims-authority-list .ims-table { min-width: 980px; }
   .ims-workflow.ims-transfer-list .ims-table { min-width: 920px; }
   .ims-workflow.ims-transfer-detail .ims-table { min-width: 1080px; }
   .ims-workflow.ims-transfer-list .empty-state, .ims-workflow.ims-transfer-detail .empty-state { align-items: flex-start; padding-left: 12px; text-align: left; }
@@ -44,6 +47,25 @@
   .ims-workflow .badge.bg-warning-subtle { background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
   .ims-workflow .badge.bg-info-subtle { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
   .ims-workflow .badge.bg-secondary-subtle { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-user-detail .avatar-circle { display: inline-flex; width: 64px; height: 64px; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-ims-info-bg); color: var(--color-ims-primary); font-size: 1.4rem; font-weight: 700; }
+  .ims-user-detail .copy-btn { border: 0; background: transparent; color: var(--color-ims-muted); cursor: pointer; }
+  .ims-user-detail .copy-btn:hover { color: var(--color-ims-primary); }
+  .ims-user-detail .card-footer { display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--color-ims-border); padding: 12px 18px; }
+  .ims-user-detail .badge-role-admin, .ims-user-detail .badge-role-admin_umum { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+  .ims-user-detail .badge-role-kepala { background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
+  .ims-user-detail .badge-role-gudang { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-user-detail .badge-role-auditor, .ims-user-detail .badge-role-puskesmas { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-user-detail .badge.bg-success-subtle { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-user-detail .badge.bg-light, .ims-user-detail .badge.text-bg-secondary { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-user-detail .badge.text-bg-danger, .ims-user-detail .badge.bg-danger-subtle { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-user-detail .badge.bg-primary-subtle { background: var(--color-ims-info-bg); color: var(--color-ims-primary); }
+  .ims-user-detail .text-success { color: var(--color-ims-success); }
+  .ims-authority-list .badge.text-bg-danger { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-authority-list .badge.text-bg-info { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+  .ims-authority-list .badge.text-bg-secondary { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-authority-list .badge.text-bg-success { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
+  .ims-authority-list .table-light { background: var(--color-ims-surface-muted); }
+  .ims-authority-list .ims-authority-empty { text-align: left; }
   .ims-workflow .text-danger { color: var(--color-ims-danger); }
   .ims-workflow .text-warning { color: var(--color-ims-warning); }
   .ims-workflow .text-info { color: var(--color-ims-info); }

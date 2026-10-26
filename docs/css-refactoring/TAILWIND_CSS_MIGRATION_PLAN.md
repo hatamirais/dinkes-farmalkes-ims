@@ -541,7 +541,7 @@ The workflow list/detail slice covers 14 templates across procurement, distribut
 
 The initial app list omitted LPLPO list/detail even though those read-only surfaces fit Wave 4. The LPLPO follow-up covers `/lplpo/` and `/lplpo/my/` through their shared list template, plus `/lplpo/<pk>/` through the detail template. Their facility/stage visibility, filters, quantities, prices, action conditions, and existing destinations remain unchanged. LPLPO create/edit/review/import stay in Wave 6; print report/document output stays in print/report work.
 
-The reports and numbering-history slice covers all seven `reports` templates and eleven routes: seven under `/reports/` and four distribution-owned variants under `/distribution/report/` that reuse `reports/pengeluaran.html`. It keeps the existing ledger/report queries, bound filters, Excel exports, inline print content, and Rekap funding-source modal. The Puskesmas report follow-up covers `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` with their existing facility scope, filters, exports, and print content. Dedicated print-document redesign remains Wave 8; user detail/read-only settings and other Wave 4 pages remain pending. The migration ledger records page-level evidence; Wave 4 is still in progress.
+The reports and numbering-history slice covers all seven `reports` templates and eleven routes: seven under `/reports/` and four distribution-owned variants under `/distribution/report/` that reuse `reports/pengeluaran.html`. It keeps the existing ledger/report queries, bound filters, Excel exports, inline print content, and Rekap funding-source modal. The Puskesmas report follow-up covers `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` with their existing facility scope, filters, exports, and print content. A user-side read-only slice covers `/users/<pk>/` and `/users/acting-authority/`, preserving their permission-driven actions and read-only data. There are no read-only settings routes: `/settings/` and `/settings/numbering/` are editable POST forms using crispy-bootstrap5, and the user chose to defer them to the forms wave. The user list has bulk mutation controls and also stays in the forms wave. Dedicated print-document redesign remains Wave 8. The migration ledger records page-level evidence; Wave 4 is still in progress until the remaining read-only inventory is reconciled.
 
 Prioritize surfaces with low mutation risk:
 
@@ -549,7 +549,7 @@ Prioritize surfaces with low mutation risk:
 - receiving, procurement, distribution, allocation, recall, expired, stock-opname, and LPLPO lists/details;
 - reports and numbering history;
 - Puskesmas read-only reports;
-- user detail and read-only settings views.
+- user detail and delegation history/list; settings are editable forms in the forms wave.
 
 Preserve dense table layouts. Do not convert operational tables into card grids unless the approved responsive design explicitly calls for it.
 
