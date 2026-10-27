@@ -28,6 +28,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Replaced the protruding square on Users tooltips with a pointer that follows Bootstrap's Popper placement without overriding its transform.
 - Kept long Tom Select option lists keyboard-scrollable in the migrated Items form by scrolling the option content that Tom Select controls.
 - Corrected the direct Playwright window helper's usage message to specify Node, matching its Windows runtime requirement.
 - Returned staff to the acted-on Alokasi distribution card after preparing or confirming delivery, instead of reopening the detail page at the top.
