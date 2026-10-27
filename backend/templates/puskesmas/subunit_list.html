@@ -1,86 +1,78 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Poli/Pustu Puskesmas – Healthcare IMS{% endblock %}
 {% block page_title %}Poli/Pustu Puskesmas{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+<div class="ims-subunit-page">
+    <div class="ims-subunit-header">
         <div>
-            <h4 class="mb-1">Poli/Pustu Puskesmas</h4>
-            <p class="text-muted mb-0">Kelola poli dan pustu yang menjadi kolom dinamis pada pemakaian rinci.</p>
+            <h1>Poli/Pustu Puskesmas</h1>
+            <p>Kelola poli dan pustu yang menjadi kolom dinamis pada pemakaian rinci.</p>
         </div>
         {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
-        <a href="{% url 'puskesmas:subunit_create' %}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Tambah Poli/Pustu
+        <a href="{% url 'puskesmas:subunit_create' %}" class="ims-btn ims-btn--primary">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>Tambah Poli/Pustu
         </a>
         {% endif %}
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <form method="get" class="row g-2 mb-3">
-                <div class="col-md-4">
-                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nama poli/pustu atau puskesmas..." class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <select name="subunit_type" class="form-select">
-                        <option value="">Semua Jenis</option>
-                        {% for value, label in subunit_type_choices %}
-                        <option value="{{ value }}" {% if selected_subunit_type == value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-auto d-flex gap-2">
-                    <button type="submit" class="btn btn-outline-primary">Cari</button>
-                    <a href="{% url 'puskesmas:subunit_list' %}" class="btn btn-outline-secondary">Atur Ulang</a>
-                </div>
-            </form>
-
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Nama</th>
-                            <th>Puskesmas</th>
-                            <th>Jenis</th>
-                            <th>Status</th>
-                            <th class="text-end">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for subunit in subunits %}
-                        <tr>
-                            <td class="fw-semibold">{{ subunit.name }}</td>
-                            <td>{{ subunit.facility.name }}</td>
-                            <td>{{ subunit.get_subunit_type_display }}</td>
-                            <td>
-                                {% if subunit.is_active %}
-                                <span class="badge text-bg-success">Aktif</span>
-                                {% else %}
-                                <span class="badge text-bg-secondary">Nonaktif</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end">
-                                {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
-                                <a href="{% url 'puskesmas:subunit_edit' subunit.pk %}" class="btn btn-sm btn-outline-primary">Ubah</a>
-                                <form method="post" action="{% url 'puskesmas:subunit_delete' subunit.pk %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center text-muted py-4">Belum ada data Poli/Pustu Puskesmas.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="ims-subunit-surface">
+        <form method="get" class="ims-subunit-filters">
+            <input type="text" name="q" value="{{ search }}" placeholder="Cari nama poli/pustu atau puskesmas..." aria-label="Cari nama poli/pustu atau puskesmas" class="ims-control">
+            <select name="subunit_type" aria-label="Jenis Poli/Pustu" class="ims-control">
+                <option value="">Semua Jenis</option>
+                {% for value, label in subunit_type_choices %}
+                <option value="{{ value }}" {% if selected_subunit_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <div class="ims-subunit-filter-actions">
+                <button type="submit" class="ims-btn ims-btn--secondary">Cari</button>
+                <a href="{% url 'puskesmas:subunit_list' %}" class="ims-btn ims-btn--neutral">Atur Ulang</a>
             </div>
+        </form>
+
+        <div class="ims-table-scroll ims-subunit-table-scroll" role="region" aria-label="Daftar Poli/Pustu Puskesmas" tabindex="0">
+            <table class="ims-table table ims-subunit-table">
+                <thead>
+                    <tr>
+                        <th>Nama</th>
+                        <th>Puskesmas</th>
+                        <th>Jenis</th>
+                        <th>Status</th>
+                        <th class="ims-subunit-actions-cell">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subunit in subunits %}
+                    <tr>
+                        <td class="ims-subunit-name">{{ subunit.name }}</td>
+                        <td>{{ subunit.facility.name }}</td>
+                        <td>{{ subunit.get_subunit_type_display }}</td>
+                        <td>
+                            {% if subunit.is_active %}
+                            <span class="ims-badge ims-badge--success">Aktif</span>
+                            {% else %}
+                            <span class="ims-badge ims-subunit-badge-muted">Nonaktif</span>
+                            {% endif %}
+                        </td>
+                        <td class="ims-subunit-actions-cell">
+                            {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
+                            <div class="ims-subunit-row-actions">
+                                <a href="{% url 'puskesmas:subunit_edit' subunit.pk %}" class="ims-btn ims-btn--secondary ims-btn--sm">Ubah</a>
+                                <form method="post" action="{% url 'puskesmas:subunit_delete' subunit.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="ims-btn ims-btn--danger ims-btn--sm">Hapus</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% if not subunits %}<div class="ims-subunit-empty">Belum ada data Poli/Pustu Puskesmas.</div>{% endif %}
     </div>
 </div>
 {% endblock %}

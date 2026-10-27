@@ -1,55 +1,38 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
 
 {% block title %}{{ title }} – Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row justify-content-center">
-        <div class="col-12 col-lg-8 col-xl-6">
-            <form method="post" novalidate>
+<div class="ims-form-page ims-subunit-form">
+    <div class="ims-form-panel ims-form-panel--narrow">
+        <div class="ims-form-panel-header"><i class="bi bi-diagram-2" aria-hidden="true"></i>Informasi Poli/Pustu</div>
+        <div class="ims-form-panel-body">
+            <form method="post" novalidate class="ims-form-stack">
                 {% csrf_token %}
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-diagram-2 me-2"></i>Informasi Poli/Pustu</h6>
-                    </div>
-                    <div class="card-body">
-                        {% if form.non_field_errors %}
-                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-                        {% endif %}
+                {% if form.non_field_errors %}
+                <div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>
+                {% endif %}
 
-                        {% if request.user.role == 'PUSKESMAS' %}
-                        {{ form.facility }}
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Puskesmas</label>
-                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" title="Puskesmas pemilik data Poli/Pustu ini." readonly>
-                            {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
-                        </div>
-                        {% else %}
-                        {{ form|crispy }}
-                        {% endif %}
-
-                        {% if request.user.role == 'PUSKESMAS' %}
-                        <div class="mb-3">
-                            {{ form.name|as_crispy_field }}
-                        </div>
-                        <div class="mb-3">
-                            {{ form.subunit_type|as_crispy_field }}
-                        </div>
-                        <div class="form-check">
-                            {{ form.is_active }}
-                            <label for="{{ form.is_active.id_for_label }}" class="form-check-label">Aktif</label>
-                        </div>
-                        {% endif %}
-                    </div>
+                {% if request.user.role == 'PUSKESMAS' %}
+                {{ form.facility }}
+                <div class="ims-form-field">
+                    <label for="subunit-facility-display" class="ims-label">Puskesmas</label>
+                    <input id="subunit-facility-display" type="text" class="ims-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" title="Puskesmas pemilik data Poli/Pustu ini." readonly{% if form.facility.errors %} aria-describedby="id_facility_errors"{% endif %}>
+                    {% if form.facility.errors %}<div id="id_facility_errors" class="ims-error">{{ form.facility.errors }}</div>{% endif %}
                 </div>
+                {% else %}
+                {% tailwind_field form.facility %}
+                {% endif %}
 
-                <div class="d-flex gap-2 mt-3">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Poli/Pustu{% endif %}
-                    </button>
-                    <a href="{% url 'puskesmas:subunit_list' %}" class="btn btn-outline-secondary">Batal</a>
+                {% tailwind_field form.name %}
+                {% tailwind_field form.subunit_type %}
+                {% tailwind_field form.is_active %}
+
+                <div class="ims-form-actions">
+                    <button type="submit" class="ims-btn ims-btn--primary"><i class="bi bi-save" aria-hidden="true"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Poli/Pustu{% endif %}</button>
+                    <a href="{% url 'puskesmas:subunit_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                 </div>
             </form>
         </div>

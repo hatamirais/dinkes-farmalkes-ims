@@ -24,6 +24,12 @@ App-specific guidance for Puskesmas facility workflows.
 - It does not mutate stock.
 - Its desktop page at `/puskesmas/stok/` uses the Tailwind base and renders the existing bound year/search/mismatch filter fields directly; facility scope, values, and pagination remain view-owned.
 
+## Poli/Pustu Subunits
+
+- `/puskesmas/subunit/` and its create/edit forms use the Tailwind desktop base. The list keeps its facility-scoped search/type filters, table, and existing server-side 25-row page slice.
+- The form keeps the operator's hidden facility field and read-only facility display; superusers retain the active-Puskesmas facility selector. The `name`, `subunit_type`, and `is_active` fields remain bound Django controls with their existing validation.
+- Delete remains POST-only and refuses subunits referenced by consumption entries. The views retain their explicit creator role gate and cross-facility checks.
+
 ## Receipt Confirmations
 
 - Puskesmas `Riwayat Penerimaan` is sourced from `PuskesmasReceiptConfirmation` and `PuskesmasReceiptConfirmationItem`.

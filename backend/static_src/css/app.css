@@ -5,6 +5,7 @@
 @import "./items-forms.css";
 @import "./users-forms.css";
 @import "./core-settings.css";
+@import "./puskesmas-subunits.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

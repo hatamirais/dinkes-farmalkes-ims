@@ -19,6 +19,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Migrated Wave 5 Items create/edit, shared lookup create, delete confirmation, and four quick-create dialogs to Tailwind; the Item List remains on its existing Tailwind page.
 - Migrated the Users list and account create/edit forms to Tailwind while retaining filters, bulk actions, status toggles, permission-driven module scopes, password controls, and Bootstrap JavaScript dialogs.
 - Migrated general and numbering settings to Tailwind while retaining bound fields, logo upload, the numbering rule formset, validation, live previews, and Bootstrap JavaScript collapse.
+- Migrated the Puskesmas Poli/Pustu list and create/edit forms to Tailwind while retaining facility isolation, filters, bound fields, and POST-only delete behavior.
 - Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility.
 - Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. Legacy pages continue to load Bootstrap CSS; both desktop bases retain Bootstrap JavaScript during the migration.
 - Migrated login, account lockout, password change, password-change completion, and centralized 400/403/404/429/500/503 pages to Tailwind CSS while preserving authentication and error-handler behavior. Other legacy pages continue to use Bootstrap CSS.

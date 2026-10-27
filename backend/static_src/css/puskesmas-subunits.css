@@ -1,0 +1,20 @@
+/* Wave 5 Puskesmas subunit list and forms. */
+@layer components {
+  .ims-subunit-page { padding: 16px 0 32px; }
+  .ims-subunit-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  .ims-subunit-header h1 { margin: 0; font-size: var(--text-ims-page); font-weight: 700; line-height: var(--leading-ims-tight); }
+  .ims-subunit-header p { margin: 6px 0 0; color: var(--color-ims-muted); font-size: var(--text-ims-sm); }
+  .ims-subunit-surface { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: #fff; box-shadow: var(--shadow-ims-surface); }
+  .ims-subunit-filters { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--color-ims-border); padding: 16px 20px; background: var(--color-ims-surface-muted); }
+  .ims-subunit-filter-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ims-subunit-table { min-width: 700px; }
+  .ims-subunit-name { font-weight: 600; }
+  .ims-subunit-actions-cell { text-align: right; }
+  .ims-subunit-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .ims-subunit-badge-muted { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-subunit-empty { border-top: 1px solid var(--color-ims-border); padding: 24px; color: var(--color-ims-muted); text-align: center; }
+  .ims-subunit-form .ims-control[readonly] { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
+  .ims-subunit-form .ims-form-field > .ims-choice { margin-top: 4px; }
+  @media (max-width: 760px) { .ims-subunit-filters { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+  @media (max-width: 639px) { .ims-subunit-header h1 { font-size: var(--text-ims-section); } .ims-subunit-header > .ims-btn { width: 100%; } }
+}
