@@ -2453,6 +2453,164 @@ class PuskesmasRequestApprovalTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(req.status, PuskesmasRequest.Status.SUBMITTED)
 		self.assertIsNone(req.distribution)
 
+class PuskesmasSubunitTailwindViewTests(SecureClientDefaultsMixin, TestCase):
+	def setUp(self):
+		super().setUp()
+		self.facility = Facility.objects.create(
+			code="PKM-SUB-01",
+			name="Puskesmas Subunit",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.other_facility = Facility.objects.create(
+			code="PKM-SUB-02",
+			name="Puskesmas Lain",
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.operator = User.objects.create_user(
+			username="operator-subunit-view",
+			password="TestPassword123!",
+			role=User.Role.PUSKESMAS,
+			facility=self.facility,
+		)
+		self.admin = User.objects.create_superuser(
+			username="admin-subunit-view",
+			email="admin-subunit-view@example.com",
+			password="TestPassword123!",
+		)
+		self.subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Poli Umum",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		self.other_subunit = PuskesmasSubunit.objects.create(
+			facility=self.other_facility,
+			name="Pustu Lain",
+			subunit_type=PuskesmasSubunit.SubunitType.HELPER_SITE,
+		)
+
+	def test_list_keeps_facility_scope_filters_and_tailwind_css(self):
+		self.client.force_login(self.operator)
+		response = self.client.get(reverse("puskesmas:subunit_list"))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "css/app.tailwind.css")
+		self.assertNotContains(response, "vendor/bootstrap/css")
+		self.assertContains(response, self.subunit.name)
+		self.assertNotContains(response, self.other_subunit.name)
+		self.assertContains(response, 'name="q"')
+		self.assertContains(response, 'name="subunit_type"')
+		self.assertContains(response, reverse("puskesmas:subunit_create"))
+
+		filtered = self.client.get(
+			reverse("puskesmas:subunit_list"),
+			{"q": "Poli", "subunit_type": PuskesmasSubunit.SubunitType.TREATMENT_ROOM},
+		)
+		self.assertContains(filtered, self.subunit.name)
+		self.assertContains(filtered, 'value="Poli"')
+
+	def test_operator_create_and_edit_keep_bound_fields_and_validation(self):
+		self.client.force_login(self.operator)
+		create_url = reverse("puskesmas:subunit_create")
+		response = self.client.get(create_url)
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'name="facility"')
+		self.assertContains(response, 'type="hidden" name="facility"')
+		self.assertContains(response, 'name="name"')
+		self.assertContains(response, 'name="subunit_type"')
+		self.assertContains(response, 'name="is_active"')
+		self.assertContains(response, 'for="id_name"')
+
+		invalid = self.client.post(
+			create_url,
+			{"name": "", "subunit_type": PuskesmasSubunit.SubunitType.TREATMENT_ROOM},
+		)
+		self.assertEqual(invalid.status_code, 200)
+		self.assertContains(invalid, 'id="id_name_errors"')
+		self.assertContains(invalid, 'aria-invalid="true"')
+
+		valid = self.client.post(
+			create_url,
+			{
+				"facility": str(self.other_facility.pk),
+				"name": "Poli Gigi",
+				"subunit_type": PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+				"is_active": "on",
+			},
+		)
+		self.assertRedirects(valid, reverse("puskesmas:subunit_list"))
+		created = PuskesmasSubunit.objects.get(name="Poli Gigi")
+		self.assertEqual(created.facility, self.facility)
+
+		edit_url = reverse("puskesmas:subunit_edit", args=[created.pk])
+		invalid_edit = self.client.post(
+			edit_url,
+			{
+				"name": self.subunit.name,
+				"subunit_type": PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+				"is_active": "on",
+			},
+		)
+		self.assertEqual(invalid_edit.status_code, 200)
+		self.assertContains(invalid_edit, "Nama subunit sudah digunakan")
+		self.assertContains(invalid_edit, 'id="id_name_errors"')
+
+		edit = self.client.post(
+			edit_url,
+			{
+				"name": "Poli Gigi Anak",
+				"subunit_type": PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+				"is_active": "on",
+			},
+		)
+		self.assertRedirects(edit, reverse("puskesmas:subunit_list"))
+		created.refresh_from_db()
+		self.assertEqual(created.name, "Poli Gigi Anak")
+
+	def test_cross_facility_edit_and_delete_are_denied(self):
+		self.client.force_login(self.operator)
+		for url_name in ("subunit_edit", "subunit_delete"):
+			with self.subTest(url_name=url_name):
+				response = self.client.get(
+					reverse(f"puskesmas:{url_name}", args=[self.other_subunit.pk])
+				)
+				self.assertEqual(response.status_code, 403)
+
+	def test_elevated_module_scope_does_not_bypass_creator_role_gate(self):
+		manager = User.objects.create_user(
+			username="subunit-scope-manager",
+			password="TestPassword123!",
+			role=User.Role.ADMIN_UMUM,
+			facility=self.facility,
+		)
+		ModuleAccess.objects.update_or_create(
+			user=manager,
+			module=ModuleAccess.Module.PUSKESMAS,
+			defaults={"scope": ModuleAccess.Scope.MANAGE},
+		)
+		self.client.force_login(manager)
+		for url_name, args in (
+			("subunit_create", []),
+			("subunit_edit", [self.subunit.pk]),
+			("subunit_delete", [self.subunit.pk]),
+		):
+			with self.subTest(url_name=url_name):
+				response = self.client.get(reverse(f"puskesmas:{url_name}", args=args))
+				self.assertEqual(response.status_code, 403)
+
+	def test_delete_remains_post_only_and_superuser_can_select_facility(self):
+		self.client.force_login(self.operator)
+		delete_url = reverse("puskesmas:subunit_delete", args=[self.subunit.pk])
+		self.assertRedirects(self.client.get(delete_url), reverse("puskesmas:subunit_list"))
+		self.assertTrue(PuskesmasSubunit.objects.filter(pk=self.subunit.pk).exists())
+		self.assertRedirects(self.client.post(delete_url), reverse("puskesmas:subunit_list"))
+		self.assertFalse(PuskesmasSubunit.objects.filter(pk=self.subunit.pk).exists())
+
+		self.client.force_login(self.admin)
+		response = self.client.get(reverse("puskesmas:subunit_create"))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, '<select name="facility"')
+		self.assertContains(response, self.other_facility.name)
+
+
 class PuskesmasConsumptionViewTests(SecureClientDefaultsMixin, TestCase):
 	def setUp(self):
 		super().setUp()
