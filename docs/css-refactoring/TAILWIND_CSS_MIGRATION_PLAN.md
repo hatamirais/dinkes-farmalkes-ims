@@ -1,6 +1,6 @@
 # Tailwind CSS Migration Plan
 
-Status: ready for review and execution planning  
+Status: incremental execution; Wave 5 Items slice migrated, later slices pending
 Scope: CSS and visual-system migration only  
 Deferred follow-up: Alpine.js and removal of Bootstrap JavaScript  
 Application: Django server-rendered Healthcare IMS
@@ -554,6 +554,8 @@ Prioritize surfaces with low mutation risk:
 Preserve dense table layouts. Do not convert operational tables into card grids unless the approved responsive design explicitly calls for it.
 
 ### Wave 5: Simple CRUD forms
+
+The Items slice migrates `item_form.html` (create/edit), `lookup_form.html` (four currently routed lookup create pages), and `item_confirm_delete.html`. The shared lookup template can render a bound edit form, but Items currently defines no lookup edit route; this slice does not add one. The item form retains four Bootstrap-JavaScript quick-create modals and uses a scoped project-owned Tom Select theme. `tailwind_field` renders bound Django widgets with labels above controls, help/error IDs, and invalid-state attributes without altering the underlying forms. The migration ledger records verified routes and remaining dependencies. Other Wave 5 areas remain pending.
 
 Suggested order:
 

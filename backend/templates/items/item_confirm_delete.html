@@ -1,28 +1,26 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Hapus Barang — Healthcare IMS{% endblock %}
 {% block page_title %}Hapus Barang{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="card content-card">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
-                <h5 class="mt-3">Konfirmasi Penghapusan</h5>
-                <p class="text-muted">Apakah Anda yakin ingin menghapus barang berikut?</p>
-                <p class="fw-bold">{{ item.kode_barang }} — {{ item.nama_barang }}</p>
+<div class="ims-form-page">
+    <div class="ims-form-panel ims-form-panel--narrow">
+            <div class="ims-form-panel-body ims-delete-panel">
+                <i class="bi bi-exclamation-triangle ims-delete-icon" aria-hidden="true"></i>
+                <h2>Konfirmasi Penghapusan</h2>
+                <p>Apakah Anda yakin ingin menghapus barang berikut?</p>
+                <p class="ims-delete-item">{{ item.kode_barang }} — {{ item.nama_barang }}</p>
                 <form method="post">
                     {% csrf_token %}
-                    <div class="d-flex gap-2 justify-content-center mt-4">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash me-1"></i>Hapus
+                    <div class="ims-form-actions">
+                        <button type="submit" class="ims-btn ims-btn--danger">
+                            <i class="bi bi-trash" aria-hidden="true"></i>Hapus
                         </button>
-                        <a href="{% url 'items:item_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'items:item_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
 </div>
 {% endblock %}
