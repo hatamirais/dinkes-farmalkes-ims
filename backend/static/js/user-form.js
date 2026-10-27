@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var aksesCount = document.getElementById('aksesErrorCount');
 
         if (profilPane && profilCount) {
-            var profilErrors = profilPane.querySelectorAll('.invalid-feedback.d-block').length;
+            var profilErrors = profilPane.querySelectorAll('.ims-error').length;
             if (profilErrors > 0) {
                 profilCount.textContent = profilErrors;
                 profilCount.classList.remove('d-none');
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (aksesPane && aksesCount) {
-            var aksesErrors = aksesPane.querySelectorAll('.invalid-feedback.d-block').length;
+            var aksesErrors = aksesPane.querySelectorAll('.ims-error').length;
             if (aksesErrors > 0) {
                 aksesCount.textContent = aksesErrors;
                 aksesCount.classList.remove('d-none');
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var roleSelect = document.getElementById('id_role');
     if (!roleSelect) return;
     var facilitySelect = document.getElementById('id_facility');
-    var facilityGroup = facilitySelect ? facilitySelect.closest('.mb-3') : null;
+    var facilityGroup = facilitySelect ? facilitySelect.closest('[data-facility-field]') : null;
 
     function syncFacilityField() {
         if (!facilityGroup || !facilitySelect) return;

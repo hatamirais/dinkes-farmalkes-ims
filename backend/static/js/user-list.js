@@ -17,8 +17,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function createStatusBadge(isActive) {
         var badge = document.createElement('span');
         badge.className = isActive
-            ? 'badge bg-success-subtle text-success'
-            : 'badge bg-secondary-subtle text-secondary';
+            ? 'ims-badge ims-badge--success'
+            : 'ims-badge ims-user-badge-muted';
         badge.textContent = isActive ? 'Aktif' : 'Nonaktif';
         return badge;
     }

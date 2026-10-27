@@ -3,6 +3,7 @@
 @import "./workflow.css";
 @import "./reports.css";
 @import "./items-forms.css";
+@import "./users-forms.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

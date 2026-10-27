@@ -1,33 +1,33 @@
-{% extends "base.html" %}
-{% load static %}
+{% extends "base_tailwind.html" %}
+{% load static tailwind_forms %}
 
 {% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="ims-user-form-layout ims-user-form">
     {% if target_user %}
     <!-- Sidebar info panel (edit mode only) -->
-    <div class="col-lg-3 mb-4 order-lg-last">
-        <div class="card content-card user-info-sidebar">
-            <div class="card-header">
-                <span><i class="bi bi-info-circle me-2"></i>Info Akun</span>
+    <div class="ims-user-form-aside">
+        <div class="ims-user-panel user-info-sidebar">
+            <div class="ims-user-panel-header">
+                <span><i class="bi bi-info-circle" aria-hidden="true"></i>Info Akun</span>
             </div>
-            <div class="card-body">
-                <div class="text-center mb-3">
-                    <span class="avatar-circle avatar-lg d-inline-flex" data-initial="{{ target_user.full_name|slice:':1'|default:target_user.username|slice:':1' }}">
+            <div class="ims-user-panel-body">
+                <div class="ims-user-info-avatar">
+                    <span class="ims-user-avatar ims-user-avatar--lg" data-initial="{{ target_user.full_name|slice:':1'|default:target_user.username|slice:':1' }}">
                         {{ target_user.full_name|slice:':1'|default:target_user.username|slice:':1'|upper }}
                     </span>
                 </div>
-                <dl class="row mb-0 small">
-                    <dt class="col-5 text-muted">Username</dt>
-                    <dd class="col-7"><code>{{ target_user.username }}</code></dd>
+                <dl class="ims-user-info-list">
+                    <dt>Username</dt>
+                    <dd><code>{{ target_user.username }}</code></dd>
 
-                    <dt class="col-5 text-muted">Jabatan</dt>
-                    <dd class="col-7"><span class="badge badge-role-{{ target_user.role|lower }}">{{ target_user.get_role_display }}</span></dd>
+                    <dt>Jabatan</dt>
+                    <dd><span class="ims-user-role badge-role-{{ target_user.role|lower }}">{{ target_user.get_role_display }}</span></dd>
 
-                    <dt class="col-5 text-muted">Login Terakhir</dt>
-                    <dd class="col-7">
+                    <dt>Login Terakhir</dt>
+                    <dd>
                         {% if target_user.last_login %}
                         {{ target_user.last_login|date:'d M Y, H:i' }}
                         {% else %}
@@ -35,36 +35,36 @@
                         {% endif %}
                     </dd>
 
-                    <dt class="col-5 text-muted">Bergabung</dt>
-                    <dd class="col-7">{{ target_user.date_joined|date:'d M Y' }}</dd>
+                    <dt>Bergabung</dt>
+                    <dd>{{ target_user.date_joined|date:'d M Y' }}</dd>
 
-                    <dt class="col-5 text-muted">Scope Modul</dt>
-                    <dd class="col-7">{{ effective_scopes|length }} modul</dd>
+                    <dt>Scope Modul</dt>
+                    <dd>{{ effective_scopes|length }} modul</dd>
                 </dl>
             </div>
-            <div class="card-footer d-grid gap-2">
-                <a href="{% url 'users:user_detail' target_user.pk %}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-eye me-1"></i>Lihat Detail
+            <div class="ims-user-info-actions">
+                <a href="{% url 'users:user_detail' target_user.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm">
+                    <i class="bi bi-eye" aria-hidden="true"></i>Lihat Detail
                 </a>
-                <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#passwordResetModal">
-                    <i class="bi bi-key me-1"></i>Reset Password
+                <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm" data-bs-toggle="modal" data-bs-target="#passwordResetModal">
+                    <i class="bi bi-key" aria-hidden="true"></i>Reset Password
                 </button>
             </div>
         </div>
     </div>
     {% endif %}
 
-    <div class="{% if target_user %}col-lg-9{% else %}col-lg-8 mx-auto{% endif %}">
-        <div class="card content-card form-page-card">
-            <div class="card-header">
-                <span><i class="bi bi-person-vcard me-2"></i>{{ title }}</span>
+    <div class="ims-user-form-main{% if not target_user %} ims-user-form-main--solo{% endif %}">
+        <div class="ims-user-panel form-page-card">
+            <div class="ims-user-panel-header">
+                <span><i class="bi bi-person-vcard" aria-hidden="true"></i>{{ title }}</span>
             </div>
-            <div class="card-body p-0">
+            <div class="ims-user-form-body">
                 <form method="post" novalidate id="userForm">
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger m-3 mb-0">
+                    <div class="ims-alert ims-alert--danger ims-user-form-alert" role="alert">
                         {% for err in form.non_field_errors %}
                         <div>{{ err }}</div>
                         {% endfor %}
@@ -72,76 +72,71 @@
                     {% endif %}
 
                     <!-- Tab Navigation -->
-                    <ul class="nav nav-tabs nav-tabs-form px-3 pt-3" id="formTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="profil-tab" data-bs-toggle="tab" data-bs-target="#profilPane" type="button" role="tab" aria-selected="true">
-                                <i class="bi bi-person me-1"></i>Profil
-                                <span class="badge bg-danger-subtle text-danger ms-1 tab-error-count d-none" id="profilErrorCount">0</span>
+                    <ul class="ims-user-tabs" id="formTabs" role="tablist">
+                        <li role="presentation">
+                            <button class="ims-user-tab active" id="profil-tab" data-bs-toggle="tab" data-bs-target="#profilPane" type="button" role="tab" aria-selected="true">
+                                <i class="bi bi-person" aria-hidden="true"></i>Profil
+                                <span class="ims-user-error-count tab-error-count d-none" id="profilErrorCount">0</span>
                             </button>
                         </li>
                         {% if can_manage_user_scopes %}
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="akses-tab" data-bs-toggle="tab" data-bs-target="#aksesPane" type="button" role="tab" aria-selected="false">
-                                <i class="bi bi-shield-lock me-1"></i>Akses Modul
-                                <span class="badge bg-danger-subtle text-danger ms-1 tab-error-count d-none" id="aksesErrorCount">0</span>
+                        <li role="presentation">
+                            <button class="ims-user-tab" id="akses-tab" data-bs-toggle="tab" data-bs-target="#aksesPane" type="button" role="tab" aria-selected="false">
+                                <i class="bi bi-shield-lock" aria-hidden="true"></i>Akses Modul
+                                <span class="ims-user-error-count tab-error-count d-none" id="aksesErrorCount">0</span>
                             </button>
                         </li>
                         {% endif %}
                     </ul>
 
                     <!-- Tab Content -->
-                    <div class="tab-content p-4" id="formTabsContent">
+                    <div class="ims-user-tab-content" id="formTabsContent">
                         <!-- Profile Tab -->
-                        <div class="tab-pane fade show active" id="profilPane" role="tabpanel">
+                        <div class="tab-pane fade show active ims-form-stack" id="profilPane" role="tabpanel" aria-labelledby="profil-tab">
                             {% for field in form %}
                             {% if 'module_scope__' not in field.name %}
-                            <div class="mb-3 {% if field.name == 'is_active' %}form-check form-switch{% endif %}">
-                                {% if field.name == 'is_active' %}
-                                {{ field }}
-                                <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
-                                {% elif field.name == 'password1' or field.name == 'password2' %}
-                                <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                                <div class="input-group">
-                                    {{ field }}
-                                    <button class="btn btn-outline-secondary toggle-password" type="button" tabindex="-1">
-                                        <i class="bi bi-eye-slash"></i>
+                            {% if field.name == 'password1' or field.name == 'password2' %}
+                            <div class="ims-form-field">
+                                <label for="{{ field.id_for_label }}" class="ims-label">{{ field.label }}</label>
+                                <div class="ims-user-password-group">
+                                    {% tailwind_widget field %}
+                                    <button class="ims-user-password-action toggle-password" type="button" aria-label="Tampilkan atau sembunyikan {{ field.label|lower }}">
+                                        <i class="bi bi-eye-slash" aria-hidden="true"></i>
                                     </button>
                                     {% if field.name == 'password1' %}
-                                    <button class="btn btn-outline-secondary" type="button" id="generatePasswordBtn" tabindex="-1" title="Buat password acak">
-                                        <i class="bi bi-shuffle"></i>
+                                    <button class="ims-user-password-action" type="button" id="generatePasswordBtn" tabindex="-1" title="Buat password acak" aria-label="Buat password acak">
+                                        <i class="bi bi-shuffle" aria-hidden="true"></i>
                                     </button>
                                     {% endif %}
                                 </div>
                                 {% if field.name == 'password1' %}
-                                <div id="password-requirements" class="mt-2 p-2 border rounded bg-light d-none">
-                                    <div class="password-strength-meter mb-2">
+                                <div id="password-requirements" class="ims-user-password-requirements d-none">
+                                    <div class="password-strength-meter">
                                         <div class="strength-bar" id="strengthBar" style="width: 0;"></div>
                                     </div>
-                                    <small class="text-muted" id="strengthLabel"></small>
-                                    <ul class="list-unstyled mb-0 mt-2 small text-muted">
-                                        <li id="req-length" class="mb-1"><i class="bi bi-x text-danger fw-bold me-1"></i> Minimal 10 karakter</li>
-                                        <li id="req-upper" class="mb-1"><i class="bi bi-x text-danger fw-bold me-1"></i> Huruf besar (A-Z)</li>
-                                        <li id="req-lower" class="mb-1"><i class="bi bi-x text-danger fw-bold me-1"></i> Huruf kecil (a-z)</li>
-                                        <li id="req-number" class="mb-1"><i class="bi bi-x text-danger fw-bold me-1"></i> Angka (0-9)</li>
-                                        <li id="req-special"><i class="bi bi-x text-danger fw-bold me-1"></i> Karakter spesial (!@#$...)</li>
+                                    <small id="strengthLabel"></small>
+                                    <ul>
+                                        <li id="req-length" class="text-muted"><i class="bi bi-x text-danger" aria-hidden="true"></i> Minimal 10 karakter</li>
+                                        <li id="req-upper" class="text-muted"><i class="bi bi-x text-danger" aria-hidden="true"></i> Huruf besar (A-Z)</li>
+                                        <li id="req-lower" class="text-muted"><i class="bi bi-x text-danger" aria-hidden="true"></i> Huruf kecil (a-z)</li>
+                                        <li id="req-number" class="text-muted"><i class="bi bi-x text-danger" aria-hidden="true"></i> Angka (0-9)</li>
+                                        <li id="req-special" class="text-muted"><i class="bi bi-x text-danger" aria-hidden="true"></i> Karakter spesial (!@#$...)</li>
                                     </ul>
                                 </div>
                                 {% endif %}
-                                {% else %}
-                                <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                                {{ field }}
-                                {% endif %}
-                                {% if field.help_text %}
-                                <div class="form-text">{{ field.help_text }}</div>
-                                {% endif %}
-                                {% if field.name == 'role' %}
-                                <div class="mt-2">
-                                    <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#roleGuideCollapse" aria-expanded="false">
-                                        <i class="bi bi-info-circle me-1"></i>Panduan Jabatan
+                                {% if field.help_text %}<div id="{{ field.auto_id }}_helptext" class="ims-help">{{ field.help_text }}</div>{% endif %}
+                                {% if field.errors %}<div id="{{ field.auto_id }}_errors" class="ims-error">{% for error in field.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
+                            </div>
+                            {% else %}
+                            {% tailwind_field field %}
+                            {% if field.name == 'role' %}
+                                <div class="ims-user-role-guide">
+                                    <button class="ims-btn ims-btn--secondary ims-btn--sm" type="button" data-bs-toggle="collapse" data-bs-target="#roleGuideCollapse" aria-expanded="false">
+                                        <i class="bi bi-info-circle" aria-hidden="true"></i>Panduan Jabatan
                                     </button>
-                                    <div class="collapse mt-2" id="roleGuideCollapse">
-                                        <div class="p-3 border rounded bg-light-subtle">
-                                            <div class="small text-muted d-grid gap-2">
+                                    <div class="collapse" id="roleGuideCollapse">
+                                        <div class="ims-user-guide-panel">
+                                            <div class="ims-user-guide-copy">
                                                 <div><strong>Kepala Instalasi</strong>: fokus pada monitoring, persetujuan, dan pengawasan lintas modul.</div>
                                                 <div><strong>Admin Umum</strong>: cocok untuk administrasi transaksi harian dan pelaporan dasar.</div>
                                                 <div><strong>Petugas Gudang</strong>: untuk operasional stok, penerimaan, distribusi, recall, dan stock opname.</div>
@@ -151,36 +146,33 @@
                                         </div>
                                     </div>
                                 </div>
-                                {% endif %}
-                                {% for error in field.errors %}
-                                <div class="invalid-feedback d-block">{{ error }}</div>
-                                {% endfor %}
-                            </div>
+                            {% endif %}
+                            {% endif %}
                             {% endif %}
                             {% endfor %}
                         </div>
 
                         <!-- UAC Tab -->
                         {% if can_manage_user_scopes %}
-                        <div class="tab-pane fade" id="aksesPane" role="tabpanel">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="mb-0">Akses Modul (UAC)</h6>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-outline-warning btn-sm" id="resetScopeBtn" title="Reset semua scope ke default jabatan terpilih">
-                                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset ke Default
+                        <div class="tab-pane fade" id="aksesPane" role="tabpanel" aria-labelledby="akses-tab">
+                            <div class="ims-user-scope-header">
+                                <h6>Akses Modul (UAC)</h6>
+                                <div class="ims-user-scope-actions">
+                                    <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm" id="resetScopeBtn" title="Reset semua scope ke default jabatan terpilih">
+                                        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Reset ke Default
                                     </button>
-                                    <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#scopeInfoModal">
-                                        <i class="bi bi-info-circle me-1"></i>Info Scope
+                                    <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm" data-bs-toggle="modal" data-bs-target="#scopeInfoModal">
+                                        <i class="bi bi-info-circle" aria-hidden="true"></i>Info Scope
                                     </button>
                                 </div>
                             </div>
-                            <p class="text-muted small mb-3">Atur scope langsung per modul. Scope yang berbeda dari default jabatan akan diberi tanda.</p>
+                            <p class="ims-help ims-user-scope-intro">Atur scope langsung per modul. Scope yang berbeda dari default jabatan akan diberi tanda.</p>
 
-                            <div class="table-responsive border rounded">
-                                <table class="table table-sm align-middle mb-0 uac-scope-table">
+                            <div class="ims-table-scroll ims-user-scope-scroll" tabindex="0" aria-label="Tabel scope modul">
+                                <table class="ims-table uac-scope-table">
                                     <thead>
                                         <tr>
-                                            <th style="width: 220px;">Modul</th>
+                                            <th class="ims-user-scope-name">Modul</th>
                                             <th>Scope</th>
                                         </tr>
                                     </thead>
@@ -189,13 +181,13 @@
                                         {% if 'module_scope__' in field.name %}
                                         <tr class="uac-scope-row" data-module="{{ field.name|cut:'module_scope__' }}">
                                             <td>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="fw-semibold">{{ field.label|cut:'Akses ' }}</span>
+                                                <div class="ims-user-scope-label">
+                                                    <span id="{{ field.auto_id }}_label">{{ field.label|cut:'Akses ' }}</span>
                                                     <span class="scope-deviation-dot d-none" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Scope berbeda dari default jabatan">&bull;</span>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="scope-segmented-control" data-field-name="{{ field.html_name }}">
+                                                <div class="scope-segmented-control" data-field-name="{{ field.html_name }}" role="radiogroup" aria-labelledby="{{ field.auto_id }}_label"{% if field.errors %} aria-describedby="{{ field.auto_id }}_errors"{% endif %}>
                                                     {% for value, label in field.field.choices %}
                                                     <label class="scope-segment scope-{{ value }} {% if field.value|stringformat:'s' == value|stringformat:'s' %}active{% endif %}" for="{{ field.id_for_label }}_{{ value }}">
                                                         <input
@@ -205,14 +197,13 @@
                                                             value="{{ value }}"
                                                             {% if field.value|stringformat:'s' == value|stringformat:'s' %}checked{% endif %}
                                                             class="visually-hidden"
+                                                            {% if field.errors %}aria-invalid="true"{% endif %}
                                                         >
                                                         <span class="scope-label-text">{{ label }}</span>
                                                     </label>
                                                     {% endfor %}
                                                 </div>
-                                                {% for error in field.errors %}
-                                                <div class="invalid-feedback d-block">{{ error }}</div>
-                                                {% endfor %}
+                                                {% if field.errors %}<div id="{{ field.auto_id }}_errors" class="ims-error">{% for error in field.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
                                             </td>
                                         </tr>
                                         {% endif %}
@@ -225,11 +216,11 @@
                     </div>
 
                     <!-- Sticky Footer -->
-                    <div class="card-footer d-flex gap-2 sticky-form-footer">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg me-1"></i>Simpan
+                    <div class="ims-user-form-footer sticky-form-footer">
+                        <button type="submit" class="ims-btn ims-btn--primary">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>Simpan
                         </button>
-                        <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'users:user_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>
@@ -238,35 +229,35 @@
 </div>
 
 {% if target_user %}
-<div class="modal fade" id="passwordResetModal" tabindex="-1" aria-hidden="true">
+<div class="ims-user-modal modal fade" id="passwordResetModal" tabindex="-1" aria-hidden="true" aria-labelledby="passwordResetModalLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Reset Password — {{ target_user.username }}</h5>
+                <h5 class="modal-title" id="passwordResetModalLabel">Reset Password — {{ target_user.username }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="post" action="{% url 'users:user_reset_password' target_user.pk %}" novalidate>
                 <div class="modal-body">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="resetPassword1" class="form-label fw-semibold">Password Baru</label>
-                        <div class="input-group">
-                            <input type="password" name="password1" id="resetPassword1" class="form-control" minlength="10" required>
-                            <button class="btn btn-outline-secondary toggle-password" type="button" tabindex="-1">
-                                <i class="bi bi-eye-slash"></i>
+                    <div class="ims-form-field">
+                        <label for="resetPassword1" class="ims-label">Password Baru</label>
+                        <div class="ims-user-password-group">
+                            <input type="password" name="password1" id="resetPassword1" class="ims-control" minlength="10" required>
+                            <button class="ims-user-password-action toggle-password" type="button" aria-label="Tampilkan atau sembunyikan password baru">
+                                <i class="bi bi-eye-slash" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="resetPassword2" class="form-label fw-semibold">Konfirmasi Password</label>
-                        <input type="password" name="password2" id="resetPassword2" class="form-control" minlength="10" required>
+                    <div class="ims-form-field">
+                        <label for="resetPassword2" class="ims-label">Konfirmasi Password</label>
+                        <input type="password" name="password2" id="resetPassword2" class="ims-control" minlength="10" required>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-key me-1"></i>Reset Password
+                    <button type="submit" class="ims-btn ims-btn--primary">
+                        <i class="bi bi-key" aria-hidden="true"></i>Reset Password
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
                 </div>
             </form>
         </div>
@@ -275,7 +266,7 @@
 {% endif %}
 
 {% if can_manage_user_scopes %}
-<div class="modal fade" id="scopeInfoModal" tabindex="-1" aria-labelledby="scopeInfoModalLabel" aria-hidden="true">
+<div class="ims-user-modal modal fade" id="scopeInfoModal" tabindex="-1" aria-labelledby="scopeInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
@@ -283,42 +274,42 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle">
+                <div class="ims-table-scroll" tabindex="0" aria-label="Panduan scope modul">
+                    <table class="ims-table">
                         <thead>
                             <tr>
-                                <th style="width: 140px;">Scope</th>
+                                <th class="ims-user-guide-scope">Scope</th>
                                 <th>Deskripsi Singkat</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><span class="badge bg-secondary-subtle text-secondary">Tidak Ada</span></td>
+                                <td><span class="ims-badge ims-user-badge-muted">Tidak Ada</span></td>
                                 <td>Tidak dapat melihat atau menjalankan fitur pada modul tersebut.</td>
                             </tr>
                             <tr>
-                                <td><span class="badge bg-info-subtle text-info">Lihat</span></td>
+                                <td><span class="ims-badge ims-badge--info">Lihat</span></td>
                                 <td>Hanya dapat membuka daftar/detail data tanpa melakukan perubahan.</td>
                             </tr>
                             <tr>
-                                <td><span class="badge bg-primary-subtle text-primary">Operasional</span></td>
+                                <td><span class="ims-badge ims-badge--info">Operasional</span></td>
                                 <td>Dapat membuat dan memperbarui transaksi operasional sehari-hari.</td>
                             </tr>
                             <tr>
-                                <td><span class="badge bg-warning-subtle text-warning">Persetujuan</span></td>
+                                <td><span class="ims-badge ims-badge--warning">Persetujuan</span></td>
                                 <td>Dapat melakukan proses verifikasi/approval pada alur dokumen.</td>
                             </tr>
                             <tr>
-                                <td><span class="badge bg-danger-subtle text-danger">Kelola</span></td>
+                                <td><span class="ims-badge ims-badge--danger">Kelola</span></td>
                                 <td>Akses tertinggi: konfigurasi penuh, termasuk aksi sensitif modul.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <p class="small text-muted mb-0">Catatan: untuk modul Manajemen User, perubahan data user memerlukan scope <strong>Kelola</strong>.</p>
+                <p class="ims-help">Catatan: untuk modul Manajemen User, perubahan data user memerlukan scope <strong>Kelola</strong>.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="ims-btn ims-btn--neutral" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -329,5 +320,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/user-form.js' %}"></script>
+<script src="{% static 'js/user-form.js' %}?v={{ app_version }}-wave5-users"></script>
 {% endblock %}

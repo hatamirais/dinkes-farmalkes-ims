@@ -1454,3 +1454,59 @@ class UserListFrontendSecurityTest(TestCase):
         self.assertNotIn("deleteConfirmForm.setAttribute('action'", script)
         self.assertNotIn("deleteConfirmSelectedUser.value =", script)
         self.assertNotIn('deleteConfirmMessage.innerHTML', script)
+
+
+class UserTailwindPageTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            username="tailwind_admin", email="tailwind.admin@example.com", password="TestPassword123!"
+        )
+        self.target = User.objects.create_user(
+            username="tailwind_target", role=User.Role.GUDANG, password="TestPassword123!"
+        )
+        self.client.force_login(self.admin)
+
+    def test_account_pages_use_tailwind_while_delegation_create_stays_legacy(self):
+        for url in (
+            reverse("users:user_list"),
+            reverse("users:user_create"),
+            reverse("users:user_update", args=[self.target.pk]),
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url, secure=True)
+                self.assertTemplateUsed(response, "base_tailwind.html")
+                self.assertContains(response, "css/app.tailwind.css")
+                self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
+
+        delegation = self.client.get(reverse("users:authority_delegation_create"), secure=True)
+        self.assertContains(delegation, "vendor/bootstrap/css/bootstrap.min.css")
+        self.assertNotContains(delegation, "css/app.tailwind.css")
+
+    def test_invalid_create_links_errors_to_bound_fields(self):
+        response = self.client.post(reverse("users:user_create"), {"role": User.Role.PUSKESMAS}, secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="id_facility_errors"')
+        self.assertContains(response, 'aria-describedby="id_facility_helptext id_facility_errors"')
+        self.assertContains(response, 'aria-invalid="true"')
+        self.assertContains(response, 'name="module_scope__users"')
+
+    def test_invalid_module_scope_keeps_radio_group_and_error(self):
+        data = {
+            "username": "invalid_scope_user",
+            "role": User.Role.GUDANG,
+            "password1": "TestPassword123!",
+            "password2": "TestPassword123!",
+            **{
+                f"module_scope__{module}": str(ModuleAccess.Scope.NONE)
+                for module, _label in ModuleAccess.Module.choices
+            },
+        }
+        data["module_scope__users"] = "99"
+
+        response = self.client.post(reverse("users:user_create"), data, secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="id_module_scope__users_errors"')
+        self.assertContains(response, 'aria-describedby="id_module_scope__users_errors"')
+        self.assertFalse(User.objects.filter(username="invalid_scope_user").exists())
