@@ -4,6 +4,7 @@
 @import "./reports.css";
 @import "./items-forms.css";
 @import "./users-forms.css";
+@import "./core-settings.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

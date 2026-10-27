@@ -1,0 +1,42 @@
+/* Wave 5 core settings forms. */
+@layer components {
+  .ims-settings-page { padding: 16px 0 32px; }
+  .ims-settings-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); align-items: start; gap: 20px; max-width: 1200px; margin-inline: auto; }
+  .ims-settings-main { width: 100%; max-width: none; }
+  .ims-settings-panel-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .ims-settings-panel-heading .bi { margin-right: 8px; }
+  .ims-settings-badge { background: #fff; color: var(--color-ims-muted); font-size: var(--text-ims-xs); font-weight: 600; }
+  .ims-settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .ims-settings-field-wide { grid-column: 1 / -1; min-width: 0; }
+  .ims-settings-file .ims-control[type="file"] { height: auto; padding: 8px; }
+  .ims-settings-file .ims-control[type="file"]::file-selector-button { border: 1px solid var(--color-ims-border); border-radius: 6px; margin-right: 12px; padding: 6px 10px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); cursor: pointer; }
+  .ims-settings-file input[type="checkbox"] { width: 1rem; height: 1rem; margin: 0 4px 0 8px; accent-color: var(--color-ims-primary); }
+  .ims-settings-file a { color: var(--color-ims-primary); overflow-wrap: anywhere; }
+  .ims-settings-actions { justify-content: flex-end; }
+  .ims-settings-aside { display: grid; gap: 20px; min-width: 0; }
+  .ims-settings-aside .ims-form-panel { width: 100%; }
+  .ims-settings-aside .ims-form-panel-body { font-size: var(--text-ims-sm); line-height: var(--leading-ims-body); color: var(--color-ims-muted); }
+  .ims-settings-aside p + p { margin-top: 12px; }
+  .ims-settings-logo .ims-form-panel-body { text-align: center; }
+  .ims-settings-logo-image { display: inline-block; max-width: 100%; max-height: 150px; border-radius: var(--radius-ims-control); }
+  .ims-settings-numbering-page { max-width: 1100px; margin-inline: auto; }
+  .ims-settings-numbering-page .ims-form-panel-body { padding: 24px; }
+  .ims-settings-subtitle { display: block; margin-top: 4px; color: var(--color-ims-muted); font-size: var(--text-ims-sm); font-weight: 400; }
+  .ims-settings-heading-actions { display: inline-flex; align-items: center; gap: 8px; }
+  .ims-settings-help-button { width: 36px; min-height: 36px; padding: 6px; }
+  .ims-settings-numbering-help { visibility: visible !important; margin-bottom: 20px; }
+  .ims-settings-help-copy { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 16px; background: var(--color-ims-surface-muted); color: var(--color-ims-muted); font-size: var(--text-ims-sm); line-height: var(--leading-ims-body); }
+  .ims-settings-help-copy p + p { margin-top: 12px; }
+  .ims-settings-help-copy code, .ims-settings-rule code, .ims-settings-preview code { overflow-wrap: anywhere; color: var(--color-ims-primary); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .ims-settings-rule-list { display: grid; gap: 16px; }
+  .ims-settings-rule { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 20px; background: #fff; }
+  .ims-settings-rule-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+  .ims-settings-rule-title { font-weight: 700; }
+  .ims-settings-rule-heading code { font-size: var(--text-ims-xs); }
+  .ims-settings-rule .ims-alert { margin-bottom: 16px; }
+  .ims-settings-rule-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .ims-settings-rule input[name$="-template"] { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .ims-settings-preview { margin-top: 12px; color: var(--color-ims-muted); font-size: var(--text-ims-xs); }
+  @media (max-width: 900px) { .ims-settings-layout { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 639px) { .ims-settings-fields, .ims-settings-rule-fields { grid-template-columns: minmax(0, 1fr); } .ims-settings-field-wide { grid-column: auto; } .ims-settings-actions .ims-btn { width: 100%; } .ims-settings-rule { padding: 16px; } }
+}

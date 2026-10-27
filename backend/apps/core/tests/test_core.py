@@ -1463,6 +1463,30 @@ class SystemSettingsAccessTests(TestCase):
         self.assertNotContains(numbering_response, "facility_name")
         self.assertNotContains(numbering_response, "last_value")
 
+    def test_settings_pages_use_tailwind_with_bound_fields(self):
+        user = User.objects.create_superuser(
+            username="settings-tailwind-admin",
+            email="settings-tailwind-admin@example.com",
+            password="TestPassword123!",
+        )
+        self.client.force_login(user)
+
+        general_response = self.client.get(reverse("settings"))
+        numbering_response = self.client.get(reverse("numbering_settings"))
+        for response in (general_response, numbering_response):
+            self.assertContains(response, "css/app.tailwind.css")
+            self.assertNotContains(response, "vendor/bootstrap/css")
+
+        for field_name in (
+            "platform_label", "facility_name", "facility_phone",
+            "header_title", "facility_address", "logo",
+        ):
+            self.assertContains(general_response, f'name="{field_name}"')
+            self.assertContains(general_response, f'for="id_{field_name}"')
+        self.assertContains(numbering_response, 'name="numbering_rules-TOTAL_FORMS"')
+        self.assertContains(numbering_response, 'data-numbering-rule', count=10)
+        self.assertContains(numbering_response, 'data-numbering-preview', count=10)
+
     def test_admin_can_update_rule_format_without_exposing_counter(self):
         user = User.objects.create_superuser(
             username="settings-numbering-admin",
@@ -1530,6 +1554,12 @@ class SystemSettingsAccessTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Rule bulanan harus memuat")
+        self.assertContains(response, 'aria-invalid="true"')
+        stock_opname_index = rules.index(stock_opname_rule)
+        self.assertContains(
+            response,
+            f'id="id_numbering_rules-{stock_opname_index}-template_errors"',
+        )
         stock_opname_rule.refresh_from_db()
         self.assertEqual(stock_opname_rule.template, original_template)
 

@@ -11,6 +11,7 @@ App-specific guidance for shared configuration, permissions, numbering, error ha
 - `@perm_required` allows access when either the required Django permission or sufficient `ModuleAccess` scope grants it.
 - Permission failures raise `PermissionDenied` and flow through the centralized `handler403`; do not return ad-hoc denial fragments.
 - `/settings/` and `/settings/numbering/` do not use module-scope fallback. They allow only superusers and users whose role is `ADMIN` or `KEPALA`.
+- Both settings forms render through the Tailwind desktop base with bound Django fields. Keep the general form's clearable logo widget and the numbering formset's management inputs, hidden rule IDs, preview hooks, and Bootstrap-JavaScript help collapse.
 - Throttled requests use the centralized error pipeline and render HTTP `429`.
 
 ## Document Numbering

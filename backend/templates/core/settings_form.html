@@ -1,86 +1,58 @@
-{% extends 'base.html' %}
-{% load crispy_forms_tags %}
-{% load number_format %}
+{% extends 'base_tailwind.html' %}
+{% load tailwind_forms number_format %}
 
 {% block title %}Pengaturan Umum - {{ system_settings.facility_name }}{% endblock %}
+{% block page_title %}Pengaturan Umum{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Pengaturan Umum</h1>
-</div>
-
-<div class="row">
-    <div class="col-md-8">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-            <div class="alert alert-danger shadow-sm">
-                {{ form.non_field_errors }}
+<div class="ims-settings-page">
+    <div class="ims-settings-layout">
+        <div class="ims-form-panel ims-settings-main">
+            <div class="ims-form-panel-header ims-settings-panel-heading">
+                <span><i class="bi bi-gear" aria-hidden="true"></i>Pengaturan Umum</span>
+                <span class="ims-badge ims-settings-badge">Branding dan identitas</span>
+            </div>
+            <div class="ims-form-panel-body">
+                <form method="post" enctype="multipart/form-data" class="ims-form-stack">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    <div class="ims-settings-fields">
+                        {% tailwind_field form.platform_label %}
+                        {% tailwind_field form.facility_name %}
+                        {% tailwind_field form.facility_phone %}
+                        {% tailwind_field form.header_title %}
+                        <div class="ims-settings-field-wide">{% tailwind_field form.facility_address %}</div>
+                        <div class="ims-settings-field-wide ims-settings-file">{% tailwind_field form.logo %}</div>
+                    </div>
+                    <div class="ims-form-actions ims-settings-actions">
+                        <button type="submit" class="ims-btn ims-btn--primary"><i class="bi bi-save" aria-hidden="true"></i>Simpan Pengaturan Umum</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="ims-settings-aside">
+            <div class="ims-form-panel ims-settings-info">
+                <div class="ims-form-panel-header">Informasi</div>
+                <div class="ims-form-panel-body">
+                    <p>Pengaturan umum digunakan untuk identitas aplikasi dan kop dokumen.</p>
+                    <p><strong>Label Platform:</strong> Digunakan untuk branding singkat di halaman login.</p>
+                    <p><strong>Logo Navbar:</strong> Logo akan diskala otomatis ke tinggi maksimal 32px.</p>
+                    <p><strong>Header Laporan:</strong> Digunakan sebagai baris paling atas di kop surat cetak.</p>
+                </div>
+            </div>
+            {% if system_settings.logo %}
+            {% with logo_url=system_settings.logo.url|safe_media_url %}
+            {% if logo_url %}
+            <div class="ims-form-panel ims-settings-logo">
+                <div class="ims-form-panel-header">Logo Saat Ini</div>
+                <div class="ims-form-panel-body"><img src="{{ logo_url }}" alt="Logo" class="ims-settings-logo-image"></div>
             </div>
             {% endif %}
-
-            <div class="card shadow-sm mb-3">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <h5 class="card-title mb-0">Pengaturan Umum</h5>
-                    <span class="badge text-bg-light">Branding dan identitas</span>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            {{ form.platform_label|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.facility_name|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.facility_phone|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.header_title|as_crispy_field }}
-                        </div>
-                        <div class="col-12">
-                            {{ form.facility_address|as_crispy_field }}
-                        </div>
-                        <div class="col-12">
-                            {{ form.logo|as_crispy_field }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4 d-flex justify-content-end">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Simpan Pengaturan Umum</button>
-            </div>
-        </form>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Informasi</h5>
-            </div>
-            <div class="card-body text-muted small">
-                <p>Pengaturan umum digunakan untuk identitas aplikasi dan kop dokumen.</p>
-                <p><strong>Label Platform:</strong> Digunakan untuk branding singkat di halaman login.</p>
-                <p><strong>Logo Navbar:</strong> Logo akan diskala otomatis ke tinggi maksimal 32px.</p>
-                <p class="mb-0"><strong>Header Laporan:</strong> Digunakan sebagai baris paling atas di kop surat cetak.</p>
-            </div>
+            {% endwith %}
+            {% endif %}
         </div>
-
-        {% if system_settings.logo %}
-        {% with logo_url=system_settings.logo.url|safe_media_url %}
-        {% if logo_url %}
-        <div class="card shadow-sm mb-3">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Logo Saat Ini</h5>
-            </div>
-            <div class="card-body text-center">
-                <img src="{{ logo_url }}" alt="Logo" class="img-fluid rounded" style="max-height: 150px;">
-            </div>
-        </div>
-        {% endif %}
-        {% endwith %}
-        {% endif %}
     </div>
 </div>
 {% endblock %}

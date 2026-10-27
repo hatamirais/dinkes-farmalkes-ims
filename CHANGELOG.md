@@ -18,11 +18,12 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Migrated Wave 5 Items create/edit, shared lookup create, delete confirmation, and four quick-create dialogs to Tailwind; the Item List remains on its existing Tailwind page.
 - Migrated the Users list and account create/edit forms to Tailwind while retaining filters, bulk actions, status toggles, permission-driven module scopes, password controls, and Bootstrap JavaScript dialogs.
+- Migrated general and numbering settings to Tailwind while retaining bound fields, logo upload, the numbering rule formset, validation, live previews, and Bootstrap JavaScript collapse.
 - Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility.
 - Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. Legacy pages continue to load Bootstrap CSS; both desktop bases retain Bootstrap JavaScript during the migration.
 - Migrated login, account lockout, password change, password-change completion, and centralized 400/403/404/429/500/503 pages to Tailwind CSS while preserving authentication and error-handler behavior. Other legacy pages continue to use Bootstrap CSS.
 - Completed the Wave 4 Tailwind migration for read-only stock lists/cards/history, the Puskesmas stock snapshot and self-check, receiving lists/details, and procurement, distribution, allocation, recall, expired, stock-opname, LPLPO, and stock transfer lists/details.
-- Migrated central inventory reports and numbering history, four Puskesmas reports, user detail, and the authority delegation list to Tailwind while retaining their existing filters, values, links, exports, and permission gates. Editable settings, creation/editing forms, mobile, print documents, and admin pages remain in later waves.
+- Migrated central inventory reports and numbering history, four Puskesmas reports, user detail, and the authority delegation list to Tailwind while retaining their existing filters, values, links, exports, and permission gates. Other creation/editing forms, mobile, print documents, and admin pages remain in later waves.
 - Displayed monetary values in affected central and Puskesmas reports with two Indonesian decimal digits without changing the underlying calculations.
 - Documented that migrated forms keep labels above inputs and that UI content or behavior conflicts require review before template changes.
 
