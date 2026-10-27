@@ -28,6 +28,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Restored the Users role guide's visibility and scrolling in the Info Scope dialog at short viewport heights.
 - Replaced the protruding square on Users tooltips with a pointer that follows Bootstrap's Popper placement without overriding its transform.
 - Kept long Tom Select option lists keyboard-scrollable in the migrated Items form by scrolling the option content that Tom Select controls.
 - Corrected the direct Playwright window helper's usage message to specify Node, matching its Windows runtime requirement.

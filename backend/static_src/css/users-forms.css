@@ -52,7 +52,7 @@
   .ims-user-password-requirements .text-danger { color: var(--color-ims-danger); }
   .ims-user-password-requirements .text-muted { color: var(--color-ims-muted); }
   .ims-user-role-guide { margin-top: -12px; }
-  .ims-user-role-guide .collapse { visibility: visible; margin-top: 8px; }
+  .ims-user-role-guide .collapse { visibility: visible !important; margin-top: 8px; }
   .ims-user-guide-panel { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 16px; background: var(--color-ims-surface-muted); }
   .ims-user-guide-copy { display: grid; gap: 8px; color: var(--color-ims-muted); font-size: var(--text-ims-sm); }
   .ims-user-scope-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
@@ -79,8 +79,9 @@
   .ims-user-modal .modal-dialog { position: relative; width: min(calc(100% - 32px), 520px); margin: 28px auto; pointer-events: none; }
   .ims-user-modal .modal-dialog.modal-lg { width: min(calc(100% - 32px), 800px); }
   .ims-user-modal .modal-dialog-scrollable { max-height: calc(100vh - 56px); }
-  .ims-user-modal .modal-dialog-scrollable .modal-content { max-height: calc(100vh - 56px); overflow: hidden; }
-  .ims-user-modal .modal-dialog-scrollable .modal-body { overflow-y: auto; }
+  .ims-user-modal .modal-dialog-scrollable .modal-content { display: flex; flex-direction: column; max-height: calc(100vh - 56px); overflow: hidden; }
+  .ims-user-modal .modal-dialog-scrollable .modal-body { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .ims-user-modal .modal-dialog-scrollable .modal-body .ims-table-scroll + .ims-help { margin-top: 16px; }
   .ims-user-modal .modal-content { width: 100%; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: #fff; box-shadow: var(--shadow-ims-dialog); pointer-events: auto; }
   .ims-user-modal .modal-header, .ims-user-modal .modal-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 18px; }
   .ims-user-modal .modal-header { justify-content: space-between; border-bottom: 1px solid var(--color-ims-border); }
