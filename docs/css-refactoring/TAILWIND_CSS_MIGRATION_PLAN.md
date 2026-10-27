@@ -557,7 +557,7 @@ Preserve dense table layouts. Do not convert operational tables into card grids 
 
 The Items slice migrates `item_form.html` (create/edit), `lookup_form.html` (four currently routed lookup create pages), and `item_confirm_delete.html`. The shared lookup template can render a bound edit form, but Items currently defines no lookup edit route; this slice does not add one. The item form retains four Bootstrap-JavaScript quick-create modals and uses a scoped project-owned Tom Select theme. `tailwind_field` renders bound Django widgets with labels above controls, help/error IDs, and invalid-state attributes without altering the underlying forms. The migration ledger records verified routes and remaining dependencies.
 
-The Users slice migrates `user_list.html` and the shared `user_form.html` for create/edit. The list keeps its desktop table, narrow cards, filters, sorting, bulk action POST, inline status toggle, and delete dialogs. The form keeps profile and module-scope tabs, role/facility coupling, password controls, edit-side account information, and reset/scope-info dialogs. Bootstrap JavaScript remains the behavior runtime. User detail and authority-delegation list were already migrated in Wave 4; delegation create/revoke remain in Wave 6. The shared settings slice migrates `/settings/` and `/settings/numbering/` using the bound-field renderer, retaining the logo file widget and the ten-rule formset with its management fields, help collapse, and live preview. Bootstrap JavaScript still owns the collapse. The Puskesmas subunits slice migrates its list and shared create/edit form, keeping facility isolation, role-gated actions, native filters, bound fields, and POST-only deletion. The delete route has no confirmation page and gains none here. Later simple filters remain pending in Wave 5.
+The Users slice migrates `user_list.html` and the shared `user_form.html` for create/edit. The list keeps its desktop table, narrow cards, filters, sorting, bulk action POST, inline status toggle, and delete dialogs. The form keeps profile and module-scope tabs, role/facility coupling, password controls, edit-side account information, and reset/scope-info dialogs. Bootstrap JavaScript remains the behavior runtime. User detail and authority-delegation list were already migrated in Wave 4; delegation create/revoke remain in Wave 6. The shared settings slice migrates `/settings/` and `/settings/numbering/` using the bound-field renderer, retaining the logo file widget and the ten-rule formset with its management fields, help collapse, and live preview. Bootstrap JavaScript still owns the collapse. The Puskesmas subunits slice migrates its list and shared create/edit form, keeping facility isolation, role-gated actions, native filters, bound fields, and POST-only deletion. The delete route has no confirmation page and gains none here. The planned simple filters are already present on migrated Wave 4 and Wave 5 pages; remaining Bootstrap filter pages belong to their Wave 6 workflows. No separate URL remains for the former final filters slice.
 
 Suggested order:
 
@@ -565,7 +565,6 @@ Suggested order:
 2. Users.
 3. Shared settings and numbering settings.
 4. Puskesmas subunits.
-5. Simple filters and search forms.
 
 This wave proves the shared field renderer before high-risk formsets are attempted.
 

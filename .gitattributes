@@ -1,0 +1,2 @@
+# Keep generated CSS byte-identical to the Tailwind CLI output on every OS.
+backend/static/css/app.tailwind.css text eol=lf
