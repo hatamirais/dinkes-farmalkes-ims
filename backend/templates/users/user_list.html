@@ -1,22 +1,22 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load static %}
 
 {% block title %}Manajemen Pengguna - Healthcare IMS{% endblock %}
 {% block page_title %}Manajemen Pengguna{% endblock %}
 
 {% block content %}
-<div class="table-container">
-    <div class="table-header">
+<div class="ims-user-list ims-user-surface">
+    <div class="ims-user-list-header">
         <h5><i class="bi bi-people me-2"></i>Manajemen Pengguna</h5>
-        <div class="d-flex align-items-center gap-2">
+        <div class="flex items-center gap-2">
             {% if total_count %}
-            <span class="badge bg-light text-dark border me-1">{{ total_count }} pengguna</span>
+            <span class="ims-badge ims-user-count">{{ total_count }} pengguna</span>
             {% endif %}
-            <a href="{% url 'users:user_export_csv' %}?{{ filter_params }}" class="btn btn-outline-secondary btn-sm" title="Ekspor ke CSV" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ekspor hasil filter ke CSV">
+            <a href="{% url 'users:user_export_csv' %}?{{ filter_params }}" class="ims-btn ims-btn--neutral ims-btn--sm" title="Ekspor ke CSV" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ekspor hasil filter ke CSV">
                 <i class="bi bi-download me-1"></i>Export
             </a>
             {% if can_add_user %}
-            <a href="{% url 'users:user_create' %}" class="btn btn-primary btn-sm" id="createUserBtn">
+            <a href="{% url 'users:user_create' %}" class="ims-btn ims-btn--primary ims-btn--sm" id="createUserBtn">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
             </a>
             {% endif %}
@@ -24,17 +24,17 @@
     </div>
 
     {% if can_change_user or can_delete_user %}
-    <div class="bulk-action-bar d-none" id="bulkActionBar">
-        <div class="d-flex align-items-center gap-2">
-            <span class="me-2 fw-semibold small selected-count">0 dipilih</span>
-            <button type="button" class="btn btn-sm btn-outline-success bulk-action-btn" data-action="activate">
+    <div class="bulk-action-bar ims-user-bulk-bar d-none" id="bulkActionBar">
+        <div class="flex items-center gap-2">
+            <span class="selected-count">0 dipilih</span>
+            <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm bulk-action-btn" data-action="activate">
                 <i class="bi bi-person-check me-1"></i>Aktifkan
             </button>
-            <button type="button" class="btn btn-sm btn-outline-warning bulk-action-btn" data-action="deactivate">
+            <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm bulk-action-btn" data-action="deactivate">
                 <i class="bi bi-person-x me-1"></i>Nonaktifkan
             </button>
             {% if can_delete_user %}
-            <button type="button" class="btn btn-sm btn-outline-danger bulk-action-btn bulk-delete-btn" data-action="delete"
+            <button type="button" class="ims-btn ims-btn--danger ims-btn--sm bulk-action-btn bulk-delete-btn" data-action="delete"
                 data-bs-toggle="modal" data-bs-target="#bulkDeleteModal">
                 <i class="bi bi-trash me-1"></i>Hapus
             </button>
@@ -43,23 +43,23 @@
     </div>
     {% endif %}
 
-    <div class="px-3 py-2 border-bottom bg-light">
-        <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control" placeholder="Cari nama pengguna/nama/email..." value="{{ search }}">
-            <select name="jabatan" class="form-select">
+    <div class="ims-user-filter-surface">
+        <form method="get" class="ims-user-filters">
+            <input type="text" name="q" class="ims-control" aria-label="Cari pengguna" placeholder="Cari nama pengguna/nama/email..." value="{{ search }}">
+            <select name="jabatan" class="ims-control" aria-label="Jabatan">
                 <option value="">Semua Jabatan</option>
                 {% for code, label in jabatan_choices %}
                 <option value="{{ code }}" {% if selected_jabatan == code %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
-            <select name="active" class="form-select">
+            <select name="active" class="ims-control" aria-label="Status">
                 <option value="">Semua Status</option>
                 <option value="1" {% if selected_active == '1' %}selected{% endif %}>Aktif</option>
                 <option value="0" {% if selected_active == '0' %}selected{% endif %}>Nonaktif</option>
             </select>
-            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button>
+            <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm" aria-label="Cari"><i class="bi bi-search" aria-hidden="true"></i></button>
             {% if search or selected_jabatan or selected_active %}
-            <a href="{% url 'users:user_list' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+            <a href="{% url 'users:user_list' %}" class="ims-btn ims-btn--secondary ims-btn--sm" aria-label="Hapus filter"><i class="bi bi-x-lg" aria-hidden="true"></i></a>
             {% endif %}
         </form>
     </div>
@@ -68,13 +68,13 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="" id="bulkActionField">
 
-        <div class="table-responsive d-none d-md-block">
-            <table class="table">
+        <div class="ims-user-desktop-table">
+            <table class="ims-table table ims-user-table">
                 <thead>
                     <tr>
                         {% if can_change_user %}
-                        <th style="width: 40px;">
-                            <input type="checkbox" class="form-check-input select-all-checkbox" id="selectAll">
+                        <th class="ims-user-select-column">
+                            <input type="checkbox" class="ims-choice select-all-checkbox" id="selectAll" aria-label="Pilih semua pengguna">
                         </th>
                         {% endif %}
                         <th class="sortable-header" data-sort="username">
@@ -98,7 +98,7 @@
                             <i class="bi {{ sort_icon.role }} ms-1"></i>
                             {% endif %}
                         </th>
-                        <th class="d-none d-md-table-cell sortable-header" data-sort="last_login">
+                        <th class="ims-user-last-login sortable-header" data-sort="last_login">
                             Login Terakhir
                             {% if sort == 'last_login' %}
                             <i class="bi {{ sort_icon.last_login }} ms-1"></i>
@@ -110,7 +110,7 @@
                             <i class="bi {{ sort_icon.is_active }} ms-1"></i>
                             {% endif %}
                         </th>
-                        <th class="text-end">Aksi</th>
+                        <th class="text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -118,14 +118,14 @@
                     <tr>
                         {% if can_change_user %}
                         <td>
-                            <input type="checkbox" class="form-check-input user-checkbox" name="selected_users" value="{{ account.pk }}">
+                            <input type="checkbox" class="ims-choice user-checkbox" name="selected_users" value="{{ account.pk }}" aria-label="Pilih {{ account.username }}">
                         </td>
                         {% endif %}
                         <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="avatar-circle avatar-sm" data-initial="{{ account.full_name|slice:':1'|default:account.username|slice:':1' }}">{{ account.full_name|slice:':1'|default:account.username|slice:':1'|upper }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="ims-user-avatar" data-initial="{{ account.full_name|slice:':1'|default:account.username|slice:':1' }}">{{ account.full_name|slice:':1'|default:account.username|slice:':1'|upper }}</span>
                                 <div>
-                                    <a href="{% url 'users:user_detail' account.pk %}" class="fw-semibold text-decoration-none">{{ account.username }}</a>
+                                    <a href="{% url 'users:user_detail' account.pk %}" class="ims-user-name-link">{{ account.username }}</a>
                                 </div>
                             </div>
                         </td>
@@ -134,66 +134,68 @@
                             {% if account.facility %}
                             {{ account.facility.name }}
                             {% elif account.role == 'PUSKESMAS' %}
-                            <span class="text-muted">Belum diatur</span>
+                            <span class="text-ims-muted">Belum diatur</span>
                             {% else %}
                             Instalasi Farmasi
                             {% endif %}
                         </td>
                         <td>{{ account.nip|default:'-' }}</td>
                         <td>{{ account.email|default:'-' }}</td>
-                        <td><span class="badge badge-role-{{ account.role|lower }}">{{ account.get_role_display }}</span></td>
-                        <td class="d-none d-md-table-cell">
+                        <td><span class="ims-user-role badge-role-{{ account.role|lower }}">{{ account.get_role_display }}</span></td>
+                        <td class="ims-user-last-login">
                             {% if account.last_login %}
-                            <span class="text-muted small" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{{ account.last_login|date:'d M Y, H:i' }}">
+                            <span class="text-ims-muted text-xs" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{{ account.last_login|date:'d M Y, H:i' }}">
                                 {{ account.last_login|timesince }} lalu
                             </span>
                             {% else %}
-                            <span class="text-muted small">Belum pernah</span>
+                            <span class="text-ims-muted text-xs">Belum pernah</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if can_change_user %}
-                            <div class="form-check form-switch active-toggle-switch">
+                            <div class="ims-user-toggle active-toggle-switch">
                                 <input
-                                    class="form-check-input user-active-toggle"
+                                    class="ims-switch user-active-toggle"
                                     type="checkbox"
                                     role="switch"
                                     data-pk="{{ account.pk }}"
                                     data-url="{% url 'users:user_toggle_active' account.pk %}"
                                     data-active-text="Aktif"
                                     data-inactive-text="Nonaktif"
+                                    aria-label="Ubah status {{ account.username }}"
                                     {% if account.is_active %}checked{% endif %}
                                     {% if request.user == account %}disabled{% endif %}
                                 >
                                 <label class="form-check-label">
                                     {% if account.is_active %}
-                                    <span class="badge bg-success-subtle text-success">Aktif</span>
+                                    <span class="ims-badge ims-badge--success">Aktif</span>
                                     {% else %}
-                                    <span class="badge bg-secondary-subtle text-secondary">Nonaktif</span>
+                                    <span class="ims-badge ims-user-badge-muted">Nonaktif</span>
                                     {% endif %}
                                 </label>
                             </div>
                             {% else %}
                             {% if account.is_active %}
-                            <span class="badge bg-success-subtle text-success">Aktif</span>
+                            <span class="ims-badge ims-badge--success">Aktif</span>
                             {% else %}
-                            <span class="badge bg-secondary-subtle text-secondary">Nonaktif</span>
+                            <span class="ims-badge ims-user-badge-muted">Nonaktif</span>
                             {% endif %}
                             {% endif %}
                         </td>
-                        <td class="text-end">
+                        <td class="text-right">
                             {% if can_change_user %}
-                            <a href="{% url 'users:user_update' account.pk %}" class="btn btn-sm btn-outline-secondary" title="Ubah pengguna" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ubah data pengguna">
+                            <a href="{% url 'users:user_update' account.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm" title="Ubah pengguna" aria-label="Ubah {{ account.username }}" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ubah data pengguna">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             {% endif %}
                             {% if can_delete_user %}
-                            <button type="button" class="btn btn-sm btn-outline-danger single-delete-btn"
+                            <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm single-delete-btn"
                                 title="{% if account.is_active %}Nonaktifkan dulu{% else %}Hapus permanen{% endif %}"
                                 data-bs-toggle="tooltip" data-bs-placement="top"
                                 data-bs-title="{% if account.is_active %}Nonaktifkan dulu baru hapus{% else %}Hapus permanen pengguna{% endif %}"
                                 data-delete-form-id="deleteUserForm-{{ account.pk }}"
                                 data-username="{{ account.username }}"
+                                aria-label="Hapus {{ account.username }}"
                                 {% if request.user == account or account.is_active %}disabled{% endif %}>
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -203,7 +205,7 @@
                     {% empty %}
                     <tr>
                         <td colspan="{% if can_change_user %}10{% else %}9{% endif %}">
-                            <div class="empty-state">
+                            <div class="ims-user-empty">
                                 <i class="bi bi-person-lines-fill d-block"></i>
                                 <p>Belum ada data pengguna</p>
                             </div>
@@ -216,33 +218,34 @@
     </form>
 
     <!-- Mobile card layout (visible only on small screens) -->
-    <div class="d-md-none">
+    <div class="ims-user-mobile-cards">
         {% for account in users %}
-        <div class="user-card-mobile border-bottom p-3">
-            <div class="d-flex align-items-start justify-content-between">
-                <div class="d-flex align-items-center gap-2">
+        <div class="user-card-mobile ims-user-mobile-card">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2">
                     {% if can_change_user %}
-                    <input type="checkbox" class="form-check-input user-checkbox" name="selected_users" value="{{ account.pk }}" form="bulkActionForm">
+                    <input type="checkbox" class="ims-choice user-checkbox" name="selected_users" value="{{ account.pk }}" form="bulkActionForm" aria-label="Pilih {{ account.username }}">
                     {% endif %}
-                    <span class="avatar-circle avatar-sm" data-initial="{{ account.full_name|slice:':1'|default:account.username|slice:':1' }}">{{ account.full_name|slice:':1'|default:account.username|slice:':1'|upper }}</span>
+                    <span class="ims-user-avatar" data-initial="{{ account.full_name|slice:':1'|default:account.username|slice:':1' }}">{{ account.full_name|slice:':1'|default:account.username|slice:':1'|upper }}</span>
                     <div>
-                        <a href="{% url 'users:user_detail' account.pk %}" class="fw-semibold text-decoration-none">{{ account.username }}</a>
-                        {% if account.full_name %}<div class="small text-muted">{{ account.full_name }}</div>{% endif %}
+                        <a href="{% url 'users:user_detail' account.pk %}" class="ims-user-name-link">{{ account.username }}</a>
+                        {% if account.full_name %}<div class="text-xs text-ims-muted">{{ account.full_name }}</div>{% endif %}
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-1">
-                    <span class="badge badge-role-{{ account.role|lower }}">{{ account.get_role_display }}</span>
+                <div class="flex items-center gap-1">
+                    <span class="ims-user-role badge-role-{{ account.role|lower }}">{{ account.get_role_display }}</span>
                     {% if can_change_user %}
-                    <div class="form-check form-switch active-toggle-switch ms-1 mb-0">
-                        <input class="form-check-input user-active-toggle" type="checkbox" role="switch"
+                    <div class="ims-user-toggle active-toggle-switch">
+                        <input class="ims-switch user-active-toggle" type="checkbox" role="switch"
                             data-pk="{{ account.pk }}"
                             data-url="{% url 'users:user_toggle_active' account.pk %}"
+                            aria-label="Ubah status {{ account.username }}"
                             {% if account.is_active %}checked{% endif %}
                             {% if request.user == account %}disabled{% endif %}>
                     </div>
                     {% endif %}
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="ims-user-menu-button" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aksi {{ account.username }}">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -252,7 +255,7 @@
                             {% endif %}
                             {% if can_delete_user %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><button type="button" class="dropdown-item text-danger single-delete-btn"
+                            <li><button type="button" class="dropdown-item ims-user-menu-danger single-delete-btn"
                                 data-delete-form-id="deleteUserForm-{{ account.pk }}"
                                 data-username="{{ account.username }}"
                                 {% if request.user == account or account.is_active %}disabled{% endif %}>
@@ -263,17 +266,17 @@
                     </div>
                 </div>
             </div>
-            <div class="row mt-2 small text-muted">
-                <div class="col-6">
+            <div class="ims-user-mobile-meta">
+                <div class="ims-user-mobile-meta-left">
                     {% if account.facility %}{{ account.facility.name }}{% elif account.role == 'PUSKESMAS' %}Belum diatur{% else %}Instalasi Farmasi{% endif %}
                 </div>
-                <div class="col-6 text-end">
+                <div class="ims-user-mobile-meta-right">
                     {% if account.last_login %}{{ account.last_login|timesince }} lalu{% else %}Belum pernah{% endif %}
                 </div>
             </div>
         </div>
         {% empty %}
-        <div class="empty-state">
+        <div class="ims-user-empty">
             <i class="bi bi-person-lines-fill d-block"></i>
             <p>Belum ada data pengguna</p>
         </div>
@@ -281,31 +284,31 @@
     </div>
 
     {% if users.has_other_pages %}
-    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-        <small class="text-muted">{{ users.start_index }}-{{ users.end_index }} dari {{ users.paginator.count }}</small>
+    <div class="ims-user-pagination">
+        <small class="text-ims-muted">{{ users.start_index }}-{{ users.end_index }} dari {{ users.paginator.count }}</small>
         <nav>
-            <ul class="pagination pagination-sm mb-0">
+            <ul class="ims-pagination">
                 {% if users.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ users.previous_page_number }}&{{ filter_params }}">&laquo;</a>
+                <li class="ims-user-page-item">
+                    <a class="ims-page-link" href="?page={{ users.previous_page_number }}&{{ filter_params }}">&laquo;</a>
                 </li>
                 {% endif %}
 
                 {% for num in users.paginator.page_range %}
                     {% if num >= users.number|add:'-3' and num <= users.number|add:'3' %}
-                    <li class="page-item {% if users.number == num %}active{% endif %}">
+                    <li class="ims-user-page-item{% if users.number == num %} active{% endif %}">
                         {% if users.number == num %}
-                        <span class="page-link" aria-current="page">{{ num }}</span>
+                        <span class="ims-page-link" aria-current="page">{{ num }}</span>
                         {% else %}
-                        <a class="page-link" href="?page={{ num }}&{{ filter_params }}">{{ num }}</a>
+                        <a class="ims-page-link" href="?page={{ num }}&{{ filter_params }}">{{ num }}</a>
                         {% endif %}
                     </li>
                     {% endif %}
                 {% endfor %}
 
                 {% if users.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ users.next_page_number }}&{{ filter_params }}">&raquo;</a>
+                <li class="ims-user-page-item">
+                    <a class="ims-page-link" href="?page={{ users.next_page_number }}&{{ filter_params }}">&raquo;</a>
                 </li>
                 {% endif %}
             </ul>
@@ -327,39 +330,39 @@
     {% endfor %}
 </div>
 
-<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="ims-user-modal modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true" aria-labelledby="deleteConfirmTitle">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-body text-center py-4">
-                <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
-                <h5 class="mt-3">Konfirmasi Penghapusan</h5>
-                <p class="text-muted" id="deleteConfirmMessage">Apakah Anda yakin ingin menghapus pengguna ini?</p>
-                <div class="d-flex gap-2 justify-content-center mt-4">
-                    <button type="button" class="btn btn-danger" id="deleteConfirmSubmit">
+            <div class="modal-body ims-user-confirm-body">
+                <i class="bi bi-exclamation-triangle ims-user-confirm-icon" aria-hidden="true"></i>
+                <h5 id="deleteConfirmTitle">Konfirmasi Penghapusan</h5>
+                <p class="text-ims-muted" id="deleteConfirmMessage">Apakah Anda yakin ingin menghapus pengguna ini?</p>
+                <div class="ims-user-confirm-actions">
+                    <button type="button" class="ims-btn ims-btn--danger" id="deleteConfirmSubmit">
                         <i class="bi bi-trash me-1"></i>Hapus
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="ims-user-modal modal fade" id="bulkDeleteModal" tabindex="-1" aria-hidden="true" aria-labelledby="bulkDeleteTitle">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-body text-center py-4">
-                <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
-                <h5 class="mt-3">Konfirmasi Penghapusan Massal</h5>
-                <p class="text-muted" id="bulkDeleteMessage">
+            <div class="modal-body ims-user-confirm-body">
+                <i class="bi bi-exclamation-triangle ims-user-confirm-icon" aria-hidden="true"></i>
+                <h5 id="bulkDeleteTitle">Konfirmasi Penghapusan Massal</h5>
+                <p class="text-ims-muted" id="bulkDeleteMessage">
                     Apakah Anda yakin ingin menghapus pengguna terpilih?
                     Hanya pengguna nonaktif yang akan dihapus.
                 </p>
-                <div class="d-flex gap-2 justify-content-center mt-4">
-                    <button type="button" class="btn btn-danger" id="bulkDeleteConfirm">
+                <div class="ims-user-confirm-actions">
+                    <button type="button" class="ims-btn ims-btn--danger" id="bulkDeleteConfirm">
                         <i class="bi bi-trash me-1"></i>Hapus Terpilih
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
                 </div>
             </div>
         </div>
@@ -369,5 +372,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/user-list.js' %}"></script>
+<script src="{% static 'js/user-list.js' %}?v={{ app_version }}-wave5-users"></script>
 {% endblock %}

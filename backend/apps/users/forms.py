@@ -84,12 +84,12 @@ def _save_role_default_module_scopes(user, role):
 class UserCreateForm(forms.ModelForm):
     password1 = forms.CharField(
         label="Password",
-        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        widget=forms.PasswordInput(attrs={"class": "ims-control"}),
         strip=False,
     )
     password2 = forms.CharField(
         label="Konfirmasi Password",
-        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        widget=forms.PasswordInput(attrs={"class": "ims-control"}),
         strip=False,
     )
 
@@ -100,13 +100,13 @@ class UserCreateForm(forms.ModelForm):
             "role": "Jabatan",
         }
         widgets = {
-            "username": forms.TextInput(attrs={"class": "form-control"}),
-            "full_name": forms.TextInput(attrs={"class": "form-control"}),
-            "nip": forms.TextInput(attrs={"class": "form-control"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "role": forms.Select(attrs={"class": "form-select"}),
-            "facility": forms.Select(attrs={"class": "form-select"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "username": forms.TextInput(attrs={"class": "ims-control"}),
+            "full_name": forms.TextInput(attrs={"class": "ims-control"}),
+            "nip": forms.TextInput(attrs={"class": "ims-control"}),
+            "email": forms.EmailInput(attrs={"class": "ims-control"}),
+            "role": forms.Select(attrs={"class": "ims-control"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "ims-switch"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -127,7 +127,7 @@ class UserCreateForm(forms.ModelForm):
                 choices=ModuleAccess.Scope.choices,
                 initial=default_scope,
                 required=True,
-                widget=forms.Select(attrs={"class": "form-select"}),
+                widget=forms.Select(attrs={"class": "ims-control"}),
             )
 
     def clean_username(self):
@@ -190,13 +190,13 @@ class UserUpdateForm(forms.ModelForm):
             "role": "Jabatan",
         }
         widgets = {
-            "username": forms.TextInput(attrs={"class": "form-control"}),
-            "full_name": forms.TextInput(attrs={"class": "form-control"}),
-            "nip": forms.TextInput(attrs={"class": "form-control"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "role": forms.Select(attrs={"class": "form-select"}),
-            "facility": forms.Select(attrs={"class": "form-select"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "username": forms.TextInput(attrs={"class": "ims-control"}),
+            "full_name": forms.TextInput(attrs={"class": "ims-control"}),
+            "nip": forms.TextInput(attrs={"class": "ims-control"}),
+            "email": forms.EmailInput(attrs={"class": "ims-control"}),
+            "role": forms.Select(attrs={"class": "ims-control"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "ims-switch"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -229,7 +229,7 @@ class UserUpdateForm(forms.ModelForm):
                 choices=ModuleAccess.Scope.choices,
                 initial=initial_scope,
                 required=True,
-                widget=forms.Select(attrs={"class": "form-select"}),
+                widget=forms.Select(attrs={"class": "ims-control"}),
             )
 
     def clean_username(self):

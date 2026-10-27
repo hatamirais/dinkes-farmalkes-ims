@@ -1,4 +1,4 @@
-<div class="ims-form-field"{% if field.name == 'program' %} data-program-field{% endif %}>
+<div class="ims-form-field"{% if field.name == 'program' %} data-program-field{% endif %}{% if field.name == 'facility' %} data-facility-field{% endif %}>
     <div class="ims-form-label-row">
         <label for="{{ field.id_for_label }}" class="ims-label">{{ field.label }}</label>
         {% if quick_create_target %}
