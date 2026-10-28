@@ -5570,6 +5570,50 @@ class StockTransferCreateValidationTests(TestCase):
         )
         self.url = reverse('stock:transfer_create')
 
+    def test_transfer_create_keeps_indonesian_labels_without_bootstrap_css(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'app.tailwind.css')
+        self.assertNotContains(response, 'bootstrap.min.css')
+        self.assertRegex(
+            response.content.decode(),
+            r'js/app\.js\?v=[^" ]+-wave6-stock-transfer-retained-errors',
+        )
+        self.assertContains(response, 'app.tailwind.css?v=')
+        self.assertEqual(response.content.decode().count('class="ims-transfer-sort"'), 9)
+        self.assertContains(response, 'id="locationStockPageSize"')
+        self.assertContains(response, 'id="locationStockPagination"')
+        for label in ('Tanggal Mutasi', 'Lokasi Asal', 'Lokasi Tujuan', 'Catatan Dokumen'):
+            self.assertContains(response, f'class="ims-label">{label}</label>')
+
+    def test_transfer_create_field_error_is_associated_with_destination(self):
+        payload = self._payload(quantity='2')
+        payload['destination_location'] = payload['source_location']
+
+        response = self.client.post(self.url, payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'aria-describedby="id_destination_location_errors"')
+        self.assertContains(response, 'id="id_destination_location_errors"')
+        self.assertContains(response, 'Lokasi tujuan harus berbeda dari lokasi asal.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_restores_selected_lines_when_header_is_invalid(self):
+        payload = self._payload(quantity='2')
+        payload['destination_location'] = payload['source_location']
+        payload['stock_id'] = [str(self.stock.pk), str(self.other_stock.pk)]
+        payload['quantity'] = ['2', '3']
+
+        response = self.client.post(self.url, payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [(line['stock_id'], line['quantity']) for line in response.context['transfer_line_state']],
+            [(str(self.stock.pk), '2'), (str(self.other_stock.pk), '3')],
+        )
+        self.assertFalse(StockTransfer.objects.exists())
+
     def _payload(self, *, stock_id=None, quantity='0'):
         return {
             'transfer_date': '2026-07-13',
@@ -5648,6 +5692,30 @@ class StockTransferCreateValidationTests(TestCase):
         self.assertContains(response, 'Batch stok tidak berada di lokasi asal yang dipilih.')
         self.assertFalse(StockTransfer.objects.exists())
 
+    def test_transfer_create_exposes_unavailable_line_error_for_removal(self):
+        unavailable = Stock.objects.create(
+            item=self.item,
+            location=self.source_location,
+            batch_lot='TRF-UNAVAILABLE',
+            expiry_date=date(2030, 3, 1),
+            quantity=Decimal('0'),
+            sumber_dana=self.funding,
+        )
+        payload = self._payload(stock_id=unavailable.pk, quantity='1')
+
+        response = self.client.post(self.url, payload)
+        search = self.client.get(
+            reverse('stock:api_location_stock_search'),
+            {'location': self.source_location.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="transferRetainedErrors"')
+        self.assertEqual(response.context['transfer_line_state'][0]['stock_id'], str(unavailable.pk))
+        self.assertTrue(response.context['transfer_line_state'][0]['errors'])
+        self.assertNotIn(unavailable.pk, [row['stock_id'] for row in search.json()['results']])
+        self.assertFalse(StockTransfer.objects.exists())
+
     def test_transfer_create_rejects_mixed_valid_and_invalid_rows_atomically(self):
         response = self.client.post(
             self.url,
@@ -5695,6 +5763,69 @@ class StockTransferCreateValidationTests(TestCase):
             'RCV-TRF-CREATE-001',
         )
         self.assertIn('Dokumen: RCV-TRF-CREATE-001', stock_row['label'])
+
+    def test_location_stock_search_paginates_filtered_rows_and_sorts_available(self):
+        Stock.objects.bulk_create(
+            [
+                Stock(
+                    item=self.item,
+                    location=self.source_location,
+                    batch_lot=f'PAGING-{number:02d}',
+                    expiry_date=date(2030, 2, 1),
+                    quantity=Decimal(number),
+                    sumber_dana=self.funding,
+                )
+                for number in range(1, 27)
+            ]
+        )
+        endpoint = reverse('stock:api_location_stock_search')
+        filters = {
+            'location': self.source_location.pk,
+            'q': 'PAGING-',
+            'page_size': '25',
+            'sort': 'available',
+            'direction': 'desc',
+        }
+
+        first = self.client.get(endpoint, {**filters, 'page': '1'}).json()
+        second = self.client.get(endpoint, {**filters, 'page': '2'}).json()
+
+        self.assertEqual(len(first['results']), 25)
+        self.assertEqual(first['results'][0]['available'], '26.00')
+        self.assertEqual(first['pagination']['total'], 26)
+        self.assertEqual(first['pagination']['page_size'], 25)
+        self.assertEqual(first['pagination']['start'], 1)
+        self.assertEqual(first['pagination']['end'], 25)
+        self.assertTrue(first['pagination']['has_next'])
+        self.assertEqual(len(second['results']), 1)
+        self.assertEqual(second['results'][0]['available'], '1.00')
+        self.assertEqual(second['pagination']['start'], 26)
+        self.assertEqual(second['pagination']['end'], 26)
+        self.assertFalse(second['pagination']['has_next'])
+
+        for page_size in ('50', '100', '200'):
+            response = self.client.get(endpoint, {**filters, 'page_size': page_size}).json()
+            self.assertEqual(response['pagination']['page_size'], int(page_size))
+            self.assertEqual(len(response['results']), 26)
+        invalid_size = self.client.get(endpoint, {**filters, 'page_size': '999'}).json()
+        self.assertEqual(invalid_size['pagination']['page_size'], 200)
+        batch_desc = self.client.get(
+            endpoint,
+            {**filters, 'sort': 'batch', 'direction': 'desc', 'page': '1'},
+        ).json()
+        self.assertEqual(batch_desc['results'][0]['batch'], 'PAGING-26')
+        last_page = self.client.get(endpoint, {**filters, 'page': '999'}).json()
+        self.assertEqual(last_page['pagination']['page'], 2)
+        invalid_page = self.client.get(endpoint, {**filters, 'page': 'invalid'}).json()
+        self.assertEqual(invalid_page['pagination']['page'], 1)
+
+    def test_location_stock_search_empty_result_has_pagination_metadata(self):
+        response = self.client.get(reverse('stock:api_location_stock_search'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['results'], [])
+        self.assertEqual(response.json()['pagination']['total'], 0)
+        self.assertEqual(response.json()['pagination']['start'], 0)
 
     def test_transfer_detail_displays_selected_source_document_layer(self):
         self.stock.source_document_number = 'RCV-TRF-CREATE-DETAIL'

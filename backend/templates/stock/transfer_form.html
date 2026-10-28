@@ -1,82 +1,103 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
 
 {% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}Mutasi Lokasi{% endblock %}
 
 {% block content %}
-<div class="card content-card table-container form-page-card">
-    <div class="card-header">
-        <span><i class="bi bi-arrow-left-right me-2"></i>{{ title }}</span>
-    </div>
-    <div class="card-body">
-        <form method="post" novalidate id="transferForm" data-stock-search-url="{% url 'stock:api_location_stock_search' %}">
+<div class="ims-transfer-create">
+    <div class="ims-transfer-create-panel">
+        <div class="ims-transfer-create-header"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>{{ title }}</div>
+        <form method="post" novalidate id="transferForm" data-stock-search-url="{% url 'stock:api_location_stock_search' %}" class="ims-transfer-create-body">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div class="alert alert-danger py-2">
+            <div class="ims-alert ims-alert--danger" role="alert">
                 {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
             </div>
             {% endif %}
 
-            <div class="row g-3 mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">Tanggal Mutasi</label>
-                    {{ form.transfer_date }}
-                    {% for error in form.transfer_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            <div class="ims-transfer-create-fields">
+                <div class="ims-form-field">
+                    <div class="ims-form-label-row"><label for="{{ form.transfer_date.id_for_label }}" class="ims-label">Tanggal Mutasi</label></div>
+                    {% tailwind_widget form.transfer_date %}
+                    {% if form.transfer_date.errors %}<div id="{{ form.transfer_date.auto_id }}_errors" class="ims-error">{% for error in form.transfer_date.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Lokasi Asal</label>
-                    {{ form.source_location }}
-                    {% for error in form.source_location.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                <div class="ims-form-field">
+                    <div class="ims-form-label-row"><label for="{{ form.source_location.id_for_label }}" class="ims-label">Lokasi Asal</label></div>
+                    {% tailwind_widget form.source_location %}
+                    {% if form.source_location.errors %}<div id="{{ form.source_location.auto_id }}_errors" class="ims-error">{% for error in form.source_location.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Lokasi Tujuan</label>
-                    {{ form.destination_location }}
-                    {% for error in form.destination_location.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Catatan Dokumen</label>
-                {{ form.notes }}
-            </div>
-
-            <hr>
-
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0"><i class="bi bi-table me-2"></i>Daftar Stok di Lokasi Asal</h6>
-                <div class="d-flex gap-2 align-items-center">
-                    <input type="text" id="locationStockSearch" class="form-control form-control-sm" placeholder="Cari kode / nama / kategori / batch..." style="min-width: 320px;">
+                <div class="ims-form-field">
+                    <div class="ims-form-label-row"><label for="{{ form.destination_location.id_for_label }}" class="ims-label">Lokasi Tujuan</label></div>
+                    {% tailwind_widget form.destination_location %}
+                    {% if form.destination_location.errors %}<div id="{{ form.destination_location.auto_id }}_errors" class="ims-error">{% for error in form.destination_location.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
                 </div>
             </div>
-
-            <div class="table-responsive">
-                <table class="table table-sm align-middle" id="locationStockTable">
-                    <thead>
-                        <tr>
-                            <th>Kode</th>
-                            <th>Nama Barang</th>
-                            <th>Kategori</th>
-                            <th>Batch/Lot</th>
-                            <th>Tanggal Kedaluwarsa</th>
-                            <th>Dokumen Sumber</th>
-                            <th class="text-end">Tersedia</th>
-                            <th>Sumber Dana</th>
-                            <th style="width: 160px;">Kuantitas Mutasi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="locationStockTableBody">
-                        <tr>
-                            <td colspan="9" class="text-center text-muted py-3">Pilih lokasi asal untuk menampilkan stok.</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="ims-form-field ims-transfer-create-notes">
+                <div class="ims-form-label-row"><label for="{{ form.notes.id_for_label }}" class="ims-label">Catatan Dokumen</label></div>
+                {% tailwind_widget form.notes %}
+                {% if form.notes.errors %}<div id="{{ form.notes.auto_id }}_errors" class="ims-error">{% for error in form.notes.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
             </div>
-            {{ transfer_line_state|json_script:"transfer-line-state" }}
 
-            <div class="mt-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Simpan Draft</button>
-                <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-secondary">Batal</a>
+            <section class="ims-transfer-create-stock" aria-labelledby="transfer-stock-heading">
+                <div class="ims-transfer-create-stock-heading">
+                    <h2 id="transfer-stock-heading"><i class="bi bi-table" aria-hidden="true"></i>Daftar Stok di Lokasi Asal</h2>
+                    <div class="ims-transfer-create-search">
+                        <label for="locationStockSearch" class="ims-label">Cari Stok</label>
+                        <input type="text" id="locationStockSearch" class="ims-control" placeholder="Cari kode / nama / kategori / batch...">
+                    </div>
+                </div>
+
+                <div id="transferRetainedErrors" class="ims-alert ims-alert--danger ims-transfer-retained-errors" role="alert" hidden>
+                    <p>Beberapa pilihan mutasi tidak tampil dalam hasil stok saat ini. Hapus pilihan yang tidak dapat digunakan, lalu periksa kembali jumlah mutasi.</p>
+                    <ul id="transferRetainedErrorList"></ul>
+                </div>
+
+                <div class="ims-table-scroll ims-transfer-create-table-scroll" role="region" aria-label="Tabel stok di lokasi asal" tabindex="0">
+                    <table class="table ims-table" id="locationStockTable">
+                        <thead>
+                            <tr>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="kode">Kode <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="nama">Nama Barang <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="kategori">Kategori <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="batch">Batch/Lot <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="expiry">Tanggal Kedaluwarsa <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="document">Dokumen Sumber <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col" class="ims-table-number"><button type="button" class="ims-transfer-sort" data-sort-key="available">Tersedia <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="funding">Sumber Dana <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col"><button type="button" class="ims-transfer-sort" data-sort-key="quantity" title="Urutkan kuantitas pada halaman ini">Kuantitas Mutasi <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                            </tr>
+                        </thead>
+                        <tbody id="locationStockTableBody">
+                            <tr>
+                                <td colspan="9" class="ims-transfer-create-empty">Pilih lokasi asal untuk menampilkan stok.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="ims-table-pagination" id="locationStockPager">
+                    <div class="ims-table-pagination__size">
+                        <label for="locationStockPageSize" class="ims-label">Baris per halaman</label>
+                        <select id="locationStockPageSize" class="ims-control">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200" selected>200</option>
+                        </select>
+                    </div>
+                    <div class="ims-table-pagination__summary" role="status" aria-live="polite">
+                        <span id="locationStockCount">Menampilkan 0 dari 0 item</span>
+                        <span id="locationStockSelected">0 item dipilih</span>
+                    </div>
+                    <nav id="locationStockPagination" class="ims-pagination" aria-label="Halaman stok lokasi asal"></nav>
+                </div>
+                {{ transfer_line_state|json_script:"transfer-line-state" }}
+            </section>
+
+            <div class="ims-form-actions">
+                <button type="submit" class="ims-btn ims-btn--primary"><i class="bi bi-check2" aria-hidden="true"></i>Simpan Draft</button>
+                <a href="{% url 'stock:transfer_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
             </div>
         </form>
     </div>

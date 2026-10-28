@@ -6,6 +6,7 @@
 @import "./users-forms.css";
 @import "./core-settings.css";
 @import "./puskesmas-subunits.css";
+@import "./stock-transfer-form.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";
@@ -304,6 +305,15 @@
   .ims-page-link:not([aria-disabled="true"]):active { background: #e0eaf1; }
   .ims-page-link[aria-current="page"] { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: var(--color-ims-surface); }
   .ims-page-link[aria-disabled="true"] { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); cursor: not-allowed; }
+  .ims-table-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; border-top: 1px solid var(--color-ims-border); padding-top: 16px; }
+  .ims-table-pagination__size { display: flex; align-items: center; gap: 8px; }
+  .ims-table-pagination__size .ims-label { margin: 0; white-space: nowrap; }
+  .ims-table-pagination__size .ims-control { width: auto; min-width: 76px; }
+  .ims-table-pagination__summary { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--color-ims-muted); font-size: var(--text-ims-sm); }
+  .ims-table-pagination .ims-pagination { margin-left: auto; }
+  .ims-table-pagination .ims-page-link { cursor: pointer; }
+  .ims-table-pagination .ims-page-link:disabled { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); cursor: not-allowed; }
+  @media (max-width: 767px) { .ims-table-pagination .ims-pagination { margin-left: 0; width: 100%; } }
 }
 
 @media (prefers-reduced-motion: reduce) {
