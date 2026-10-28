@@ -924,6 +924,10 @@ function initStockTransferTable() {
     const initialSort = pageParams.get('sort');
     let sortKey = validSortKeys.has(initialSort) ? initialSort : null;
     let sortDirection = pageParams.get('direction') === 'desc' ? 'desc' : 'asc';
+    const initialBaseSort = pageParams.get('base_sort');
+    let baseSortKey = sortKey === 'quantity' && validSortKeys.has(initialBaseSort) && initialBaseSort !== 'quantity'
+        ? initialBaseSort : null;
+    let baseSortDirection = pageParams.get('base_direction') === 'desc' ? 'desc' : 'asc';
     let currentPage = Number.parseInt(pageParams.get('page') || '1', 10) || 1;
     if (['25', '50', '100', '200'].includes(pageParams.get('page_size'))) {
         pageSizeSelect.value = pageParams.get('page_size');
@@ -969,6 +973,8 @@ function initStockTransferTable() {
             page_size: pageSizeSelect.value,
             sort: sortKey || '',
             direction: sortKey ? sortDirection : '',
+            base_sort: sortKey === 'quantity' ? baseSortKey || '' : '',
+            base_direction: sortKey === 'quantity' && baseSortKey ? baseSortDirection : '',
         };
         Object.entries(values).forEach(([key, value]) => {
             if (value) url.searchParams.set(key, value);
@@ -1041,13 +1047,19 @@ function initStockTransferTable() {
     sortButtons.forEach((button) => button.addEventListener('click', () => {
         const key = button.dataset.sortKey;
         const previousKey = sortKey;
+        const previousDirection = sortDirection;
         sortDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
         sortKey = key;
         updateSortHeaders();
-        if (key === 'quantity' && previousKey === 'quantity') {
+        if (key === 'quantity') {
+            if (previousKey !== 'quantity') {
+                baseSortKey = previousKey;
+                baseSortDirection = previousDirection;
+            }
             sortRows();
             updateBrowserUrl();
         } else {
+            baseSortKey = null;
             fetchRows(1);
         }
     }));
@@ -1144,9 +1156,10 @@ function initStockTransferTable() {
         const params = new URLSearchParams({
             location, q: query, page: String(page), page_size: pageSizeSelect.value,
         });
-        if (sortKey) {
-            params.set('sort', sortKey);
-            params.set('direction', sortDirection);
+        const requestSortKey = sortKey === 'quantity' ? baseSortKey : sortKey;
+        if (requestSortKey) {
+            params.set('sort', requestSortKey);
+            params.set('direction', sortKey === 'quantity' ? baseSortDirection : sortDirection);
         }
         const url = `${searchUrl}?${params}`;
         fetch(url)

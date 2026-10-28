@@ -5578,7 +5578,7 @@ class StockTransferCreateValidationTests(TestCase):
         self.assertNotContains(response, 'bootstrap.min.css')
         self.assertRegex(
             response.content.decode(),
-            r'js/app\.js\?v=[^" ]+-wave6-stock-transfer-review',
+            r'js/app\.js\?v=[^" ]+-wave6-stock-transfer-quantity-sort',
         )
         self.assertContains(response, 'app.tailwind.css?v=')
         self.assertEqual(response.content.decode().count('class="ims-transfer-sort"'), 9)
