@@ -1673,6 +1673,17 @@ def transfer_create(request):
         form = StockTransferForm(request.POST)
         stock_ids = request.POST.getlist("stock_id")
         qty_values = request.POST.getlist("quantity")
+        transfer_line_state = [
+            {
+                "row_number": index,
+                "stock_id": str(stock_id or "").strip(),
+                "quantity": str(quantity or "").strip(),
+                "errors": [],
+            }
+            for index, (stock_id, quantity) in enumerate(
+                zip_longest(stock_ids, qty_values, fillvalue=""), start=1
+            )
+        ]
 
         if form.is_valid():
             valid_lines, row_errors, transfer_line_state = _validate_transfer_create_lines(
@@ -1877,29 +1888,75 @@ def transfer_complete(request, transfer_id):
 def api_location_stock_search(request):
     location_id = request.GET.get("location")
     q = request.GET.get("q", "").strip()
-
-    if not location_id:
-        return JsonResponse({"results": []})
-
-    queryset = (
-        Stock.objects.select_related(
-            "item", "item__kategori", "sumber_dana", "location"
-        )
-        .filter(location_id=location_id)
-        .filter(quantity__gt=F("reserved"))
-        .order_by(F("expiry_date").asc(nulls_last=True), "item__nama_barang", "batch_lot")
+    allowed_page_sizes = {25, 50, 100, 200}
+    requested_page_size = request.GET.get("page_size", "200")
+    page_size = (
+        int(requested_page_size)
+        if requested_page_size in {str(size) for size in allowed_page_sizes}
+        else 200
     )
-    if q:
-        queryset = queryset.filter(
-            Q(item__kode_barang__icontains=q)
-            | Q(item__nama_barang__icontains=q)
-            | Q(item__kategori__name__icontains=q)
-            | Q(batch_lot__icontains=q)
-            | Q(source_document_number__icontains=q)
+    sort_key = request.GET.get("sort", "")
+    direction = "desc" if request.GET.get("direction") == "desc" else "asc"
+
+    queryset = Stock.objects.none()
+    if location_id and location_id.isdecimal():
+        queryset = (
+            Stock.objects.select_related(
+                "item", "item__kategori", "sumber_dana", "location"
+            )
+            .filter(location_id=location_id)
+            .filter(quantity__gt=F("reserved"))
         )
+        if q:
+            queryset = queryset.filter(
+                Q(item__kode_barang__icontains=q)
+                | Q(item__nama_barang__icontains=q)
+                | Q(item__kategori__name__icontains=q)
+                | Q(batch_lot__icontains=q)
+                | Q(source_document_number__icontains=q)
+            )
+
+        sort_fields = {
+            "kode": "item__kode_barang",
+            "nama": "item__nama_barang",
+            "kategori": "item__kategori__name",
+            "batch": "batch_lot",
+            "document": "source_document_number",
+            "funding": "sumber_dana__name",
+        }
+        if sort_key in sort_fields:
+            field = sort_fields[sort_key]
+            queryset = queryset.order_by(
+                f"-{field}" if direction == "desc" else field, "pk"
+            )
+        elif sort_key == "available":
+            available = F("quantity") - F("reserved")
+            queryset = queryset.order_by(
+                available.desc() if direction == "desc" else available.asc(), "pk"
+            )
+        elif sort_key == "expiry":
+            expiry = F("expiry_date")
+            queryset = queryset.order_by(
+                expiry.desc(nulls_last=True)
+                if direction == "desc"
+                else expiry.asc(nulls_last=True),
+                "item__nama_barang",
+                "batch_lot",
+                "pk",
+            )
+        else:
+            queryset = queryset.order_by(
+                F("expiry_date").asc(nulls_last=True),
+                "item__nama_barang",
+                "batch_lot",
+                "pk",
+            )
+
+    paginator = Paginator(queryset, page_size)
+    stock_page = paginator.get_page(request.GET.get("page"))
 
     results = []
-    for stock in queryset[:200]:
+    for stock in stock_page.object_list:
         results.append(
             {
                 "stock_id": stock.id,
@@ -1919,4 +1976,23 @@ def api_location_stock_search(request):
             }
         )
 
-    return JsonResponse({"results": results})
+    return JsonResponse(
+        {
+            "results": results,
+            "pagination": {
+                "page": stock_page.number,
+                "page_size": page_size,
+                "total": paginator.count,
+                "pages": paginator.num_pages,
+                "start": stock_page.start_index(),
+                "end": stock_page.end_index(),
+                "has_previous": stock_page.has_previous(),
+                "has_next": stock_page.has_next(),
+                "page_range": list(
+                    paginator.get_elided_page_range(
+                        stock_page.number, on_each_side=2, on_ends=1
+                    )
+                ),
+            },
+        }
+    )

@@ -27,6 +27,11 @@ App-specific guidance for stock balances and ledger behavior.
 - Source-layer migrations must keep paired transfer `OUT` and `IN` movements on the same source document layer.
 - Source-layer migrations must disambiguate historical receiving/opening-balance document-number collisions.
 
+## Stock Transfer Creation Table
+
+- The location stock-search endpoint filters available source-layer rows and paginates the full filtered queryset with Django `Paginator`; allowed page sizes are 25, 50, 100, and 200, defaulting to 200. Stock-field sorts run before pagination, with expiry dates null-last. Unsaved transfer-quantity sorting is limited to the visible page.
+- The create page retains selected stock IDs and entered quantities across page, page-size, search, and sort changes. Its POST still sends paired `stock_id` and `quantity` values through the existing draft validation and does not move stock or issue a document number.
+
 ## Opening Balance Import
 
 - Initial stock bootstrap must use the Stock Admin opening-balance import at `/admin/stock/stock/opening-balance/import-csv/`.

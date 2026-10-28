@@ -903,13 +903,36 @@ function initStockTransferTable() {
     const sourceLocation = form.querySelector('[name="source_location"]');
     const searchInput = document.getElementById('locationStockSearch');
     const tableBody = document.getElementById('locationStockTableBody');
+    const pageSizeSelect = document.getElementById('locationStockPageSize');
+    const countElement = document.getElementById('locationStockCount');
+    const selectedElement = document.getElementById('locationStockSelected');
+    const paginationElement = document.getElementById('locationStockPagination');
     const searchUrl = form.getAttribute('data-stock-search-url');
     const lineStateElement = document.getElementById('transfer-line-state');
 
-    if (!sourceLocation || !searchInput || !tableBody || !searchUrl) return;
+    if (!sourceLocation || !searchInput || !tableBody || !pageSizeSelect || !countElement || !selectedElement || !paginationElement || !searchUrl) return;
 
     let debounceTimer = null;
+    let fetchSequence = 0;
     let lineStateByStockId = new Map();
+    const sortButtons = [...form.querySelectorAll('#locationStockTable thead .ims-transfer-sort')];
+    const validSortKeys = new Set([
+        'kode', 'nama', 'kategori', 'batch', 'expiry',
+        'document', 'available', 'funding', 'quantity',
+    ]);
+    const pageParams = new URLSearchParams(window.location.search);
+    const initialSort = pageParams.get('sort');
+    let sortKey = validSortKeys.has(initialSort) ? initialSort : null;
+    let sortDirection = pageParams.get('direction') === 'desc' ? 'desc' : 'asc';
+    let currentPage = Number.parseInt(pageParams.get('page') || '1', 10) || 1;
+    if (['25', '50', '100', '200'].includes(pageParams.get('page_size'))) {
+        pageSizeSelect.value = pageParams.get('page_size');
+    }
+    searchInput.value = pageParams.get('q') || '';
+    const initialLocation = pageParams.get('location');
+    if (!sourceLocation.value && initialLocation && [...sourceLocation.options].some((option) => option.value === initialLocation)) {
+        sourceLocation.value = initialLocation;
+    }
 
     if (lineStateElement?.textContent) {
         try {
@@ -917,7 +940,7 @@ function initStockTransferTable() {
             if (Array.isArray(parsedState)) {
                 lineStateByStockId = new Map(
                     parsedState
-                        .filter((entry) => entry && entry.stock_id)
+                        .filter((entry) => entry && entry.stock_id && entry.quantity && Number(entry.quantity) !== 0)
                         .map((entry) => [String(entry.stock_id), entry]),
                 );
             }
@@ -933,11 +956,108 @@ function initStockTransferTable() {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
+    const updateSelectedCount = () => {
+        selectedElement.textContent = `${lineStateByStockId.size} item dipilih`;
+    };
+
+    const updateBrowserUrl = () => {
+        const url = new URL(window.location.href);
+        const values = {
+            location: sourceLocation.value,
+            q: searchInput.value.trim(),
+            page: String(currentPage),
+            page_size: pageSizeSelect.value,
+            sort: sortKey || '',
+            direction: sortKey ? sortDirection : '',
+        };
+        Object.entries(values).forEach(([key, value]) => {
+            if (value) url.searchParams.set(key, value);
+            else url.searchParams.delete(key);
+        });
+        window.history.replaceState(window.history.state, '', url);
+    };
+
+    const renderPagination = (pagination) => {
+        currentPage = pagination.page;
+        pageSizeSelect.value = String(pagination.page_size);
+        countElement.textContent = pagination.total
+            ? `Menampilkan ${pagination.start}–${pagination.end} dari ${pagination.total} item`
+            : 'Menampilkan 0 dari 0 item';
+
+        const pageButton = (label, page, { disabled = false, current = false, ariaLabel = '' } = {}) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'ims-page-link';
+            button.textContent = label;
+            button.dataset.page = String(page);
+            button.disabled = disabled;
+            if (current) button.setAttribute('aria-current', 'page');
+            if (ariaLabel) button.setAttribute('aria-label', ariaLabel);
+            return button;
+        };
+
+        const controls = [pageButton('Sebelumnya', currentPage - 1, { disabled: !pagination.has_previous })];
+        pagination.page_range.forEach((number) => {
+            if (typeof number === 'number') {
+                controls.push(pageButton(String(number), number, { current: number === currentPage, ariaLabel: `Halaman ${number}` }));
+            } else {
+                const ellipsis = document.createElement('span');
+                ellipsis.className = 'ims-table-pagination__ellipsis';
+                ellipsis.textContent = number;
+                controls.push(ellipsis);
+            }
+        });
+        controls.push(pageButton('Berikutnya', currentPage + 1, { disabled: !pagination.has_next }));
+        paginationElement.replaceChildren(...controls);
+        updateBrowserUrl();
+    };
+    updateSelectedCount();
+
+    const sortRows = () => {
+        if (sortKey !== 'quantity') return;
+        const rows = [...tableBody.querySelectorAll('tr')].filter((row) => row.querySelector('input[name="stock_id"]'));
+        if (!rows.length) return;
+        const multiplier = sortDirection === 'asc' ? 1 : -1;
+        rows.sort((left, right) => {
+            const a = Number.parseFloat(left.querySelector('input[name="quantity"]')?.value || '0');
+            const b = Number.parseFloat(right.querySelector('input[name="quantity"]')?.value || '0');
+            return (a - b) * multiplier;
+        });
+        tableBody.replaceChildren(...rows);
+    };
+
+    const updateSortHeaders = () => {
+        sortButtons.forEach((button) => {
+            const active = button.dataset.sortKey === sortKey;
+            const header = button.closest('th');
+            if (active) header.setAttribute('aria-sort', sortDirection === 'asc' ? 'ascending' : 'descending');
+            else header.removeAttribute('aria-sort');
+            const scope = button.dataset.sortKey === 'quantity' ? ' pada halaman ini' : '';
+            button.setAttribute('aria-label', `Urutkan ${button.textContent.trim()}${scope} ${active && sortDirection === 'asc' ? 'menurun' : 'menaik'}`);
+            button.querySelector('.bi').className = `bi bi-arrow-${active ? sortDirection === 'asc' ? 'up' : 'down' : 'down-up'}`;
+        });
+    };
+
+    sortButtons.forEach((button) => button.addEventListener('click', () => {
+        const key = button.dataset.sortKey;
+        const previousKey = sortKey;
+        sortDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
+        sortKey = key;
+        updateSortHeaders();
+        if (key === 'quantity' && previousKey === 'quantity') {
+            sortRows();
+            updateBrowserUrl();
+        } else {
+            fetchRows(1);
+        }
+    }));
+    updateSortHeaders();
+
     const renderRows = (rows) => {
         tableBody.innerHTML = '';
         if (!rows || rows.length === 0) {
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="9" class="text-center text-muted py-3">Tidak ada stok yang cocok.</td>';
+            tr.innerHTML = '<td colspan="9" class="ims-transfer-create-empty">Tidak ada stok yang cocok.</td>';
             tableBody.appendChild(tr);
             return;
         }
@@ -946,24 +1066,26 @@ function initStockTransferTable() {
             const lineState = lineStateByStockId.get(String(row.stock_id));
             const rowErrors = Array.isArray(lineState?.errors) ? lineState.errors : [];
             const quantityValue = lineState?.quantity ? lineState.quantity : '0';
-            const invalidClass = rowErrors.length > 0 ? ' is-invalid' : '';
+            const invalidClass = rowErrors.length > 0 ? ' ims-control--invalid' : '';
+            const quantityId = `transfer-quantity-${row.stock_id}`;
+            const errorId = `${quantityId}-errors`;
             const errorMarkup = rowErrors.length > 0
-                ? `<div class="invalid-feedback d-block">${escapeHtml(rowErrors.join(' '))}</div>`
+                ? `<div id="${errorId}" class="ims-error">${escapeHtml(rowErrors.join(' '))}</div>`
                 : '';
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><code>${row.kode}</code><input type="hidden" name="stock_id" value="${row.stock_id}"></td>
-                <td>${row.nama}</td>
-                <td><span class="badge bg-light text-dark border">${row.kategori || '-'}</span></td>
-                <td>${row.batch}</td>
-                <td>${row.expiry}</td>
+                <td><code>${escapeHtml(row.kode)}</code><input type="hidden" name="stock_id" value="${escapeHtml(row.stock_id)}"></td>
+                <td>${escapeHtml(row.nama)}</td>
+                <td><span class="ims-transfer-create-tag">${escapeHtml(row.kategori || '-')}</span></td>
+                <td>${escapeHtml(row.batch)}</td>
+                <td>${escapeHtml(row.expiry)}</td>
                 <td><code>${escapeHtml(row.source_document_number || '-')}</code></td>
-                <td class="text-end fw-semibold">${formatDecimal(row.available)}</td>
-                <td><span class="badge bg-light text-dark border">${row.funding}</span></td>
+                <td class="ims-table-number">${formatDecimal(row.available, 0, 2)}</td>
+                <td><span class="ims-transfer-create-tag">${escapeHtml(row.funding)}</span></td>
                 <td>
-                    <div class="input-group input-group-sm">
-                        <input type="number" step="0.01" min="0" max="${row.available}" name="quantity" class="form-control form-control-sm${invalidClass}" value="${escapeHtml(quantityValue)}" placeholder="0">
-                        <button type="button" class="btn btn-outline-secondary js-fill-max" data-available="${row.available}" title="Isi Semua" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Isi Semua">
+                    <div class="ims-transfer-create-quantity">
+                        <input type="number" id="${quantityId}" step="0.01" min="0" max="${escapeHtml(row.available)}" name="quantity" class="ims-control${invalidClass}" value="${escapeHtml(quantityValue)}" placeholder="0" aria-label="Kuantitas mutasi ${escapeHtml(row.kode)} batch ${escapeHtml(row.batch)}"${rowErrors.length > 0 ? ` aria-invalid="true" aria-describedby="${errorId}"` : ''}>
+                        <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm js-fill-max" data-available="${escapeHtml(row.available)}" title="Isi Semua" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Isi Semua" aria-label="Isi semua stok tersedia untuk ${escapeHtml(row.kode)} batch ${escapeHtml(row.batch)}">
                             <i class="bi bi-arrow-bar-down"></i>
                         </button>
                     </div>
@@ -973,8 +1095,23 @@ function initStockTransferTable() {
             tableBody.appendChild(tr);
         });
 
+        if (sortKey === 'quantity') sortRows();
         initTooltips();
     };
+
+    tableBody.addEventListener('input', (event) => {
+        if (!event.target.matches('input[name="quantity"]')) return;
+        const row = event.target.closest('tr');
+        const stockId = row?.querySelector('input[name="stock_id"]')?.value;
+        if (!stockId) return;
+        const quantity = event.target.value;
+        if (quantity && Number(quantity) !== 0) {
+            lineStateByStockId.set(stockId, { stock_id: stockId, quantity, errors: [] });
+        } else {
+            lineStateByStockId.delete(stockId);
+        }
+        updateSelectedCount();
+    });
 
     tableBody.addEventListener('click', (e) => {
         const btn = e.target.closest('.js-fill-max');
@@ -984,33 +1121,81 @@ function initStockTransferTable() {
         const qtyInput = row.querySelector('input[name="quantity"]');
         if (!qtyInput) return;
         qtyInput.value = btn.getAttribute('data-available') || '0';
+        qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    const fetchRows = () => {
+    const emptyPagination = () => ({
+        page: 1, page_size: Number(pageSizeSelect.value), total: 0,
+        start: 0, end: 0, has_previous: false, has_next: false, page_range: [1],
+    });
+
+    const fetchRows = (page = 1) => {
+        currentPage = page;
         const location = sourceLocation.value;
         const query = searchInput.value.trim();
+        const sequence = ++fetchSequence;
 
         if (!location) {
-            tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Pilih lokasi asal untuk menampilkan stok.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9" class="ims-transfer-create-empty">Pilih lokasi asal untuk menampilkan stok.</td></tr>';
+            renderPagination(emptyPagination());
             return;
         }
 
-        const url = `${searchUrl}?location=${encodeURIComponent(location)}&q=${encodeURIComponent(query)}`;
+        const params = new URLSearchParams({
+            location, q: query, page: String(page), page_size: pageSizeSelect.value,
+        });
+        if (sortKey) {
+            params.set('sort', sortKey);
+            params.set('direction', sortDirection);
+        }
+        const url = `${searchUrl}?${params}`;
         fetch(url)
             .then((res) => res.json())
-            .then((data) => renderRows(data.results || []))
+            .then((data) => {
+                if (sequence !== fetchSequence) return;
+                renderRows(data.results || []);
+                renderPagination(data.pagination);
+            })
             .catch(() => {
-                tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Gagal memuat data stok.</td></tr>';
+                if (sequence !== fetchSequence) return;
+                tableBody.innerHTML = '<tr><td colspan="9" class="ims-transfer-create-empty ims-transfer-create-empty--error">Gagal memuat data stok.</td></tr>';
+                renderPagination(emptyPagination());
             });
     };
 
-    sourceLocation.addEventListener('change', fetchRows);
+    sourceLocation.addEventListener('change', () => {
+        lineStateByStockId.clear();
+        updateSelectedCount();
+        fetchRows(1);
+    });
     searchInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(fetchRows, 250);
+        debounceTimer = setTimeout(() => fetchRows(1), 250);
+    });
+    pageSizeSelect.addEventListener('change', () => fetchRows(1));
+    paginationElement.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-page]');
+        if (button && !button.disabled) fetchRows(Number(button.dataset.page));
     });
 
-    fetchRows();
+    form.addEventListener('submit', () => {
+        form.querySelectorAll('[data-transfer-selected-line]').forEach((input) => input.remove());
+        lineStateByStockId.forEach((line, stockId) => {
+            for (const [name, value] of [['stock_id', stockId], ['quantity', line.quantity]]) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                input.dataset.transferSelectedLine = '';
+                form.appendChild(input);
+            }
+        });
+        tableBody.querySelectorAll('input[name="stock_id"], input[name="quantity"]').forEach((input) => {
+            input.disabled = true;
+        });
+    });
+
+    fetchRows(currentPage);
 }
 
 /** Simple dd/mm/yyyy mask for date text inputs */

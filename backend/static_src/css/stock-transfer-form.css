@@ -1,0 +1,38 @@
+/* Wave 6 stock-transfer creation. Keep the searchable stock table dense. */
+@layer components {
+  .ims-transfer-create { min-width: 0; padding: 16px 0 32px; color: var(--color-ims-ink); }
+  .ims-transfer-create-panel { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: var(--color-ims-surface); box-shadow: var(--shadow-ims-surface); overflow: hidden; }
+  .ims-transfer-create-header { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--color-ims-border); padding: 16px 24px; background: var(--color-ims-surface-muted); font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-transfer-create-header .bi, .ims-transfer-create-stock-heading .bi { color: var(--color-ims-primary); }
+  .ims-transfer-create-body { display: grid; gap: 20px; min-width: 0; padding: 24px; }
+  .ims-transfer-create-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .ims-transfer-create-notes { max-width: 760px; }
+  .ims-transfer-create-stock { display: grid; gap: 12px; min-width: 0; border-top: 1px solid var(--color-ims-border); padding-top: 20px; }
+  .ims-transfer-create-stock-heading { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .ims-transfer-create-stock-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-transfer-create-search { width: min(100%, 360px); }
+  .ims-transfer-create-search .ims-label { display: block; margin-bottom: 8px; }
+  .ims-transfer-create-table-scroll { max-width: 100%; }
+  .ims-transfer-create-table-scroll .ims-table { min-width: 1040px; margin: 0; font-size: var(--text-ims-sm); }
+  .ims-transfer-create-table-scroll .ims-table th { white-space: normal; }
+  .ims-transfer-create-table-scroll .ims-table td { vertical-align: middle; }
+  .ims-transfer-create-table-scroll .ims-table th:last-child { width: 180px; }
+  .ims-transfer-create-table-scroll .ims-table .ims-table-number { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ims-transfer-sort { display: inline-flex; align-items: center; gap: 5px; border: 0; padding: 2px 0; background: transparent; color: inherit; font: inherit; text-align: inherit; white-space: normal; cursor: pointer; }
+  .ims-transfer-sort .bi { color: var(--color-ims-muted); font-size: 0.75rem; }
+  .ims-transfer-sort:hover, .ims-transfer-sort:hover .bi, .ims-transfer-create-table-scroll th[aria-sort] .ims-transfer-sort .bi { color: var(--color-ims-primary); }
+  .ims-transfer-sort:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; border-radius: 2px; }
+  .ims-transfer-create-table-scroll .ims-table code { white-space: nowrap; color: var(--color-ims-ink); }
+  .ims-transfer-create-tag { display: inline-block; max-width: 170px; border: 1px solid var(--color-ims-border); border-radius: 6px; padding: 2px 7px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); font-size: var(--text-ims-xs); white-space: normal; }
+  .ims-transfer-create-quantity { display: flex; align-items: start; flex-wrap: wrap; gap: 4px; min-width: 160px; }
+  .ims-transfer-create-quantity .ims-control { flex: 1 1 85px; width: 85px; min-width: 0; min-height: 32px; padding: 4px 7px; }
+  .ims-transfer-create-quantity .ims-btn { min-height: 32px; padding: 4px 8px; }
+  .ims-transfer-create-quantity .ims-error { flex-basis: 100%; }
+  .ims-transfer-create-empty { padding: 16px; text-align: center; color: var(--color-ims-muted); }
+  .ims-transfer-create-empty--error { color: var(--color-ims-danger); }
+  @media (max-width: 767px) {
+    .ims-transfer-create-header, .ims-transfer-create-body { padding: 16px; }
+    .ims-transfer-create-fields { grid-template-columns: minmax(0, 1fr); }
+    .ims-transfer-create-search { width: 100%; }
+  }
+}

@@ -965,7 +965,7 @@ class ErrorPageTemplateTests(TestCase):
         self.assertContains(response, f'css/app.tailwind.css?v={settings.APP_VERSION}-', status_code=200)
         self.assertNotContains(response, 'vendor/bootstrap/css/bootstrap.min.css')
         self.assertNotContains(response, 'css/style.css')
-        self.assertContains(response, f'js/app.js?v={settings.APP_VERSION}-20260909a', status_code=200)
+        self.assertContains(response, f'js/app.js?v={settings.APP_VERSION}-', status_code=200)
         self.assertContains(response, 'js/login.js', status_code=200)
         self.assertNotContains(response, 'value="super_admin"')
 
