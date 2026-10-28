@@ -13,9 +13,11 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Added a pinned Bun 1.3.14 toolchain, Tailwind CSS 4.3.3 source and generated stylesheet, reproducible CSS build/check commands, and a GitHub Actions check for generated CSS.
 - Added the authenticated Tailwind desktop shell with shared role-aware navigation, a responsive sidebar, top bar, user menu, and flash messages, plus the Daftar Barang pilot page.
 - Added page links to the existing 25-row stock transfer list paginator so later transfers are reachable.
+- Added server-side pagination to the Stock Transfer creation stock table with 25, 50, 100, and 200 row sizes, record counts, page controls, and stock-field sorting across pages.
 
 ### Changed
 
+- Migrated Stock Transfer draft creation to Tailwind while preserving its stock search, source layers, validation, and detail redirect; selected quantities now remain available across table pages, search, and sorting.
 - Migrated Wave 5 Items create/edit, shared lookup create, delete confirmation, and four quick-create dialogs to Tailwind; the Item List remains on its existing Tailwind page.
 - Migrated the Users list and account create/edit forms to Tailwind while retaining filters, bulk actions, status toggles, permission-driven module scopes, password controls, and Bootstrap JavaScript dialogs.
 - Migrated general and numbering settings to Tailwind while retaining bound fields, logo upload, the numbering rule formset, validation, live previews, and Bootstrap JavaScript collapse.
@@ -30,6 +32,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Let users remove an unavailable stock layer retained after Stock Transfer draft validation without discarding other selected quantities, and escaped stock labels before rendering search results.
 - Restored the Users role guide's visibility and scrolling in the Info Scope dialog at short viewport heights.
 - Replaced the protruding square on Users tooltips with a pointer that follows Bootstrap's Popper placement without overriding its transform.
 - Kept long Tom Select option lists keyboard-scrollable in the migrated Items form by scrolling the option content that Tom Select controls.
