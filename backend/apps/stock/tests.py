@@ -5578,7 +5578,7 @@ class StockTransferCreateValidationTests(TestCase):
         self.assertNotContains(response, 'bootstrap.min.css')
         self.assertRegex(
             response.content.decode(),
-            r'js/app\.js\?v=[^" ]+-wave6-stock-transfer-quantity-sort',
+            r'js/app\.js\?v=[^" ]+-wave6-stock-transfer-retained-errors',
         )
         self.assertContains(response, 'app.tailwind.css?v=')
         self.assertEqual(response.content.decode().count('class="ims-transfer-sort"'), 9)
@@ -5690,6 +5690,30 @@ class StockTransferCreateValidationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Batch stok tidak berada di lokasi asal yang dipilih.')
+        self.assertFalse(StockTransfer.objects.exists())
+
+    def test_transfer_create_exposes_unavailable_line_error_for_removal(self):
+        unavailable = Stock.objects.create(
+            item=self.item,
+            location=self.source_location,
+            batch_lot='TRF-UNAVAILABLE',
+            expiry_date=date(2030, 3, 1),
+            quantity=Decimal('0'),
+            sumber_dana=self.funding,
+        )
+        payload = self._payload(stock_id=unavailable.pk, quantity='1')
+
+        response = self.client.post(self.url, payload)
+        search = self.client.get(
+            reverse('stock:api_location_stock_search'),
+            {'location': self.source_location.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="transferRetainedErrors"')
+        self.assertEqual(response.context['transfer_line_state'][0]['stock_id'], str(unavailable.pk))
+        self.assertTrue(response.context['transfer_line_state'][0]['errors'])
+        self.assertNotIn(unavailable.pk, [row['stock_id'] for row in search.json()['results']])
         self.assertFalse(StockTransfer.objects.exists())
 
     def test_transfer_create_rejects_mixed_valid_and_invalid_rows_atomically(self):

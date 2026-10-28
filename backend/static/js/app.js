@@ -907,10 +907,12 @@ function initStockTransferTable() {
     const countElement = document.getElementById('locationStockCount');
     const selectedElement = document.getElementById('locationStockSelected');
     const paginationElement = document.getElementById('locationStockPagination');
+    const retainedErrors = document.getElementById('transferRetainedErrors');
+    const retainedErrorList = document.getElementById('transferRetainedErrorList');
     const searchUrl = form.getAttribute('data-stock-search-url');
     const lineStateElement = document.getElementById('transfer-line-state');
 
-    if (!sourceLocation || !searchInput || !tableBody || !pageSizeSelect || !countElement || !selectedElement || !paginationElement || !searchUrl) return;
+    if (!sourceLocation || !searchInput || !tableBody || !pageSizeSelect || !countElement || !selectedElement || !paginationElement || !retainedErrors || !retainedErrorList || !searchUrl) return;
 
     let debounceTimer = null;
     let fetchSequence = 0;
@@ -962,6 +964,29 @@ function initStockTransferTable() {
 
     const updateSelectedCount = () => {
         selectedElement.textContent = `${lineStateByStockId.size} item dipilih`;
+    };
+
+    const renderRetainedErrors = () => {
+        const visibleStockIds = new Set(
+            [...tableBody.querySelectorAll('input[name="stock_id"]')].map((input) => input.value),
+        );
+        const items = [];
+        lineStateByStockId.forEach((line, stockId) => {
+            if (visibleStockIds.has(stockId) || !Array.isArray(line.errors) || !line.errors.length) return;
+            const item = document.createElement('li');
+            const message = document.createElement('span');
+            message.textContent = `Stok ID ${stockId}: ${line.errors.join(' ')}`;
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'ims-btn ims-btn--neutral ims-btn--sm';
+            removeButton.dataset.stockId = stockId;
+            removeButton.textContent = 'Hapus pilihan';
+            removeButton.setAttribute('aria-label', `Hapus pilihan stok ID ${stockId}`);
+            item.append(message, removeButton);
+            items.push(item);
+        });
+        retainedErrorList.replaceChildren(...items);
+        retainedErrors.hidden = items.length === 0;
     };
 
     const updateBrowserUrl = () => {
@@ -1018,6 +1043,7 @@ function initStockTransferTable() {
         updateBrowserUrl();
     };
     updateSelectedCount();
+    renderRetainedErrors();
 
     const sortRows = () => {
         if (sortKey !== 'quantity') return;
@@ -1071,6 +1097,7 @@ function initStockTransferTable() {
             const tr = document.createElement('tr');
             tr.innerHTML = '<td colspan="9" class="ims-transfer-create-empty">Tidak ada stok yang cocok.</td>';
             tableBody.appendChild(tr);
+            renderRetainedErrors();
             return;
         }
 
@@ -1108,6 +1135,7 @@ function initStockTransferTable() {
         });
 
         if (sortKey === 'quantity') sortRows();
+        renderRetainedErrors();
         initTooltips();
     };
 
@@ -1123,6 +1151,15 @@ function initStockTransferTable() {
             lineStateByStockId.delete(stockId);
         }
         updateSelectedCount();
+        renderRetainedErrors();
+    });
+
+    retainedErrorList.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-stock-id]');
+        if (!button) return;
+        lineStateByStockId.delete(button.dataset.stockId);
+        updateSelectedCount();
+        renderRetainedErrors();
     });
 
     tableBody.addEventListener('click', (e) => {
@@ -1149,6 +1186,7 @@ function initStockTransferTable() {
 
         if (!location) {
             tableBody.innerHTML = '<tr><td colspan="9" class="ims-transfer-create-empty">Pilih lokasi asal untuk menampilkan stok.</td></tr>';
+            renderRetainedErrors();
             renderPagination(emptyPagination());
             return;
         }
@@ -1172,6 +1210,7 @@ function initStockTransferTable() {
             .catch(() => {
                 if (sequence !== fetchSequence) return;
                 tableBody.innerHTML = '<tr><td colspan="9" class="ims-transfer-create-empty ims-transfer-create-empty--error">Gagal memuat data stok.</td></tr>';
+                renderRetainedErrors();
                 renderPagination(emptyPagination());
             });
     };
@@ -1179,6 +1218,7 @@ function initStockTransferTable() {
     sourceLocation.addEventListener('change', () => {
         lineStateByStockId.clear();
         updateSelectedCount();
+        renderRetainedErrors();
         fetchRows(1);
     });
     searchInput.addEventListener('input', () => {

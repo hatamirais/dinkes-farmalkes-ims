@@ -12,6 +12,10 @@
   .ims-transfer-create-stock-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-ims-section); font-weight: 700; }
   .ims-transfer-create-search { width: min(100%, 360px); }
   .ims-transfer-create-search .ims-label { display: block; margin-bottom: 8px; }
+  .ims-transfer-retained-errors p { margin: 0 0 8px; }
+  .ims-transfer-retained-errors ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .ims-transfer-retained-errors li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .ims-transfer-retained-errors li span { min-width: 0; overflow-wrap: anywhere; }
   .ims-transfer-create-table-scroll { max-width: 100%; }
   .ims-transfer-create-table-scroll .ims-table { min-width: 1040px; margin: 0; font-size: var(--text-ims-sm); }
   .ims-transfer-create-table-scroll .ims-table th { white-space: normal; }
