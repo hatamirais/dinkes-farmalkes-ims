@@ -572,6 +572,7 @@ This wave proves the shared field renderer before high-risk formsets are attempt
 
 Migrate forms with formsets, dependent selectors, modals, and higher workflow risk:
 
+- stock-transfer creation (`/stock/transfers/create/`), including its source-location stock search and submitted quantity rows; the list and detail were migrated in Wave 4;
 - procurement contracts and amendments;
 - receiving and planned receiving;
 - allocation;
