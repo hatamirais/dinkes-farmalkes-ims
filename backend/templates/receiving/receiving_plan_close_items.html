@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Tutup Sisa {{ receiving.document_number }} — Healthcare IMS{% endblock %}
 {% block page_title %}Tutup Sisa Rencana{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="ims-receiving-form ims-receiving-close">
     <div class="col-lg-10">
         <div class="card content-card">
             <div class="card-header">
@@ -17,8 +17,8 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {{ formset.management_form }}
-                    <div class="table-responsive">
-                        <table class="table table-sm">
+                    <div class="table-responsive" role="region" aria-label="Penutupan sisa rencana" tabindex="0">
+                        <table class="table ims-table table-sm" style="min-width: 760px;">
                             <thead>
                                 <tr>
                                     <th>Barang</th>

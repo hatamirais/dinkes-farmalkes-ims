@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Migrated regular receiving create/edit/cancellation and planned receiving execution/legacy close-items forms to Tailwind while retaining their existing formsets, validation, quick-create dialogs, and stock workflow checkpoints.
 - Migrated procurement contract and amendment create/edit forms to Tailwind while retaining their draft formsets, quick-create dialogs, validation, and existing workflow checkpoints.
 - Migrated Stock Transfer draft creation to Tailwind while preserving its stock search, source layers, validation, and detail redirect; selected quantities now remain available across table pages, search, and sorting.
 - Migrated Wave 5 Items create/edit, shared lookup create, delete confirmation, and four quick-create dialogs to Tailwind; the Item List remains on its existing Tailwind page.
@@ -33,6 +34,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Moved the receiving document-number guidance into a clickable title icon and softened the disabled item-row background while keeping dependent fields disabled until an item is selected.
 - Let users remove an unavailable stock layer retained after Stock Transfer draft validation without discarding other selected quantities, and escaped stock labels before rendering search results.
 - Restored the Users role guide's visibility and scrolling in the Info Scope dialog at short viewport heights.
 - Replaced the protruding square on Users tooltips with a pointer that follows Bootstrap's Popper placement without overriding its transform.
