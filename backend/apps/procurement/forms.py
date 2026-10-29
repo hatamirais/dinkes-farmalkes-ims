@@ -119,7 +119,7 @@ class ProcurementContractForm(forms.ModelForm):
                     "placeholder": "Contoh: 800/8766.a/KD.F",
                 }
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 1}),
         }
 
     def __init__(self, *args, **kwargs):

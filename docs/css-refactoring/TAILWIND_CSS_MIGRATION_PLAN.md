@@ -584,6 +584,8 @@ Migrate forms with formsets, dependent selectors, modals, and higher workflow ri
 - LPLPO create/edit/review/import;
 - authority delegation.
 
+The procurement contract and amendment create/edit forms were migrated as a bounded Wave 6 slice after stock-transfer creation. Their list/detail pages were already Wave 4 surfaces; remaining Wave 6 workflows stay pending.
+
 For every owning app:
 
 - Read its app-level `AGENTS.md` first.

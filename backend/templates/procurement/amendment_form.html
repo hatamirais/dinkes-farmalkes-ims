@@ -1,17 +1,17 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags number_format %}
+{% extends "base_tailwind.html" %}
+{% load number_format tailwind_forms %}
 
 {% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-12 col-xl-10">
+<div class="ims-procurement-form ims-procurement-amendment">
+    <div class="ims-procurement-panel">
         <div class="card content-card">
             <div class="card-header"><span>{{ title }}</span></div>
             <div class="card-body">
                 <div class="alert alert-secondary mb-3">
-                    <div class="row g-2">
+                    <div class="ims-procurement-meta-grid">
                         <div class="col-md-3">
                             <span class="text-muted d-block small">Kontrak acuan</span>
                             <a href="{% url 'procurement:contract_detail' contract.pk %}">{{ contract.document_number }}</a>
@@ -33,8 +33,8 @@
 
                 <div class="mb-4">
                     <h6 class="fw-semibold mb-2">Ringkasan Kontrak vs Realisasi</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0">
+                    <div class="table-responsive" role="region" aria-label="Ringkasan kontrak dan realisasi" tabindex="0">
+                        <table class="table ims-table table-sm align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Barang</th>
@@ -68,7 +68,10 @@
                 </div>
                 <form method="post" novalidate>
                     {% csrf_token %}
-                    {% crispy form %}
+                    {% if form.non_field_errors %}<div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                    <div class="ims-procurement-fields">
+                        {% for field in form %}{% tailwind_field field %}{% endfor %}
+                    </div>
 
                     <div class="mt-4">
                         <h6 class="fw-semibold mb-3">Baris Amandemen</h6>
@@ -84,8 +87,8 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="table-responsive" data-formset="procurement-amendment-lines" data-formset-prefix="{{ formset.prefix }}" data-formset-allow-empty="true">
-                            <table class="table align-middle">
+                        <div class="table-responsive" data-formset="procurement-amendment-lines" data-formset-prefix="{{ formset.prefix }}" data-formset-allow-empty="true" role="region" aria-label="Baris amandemen" tabindex="0">
+                            <table class="table ims-table align-middle">
                                 <thead>
                                     <tr>
                                         <th>Baris Kontrak</th>

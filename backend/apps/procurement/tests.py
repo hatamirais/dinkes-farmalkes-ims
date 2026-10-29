@@ -1537,10 +1537,12 @@ class ProcurementWorkflowTests(TestCase):
         response = self.client.get(reverse("procurement:contract_create"), secure=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'vendor/bootstrap/css/bootstrap.min.css')
         self.assertContains(response, 'name="contract_date"', html=False)
         self.assertContains(response, 'placeholder="DD/MM/YYYY"', html=False)
         self.assertContains(response, 'data-native-date-picker="true"', html=False)
-        self.assertContains(response, 'class="form-control js-date-mask"', html=False)
+        self.assertContains(response, 'class="ims-control js-date-mask"', html=False)
         self.assertNotContains(response, 'name="contract_date" type="date"', html=False)
         self.assertContains(response, 'id="modal-supplier"')
         self.assertContains(
@@ -1552,7 +1554,7 @@ class ProcurementWorkflowTests(TestCase):
             response,
             reverse("procurement:quick_create_funding_source"),
         )
-        self.assertContains(response, 'class="card content-card table-container form-page-card"', html=False)
+        self.assertContains(response, 'class="ims-procurement-form ims-procurement-contract card content-card table-container form-page-card"', html=False)
         self.assertContains(response, 'data-formset="procurement-lines"')
         self.assertContains(response, 'style="table-layout: fixed; min-width: 960px;"', html=False)
         self.assertContains(response, '<col style="width: 52%;">', html=False)
@@ -1722,6 +1724,8 @@ class ProcurementWorkflowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'css/app.tailwind.css')
+        self.assertNotContains(response, 'vendor/bootstrap/css/bootstrap.min.css')
         self.assertContains(response, 'data-formset="procurement-amendment-lines"')
         self.assertContains(response, 'data-formset-allow-empty="true"')
         self.assertContains(response, 'class="btn btn-outline-primary btn-sm formset-add"', html=False)
