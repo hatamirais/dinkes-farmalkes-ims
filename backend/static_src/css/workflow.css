@@ -90,6 +90,8 @@
   .ims-workflow .w-100 { width: 100% !important; }
   .ims-workflow .h-100 { height: 100% !important; }
   .ims-workflow .dist-tracking-card { height: 100%; }
+  .ims-workflow-detail .dist-tracking-card { border: 1px solid var(--color-ims-border); border-left-width: 3px; border-radius: var(--radius-ims-control); background: var(--color-ims-surface); box-shadow: var(--shadow-ims-surface); }
+  .ims-workflow-detail .dist-tracking-grid { margin-bottom: 16px; }
   .ims-workflow .dist-tracking-card .card-body { min-height: 100%; }
   .ims-workflow .dist-tracking-card .mt-auto { margin-top: auto; }
   .ims-workflow .alloc-matrix-table { min-width: 960px; }
