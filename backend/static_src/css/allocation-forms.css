@@ -35,7 +35,7 @@
   .ims-allocation-form .alert-danger { border-color: var(--color-ims-danger); background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
   .ims-allocation-form .invalid-feedback, .ims-allocation-form .errorlist { color: var(--color-ims-danger); font-size: var(--text-ims-xs); }
   .ims-allocation-form .invalid-feedback.d-block { display: block; margin-top: 4px; }
-  .ims-allocation-form .d-none { display: none; }
+  .ims-allocation-form .d-none { display: none !important; }
   .ims-allocation-form .justify-content-end { justify-content: flex-end; }
   .ims-allocation-form .btn { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 7px 12px; background: #fff; color: var(--color-ims-ink); font-size: var(--text-ims-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
   .ims-allocation-form .btn-sm { min-height: 32px; padding: 4px 9px; }

@@ -21,6 +21,31 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator("#allocation-form")).toBeVisible();
 });
 
+test("facility and staff search hide unmatched choices and bulk selection follows visible choices", async ({ page }) => {
+  for (const picker of ["facility", "staff"]) {
+    const list = page.locator(`#allocation-${picker}-list`);
+    await page.locator(`[data-bs-target="#allocation-${picker}-picker-body"]`).click();
+    const search = page.locator(`[data-selection-filter-target="allocation-${picker}-list"]`);
+    const items = list.locator(".selection-picker-item");
+    expect(await items.count()).toBeGreaterThan(0);
+
+    await page.locator(`[data-selection-target="allocation-${picker}-list"][data-selection-action="clear-all"]`).click();
+    await search.fill("no matching choice 8d5c4f1a");
+    await expect(list.locator(".selection-picker-item:visible")).toHaveCount(0);
+    await expect(list.locator(".selection-picker-empty")).toBeVisible();
+    await page.locator(`[data-selection-target="allocation-${picker}-list"][data-selection-action="select-all"]`).click();
+    await expect(list.locator('input[type="checkbox"]:checked')).toHaveCount(0);
+
+    await search.fill("");
+    await expect(items.first()).toBeVisible();
+    await expect(list.locator(".selection-picker-empty")).toBeHidden();
+    await search.fill((await items.first().getAttribute("data-selection-label")) || "");
+    const visibleCount = await list.locator(".selection-picker-item:visible").count();
+    await page.locator(`[data-selection-target="allocation-${picker}-list"][data-selection-action="select-all"]`).click();
+    await expect(list.locator('input[type="checkbox"]:checked')).toHaveCount(visibleCount);
+  }
+});
+
 test("batch picker stays within the viewport and above Step 2 navigation", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
