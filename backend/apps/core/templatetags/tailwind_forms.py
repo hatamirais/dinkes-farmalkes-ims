@@ -36,10 +36,11 @@ def tailwind_widget(field):
 
 
 @register.inclusion_tag("components/forms/field.html")
-def tailwind_field(field, quick_create_label="", quick_create_target=""):
+def tailwind_field(field, quick_create_label="", quick_create_target="", show_required=False):
     return {
         "field": field,
         "widget": _render_widget(field),
         "quick_create_label": quick_create_label,
         "quick_create_target": quick_create_target,
+        "show_required": show_required,
     }

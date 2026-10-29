@@ -1,6 +1,6 @@
 <div class="ims-form-field"{% if field.name == 'program' %} data-program-field{% endif %}{% if field.name == 'facility' %} data-facility-field{% endif %}>
     <div class="ims-form-label-row">
-        <label for="{{ field.id_for_label }}" class="ims-label">{{ field.label }}</label>
+        <label for="{{ field.id_for_label }}" class="ims-label">{{ field.label }}{% if show_required and field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
         {% if quick_create_target %}
         <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm" data-bs-toggle="modal" data-bs-target="{{ quick_create_target }}">
             <i class="bi bi-plus-lg" aria-hidden="true"></i>{{ quick_create_label }}

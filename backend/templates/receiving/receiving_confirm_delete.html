@@ -1,10 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
 
 {% block title %}Batalkan Penerimaan {{ receiving.document_number }} - Healthcare IMS{% endblock %}
 {% block page_title %}Batalkan Penerimaan{% endblock %}
 
 {% block content %}
-<div class="card content-card">
+<div class="ims-receiving-form ims-receiving-cancel card content-card">
     <div class="card-header">
         <span><i class="bi bi-trash me-2"></i>Batalkan Penerimaan</span>
     </div>
@@ -24,15 +25,7 @@
 
         <form method="post" novalidate>
             {% csrf_token %}
-            <div class="mb-3">
-                <label for="{{ form.cancel_reason.id_for_label }}" class="form-label fw-semibold">
-                    {{ form.cancel_reason.label }} <span class="text-danger">*</span>
-                </label>
-                {{ form.cancel_reason }}
-                {% for error in form.cancel_reason.errors %}
-                <div class="invalid-feedback d-block">{{ error }}</div>
-                {% endfor %}
-            </div>
+            <div class="mb-3">{% tailwind_field form.cancel_reason '' '' True %}</div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-danger">
                     <i class="bi bi-trash me-1"></i>Batalkan Penerimaan

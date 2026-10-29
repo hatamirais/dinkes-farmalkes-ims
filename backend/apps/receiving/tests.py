@@ -3197,11 +3197,15 @@ class ReceivingWorkflowCleanupTest(TestCase):
             response,
             "Nomor dokumen resmi diterbitkan otomatis ketika stok penerimaan diposting.",
         )
+        self.assertContains(response, 'summary aria-label="Informasi nomor dokumen"', html=False)
+        self.assertNotContains(response, 'class="alert alert-info', html=False)
         self.assertContains(response, 'name="receiving_date"', html=False)
         self.assertContains(response, 'placeholder="DD/MM/YYYY"', html=False)
         self.assertContains(response, 'data-native-date-picker="true"', html=False)
-        self.assertContains(response, 'class="form-control js-date-mask"', html=False)
+        self.assertContains(response, 'class="ims-control js-date-mask"', html=False)
         self.assertContains(response, 'class="form-control form-control-sm js-date-mask"', html=False)
+        self.assertContains(response, "app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
         self.assertNotContains(response, 'type="date"', html=False)
         self.assertContains(response, 'Receiving type <span class="text-danger">*</span>', html=False)
         self.assertContains(response, 'Receiving date <span class="text-danger">*</span>', html=False)
