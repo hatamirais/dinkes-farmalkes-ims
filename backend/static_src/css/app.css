@@ -7,6 +7,7 @@
 @import "./core-settings.css";
 @import "./puskesmas-subunits.css";
 @import "./stock-transfer-form.css";
+@import "./procurement-forms.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

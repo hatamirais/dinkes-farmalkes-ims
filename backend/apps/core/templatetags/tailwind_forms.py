@@ -10,7 +10,12 @@ def _render_widget(field):
     is_switch = is_checkbox and field.name in {
         "is_program_item", "requires_expiry_date", "is_active"
     }
-    attrs = {"class": "ims-switch" if is_switch else "ims-choice" if is_checkbox else "ims-control"}
+    base_class = "ims-switch" if is_switch else "ims-choice" if is_checkbox else "ims-control"
+    js_classes = [
+        name for name in field.field.widget.attrs.get("class", "").split()
+        if name.startswith("js-")
+    ]
+    attrs = {"class": " ".join((base_class, *js_classes))}
     descriptions = []
     if field.help_text:
         descriptions.append(f"{field.auto_id}_helptext")

@@ -1,40 +1,24 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags static %}
+{% extends "base_tailwind.html" %}
+{% load static tailwind_forms %}
 
 {% block title %}{{ title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<div class="card content-card table-container form-page-card">
+<div class="ims-procurement-form ims-procurement-contract card content-card table-container form-page-card">
             <div class="card-header"><span>{{ title }}</span></div>
             <div class="card-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
                     {% endif %}
-                    <div class="row g-3">
+                    <div class="ims-procurement-grid">
                         {% for field in form %}
-                        <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
-                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
-                                {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
-                            </label>
-                            {% if field.name == 'supplier' or field.name == 'sumber_dana' %}
-                            <div class="input-group">
-                                {{ field }}
-                                <button type="button" class="btn btn-outline-success btn-sm" title="Tambah Baru" data-bs-toggle="modal" data-bs-target="#modal-{{ field.name }}">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
-                            </div>
-                            {% else %}
-                            {{ field }}
-                            {% endif %}
-                            {% if field.help_text %}
-                            <div class="form-text">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
-                            {% endfor %}
+                        <div class="ims-procurement-field{% if field.name == 'notes' %} ims-procurement-field--wide{% endif %}">
+                            {% if field.name == 'supplier' %}{% tailwind_field field 'Tambah Supplier' '#modal-supplier' %}
+                            {% elif field.name == 'sumber_dana' %}{% tailwind_field field 'Tambah Sumber Dana' '#modal-sumber_dana' %}
+                            {% else %}{% tailwind_field field %}{% endif %}
                         </div>
                         {% endfor %}
                     </div>
@@ -54,8 +38,8 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="table-responsive" data-formset="procurement-lines" data-formset-prefix="{{ formset.prefix }}">
-                            <table class="table align-middle w-100" style="table-layout: fixed; min-width: 960px;">
+                        <div class="table-responsive" data-formset="procurement-lines" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Baris kontrak" tabindex="0">
+                            <table class="table ims-table align-middle" style="table-layout: fixed; min-width: 960px;">
                                 <colgroup>
                                     <col style="width: 52%;">
                                     <col style="width: 12%;">
@@ -125,37 +109,37 @@
             </div>
 </div>
 
-<div class="modal fade" id="modal-supplier" tabindex="-1" aria-hidden="true">
+<div class="ims-workflow-modal ims-procurement-modal modal fade" id="modal-supplier" tabindex="-1" aria-hidden="true" aria-labelledby="modal-supplier-title">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Supplier Baru</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h6 class="modal-title" id="modal-supplier-title"><i class="bi bi-plus-circle me-1"></i>Tambah Supplier Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <label for="supplier-code" class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
                         <input type="text" id="supplier-code" class="form-control form-control-sm" placeholder="SUP-001" maxlength="20">
                     </div>
                     <div class="col-md-8">
-                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <label for="supplier-name" class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
                         <input type="text" id="supplier-name" class="form-control form-control-sm" placeholder="PT Kimia Farma">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Alamat</label>
+                    <div class="ims-procurement-modal-full">
+                        <label for="supplier-address" class="form-label fw-semibold">Alamat</label>
                         <textarea id="supplier-address" class="form-control form-control-sm" rows="2" placeholder="Jl. Contoh No. 123"></textarea>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Telepon</label>
+                        <label for="supplier-phone" class="form-label fw-semibold">Telepon</label>
                         <input type="text" id="supplier-phone" class="form-control form-control-sm" placeholder="021-12345678" maxlength="50">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Email</label>
+                        <label for="supplier-email" class="form-label fw-semibold">Email</label>
                         <input type="email" id="supplier-email" class="form-control form-control-sm" placeholder="info@supplier.com">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Catatan</label>
+                    <div class="ims-procurement-modal-full">
+                        <label for="supplier-notes" class="form-label fw-semibold">Catatan</label>
                         <textarea id="supplier-notes" class="form-control form-control-sm" rows="2" placeholder="Catatan tambahan"></textarea>
                     </div>
                 </div>
@@ -178,25 +162,25 @@
     </div>
 </div>
 
-<div class="modal fade" id="modal-sumber_dana" tabindex="-1" aria-hidden="true">
+<div class="ims-workflow-modal ims-procurement-modal modal fade" id="modal-sumber_dana" tabindex="-1" aria-hidden="true" aria-labelledby="modal-sumber-dana-title">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Sumber Dana Baru</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h6 class="modal-title" id="modal-sumber-dana-title"><i class="bi bi-plus-circle me-1"></i>Tambah Sumber Dana Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <label for="sumber-dana-code" class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
                         <input type="text" id="sumber-dana-code" class="form-control form-control-sm" placeholder="DAK" maxlength="20">
                     </div>
                     <div class="col-md-8">
-                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <label for="sumber-dana-name" class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
                         <input type="text" id="sumber-dana-name" class="form-control form-control-sm" placeholder="Dana Alokasi Khusus">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Keterangan</label>
+                    <div class="ims-procurement-modal-full">
+                        <label for="sumber-dana-description" class="form-label fw-semibold">Keterangan</label>
                         <textarea id="sumber-dana-description" class="form-control form-control-sm" rows="2" placeholder="Deskripsi sumber dana"></textarea>
                     </div>
                 </div>

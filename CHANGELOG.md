@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Migrated procurement contract and amendment create/edit forms to Tailwind while retaining their draft formsets, quick-create dialogs, validation, and existing workflow checkpoints.
 - Migrated Stock Transfer draft creation to Tailwind while preserving its stock search, source layers, validation, and detail redirect; selected quantities now remain available across table pages, search, and sorting.
 - Migrated Wave 5 Items create/edit, shared lookup create, delete confirmation, and four quick-create dialogs to Tailwind; the Item List remains on its existing Tailwind page.
 - Migrated the Users list and account create/edit forms to Tailwind while retaining filters, bulk actions, status toggles, permission-driven module scopes, password controls, and Bootstrap JavaScript dialogs.
