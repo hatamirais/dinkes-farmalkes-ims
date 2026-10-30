@@ -12,6 +12,7 @@
 @import "./allocation-forms.css";
 @import "./distribution-forms.css";
 @import "./recall-forms.css";
+@import "./expired-forms.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";
