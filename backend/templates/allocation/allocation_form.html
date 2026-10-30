@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
 
 {% block title %}{{ page_title }} - Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
@@ -342,7 +343,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="card content-card table-container form-page-card">
+<div class="ims-workflow ims-allocation-form card content-card table-container form-page-card">
     <div class="card-header">
         <span><i class="bi bi-diagram-3 me-2"></i>{{ title }}</span>
     </div>
@@ -380,22 +381,16 @@
             <div class="wizard-panel active" id="step-1">
                 <div class="row g-3">
                     <div class="col-12">
-                        <label for="{{ form.title.id_for_label }}" class="form-label fw-semibold">{{ form.title.label }}</label>
-                        {{ form.title }}
-                        {% for error in form.title.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                        {% tailwind_field form.title %}
                     </div>
                     <div class="col-md-6">
-                        <label for="{{ form.allocation_date.id_for_label }}" class="form-label fw-semibold">{{ form.allocation_date.label }}</label>
-                        {{ form.allocation_date }}
-                        {% for error in form.allocation_date.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                        {% tailwind_field form.allocation_date %}
                     </div>
                     <div class="col-md-6">
-                        <label for="{{ form.referensi.id_for_label }}" class="form-label fw-semibold">{{ form.referensi.label }}</label>
-                        {{ form.referensi }}
+                        {% tailwind_field form.referensi %}
                     </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.notes.id_for_label }}" class="form-label fw-semibold">{{ form.notes.label }}</label>
-                        {{ form.notes }}
+                    <div class="col-12">
+                        {% tailwind_field form.notes %}
                     </div>
 
                     {# ─── Facility Picker ─── #}
@@ -514,8 +509,8 @@
                     </div>
                 </div>
 
-                <div class="table-responsive" data-formset="allocation-items" data-formset-prefix="{{ formset.prefix }}">
-                    <table class="table table-sm allocation-item-table">
+                <div class="table-responsive" data-formset="allocation-items" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Item alokasi" tabindex="0">
+                    <table class="table ims-table table-sm allocation-item-table">
                         <thead>
                             <tr>
                                 <th class="allocation-item-col-item">Barang</th>
@@ -618,7 +613,7 @@
             <div class="wizard-panel" id="step-3">
                 <div class="mb-2 small text-muted">Tentukan jumlah per fasilitas untuk masing-masing item. Total alokasi tidak boleh melebihi stok tersedia untuk dialokasikan.</div>
 
-                <div class="table-responsive alloc-matrix-scroll">
+                <div class="table-responsive alloc-matrix-scroll" role="region" aria-label="Alokasi per fasilitas" tabindex="0">
                     <table class="table table-sm table-bordered alloc-matrix" id="alloc-matrix-table">
                         <thead class="table-light">
                             <tr id="matrix-header-row">

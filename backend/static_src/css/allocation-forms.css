@@ -1,0 +1,53 @@
+/* Wave 6 Allocation wizard. Its existing inline rules own the popover and sticky matrices. */
+@layer components {
+  .ims-allocation-form { max-width: 1380px; margin: 16px auto 32px; }
+  .ims-allocation-form.card > .card-header { background: var(--color-ims-surface-muted); font-size: var(--text-ims-section); }
+  .ims-allocation-form .card-body { min-width: 0; padding: 24px; }
+  .ims-allocation-form .wizard-steps { max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .ims-allocation-form .wizard-steps::-webkit-scrollbar { display: none; }
+  .ims-allocation-form .wizard-step-btn { min-width: 150px; }
+  .ims-allocation-form .wizard-step-btn.active { color: var(--color-ims-primary); }
+  .ims-allocation-form .wizard-step-btn.active::after, .ims-allocation-form .wizard-step-btn.active .step-number { background: var(--color-ims-primary); }
+  .ims-allocation-form .wizard-step-btn:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: -2px; }
+  .ims-allocation-form .ims-form-field { min-width: 0; }
+  .ims-allocation-form .ims-form-field .ims-control { width: 100%; }
+  .ims-allocation-form textarea.ims-control { min-height: 2.5rem; resize: vertical; }
+  .ims-allocation-form .selection-picker { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 12px; }
+  .ims-allocation-form .selection-picker-header { flex-wrap: wrap; }
+  .ims-allocation-form .selection-picker-header > .d-flex { flex-wrap: wrap; }
+  .ims-allocation-form .selection-picker-body { min-width: 0; }
+  .ims-allocation-form .selection-picker .input-group { display: flex; min-width: 0; }
+  .ims-allocation-form .selection-picker .input-group-text { display: inline-flex; align-items: center; border: 1px solid var(--color-ims-border); border-right: 0; border-radius: var(--radius-ims-control) 0 0 var(--radius-ims-control); padding: 0 10px; background: var(--color-ims-surface-muted); }
+  .ims-allocation-form .selection-picker .input-group .form-control { flex: 1 1 auto; min-width: 0; width: 1%; border-radius: 0 var(--radius-ims-control) var(--radius-ims-control) 0; }
+  .ims-allocation-form .form-check-input { flex: none; width: 16px; height: 16px; appearance: auto; accent-color: var(--color-ims-primary); }
+  .ims-allocation-form .table-responsive { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); }
+  .ims-allocation-form .table-responsive:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  .ims-allocation-form .allocation-item-table { min-width: 960px; }
+  .ims-allocation-form .allocation-item-table th { white-space: nowrap; }
+  .ims-allocation-form .allocation-item-table td { vertical-align: middle; }
+  .ims-allocation-form .allocation-item-table .typeahead-input { width: 100%; }
+  .ims-allocation-form .allocation-item-table .js-available-qty { font-variant-numeric: tabular-nums; }
+  .ims-allocation-form .alloc-matrix { width: 100%; min-width: 720px; color: var(--color-ims-ink); font-size: var(--text-ims-sm); }
+  .ims-allocation-form .alloc-matrix th, .ims-allocation-form .alloc-matrix td { border-bottom: 1px solid var(--color-ims-border); border-right: 1px solid var(--color-ims-border); padding: 10px 12px; }
+  .ims-allocation-form .alloc-matrix th { font-weight: 600; }
+  .ims-allocation-form .alloc-matrix input.form-control { min-width: 80px; text-align: center; }
+  .ims-allocation-form .review-section h6 { font-size: var(--text-ims-section); }
+  .ims-allocation-form .alert-danger { border-color: var(--color-ims-danger); background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-allocation-form .invalid-feedback, .ims-allocation-form .errorlist { color: var(--color-ims-danger); font-size: var(--text-ims-xs); }
+  .ims-allocation-form .invalid-feedback.d-block { display: block; margin-top: 4px; }
+  .ims-allocation-form .d-none { display: none !important; }
+  .ims-allocation-form .justify-content-end { justify-content: flex-end; }
+  .ims-allocation-form .btn { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 7px 12px; background: #fff; color: var(--color-ims-ink); font-size: var(--text-ims-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
+  .ims-allocation-form .btn-sm { min-height: 32px; padding: 4px 9px; }
+  .ims-allocation-form .btn-primary { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
+  .ims-allocation-form .btn-primary:hover { background: var(--color-ims-primary-hover); }
+  .ims-allocation-form .btn-outline-primary { border-color: var(--color-ims-primary); color: var(--color-ims-primary); }
+  .ims-allocation-form .btn-outline-danger { border-color: var(--color-ims-danger); color: var(--color-ims-danger); }
+  .ims-allocation-form .btn:disabled { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); cursor: not-allowed; }
+  .ims-allocation-form .btn:focus-visible, .ims-allocation-form input:focus-visible, .ims-allocation-form select:focus-visible, .ims-allocation-form textarea:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  @media (max-width: 767px) {
+    .ims-allocation-form .card-body { padding: 16px; }
+    .ims-allocation-form .wizard-panel > .d-flex { flex-wrap: wrap; gap: 8px; }
+    .ims-allocation-form .selection-picker-header { align-items: flex-start; }
+  }
+}

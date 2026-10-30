@@ -58,7 +58,7 @@ class AllocationForm(forms.ModelForm):
                 attrs={"class": "form-control", "type": "date"},
                 format="%Y-%m-%d",
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 1}),
         }
 
     def __init__(self, *args, **kwargs):

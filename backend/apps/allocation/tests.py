@@ -753,6 +753,21 @@ class AllocationRouteTest(TestCase):
     def test_create_page_loads(self):
         response = self.client.get(reverse("allocation:allocation_create"), secure=True)
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
+        self.assertContains(response, 'data-formset-prefix="items"', html=False)
+        self.assertContains(response, 'popover="manual"', html=False)
+
+    def test_invalid_create_date_has_bound_error_association(self):
+        response = self.client.post(
+            reverse("allocation:allocation_create"),
+            {"allocation_date": "invalid"},
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'aria-invalid="true"', html=False)
+        self.assertContains(response, 'aria-describedby="id_allocation_date_errors"', html=False)
+        self.assertContains(response, 'id="id_allocation_date_errors"', html=False)
 
     def test_detail_page_loads(self):
         allocation = _create_allocation(self.fixtures)
@@ -921,6 +936,8 @@ class AllocationRouteTest(TestCase):
             secure=True,
         )
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
 
     def test_edit_non_draft_redirects(self):
         allocation = _create_allocation(self.fixtures, status=Allocation.Status.SUBMITTED)

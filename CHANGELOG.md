@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Migrated the Allocation create/edit wizard to Tailwind while retaining its batch picker, facility/item matrices, and existing submission workflow.
 - Migrated regular receiving create/edit/cancellation and planned receiving execution/legacy close-items forms to Tailwind while retaining their existing formsets, validation, quick-create dialogs, and stock workflow checkpoints.
 - Migrated procurement contract and amendment create/edit forms to Tailwind while retaining their draft formsets, quick-create dialogs, validation, and existing workflow checkpoints.
 - Migrated Stock Transfer draft creation to Tailwind while preserving its stock search, source layers, validation, and detail redirect; selected quantities now remain available across table pages, search, and sorting.
@@ -34,6 +35,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Restored complete borders and card spacing in Allocation detail distribution tracking so facility cards remain visually contained on wide and narrow screens.
+- Hid the Allocation wizard tab scrollbar while keeping narrow-screen tab navigation scrollable, and made Notes span the form width at one-row height without removing multiline input or vertical resize.
 - Moved the receiving document-number guidance into a clickable title icon and softened the disabled item-row background while keeping dependent fields disabled until an item is selected.
 - Let users remove an unavailable stock layer retained after Stock Transfer draft validation without discarding other selected quantities, and escaped stock labels before rendering search results.
 - Restored the Users role guide's visibility and scrolling in the Info Scope dialog at short viewport heights.
