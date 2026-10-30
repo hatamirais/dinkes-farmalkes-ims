@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Migrated Expired/Disposal create/edit forms to Tailwind while retaining the selected-stock prefill, item formset, quantity validation, and existing stock and approval checkpoints.
 - Migrated Recall create/edit forms to Tailwind while retaining the item and batch formset, dependent-field validation, draft creation, and existing status and stock checkpoints.
 - Migrated Distribution create/edit forms to Tailwind while retaining special-request and manual LPLPO draft paths, staff and facility controls, item formsets, generated LPLPO locks, and existing workflow checkpoints.
 - Migrated the Allocation create/edit wizard to Tailwind while retaining its batch picker, facility/item matrices, and existing submission workflow.

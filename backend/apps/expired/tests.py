@@ -125,6 +125,53 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
         form = ExpiredForm()
         self.assertNotIn("document_number", form.fields)
 
+    def test_create_saves_unnumbered_draft_without_stock_movement(self):
+        response = self.client.post(
+            reverse("expired:expired_create"),
+            {
+                "report_date": "2026-03-10",
+                "notes": "Pemusnahan terjadwal",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-stock": self.stock.pk,
+                "items-0-quantity": "2",
+                "items-0-notes": "Melewati tanggal ED",
+            },
+        )
+        expired_doc = Expired.objects.get()
+        self.assertRedirects(response, reverse("expired:expired_detail", args=[expired_doc.pk]))
+        self.assertEqual(expired_doc.status, Expired.Status.DRAFT)
+        self.assertIsNone(expired_doc.document_number)
+        self.assertEqual(expired_doc.items.get().quantity, Decimal("2"))
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("50"))
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_create_quantity_error_keeps_submitted_values(self):
+        response = self.client.post(
+            reverse("expired:expired_create"),
+            {
+                "report_date": "2026-03-10",
+                "notes": "Pemusnahan terjadwal",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-stock": self.stock.pk,
+                "items-0-quantity": "0",
+                "items-0-notes": "Melewati tanggal ED",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jumlah harus lebih dari 0.")
+        self.assertEqual(response.context["formset"].forms[0]["quantity"].value(), "0")
+        self.assertEqual(response.context["form"]["notes"].value(), "Pemusnahan terjadwal")
+        self.assertFalse(Expired.objects.exists())
+
     def test_numbered_expired_form_ignores_changed_business_date(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
         original_date = expired_doc.report_date
@@ -349,6 +396,10 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
             reverse("expired:expired_edit", args=[expired_doc.pk])
         )
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "css/app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
+        self.assertContains(response, 'name="items-TOTAL_FORMS"')
+        self.assertContains(response, f'value="{self.item.pk}"')
 
     def test_edit_allowed_for_submitted(self):
         expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
@@ -356,6 +407,7 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
             reverse("expired:expired_edit", args=[expired_doc.pk])
         )
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].fields["report_date"].disabled)
 
     def test_edit_reloads_row_after_concurrent_submission(self):
         expired_doc = self._create_expired(status=Expired.Status.DRAFT)
