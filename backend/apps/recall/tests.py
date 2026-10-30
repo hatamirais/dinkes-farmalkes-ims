@@ -113,6 +113,55 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
         form = RecallForm()
         self.assertNotIn("document_number", form.fields)
 
+    def test_create_saves_unnumbered_draft_and_redirects_to_detail(self):
+        response = self.client.post(
+            reverse("recall:recall_create"),
+            {
+                "recall_date": "2026-03-10",
+                "supplier": self.supplier.pk,
+                "notes": "Retur pemasok",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-stock": self.stock.pk,
+                "items-0-quantity": "2",
+                "items-0-notes": "Kemasan rusak",
+            },
+        )
+        recall = Recall.objects.get()
+        self.assertRedirects(response, reverse("recall:recall_detail", args=[recall.pk]))
+        self.assertEqual(recall.status, Recall.Status.DRAFT)
+        self.assertIsNone(recall.document_number)
+        self.assertEqual(recall.items.get().quantity, Decimal("2"))
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("100"))
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_create_quantity_error_keeps_submitted_values(self):
+        response = self.client.post(
+            reverse("recall:recall_create"),
+            {
+                "recall_date": "2026-03-10",
+                "supplier": self.supplier.pk,
+                "notes": "Retur pemasok",
+                "items-TOTAL_FORMS": "1",
+                "items-INITIAL_FORMS": "0",
+                "items-MIN_NUM_FORMS": "0",
+                "items-MAX_NUM_FORMS": "1000",
+                "items-0-item": self.item.pk,
+                "items-0-stock": self.stock.pk,
+                "items-0-quantity": "0",
+                "items-0-notes": "Kemasan rusak",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jumlah harus lebih dari 0.")
+        self.assertEqual(response.context["formset"].forms[0]["quantity"].value(), "0")
+        self.assertEqual(response.context["form"]["notes"].value(), "Retur pemasok")
+        self.assertFalse(Recall.objects.exists())
+
     def test_numbered_recall_form_ignores_changed_business_date(self):
         recall = self._create_recall(status=Recall.Status.SUBMITTED)
         original_date = recall.recall_date
@@ -294,6 +343,10 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
         recall = self._create_recall(status=Recall.Status.DRAFT)
         response = self.client.get(reverse("recall:recall_edit", args=[recall.pk]))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "css/app.tailwind.css")
+        self.assertNotContains(response, "bootstrap.min.css")
+        self.assertContains(response, 'name="items-TOTAL_FORMS"')
+        self.assertContains(response, f'value="{self.item.pk}"')
 
     def test_recall_create_renders_item_validation_hooks(self):
         response = self.client.get(reverse("recall:recall_create"))
@@ -318,6 +371,7 @@ class RecallWorkflowTest(SecureClientDefaultsMixin, TestCase):
         recall = self._create_recall(status=Recall.Status.SUBMITTED)
         response = self.client.get(reverse("recall:recall_edit", args=[recall.pk]))
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].fields["recall_date"].disabled)
 
     def test_edit_reloads_row_after_concurrent_submission(self):
         recall = self._create_recall(status=Recall.Status.DRAFT)
