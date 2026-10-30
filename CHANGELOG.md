@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Migrated Distribution create/edit forms to Tailwind while retaining special-request and manual LPLPO draft paths, staff and facility controls, item formsets, generated LPLPO locks, and existing workflow checkpoints.
 - Migrated the Allocation create/edit wizard to Tailwind while retaining its batch picker, facility/item matrices, and existing submission workflow.
 - Migrated regular receiving create/edit/cancellation and planned receiving execution/legacy close-items forms to Tailwind while retaining their existing formsets, validation, quick-create dialogs, and stock workflow checkpoints.
 - Migrated procurement contract and amendment create/edit forms to Tailwind while retaining their draft formsets, quick-create dialogs, validation, and existing workflow checkpoints.

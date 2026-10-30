@@ -1,0 +1,69 @@
+/* Wave 6 distribution form. Bootstrap JavaScript still owns collapse and the quick-create modal. */
+@layer components {
+  .ims-distribution-form { min-width: 0; max-width: 1380px; margin: 16px auto 32px; color: var(--color-ims-ink); }
+  .ims-distribution-form.card { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: #fff; box-shadow: var(--shadow-ims-surface); }
+  .ims-distribution-form.card > .card-header { border-bottom: 1px solid var(--color-ims-border); padding: 16px 24px; background: var(--color-ims-surface-muted); font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-distribution-form.card > .card-body { min-width: 0; padding: 24px; }
+  .ims-distribution-form .row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 24px; }
+  .ims-distribution-form .row > * { min-width: 0; }
+  .ims-distribution-form .ims-distribution-field--wide { grid-column: 1 / -1; }
+  .ims-distribution-form .ims-form-field { min-width: 0; }
+  .ims-distribution-form .ims-control { width: 100%; }
+  .ims-distribution-form textarea.ims-control { height: 2.5rem; min-height: 2.5rem; resize: vertical; }
+  .ims-distribution-form .staff-picker { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); }
+  .ims-distribution-form .staff-picker-title { flex: 1 1 auto; overflow: hidden; }
+  .ims-distribution-form .staff-picker-title > div { min-width: 0; max-width: 100%; }
+  .ims-distribution-form .staff-picker-body { min-width: 0; }
+  .ims-distribution-form .staff-picker-body.collapse { visibility: visible !important; }
+  .ims-distribution-form .staff-picker .input-group { display: flex; min-width: 0; }
+  .ims-distribution-form .staff-picker .input-group-text { display: inline-flex; align-items: center; border: 1px solid var(--color-ims-border); border-right: 0; border-radius: var(--radius-ims-control) 0 0 var(--radius-ims-control); padding: 0 10px; background: var(--color-ims-surface-muted); }
+  .ims-distribution-form .staff-picker .form-control { flex: 1 1 auto; width: 1%; min-width: 0; border-radius: 0 var(--radius-ims-control) var(--radius-ims-control) 0; }
+  .ims-distribution-form .form-check-input { flex: none; width: 16px; height: 16px; appearance: auto; accent-color: var(--color-ims-primary); }
+  .ims-distribution-form .form-text, .ims-distribution-form .text-muted { color: var(--color-ims-muted); }
+  .ims-distribution-form .form-text { margin-top: 5px; font-size: var(--text-ims-xs); }
+  .ims-distribution-form .fw-semibold { font-weight: 600; }
+  .ims-distribution-form .text-end { text-align: right; font-variant-numeric: tabular-nums; }
+  .ims-distribution-form .text-center { text-align: center; }
+  .ims-distribution-form .text-danger { color: var(--color-ims-danger); }
+  .ims-distribution-form .d-flex { display: flex; }
+  .ims-distribution-form .align-items-center { align-items: center; }
+  .ims-distribution-form .justify-content-between { justify-content: space-between; }
+  .ims-distribution-form .gap-2 { gap: 8px; }
+  .ims-distribution-form .mb-2 { margin-bottom: 8px; }
+  .ims-distribution-form .mb-3 { margin-bottom: 12px; }
+  .ims-distribution-form .mb-4 { margin-bottom: 24px; }
+  .ims-distribution-form .mt-4 { margin-top: 24px; }
+  .ims-distribution-form hr { margin: 20px 0; border: 0; border-top: 1px solid var(--color-ims-border); }
+  .ims-distribution-form h6 { margin: 0 0 12px; font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-distribution-form .alert { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 10px 12px; }
+  .ims-distribution-form .alert-info { border-color: var(--color-ims-info); background: var(--color-ims-info-bg); color: var(--color-ims-info); }
+  .ims-distribution-form .alert-danger { border-color: var(--color-ims-danger); background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-distribution-form .table-responsive { min-width: 0; max-width: 100%; overflow-x: auto; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); }
+  .ims-distribution-form .ims-table { min-width: 1040px; width: 100%; margin: 0; font-size: var(--text-ims-sm); }
+  .ims-distribution-form .ims-table th { white-space: nowrap; }
+  .ims-distribution-form .ims-table td { vertical-align: middle; }
+  .ims-distribution-form .ims-table th:first-child { min-width: 260px; }
+  .ims-distribution-form .ims-table th:nth-last-child(3) { min-width: 245px; }
+  .ims-distribution-form .ims-table input.form-control, .ims-distribution-form .ims-table select.form-select, .ims-distribution-form .ims-table .typeahead-input { width: 100%; min-width: 0; min-height: 38px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 6px 9px; background: #fff; color: var(--color-ims-ink); }
+  .ims-distribution-form .ims-table input:disabled, .ims-distribution-form .ims-table select:disabled { background: #f8fafc; color: var(--color-ims-muted); }
+  .ims-distribution-form .item-picker-dependent-cell.is-disabled { background: #f8fafc; }
+  .ims-distribution-form .item-picker-field-error, .ims-distribution-form .invalid-feedback { color: var(--color-ims-danger); font-size: var(--text-ims-xs); }
+  .ims-distribution-form .invalid-feedback.d-block { display: block; }
+  .ims-distribution-form .d-none, .ims-distribution-modal .d-none { display: none !important; }
+  .ims-distribution-form .btn, .ims-distribution-modal .btn { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); padding: 7px 12px; background: #fff; color: var(--color-ims-ink); font-size: var(--text-ims-sm); font-weight: 600; text-decoration: none; cursor: pointer; }
+  .ims-distribution-form .btn-sm, .ims-distribution-modal .btn-sm { min-height: 32px; padding: 4px 9px; }
+  .ims-distribution-form .btn-primary, .ims-distribution-modal .btn-primary { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
+  .ims-distribution-form .btn-primary:hover, .ims-distribution-modal .btn-primary:hover { background: var(--color-ims-primary-hover); }
+  .ims-distribution-form .btn-outline-primary { border-color: var(--color-ims-primary); color: var(--color-ims-primary); }
+  .ims-distribution-form .btn-outline-danger { border-color: var(--color-ims-danger); color: var(--color-ims-danger); }
+  .ims-distribution-form .btn:focus-visible, .ims-distribution-modal .btn:focus-visible, .ims-distribution-form input:focus-visible, .ims-distribution-form select:focus-visible, .ims-distribution-form textarea:focus-visible, .ims-distribution-form .table-responsive:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  .ims-distribution-modal .text-danger { color: var(--color-ims-danger); }
+  @media (min-width: 768px) {
+    .ims-distribution-form .row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ims-distribution-form .ims-distribution-field:not(.ims-distribution-field--wide) .ims-form-label-row { min-height: 40px; align-items: center; }
+  }
+  @media (max-width: 767px) {
+    .ims-distribution-form.card > .card-header, .ims-distribution-form.card > .card-body { padding: 16px; }
+    .ims-distribution-form .justify-content-between { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  }
+}

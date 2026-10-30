@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
 
 {% block title %}{{ page_title|default:title }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ page_title|default:title }}{% endblock %}
@@ -107,7 +108,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="card content-card table-container form-page-card" id="distribution-form-container" data-url-facility="{% url 'items:quick_create_facility' %}">
+<div class="ims-distribution-form card content-card table-container form-page-card" id="distribution-form-container" data-url-facility="{% url 'items:quick_create_facility' %}">
             <div class="card-header">
                 <span><i class="bi {% if form_icon %}{{ form_icon }}{% else %}bi-send{% endif %} me-2"></i>{{ title }}</span>
             </div>
@@ -133,7 +134,7 @@
                     <div class="row g-3 mb-4">
                         {% for field in form.visible_fields %}
                         {% if field.name == 'distribution_type' and not show_distribution_type %}{% else %}
-                        <div class="{% if field.name == 'notes' or field.name == 'assigned_staff' %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="ims-distribution-field{% if field.name == 'notes' or field.name == 'assigned_staff' %} ims-distribution-field--wide{% endif %}">
                             {% if field.name == 'assigned_staff' %}
                             <div class="staff-picker border rounded-3 p-3">
                                 <div class="staff-picker-header">
@@ -182,23 +183,18 @@
                                 </div>
                             </div>
                             {% elif field.name == 'facility' %}
-                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                            <div class="input-group">
-                                {{ field }}
-                                <button type="button" class="btn btn-outline-success btn-sm" title="Tambah Fasilitas" data-bs-toggle="modal" data-bs-target="#modal-facility">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
-                            </div>
+                            {% tailwind_field field 'Tambah Fasilitas' '#modal-facility' True %}
                             {% else %}
-                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                            {{ field }}
+                            {% tailwind_field field '' '' True %}
                             {% endif %}
+                            {% if field.name == 'assigned_staff' %}
                             {% if field.help_text %}
                             <div class="form-text">{{ field.help_text }}</div>
                             {% endif %}
                             {% for error in field.errors %}
                             <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
+                            {% endif %}
                         </div>
                         {% endif %}
                         {% endfor %}
@@ -245,8 +241,8 @@
                         {% endif %}
                     </div>
 
-                    <div class="table-responsive" data-formset="distribution-items" data-formset-prefix="{{ formset.prefix }}">
-                        <table class="table table-sm">
+                    <div class="table-responsive" data-formset="distribution-items" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Item distribusi" tabindex="0">
+                        <table class="table ims-table table-sm">
                             <thead>
                                 <tr>
                                     <th>Barang</th>
@@ -348,11 +344,11 @@
             </div>
 </div>
 
-<div class="modal fade" id="modal-facility" tabindex="-1" aria-hidden="true">
+<div class="ims-workflow-modal ims-distribution-modal modal fade" id="modal-facility" tabindex="-1" aria-hidden="true" aria-labelledby="modal-facility-title">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Tambah Fasilitas Baru</h6>
+                <h6 class="modal-title" id="modal-facility-title"><i class="bi bi-plus-circle me-1"></i>Tambah Fasilitas Baru</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
