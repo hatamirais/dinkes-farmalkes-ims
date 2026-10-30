@@ -14,6 +14,7 @@
   .ims-distribution-form .staff-picker-title { flex: 1 1 auto; overflow: hidden; }
   .ims-distribution-form .staff-picker-title > div { min-width: 0; max-width: 100%; }
   .ims-distribution-form .staff-picker-body { min-width: 0; }
+  .ims-distribution-form .staff-picker-body.collapse { visibility: visible !important; }
   .ims-distribution-form .staff-picker .input-group { display: flex; min-width: 0; }
   .ims-distribution-form .staff-picker .input-group-text { display: inline-flex; align-items: center; border: 1px solid var(--color-ims-border); border-right: 0; border-radius: var(--radius-ims-control) 0 0 var(--radius-ims-control); padding: 0 10px; background: var(--color-ims-surface-muted); }
   .ims-distribution-form .staff-picker .form-control { flex: 1 1 auto; width: 1%; min-width: 0; border-radius: 0 var(--radius-ims-control) var(--radius-ims-control) 0; }
