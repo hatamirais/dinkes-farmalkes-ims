@@ -1,11 +1,10 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
 
 {% block title %}Hapus Stock Opname — Healthcare IMS{% endblock %}
 {% block page_title %}Hapus Stock Opname{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
+<div class="ims-opname-delete ims-workflow">
         <div class="card content-card">
             <div class="card-header">
                 <span><i class="bi bi-exclamation-triangle me-2"></i>Konfirmasi Hapus</span>
@@ -27,14 +26,13 @@
                 <form method="post">
                     {% csrf_token %}
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-danger">
+                        <button type="submit" class="ims-btn ims-btn--danger">
                             <i class="bi bi-trash me-1"></i>Ya, Hapus
                         </button>
-                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
 </div>
 {% endblock %}

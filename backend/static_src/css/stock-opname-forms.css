@@ -1,0 +1,28 @@
+/* Wave 6 stock opname create/edit, physical count, and delete confirmation. */
+@layer components {
+  .ims-opname-form, .ims-opname-delete { max-width: 860px; margin: 16px auto 32px; }
+  .ims-opname-delete { max-width: 640px; }
+  .ims-opname-input { min-width: 0; margin: 16px auto 32px; }
+  .ims-opname-form .content-card, .ims-opname-input .content-card, .ims-opname-delete .content-card { overflow: hidden; }
+  .ims-opname-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+  .ims-opname-form-wide { grid-column: 1 / -1; }
+  .ims-opname-form .ims-control { width: 100%; }
+  .ims-opname-form .ims-form-field > div.ims-choice { display: grid; width: auto; height: auto; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 16px; }
+  .ims-opname-form .ims-form-field > div.ims-choice > div > label { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+  .ims-opname-form textarea.ims-control { min-height: 4.5rem; resize: vertical; }
+  .ims-opname-form .alert-danger, .ims-opname-delete .alert-warning { border-color: var(--color-ims-danger); background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-opname-delete .alert-warning { border-color: var(--color-ims-warning); background: var(--color-ims-warning-bg); color: var(--color-ims-warning); }
+  .ims-opname-input .ims-opname-filter { max-width: 320px; }
+  .ims-opname-input .ims-opname-filter .ims-control { width: 100%; }
+  .ims-opname-input .table-responsive { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); }
+  .ims-opname-input .ims-table { min-width: 1420px; }
+  .ims-opname-input .ims-table td { vertical-align: top; }
+  .ims-opname-input .ims-table input.ims-control { width: 100%; min-width: 110px; }
+  .ims-opname-input .ims-table th:nth-last-child(2) { min-width: 140px; }
+  .ims-opname-input .ims-table th:last-child { min-width: 200px; }
+  .ims-opname-input .badge.bg-light { background: var(--color-ims-surface-muted); color: var(--color-ims-ink); }
+  .ims-opname-input .badge.bg-danger { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
+  .ims-opname-delete dl.row { grid-template-columns: minmax(110px, 35%) minmax(0, 1fr); margin: 16px 0; }
+  .ims-opname-form :is(input, select, textarea, a, button):focus-visible, .ims-opname-input :is(input, select, textarea, a, button):focus-visible, .ims-opname-delete :is(a, button):focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  @media (max-width: 767px) { .ims-opname-form-grid { grid-template-columns: minmax(0, 1fr); } }
+}

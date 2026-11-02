@@ -13,6 +13,7 @@
 @import "./distribution-forms.css";
 @import "./recall-forms.css";
 @import "./expired-forms.css";
+@import "./stock-opname-forms.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

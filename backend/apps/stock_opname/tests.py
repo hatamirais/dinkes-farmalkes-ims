@@ -272,23 +272,14 @@ class StockOpnameInputValidationTests(StockOpnameTestMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            (
-                f'<input type="number" name="qty_{self.opname_item.pk}" '
-                'class="form-control form-control-sm " step="0.01" min="0" '
-                'value="1000.00">'
-            ),
-            html=True,
+        self.assertRegex(
+            response.content.decode(),
+            rf'<input[^>]*name="qty_{self.opname_item.pk}"[^>]*value="1000\.00"',
         )
         self.assertNotContains(response, f'value="1.000,00"')
-        self.assertContains(
-            response,
-            (
-                f'<input type="text" name="notes_{self.opname_item.pk}" '
-                'class="form-control form-control-sm" value="Sudah dihitung">'
-            ),
-            html=True,
+        self.assertRegex(
+            response.content.decode(),
+            rf'<input[^>]*name="notes_{self.opname_item.pk}"[^>]*value="Sudah dihitung"',
         )
 
     def test_valid_actual_quantity_updates_item_timestamp(self):
@@ -1260,7 +1251,7 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
 
 
     # ------------------------------------------------------------------
-    # F9 — FormHelper must be configured (crispy-forms)
+    # F9 — FormHelper remains configured for the form contract.
     # ------------------------------------------------------------------
     def test_form_has_crispy_helper(self):
         from apps.stock_opname.forms import StockOpnameForm

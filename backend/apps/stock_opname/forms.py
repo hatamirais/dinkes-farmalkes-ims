@@ -47,7 +47,7 @@ class StockOpnameForm(forms.ModelForm):
                 'Tanggal selesai dikunci setelah nomor dokumen diterbitkan.'
             )
 
-        # F9: crispy-forms helper — renders via {% crispy form %} in the template.
+        # Keep the form helper contract; the Tailwind page renders bound fields.
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.disable_csrf = True
