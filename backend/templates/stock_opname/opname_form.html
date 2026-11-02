@@ -1,12 +1,11 @@
-{% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% extends 'base_tailwind.html' %}
+{% load tailwind_forms %}
 
 {% block title %}{{ title }} — Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
+<div class="ims-opname-form ims-workflow">
         <div class="card content-card">
             <div class="card-header">
                 <span><i class="bi bi-clipboard-plus me-2"></i>{{ title }}</span>
@@ -14,7 +13,14 @@
             <div class="card-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
-                    {% crispy form %}
+                    {% if form.hidden_fields %}{% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}{% endif %}
+                    <div class="ims-opname-form-grid">
+                        {% for field in form.visible_fields %}
+                        <div class="{% if field.name == 'categories' or field.name == 'assigned_to' or field.name == 'notes' %}ims-opname-form-wide{% endif %}">
+                            {% tailwind_field field '' '' True %}
+                        </div>
+                        {% endfor %}
+                    </div>
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger mt-3">
                         {% for error in form.non_field_errors %}
@@ -23,14 +29,13 @@
                     </div>
                     {% endif %}
                     <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>
-                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'stock_opname:opname_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
 </div>
 {% endblock %}

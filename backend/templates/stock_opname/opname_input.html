@@ -1,24 +1,24 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
 {% load l10n number_format %}
 
 {% block title %}Input Hitung — {{ opname.document_number }} — Healthcare IMS{% endblock %}
 {% block page_title %}Input Hitung Fisik{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-12">
+<div class="ims-opname-input ims-workflow">
         <div class="card content-card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-pencil-square me-2"></i>{{ opname.document_number }} — Input Hitung</span>
-                <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="btn btn-outline-secondary btn-sm">
+                <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm">
                     <i class="bi bi-arrow-left me-1"></i>Kembali
                 </a>
             </div>
             <div class="card-body">
                 <!-- Location filter -->
-                <form method="get" class="row g-2 mb-3">
-                    <div class="col-md-3">
-                        <select name="location" class="form-select form-select-sm" data-action="submit-on-change">
+                <form method="get" class="ims-opname-filter mb-3">
+                    <div>
+                        <label for="opname-location" class="ims-label">Lokasi</label>
+                        <select id="opname-location" name="location" class="ims-control" data-action="submit-on-change">
                             <option value="">Semua Lokasi</option>
                             {% for loc in locations %}
                             <option value="{{ loc.pk }}" {% if selected_location == loc.pk|stringformat:'d' %}selected{% endif %}>{{ loc.code }} — {{ loc.name }}</option>
@@ -30,8 +30,8 @@
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="location" value="{{ selected_location }}">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle">
+                    <div class="table-responsive" role="region" aria-label="Input hitung fisik" tabindex="0">
+                        <table class="ims-table">
                             <thead>
                                 <tr>
                                     <th>Lokasi</th>
@@ -73,13 +73,13 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <input type="number" name="qty_{{ item.pk }}" class="form-control form-control-sm {% if item.quantity_error %}is-invalid{% endif %}" step="0.01" min="0" value="{% if item.input_quantity is not None %}{{ item.input_quantity|unlocalize }}{% endif %}">
+                                        <input type="number" name="qty_{{ item.pk }}" aria-label="Stok fisik {{ item.stock.item.nama_barang }}" {% if item.quantity_error %}aria-invalid="true" aria-describedby="qty-error-{{ item.pk }}"{% endif %} class="ims-control {% if item.quantity_error %}ims-control--invalid{% endif %}" step="0.01" min="0" value="{% if item.input_quantity is not None %}{{ item.input_quantity|unlocalize }}{% endif %}">
                                         {% if item.quantity_error %}
-                                        <div class="invalid-feedback d-block">{{ item.quantity_error }}</div>
+                                        <div id="qty-error-{{ item.pk }}" class="ims-error">{{ item.quantity_error }}</div>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <input type="text" name="notes_{{ item.pk }}" class="form-control form-control-sm" value="{{ item.input_notes|default:item.notes|default:'' }}">
+                                        <input type="text" name="notes_{{ item.pk }}" aria-label="Catatan {{ item.stock.item.nama_barang }}" class="ims-control" value="{{ item.input_notes|default:item.notes|default:'' }}">
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -92,14 +92,13 @@
                     </div>
 
                     <div class="d-flex gap-2 mt-3">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>
-                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
 </div>
 {% endblock %}
