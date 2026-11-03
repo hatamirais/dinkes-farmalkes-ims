@@ -1,19 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Edit LPLPO {{ lplpo.document_number }} – Healthcare IMS{% endblock %}
 {% block page_title %}Isi Data LPLPO{% endblock %}
 
-{% block extra_css %}
-<style>
-    .lplpo-table input { min-width: 80px; }
-    .lplpo-table textarea { min-width: 220px; min-height: 72px; }
-    .computed-cell { background: var(--bs-tertiary-bg); font-weight: 600; }
-    .category-header { background: var(--bs-primary-bg-subtle); }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-lplpo ims-lplpo-form ims-lplpo-edit">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h5 class="mb-0">{{ lplpo.document_number }}</h5>
@@ -73,7 +64,7 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered align-middle mb-0 lplpo-table">
+                    <table class="table ims-table table-sm table-bordered align-middle mb-0 lplpo-table">
                         <thead class="table-light">
                             <tr>
                                 <th rowspan="2" style="width:20%">Barang</th>

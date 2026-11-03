@@ -1,13 +1,12 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load crispy_forms_tags %}
 
 {% block title %}Import XLSX {{ lplpo.document_number }} – Healthcare IMS{% endblock %}
 {% block page_title %}Import XLSX LPLPO{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row justify-content-center">
-        <div class="col-12 col-lg-7 col-xl-6">
+<div class="ims-workflow ims-lplpo ims-lplpo-form ims-lplpo-import">
+    <div class="ims-lplpo-form-shell">
             <div class="card">
                 <div class="card-header">
                     <h6 class="mb-0"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import XLSX LPLPO</h6>
@@ -41,7 +40,6 @@
                     </form>
                 </div>
             </div>
-        </div>
     </div>
 </div>
 {% endblock %}
