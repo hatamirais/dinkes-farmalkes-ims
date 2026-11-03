@@ -14,9 +14,15 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Added the authenticated Tailwind desktop shell with shared role-aware navigation, a responsive sidebar, top bar, user menu, and flash messages, plus the Daftar Barang pilot page.
 - Added page links to the existing 25-row stock transfer list paginator so later transfers are reachable.
 - Added server-side pagination to the Stock Transfer creation stock table with 25, 50, 100, and 200 row sizes, record counts, page controls, and stock-field sorting across pages.
+- Added category separators, the latest same-facility LPLPO stock balance, and live per-item totals to the Puskesmas consumption matrix; these displays do not change submitted quantities or stock calculations.
 
 ### Changed
 
+- Migrated Stock Opname create/edit, physical-count input, and draft-delete confirmation to Tailwind while retaining their permissions, status checks, and count submission fields.
+- Migrated Puskesmas receipt confirmation, detailed consumption, and request lists/details/forms to Tailwind while retaining facility isolation and workflow checkpoints.
+- Migrated LPLPO create/edit, PIC review, and existing-document XLSX import forms to Tailwind while retaining period rules, calculations, permissions, and workbook behavior.
+- Migrated authority delegation create and revoke forms to Tailwind while retaining Flatpickr, the duration toggle, revocation reason, and existing authority checks.
+- Removed request-level Program information from the Puskesmas request list and detail; item-level program markers and historical stored values remain.
 - Migrated Expired/Disposal create/edit forms to Tailwind while retaining the selected-stock prefill, item formset, quantity validation, and existing stock and approval checkpoints.
 - Migrated Recall create/edit forms to Tailwind while retaining the item and batch formset, dependent-field validation, draft creation, and existing status and stock checkpoints.
 - Migrated Distribution create/edit forms to Tailwind while retaining special-request and manual LPLPO draft paths, staff and facility controls, item formsets, generated LPLPO locks, and existing workflow checkpoints.
@@ -38,6 +44,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Restored Puskesmas request form add/remove row controls and prevented hidden deleted rows from blocking browser validation while preserving formset deletion markers.
+- Corrected the Puskesmas receipt list's `Konfirmasi` button contrast and aligned the request list's Filter and Reset controls with its search fields.
 - Restored complete borders and card spacing in Allocation detail distribution tracking so facility cards remain visually contained on wide and narrow screens.
 - Hid the Allocation wizard tab scrollbar while keeping narrow-screen tab navigation scrollable, and made Notes span the form width at one-row height without removing multiline input or vertical resize.
 - Moved the receiving document-number guidance into a clickable title icon and softened the disabled item-row background while keeping dependent fields disabled until an item is selected.
