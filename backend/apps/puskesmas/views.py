@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import logging
 
 from django.contrib.auth.decorators import login_required
@@ -292,14 +292,48 @@ def _build_consumption_matrix(consumption, *, items, subunits):
     return rows, grand_total
 
 
-def _build_consumption_form_rows(form, *, items, subunits):
+def _build_consumption_form_rows(form, *, items, subunits, lplpo_stock_by_item=None):
+    lplpo_stock_by_item = lplpo_stock_by_item or {}
+    max_display_total = 2**53 - 1  # Match Number.isSafeInteger in the live total script.
     rows = []
     for item in items:
         fields = []
         for subunit in subunits:
             field_name = form.get_matrix_field_name(item.pk, subunit.pk)
             fields.append(form[field_name])
-        rows.append({"item": item, "fields": fields})
+        display_total = 0
+        for field in fields:
+            raw_value = field.value()
+            if raw_value in (None, ""):
+                continue
+            try:
+                quantity = Decimal(str(raw_value))
+            except (InvalidOperation, TypeError, ValueError):
+                display_total = None
+                break
+            if (
+                not quantity.is_finite()
+                or quantity < 0
+                or quantity > max_display_total
+                or quantity != quantity.to_integral_value()
+            ):
+                display_total = None
+                break
+            display_total += int(quantity)
+            if display_total > max_display_total:
+                display_total = None
+                break
+        rows.append({
+            "item": item,
+            "fields": fields,
+            "has_lplpo_stock": item.pk in lplpo_stock_by_item,
+            "lplpo_stock": lplpo_stock_by_item.get(item.pk),
+            "display_total": display_total,
+            "total_valid": display_total is not None,
+        })
+    # Keep each category contiguous for the matrix headings. Python's stable
+    # sort retains the existing item-name order within a category.
+    rows.sort(key=lambda row: (row["item"].kategori.sort_order, row["item"].kategori.code))
     return rows
 
 
@@ -496,6 +530,25 @@ def _get_latest_lplpo_for_stock_self_check(facility, year):
         .order_by("-bulan", "-id")
         .first()
     )
+
+
+def _get_latest_lplpo_stock_for_consumption(facility):
+    if facility is None:
+        return None, {}
+    latest_lplpo = (
+        LPLPO.objects.filter(
+            facility=facility,
+            status__in=LPLPO_STOCK_SELF_CHECK_STATUSES,
+        )
+        .order_by("-tahun", "-bulan", "-pk")
+        .first()
+    )
+    if latest_lplpo is None:
+        return None, {}
+    stock_by_item = dict(
+        latest_lplpo.items.values_list("item_id", "stock_keseluruhan")
+    )
+    return latest_lplpo, stock_by_item
 
 
 def _build_lplpo_stock_self_check_rows(lplpo, *, search_term="", mismatch_only=False):
@@ -901,6 +954,9 @@ def consumption_create(request):
             initial=initial,
         )
 
+    latest_lplpo, lplpo_stock_by_item = _get_latest_lplpo_stock_for_consumption(
+        facility if subunits else None
+    )
     return render(
         request,
         "puskesmas/consumption_form.html",
@@ -914,8 +970,10 @@ def consumption_create(request):
                 form,
                 items=items,
                 subunits=subunits,
+                lplpo_stock_by_item=lplpo_stock_by_item,
             ) if subunits else [],
             "selected_facility": facility,
+            "latest_lplpo": latest_lplpo,
         },
     )
 
@@ -1032,6 +1090,9 @@ def consumption_edit(request, pk):
             lock_period=True,
         )
 
+    latest_lplpo, lplpo_stock_by_item = _get_latest_lplpo_stock_for_consumption(
+        consumption.facility if subunits else None
+    )
     return render(
         request,
         "puskesmas/consumption_form.html",
@@ -1046,8 +1107,10 @@ def consumption_edit(request, pk):
                 form,
                 items=items,
                 subunits=subunits,
+                lplpo_stock_by_item=lplpo_stock_by_item,
             ),
             "selected_facility": consumption.facility,
+            "latest_lplpo": latest_lplpo,
         },
     )
 
@@ -1543,7 +1606,7 @@ def receiving_delete(request, pk):
 @perm_required("puskesmas.view_puskesmasrequest")
 def request_list(request):
     queryset = PuskesmasRequest.objects.select_related(
-        "facility", "created_by", "program"
+        "facility", "created_by"
     ).order_by("-request_date")
 
     if not is_super_admin(request.user):
@@ -1560,14 +1623,8 @@ def request_list(request):
     if status:
         queryset = queryset.filter(status=status)
 
-    program = request.GET.get("program", "")
-    if program:
-        queryset = queryset.filter(program_id=program)
-
     paginator = Paginator(queryset, 25)
     requests = paginator.get_page(request.GET.get("page"))
-
-    from apps.items.models import Program
 
     return render(
         request,
@@ -1576,9 +1633,7 @@ def request_list(request):
             "requests": requests,
             "search": q,
             "selected_status": status,
-            "selected_program": program,
             "status_choices": PuskesmasRequest.Status.choices,
-            "programs": Program.objects.filter(is_active=True).order_by("name"),
         },
     )
 
@@ -1635,7 +1690,7 @@ def request_create(request):
 def request_detail(request, pk):
     req = get_object_or_404(
         PuskesmasRequest.objects.select_related(
-            "facility", "created_by", "approved_by", "program", "distribution"
+            "facility", "created_by", "approved_by", "distribution"
         ),
         pk=pk,
     )

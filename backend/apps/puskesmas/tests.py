@@ -16,7 +16,7 @@ from openpyxl import load_workbook
 
 from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
-from apps.items.models import Category, Facility, Item, Unit
+from apps.items.models import Category, Facility, Item, Program, Unit
 from apps.puskesmas.exports import (
 	export_puskesmas_penerimaan_excel,
 	export_puskesmas_rekap_persediaan_excel,
@@ -1810,6 +1810,38 @@ class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(req.facility, self.facility)
 		self.assertEqual(req.created_by, self.user)
 
+	def test_create_ignores_deleted_extra_form_without_reindexing(self):
+		self.client.force_login(self.user)
+		response = self.client.post(
+			reverse("puskesmas:request_create"),
+			{
+				"document_number": "",
+				"facility": self.facility.pk,
+				"request_date": "2026-04-02",
+				"notes": "",
+				"items-TOTAL_FORMS": "5",
+				"items-INITIAL_FORMS": "0",
+				"items-MIN_NUM_FORMS": "1",
+				"items-MAX_NUM_FORMS": "1000",
+				"items-0-item": str(self.item.pk),
+				"items-0-quantity_requested": "5",
+				"items-1-item": "",
+				"items-1-quantity_requested": "",
+				"items-2-item": "",
+				"items-2-quantity_requested": "",
+				"items-3-item": "",
+				"items-3-quantity_requested": "",
+				"items-4-item": str(self.item.pk),
+				"items-4-quantity_requested": "invalid",
+				"items-4-DELETE": "on",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		req = PuskesmasRequest.objects.get()
+		self.assertEqual(req.items.count(), 1)
+		self.assertEqual(req.items.get().quantity_requested, Decimal("5"))
+
 	def test_instalasi_farmasi_cannot_create_request(self):
 		self.client.force_login(self.staff_user)
 
@@ -1889,6 +1921,38 @@ class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, own_request.document_number)
 		self.assertNotContains(response, other_request.document_number)
+
+	def test_request_screens_hide_request_program_and_keep_item_marker(self):
+		program = Program.objects.create(code="TB", name="Tuberkulosis")
+		self.item.program = program
+		self.item.is_program_item = True
+		self.item.save(update_fields=["program", "is_program_item"])
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			program=program,
+			created_by=self.user,
+		)
+		PuskesmasRequestItem.objects.create(
+			request=req,
+			item=self.item,
+			quantity_requested=5,
+		)
+		self.client.force_login(self.user)
+
+		list_response = self.client.get(
+			reverse("puskesmas:request_list"), {"program": "999", "status": "DRAFT"}
+		)
+		self.assertEqual(list_response.status_code, 200)
+		self.assertContains(list_response, req.document_number)
+		self.assertNotContains(list_response, 'name="program"')
+		self.assertNotContains(list_response, "<th>Program</th>")
+		self.assertNotContains(list_response, "&program=")
+
+		create_response = self.client.get(reverse("puskesmas:request_create"))
+		self.assertNotContains(create_response, 'name="program"')
+		detail_response = self.client.get(reverse("puskesmas:request_detail", args=[req.pk]))
+		self.assertNotContains(detail_response, '<dt class="col-sm-4">Program</dt>')
+		self.assertContains(detail_response, "[P]")
 
 	def test_detail_returns_403_when_operator_accesses_other_facility_request(self):
 		other_request = PuskesmasRequest.objects.create(
@@ -2659,6 +2723,156 @@ class PuskesmasConsumptionViewTests(SecureClientDefaultsMixin, TestCase):
 			email="admin-consumption@example.com",
 			password="TestPassword123!",
 		)
+
+	def test_create_matrix_groups_categories_without_losing_quantity_fields(self):
+		other_category = Category.objects.create(
+			code="ALT", name="Alat Kesehatan", sort_order=1
+		)
+		other_items = [
+			Item.objects.create(
+				nama_barang=name,
+				satuan=self.unit,
+				kategori=category,
+				is_active=True,
+			)
+			for name, category in (
+				("Aset A", other_category),
+				("Paracetamol A", other_category),
+				("Zinc 10 mg", self.category),
+			)
+		]
+		self.client.force_login(self.operator)
+
+		response = self.client.get(reverse("puskesmas:consumption_create"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'class="ims-consumption-category-row"', count=2)
+		self.assertContains(response, 'scope="rowgroup"', count=2)
+		self.assertContains(response, "Belum ada LPLPO")
+		self.assertTrue(all(not row["has_lplpo_stock"] for row in response.context["matrix_rows"]))
+		self.assertEqual(
+			[row["item"].kategori_id for row in response.context["matrix_rows"]],
+			[other_category.pk, other_category.pk, self.category.pk, self.category.pk],
+		)
+		for item in (self.item, *other_items):
+			self.assertContains(response, f"qty_{item.pk}_{self.subunit.pk}")
+
+	def test_matrix_uses_latest_non_rejected_lplpo_for_own_facility(self):
+		negative_item = Item.objects.create(
+			nama_barang="Zinc 10 mg",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		missing_item = Item.objects.create(
+			nama_barang="Vitamin A",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		old_lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=12,
+			tahun=2025,
+			status=LPLPO.Status.CLOSED,
+			created_by=self.operator,
+		)
+		LPLPOItem.objects.create(lplpo=old_lplpo, item=self.item, stock_awal=7)
+		latest_lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			status=LPLPO.Status.DRAFT,
+			created_by=self.operator,
+		)
+		LPLPOItem.objects.create(lplpo=latest_lplpo, item=self.item, stock_awal=0)
+		LPLPOItem.objects.create(lplpo=latest_lplpo, item=negative_item, stock_awal=-2)
+		rejected_lplpo = LPLPO.objects.create(
+			facility=self.facility,
+			bulan=3,
+			tahun=2026,
+			status=LPLPO.Status.REJECTED_PUSKESMAS,
+			created_by=self.operator,
+		)
+		LPLPOItem.objects.create(lplpo=rejected_lplpo, item=self.item, stock_awal=99)
+		other_lplpo = LPLPO.objects.create(
+			facility=self.other_facility,
+			bulan=4,
+			tahun=2026,
+			status=LPLPO.Status.DRAFT,
+			created_by=self.other_operator,
+		)
+		LPLPOItem.objects.create(lplpo=other_lplpo, item=self.item, stock_awal=88)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			created_by=self.operator,
+		)
+		self.client.force_login(self.operator)
+
+		for url in (
+			reverse("puskesmas:consumption_create"),
+			reverse("puskesmas:consumption_edit", args=[consumption.pk]),
+		):
+			with self.subTest(url=url):
+				response = self.client.get(url)
+				self.assertEqual(response.status_code, 200)
+				self.assertEqual(response.context["latest_lplpo"], latest_lplpo)
+				rows = {row["item"].pk: row for row in response.context["matrix_rows"]}
+				self.assertTrue(rows[self.item.pk]["has_lplpo_stock"])
+				self.assertEqual(rows[self.item.pk]["lplpo_stock"], 0)
+				self.assertEqual(rows[negative_item.pk]["lplpo_stock"], -2)
+				self.assertFalse(rows[missing_item.pk]["has_lplpo_stock"])
+				self.assertContains(response, "Februari 2026")
+				self.assertContains(response, "Stok LPLPO Terakhir")
+				markup = response.content.decode()
+				self.assertLess(markup.index("Satuan"), markup.index("Stok LPLPO Terakhir"))
+				self.assertLess(markup.index("Stok LPLPO Terakhir"), markup.index(self.subunit.name))
+
+	def test_edit_matrix_renders_sum_of_saved_subunit_quantities(self):
+		second_subunit = PuskesmasSubunit.objects.create(
+			facility=self.facility,
+			name="Laboratorium",
+			subunit_type=PuskesmasSubunit.SubunitType.TREATMENT_ROOM,
+		)
+		consumption = PuskesmasConsumption.objects.create(
+			facility=self.facility,
+			bulan=2,
+			tahun=2026,
+			created_by=self.operator,
+		)
+		for subunit, quantity in ((self.subunit, 110), (second_subunit, 200)):
+			PuskesmasConsumptionEntry.objects.create(
+				consumption=consumption,
+				item=self.item,
+				subunit=subunit,
+				quantity=quantity,
+			)
+		self.client.force_login(self.operator)
+
+		response = self.client.get(reverse("puskesmas:consumption_edit", args=[consumption.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		row = next(row for row in response.context["matrix_rows"] if row["item"] == self.item)
+		self.assertEqual(row["display_total"], 310)
+		self.assertContains(response, f'name="qty_{self.item.pk}_{self.subunit.pk}"')
+		self.assertContains(response, f'name="qty_{self.item.pk}_{second_subunit.pk}"')
+		self.assertContains(response, 'class="ims-consumption-total" aria-live="polite"')
+		self.assertContains(response, ">310</output>")
+
+	def test_invalid_oversized_matrix_quantity_keeps_form_renderable(self):
+		self.client.force_login(self.operator)
+
+		response = self.client.post(
+			reverse("puskesmas:consumption_create"),
+			self._payload(quantity="9" * 5000),
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(PuskesmasConsumption.objects.count(), 0)
+		self.assertFalse(response.context["matrix_rows"][0]["total_valid"])
+		self.assertContains(response, 'class="ims-consumption-total" aria-live="polite"')
 
 	def _create_lplpo(self, status=LPLPO.Status.DRAFT):
 		lplpo = LPLPO.objects.create(

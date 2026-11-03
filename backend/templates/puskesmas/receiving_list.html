@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Konfirmasi Penerimaan – Healthcare IMS{% endblock %}
 {% block page_title %}Konfirmasi Penerimaan{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-puskesmas ims-puskesmas-list ims-puskesmas-receiving-list">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
             <h4 class="mb-1">Konfirmasi Penerimaan</h4>
@@ -24,7 +24,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table ims-table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>No. Distribusi</th>
@@ -66,7 +66,7 @@
             </form>
 
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table ims-table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>No. Konfirmasi</th>

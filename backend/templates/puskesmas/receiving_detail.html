@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load number_format %}
 
 {% block title %}{{ receipt_confirmation.document_number }} – Healthcare IMS{% endblock %}
 {% block page_title %}Detail Konfirmasi Penerimaan{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-puskesmas ims-puskesmas-detail ims-puskesmas-receiving-detail">
     {% if locked_lplpo %}
     <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
         <i class="bi bi-lock-fill fs-5"></i>
@@ -73,7 +73,7 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0" id="items-table">
+                        <table class="table ims-table table-sm align-middle mb-0" id="items-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>#</th>
@@ -162,7 +162,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal ims-puskesmas-modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0">

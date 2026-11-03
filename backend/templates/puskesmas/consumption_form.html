@@ -1,19 +1,12 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load crispy_forms_tags %}
+{% load number_format %}
 
 {% block title %}{{ title }} – Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
-{% block extra_css %}
-<style>
-    .consumption-table input { min-width: 90px; }
-    .sticky-col { position: sticky; left: 0; background: var(--bs-body-bg); z-index: 1; }
-    .sticky-col-2 { position: sticky; left: 240px; background: var(--bs-body-bg); z-index: 1; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-puskesmas ims-puskesmas-consumption-form">
     <form method="post" novalidate>
         {% csrf_token %}
         <div class="card mb-4">
@@ -98,11 +91,15 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered align-middle mb-0 consumption-table">
+                    <table class="table ims-table table-sm table-bordered align-middle mb-0 consumption-table">
                         <thead class="table-light">
                             <tr>
-                                <th class="sticky-col" style="min-width:240px;">Barang</th>
-                                <th class="sticky-col-2 text-center" style="min-width:70px;">Satuan</th>
+                                <th class="sticky-col">Barang</th>
+                                <th class="sticky-col-2 text-center">Satuan</th>
+                                <th class="text-end ims-consumption-stock-heading" title="Saldo digital LPLPO terakhir, bukan stok fisik real-time.">
+                                    Stok LPLPO Terakhir<br>
+                                    <small class="text-muted">{% if latest_lplpo %}{{ latest_lplpo.period_display }} · {{ latest_lplpo.get_status_display }}{% else %}Belum ada LPLPO{% endif %}</small>
+                                </th>
                                 {% for subunit in subunits %}
                                 <th class="text-center" style="min-width:120px;">
                                     {{ subunit.name }}<br>
@@ -113,20 +110,31 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in matrix_rows %}
-                            <tr>
+                            {% regroup matrix_rows by item.kategori as category_groups %}
+                            {% for category_group in category_groups %}
+                            <tr class="ims-consumption-category-row">
+                                <th scope="rowgroup" colspan="{{ subunits|length|add:4 }}">{{ category_group.grouper.code }} — {{ category_group.grouper.name }}</th>
+                            </tr>
+                            {% for row in category_group.list %}
+                            <tr class="ims-consumption-item-row">
                                 <td class="sticky-col">
                                     <strong class="small">{{ row.item.nama_barang }}</strong><br>
                                     <small class="text-muted">{{ row.item.kode_barang }}</small>
                                 </td>
                                 <td class="sticky-col-2 text-center text-muted small">{{ row.item.satuan.code }}</td>
+                                <td class="text-end ims-consumption-stock-cell">
+                                    {% if row.has_lplpo_stock %}{{ row.lplpo_stock|id_decimal:0 }}{% else %}<span class="text-muted">—</span>{% endif %}
+                                </td>
                                 {% for field in row.fields %}
                                 <td>
                                     {{ field|as_crispy_field }}
                                 </td>
                                 {% endfor %}
-                                <td class="table-secondary text-end text-muted">Otomatis</td>
+                                <td class="table-secondary text-end ims-consumption-total-cell">
+                                    <output class="ims-consumption-total" aria-live="polite" aria-label="Total pemakaian {{ row.item.nama_barang }}">{% if row.total_valid %}{{ row.display_total|id_decimal:0 }}{% else %}—{% endif %}</output>
+                                </td>
                             </tr>
+                            {% endfor %}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -152,4 +160,9 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/puskesmas-consumption-total.js' %}?v={{ app_version }}-wave6-live-total"></script>
 {% endblock %}

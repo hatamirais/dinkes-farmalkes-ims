@@ -14,6 +14,7 @@
 @import "./recall-forms.css";
 @import "./expired-forms.css";
 @import "./stock-opname-forms.css";
+@import "./puskesmas-workflows.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";

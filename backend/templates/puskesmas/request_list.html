@@ -1,15 +1,15 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}Permintaan Puskesmas – Healthcare IMS{% endblock %}
 {% block page_title %}Permintaan Puskesmas{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-puskesmas ims-puskesmas-list ims-puskesmas-request-list">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1">Permintaan Barang Puskesmas</h4>
-            <p class="text-muted mb-0">Daftar permintaan barang dari Puskesmas (ad-hoc, terutama program)</p>
+            <p class="text-muted mb-0">Daftar permintaan barang dari Puskesmas</p>
         </div>
         {% if request.user.role == 'PUSKESMAS' %}
         <a href="{% url 'puskesmas:request_create' %}" class="btn btn-primary">
@@ -21,12 +21,12 @@
     <!-- Filters -->
     <div class="card mb-4">
         <div class="card-body py-2">
-            <form method="get" class="row g-2 align-items-end">
-                <div class="col-12 col-md-4">
+            <form method="get" class="row g-2 align-items-end ims-request-filters">
+                <div class="col-12 col-md-4 ims-request-filter-search">
                     <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor / puskesmas..."
                         class="form-control form-control-sm" id="search-input">
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-3 ims-request-filter-select">
                     <select name="status" class="form-select form-select-sm" id="status-filter">
                         <option value="">Semua Status</option>
                         {% for val, label in status_choices %}
@@ -34,19 +34,11 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
-                    <select name="program" class="form-select form-select-sm" id="program-filter">
-                        <option value="">Semua Program</option>
-                        {% for prog in programs %}
-                        <option value="{{ prog.pk }}" {% if prog.pk|stringformat:"s" == selected_program %}selected{% endif %}>{{ prog.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-primary" id="filter-btn">
+                <div class="col-auto ims-request-filter-actions">
+                    <button type="submit" class="btn btn-primary" id="filter-btn">
                         <i class="bi bi-funnel me-1"></i>Filter
                     </button>
-                    <a href="{% url 'puskesmas:request_list' %}" class="btn btn-sm btn-outline-secondary ms-1" id="reset-btn">Reset</a>
+                    <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary" id="reset-btn">Reset</a>
                 </div>
             </form>
         </div>
@@ -56,12 +48,11 @@
     <div class="card">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0" id="request-table">
+                <table class="table ims-table table-hover mb-0" id="request-table">
                     <thead class="table-light">
                         <tr>
                             <th>Nomor</th>
                             <th>Puskesmas</th>
-                            <th>Program</th>
                             <th>Tgl Permintaan</th>
                             <th>Status</th>
                             <th>Dibuat Oleh</th>
@@ -78,13 +69,6 @@
                                 </a>
                             </td>
                             <td>{{ req.facility.name }}</td>
-                            <td>
-                                {% if req.program %}
-                                <span class="badge text-bg-info-subtle text-info border border-info-subtle">{{ req.program.code }}</span>
-                                {% else %}
-                                <span class="text-muted">–</span>
-                                {% endif %}
-                            </td>
                             <td>{{ req.request_date|date:"d M Y" }}</td>
                             <td>
                                 {% if req.status == 'DRAFT' %}
@@ -107,7 +91,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
+                            <td colspan="6" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                 Belum ada permintaan.
                             </td>
@@ -127,14 +111,14 @@
                 <ul class="pagination pagination-sm mb-0">
                     {% if requests.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ requests.previous_page_number }}&q={{ search }}&status={{ selected_status }}&program={{ selected_program }}">
+                        <a class="page-link" href="?page={{ requests.previous_page_number }}&q={{ search }}&status={{ selected_status }}">
                             &laquo;
                         </a>
                     </li>
                     {% endif %}
                     {% if requests.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ requests.next_page_number }}&q={{ search }}&status={{ selected_status }}&program={{ selected_program }}">
+                        <a class="page-link" href="?page={{ requests.next_page_number }}&q={{ search }}&status={{ selected_status }}">
                             &raquo;
                         </a>
                     </li>

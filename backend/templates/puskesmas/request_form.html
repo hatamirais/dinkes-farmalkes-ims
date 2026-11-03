@@ -1,20 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load crispy_forms_tags %}
 
 {% block title %}{{ title }} – Healthcare IMS{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
-{% block extra_css %}
-<style>
-.formset-row { border-bottom: 1px solid var(--bs-border-color); padding-bottom: 0.5rem; }
-.formset-row:last-child { border-bottom: none; }
-.delete-row-btn { opacity: 0.4; transition: opacity .2s; }
-.delete-row-btn:hover { opacity: 1; }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-puskesmas ims-puskesmas-request-form">
     <div class="row justify-content-center">
         <div class="col-12 col-xl-10">
 
@@ -55,7 +46,6 @@
                                 <div class="text-danger small">{{ form.request_date.errors }}</div>
                                 {% endif %}
                             </div>
-                            <div class="col-md-4">
                             <div class="col-md-8">
                                 <label class="form-label fw-semibold">Catatan</label>
                                 {{ form.notes }}
@@ -79,7 +69,7 @@
                         {% endif %}
 
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle" id="formset-table">
+                            <table class="table ims-table table-sm align-middle" id="formset-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:45%">Barang <span class="text-danger">*</span></th>
@@ -166,5 +156,5 @@
 
 {% block extra_js %}
 {% load static %}
-<script src="{% static 'js/puskesmas-form.js' %}?v={{ app_version }}-20260618b"></script>
+<script src="{% static 'js/puskesmas-form.js' %}?v={{ app_version }}-wave6-request-formset"></script>
 {% endblock %}
