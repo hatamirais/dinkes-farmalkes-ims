@@ -315,6 +315,20 @@ class AuthorityDelegationViewTests(AuthorityDelegationTestMixin, TestCase):
         self.assertContains(response, "/static/vendor/flatpickr/l10n/id.js")
         self.assertContains(response, "/static/js/authority-delegation-form.js")
 
+    def test_revoke_confirmation_uses_tailwind_and_keeps_reason_field(self):
+        delegation = self.make_delegation(self.delegate)
+        self.client.force_login(self.kepala)
+
+        response = self.client.get(
+            reverse("users:authority_delegation_revoke", args=[delegation.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "base_tailwind.html")
+        self.assertContains(response, "css/app.tailwind.css")
+        self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
+        self.assertContains(response, 'name="revocation_reason"')
+
     def test_create_and_revoke_delegation(self):
         self.client.force_login(self.kepala)
         starts_at = timezone.localtime(timezone.now() + timedelta(hours=1))
