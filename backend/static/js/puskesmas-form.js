@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeReceivingPreview();
     initializeLegacyReceivingFormset();
     initializeReceiptChecklist();
+    initializeRequestFormset();
 });
 
 function initializeReceivingPreview() {
@@ -107,6 +108,73 @@ function initializeLegacyReceivingFormset() {
         if (!btn) return;
         removeLegacyRow(btn);
     });
+}
+
+function initializeRequestFormset() {
+    var requestForm = document.getElementById("request-form");
+    if (!requestForm || requestForm.dataset.receiptMode) return;
+
+    var totalFormsInput = document.getElementById("id_items-TOTAL_FORMS");
+    var formsetBody = document.getElementById("formset-body");
+    var template = document.getElementById("empty-form-template");
+    var addBtn = document.getElementById("add-item-btn");
+    if (!totalFormsInput || !formsetBody || !template || !addBtn) return;
+
+    function visibleRows() {
+        return Array.from(formsetBody.querySelectorAll("tr.formset-row")).filter(function (row) {
+            return row.style.display !== "none";
+        });
+    }
+
+    function syncDeleteButtons() {
+        var disable = visibleRows().length <= 1;
+        visibleRows().forEach(function (row) {
+            var button = row.querySelector("[data-action-remove-row]");
+            if (button) button.disabled = disable;
+        });
+    }
+
+    addBtn.addEventListener("click", function () {
+        var index = parseInt(totalFormsInput.value, 10);
+        if (!Number.isInteger(index)) return;
+        var clone = template.content.cloneNode(true);
+        clone.querySelectorAll("[name]").forEach(function (field) {
+            field.name = field.name.replace("__prefix__", index);
+            if (field.id) field.id = field.id.replace("__prefix__", index);
+        });
+        formsetBody.appendChild(clone);
+        totalFormsInput.value = String(index + 1);
+        if (typeof initTypeaheadSelects === "function") initTypeaheadSelects();
+        syncDeleteButtons();
+    });
+
+    formsetBody.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-action-remove-row]");
+        if (!button || button.disabled || visibleRows().length <= 1) return;
+        var row = button.closest("tr.formset-row");
+        if (!row) return;
+
+        var deleteInput = row.querySelector("input[name$='-DELETE']");
+        if (!deleteInput) {
+            var field = row.querySelector("[name^='items-']");
+            var match = field && field.name.match(/^items-(\d+)-/);
+            if (!match) return;
+            deleteInput = document.createElement("input");
+            deleteInput.type = "checkbox";
+            deleteInput.name = "items-" + match[1] + "-DELETE";
+            deleteInput.hidden = true;
+            row.appendChild(deleteInput);
+        }
+        deleteInput.checked = true;
+        row.querySelectorAll("input, select, textarea").forEach(function (field) {
+            if (field === deleteInput || /^items-\d+-id$/.test(field.name)) return;
+            field.disabled = true;
+        });
+        row.style.display = "none";
+        syncDeleteButtons();
+    });
+
+    syncDeleteButtons();
 }
 
 function initializeReceiptChecklist() {

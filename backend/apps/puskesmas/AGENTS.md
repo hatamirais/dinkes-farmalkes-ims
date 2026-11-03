@@ -32,6 +32,8 @@ App-specific guidance for Puskesmas facility workflows.
 
 ## Receipt Confirmations
 
+- The receipt-confirmation list, detail, and shared create/edit form use the Tailwind desktop base. The form keeps its distribution preview GET, fixed linked checklist, legacy unlinked row formset, and draft/final POST action values. Bootstrap JavaScript still owns the delete modal; `puskesmas-form.js` owns the preview and checklist state.
+
 - Puskesmas `Riwayat Penerimaan` is sourced from `PuskesmasReceiptConfirmation` and `PuskesmasReceiptConfirmationItem`.
 - Linked receipt-confirmation create/edit uses a fixed checklist sourced from `DistributionItem` rows.
 - Operators can save an incomplete document as `DRAFT` when goods are still missing.
@@ -49,6 +51,10 @@ App-specific guidance for Puskesmas facility workflows.
 
 ## Detailed Consumption
 
+- The detailed-consumption list, detail, and shared create/edit form use the Tailwind desktop base. The form keeps facility/month fields, dynamic subunit matrix cells, server-bound errors, and the superuser `load_matrix` POST action. The matrix retains horizontal scrolling and two sticky identifier columns. The create/edit matrix groups all item rows under visible Kategori separators; this changes presentation only and keeps each item's quantity field and save behavior.
+- The create/edit matrix shows `Stok LPLPO Terakhir` immediately after Satuan, sourced from `stock_keseluruhan` on the latest non-rejected LPLPO for the selected facility across years. The heading displays that LPLPO's period and status. A missing item or missing LPLPO displays `—`, while an actual zero or negative balance is shown as stored. This is a digital snapshot, not live physical stock or a validation limit for the quantity fields.
+- The matrix Total cell displays the sum of that item's visible subunit quantities, including saved values on edit, and updates while the operator types. Blank cells count as zero; invalid values show `—` until corrected. The display does not submit a separate field or replace server validation and LPLPO synchronization.
+
 - Detailed consumption is sourced from `PuskesmasConsumption` and `PuskesmasConsumptionEntry`.
 - Consumption is stored separately per facility/month and per facility-defined subunit.
 - The sum of `PuskesmasConsumptionEntry.quantity` per item is the editable-period source of truth for `LPLPOItem.pemakaian`.
@@ -56,3 +62,8 @@ App-specific guidance for Puskesmas facility workflows.
 - Opening or re-saving an editable LPLPO refreshes same-month `pemakaian` values when a detailed-consumption document already exists.
 - Once a facility-month LPLPO is `SUBMITTED` or beyond, detailed consumption mutation for that period is blocked.
 - Mutation saves are POST-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
+
+## Request Screens
+
+- The request list, detail, and shared create/edit form use the Tailwind desktop base. The form keeps the `items` management fields, row selectors and quantities, and draft save. `puskesmas-form.js` adds/removes request rows using formset indices and DELETE markers, with at least one visible row. Removed rows disable editable inputs so native browser validation cannot block saving; their existing formset IDs and checked DELETE controls stay enabled for Django. The detail retains server-gated submit, approve/reject, reset, and delete actions with Bootstrap JavaScript modals.
+- The request-level `program` remains a nullable stored field for existing records and downstream distribution behavior, but the operator create/edit form does not expose it. The list and detail omit request-level Program, and the list no longer filters on `?program=`. Item-level `[P]` markers remain visible on detail rows; `[P]` marks a program item and does not identify a particular Program.

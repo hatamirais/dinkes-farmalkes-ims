@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 
 {% block title %}{{ req.document_number }} – Healthcare IMS{% endblock %}
 {% block page_title %}Detail Permintaan Puskesmas{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="ims-workflow ims-puskesmas ims-puskesmas-detail ims-puskesmas-request-detail">
 
     <!-- Status Banner -->
     <div class="alert
@@ -47,15 +47,6 @@
                         <dt class="col-sm-4">Tanggal Permintaan</dt>
                         <dd class="col-sm-8">{{ req.request_date|date:"d F Y" }}</dd>
 
-                        <dt class="col-sm-4">Program</dt>
-                        <dd class="col-sm-8">
-                            {% if req.program %}
-                            <span class="badge text-bg-info-subtle text-info border border-info-subtle">{{ req.program.code }} – {{ req.program.name }}</span>
-                            {% else %}
-                            <span class="text-muted">–</span>
-                            {% endif %}
-                        </dd>
-
                         <dt class="col-sm-4">Dibuat Oleh</dt>
                         <dd class="col-sm-8">{{ req.created_by }} <span class="text-muted small">{{ req.created_at|date:"d M Y H:i" }}</span></dd>
 
@@ -84,7 +75,7 @@
                     {% csrf_token %}
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0" id="items-table">
+                            <table class="table ims-table table-sm align-middle mb-0" id="items-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>#</th>
@@ -133,7 +124,7 @@
                 <!-- View Mode -->
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0" id="items-table">
+                        <table class="table ims-table table-sm align-middle mb-0" id="items-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>#</th>
@@ -268,7 +259,7 @@
 </div>
 
 <!-- Delete Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal ims-puskesmas-modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0">
@@ -292,7 +283,7 @@
 
 {% if can_review %}
 <!-- Reject Modal -->
-<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+<div class="modal fade ims-workflow-modal ims-puskesmas-modal" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0">
