@@ -1466,7 +1466,7 @@ class UserTailwindPageTests(TestCase):
         )
         self.client.force_login(self.admin)
 
-    def test_account_pages_use_tailwind_while_delegation_create_stays_legacy(self):
+    def test_account_and_delegation_create_pages_use_tailwind(self):
         for url in (
             reverse("users:user_list"),
             reverse("users:user_create"),
@@ -1479,8 +1479,9 @@ class UserTailwindPageTests(TestCase):
                 self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
 
         delegation = self.client.get(reverse("users:authority_delegation_create"), secure=True)
-        self.assertContains(delegation, "vendor/bootstrap/css/bootstrap.min.css")
-        self.assertNotContains(delegation, "css/app.tailwind.css")
+        self.assertTemplateUsed(delegation, "base_tailwind.html")
+        self.assertContains(delegation, "css/app.tailwind.css")
+        self.assertNotContains(delegation, "vendor/bootstrap/css/bootstrap.min.css")
 
     def test_invalid_create_links_errors_to_bound_fields(self):
         response = self.client.post(reverse("users:user_create"), {"role": User.Role.PUSKESMAS}, secure=True)
