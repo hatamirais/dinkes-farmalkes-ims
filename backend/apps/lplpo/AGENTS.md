@@ -6,6 +6,8 @@ App-specific guidance for monthly LPLPO reports and stock requests.
 
 `lplpo` owns monthly reporting and stock requests from Puskesmas.
 
+The create, edit, PIC review, and existing-document XLSX import screens use the Tailwind desktop base and scoped `lplpo-forms.css`; list and detail were migrated earlier. Their bound fields, POST names, status/facility gates, XLSX upload contract, and edit-side `lplpo-edit.js` calculations remain workflow-owned. The two wide item tables scroll inside their cards on narrow screens. Dedicated print pages remain separate.
+
 ## Facility Scope And Cross-Facility Access
 
 - Puskesmas-owned stages (`DRAFT`, `REJECTED_PUSKESMAS`, edit, submit, delete, XLSX import/export, and prefill helpers) require a linked `user.facility` for every non-superuser and remain same-facility only.
