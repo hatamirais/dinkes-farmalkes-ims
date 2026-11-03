@@ -1905,6 +1905,47 @@ class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
 		req.refresh_from_db()
 		self.assertEqual(req.facility, self.facility)
 
+	def test_edit_deletes_row_with_disabled_fields_and_kept_id(self):
+		other_item = Item.objects.create(
+			nama_barang="Paracetamol 500 mg",
+			satuan=self.unit,
+			kategori=self.category,
+			is_active=True,
+		)
+		req = PuskesmasRequest.objects.create(
+			facility=self.facility,
+			created_by=self.user,
+		)
+		kept_line = PuskesmasRequestItem.objects.create(
+			request=req, item=self.item, quantity_requested=5,
+		)
+		deleted_line = PuskesmasRequestItem.objects.create(
+			request=req, item=other_item, quantity_requested=3,
+		)
+		self.client.force_login(self.user)
+
+		response = self.client.post(
+			reverse("puskesmas:request_edit", args=[req.pk]),
+			{
+				"document_number": req.document_number,
+				"facility": str(self.facility.pk),
+				"request_date": "2026-04-02",
+				"notes": "",
+				"items-TOTAL_FORMS": "2",
+				"items-INITIAL_FORMS": "2",
+				"items-MIN_NUM_FORMS": "1",
+				"items-MAX_NUM_FORMS": "1000",
+				"items-0-id": str(kept_line.pk),
+				"items-0-item": str(self.item.pk),
+				"items-0-quantity_requested": "5",
+				"items-1-id": str(deleted_line.pk),
+				"items-1-DELETE": "on",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(list(req.items.values_list("pk", flat=True)), [kept_line.pk])
+
 	def test_list_only_shows_operator_facility_requests(self):
 		own_request = PuskesmasRequest.objects.create(
 			facility=self.facility,

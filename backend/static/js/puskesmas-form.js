@@ -166,6 +166,10 @@ function initializeRequestFormset() {
             row.appendChild(deleteInput);
         }
         deleteInput.checked = true;
+        row.querySelectorAll("input, select, textarea").forEach(function (field) {
+            if (field === deleteInput || /^items-\d+-id$/.test(field.name)) return;
+            field.disabled = true;
+        });
         row.style.display = "none";
         syncDeleteButtons();
     });
