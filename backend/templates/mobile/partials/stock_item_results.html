@@ -11,11 +11,11 @@
             {% if item.risk_badges %}
             <div class="mobile-risk-stack">
                 {% for badge in item.risk_badges %}
-                <span class="badge {{ badge.class }}">{{ badge.label }}</span>
+                <span class="ims-badge mobile-stock-badge {{ badge.class }}">{{ badge.label }}</span>
                 {% endfor %}
             </div>
             {% else %}
-            <span class="badge text-bg-success">Aman</span>
+            <span class="ims-badge mobile-stock-badge text-bg-success">Aman</span>
             {% endif %}
         </div>
         <dl class="mobile-stock-card__quantities mobile-stock-card__quantities--two">

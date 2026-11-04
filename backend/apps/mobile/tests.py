@@ -144,6 +144,26 @@ class MobileStockAccessTests(MobileStockTestCase):
 
 
 class MobileDiscoveryTests(MobileStockTestCase):
+    def test_stock_screens_use_tailwind_and_preserve_pwa_hooks(self):
+        item = self._make_item()
+        self._make_stock(item)
+        self.client.force_login(self.user)
+        for url in (
+            reverse("mobile:stock_list"),
+            reverse("mobile:stock_card", args=[item.pk]),
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url, secure=True)
+                self.assertContains(response, "css/app.tailwind.css")
+                self.assertNotContains(response, "vendor/bootstrap/css/")
+                self.assertNotContains(response, "bootstrap.bundle.min.js")
+                self.assertNotContains(response, "mobile/css/mobile.css")
+                self.assertContains(response, 'viewport-fit=cover')
+                self.assertContains(response, reverse("mobile:manifest"))
+                self.assertContains(response, "data-pwa-install-dismiss")
+                self.assertContains(response, "mobile/js/mobile.js")
+                self.assertContains(response, 'aria-label="Navigasi mobile"')
+
     def test_mobile_stock_page_renders_install_prompt_container(self):
         item = self._make_item()
         self._make_stock(item)
@@ -509,6 +529,44 @@ class MobileStockCardTests(MobileStockTestCase):
 
 
 class MobileApprovalTests(MobileStockTestCase):
+    def test_approval_screens_use_tailwind_and_keep_confirmation_forms(self):
+        distribution = self._make_distribution()
+        expired = self._make_expired()
+        self.client.force_login(self.kepala)
+        for name, pk, actions in (
+            ("approval_inbox", None, ()),
+            ("distribution_approval_detail", distribution.pk,
+             ("distribution_approve", "distribution_reject")),
+            ("expired_approval_detail", expired.pk, ("expired_approve",)),
+        ):
+            url = reverse(f"mobile:{name}", args=[pk] if pk else [])
+            with self.subTest(url=url):
+                response = self.client.get(url, secure=True)
+                self.assertContains(response, "css/app.tailwind.css")
+                self.assertNotContains(response, "vendor/bootstrap/css/")
+                self.assertNotContains(response, "mobile/css/mobile.css")
+                for action in actions:
+                    self.assertContains(response, reverse(f"mobile:{action}", args=[pk]))
+                if actions:
+                    self.assertContains(response, 'method="post"', count=len(actions))
+                    self.assertContains(response, "csrfmiddlewaretoken", count=len(actions))
+                    self.assertContains(response, "data-mobile-confirm=", count=len(actions))
+
+    def test_completed_mobile_details_hide_submission_actions(self):
+        distribution = self._make_distribution()
+        expired = self._make_expired()
+        distribution.status = Distribution.Status.VERIFIED
+        distribution.save(update_fields=["status"])
+        expired.status = Expired.Status.VERIFIED
+        expired.save(update_fields=["status"])
+        self.client.force_login(self.kepala)
+        for name, pk in (("distribution_approval_detail", distribution.pk),
+                         ("expired_approval_detail", expired.pk)):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(f"mobile:{name}", args=[pk]), secure=True)
+                self.assertContains(response, "ims-badge--success")
+                self.assertNotContains(response, "data-mobile-confirm=")
+
     def setUp(self):
         super().setUp()
         DocumentNumberRule.objects.get_or_create(

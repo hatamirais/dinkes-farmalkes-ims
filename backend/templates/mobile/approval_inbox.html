@@ -29,7 +29,7 @@
                         <h3>{{ distribution.document_number }}</h3>
                         <p>{{ distribution.get_distribution_type_display }} · {{ distribution.facility.name }}</p>
                     </div>
-                    <span class="badge text-bg-warning">Diajukan</span>
+                    <span class="ims-badge ims-badge--warning">Diajukan</span>
                 </div>
                 <div class="mobile-approval-meta">
                     <span><i class="bi bi-calendar-event"></i>{{ distribution.request_date|date:"d M Y" }}</span>
@@ -74,7 +74,7 @@
                         <h3>{{ expired_document.document_number }}</h3>
                         <p>Laporan {{ expired_document.report_date|date:"d M Y" }}</p>
                     </div>
-                    <span class="badge text-bg-danger">Perlu verifikasi</span>
+                    <span class="ims-badge ims-badge--danger">Perlu verifikasi</span>
                 </div>
                 <div class="mobile-approval-meta">
                     <span><i class="bi bi-person"></i>{{ expired_document.created_by }}</span>

@@ -16,11 +16,11 @@
     {% if selected_quick %}
     <input type="hidden" name="quick" value="{{ selected_quick }}">
     {% endif %}
-    <label class="visually-hidden" for="mobile-stock-search">Cari stok</label>
-    <div class="input-group mobile-search">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input id="mobile-stock-search" type="search" name="q" class="form-control" placeholder="Cari barang, batch, dokumen" value="{{ search }}">
-        <button type="submit" class="btn btn-primary" aria-label="Cari"><i class="bi bi-arrow-right"></i></button>
+    <label class="sr-only" for="mobile-stock-search">Cari stok</label>
+    <div class="mobile-search">
+        <span class="mobile-search__icon"><i class="bi bi-search"></i></span>
+        <input id="mobile-stock-search" type="search" name="q" class="ims-control" placeholder="Cari barang, batch, dokumen" value="{{ search }}">
+        <button type="submit" class="ims-btn ims-btn--primary" aria-label="Cari"><i class="bi bi-arrow-right"></i></button>
     </div>
 
     <details class="mobile-filter-details" {% if selected_location or selected_sumber_dana or selected_program or selected_therapeutic_class or selected_low_stock or selected_quick %}open{% endif %}>
@@ -40,24 +40,24 @@
         </div>
 
         <div class="mobile-filter-grid">
-            <select name="program" class="form-select" aria-label="Tipe program">
+            <select name="program" class="ims-control" aria-label="Tipe program">
                 <option value="">Semua tipe</option>
                 <option value="1" {% if selected_program == "1" %}selected{% endif %}>Program</option>
                 <option value="0" {% if selected_program == "0" %}selected{% endif %}>Non-program</option>
             </select>
-            <select name="therapeutic_class" class="form-select" aria-label="Terapi obat">
+            <select name="therapeutic_class" class="ims-control" aria-label="Terapi obat">
                 <option value="">Semua terapi</option>
                 {% for therapeutic in therapeutic_classes %}
                 <option value="{{ therapeutic.id }}" {{ therapeutic.selected }}>{{ therapeutic.name }}</option>
                 {% endfor %}
             </select>
-            <select name="location" class="form-select" aria-label="Lokasi">
+            <select name="location" class="ims-control" aria-label="Lokasi">
                 <option value="">Semua lokasi</option>
                 {% for loc in locations %}
                 <option value="{{ loc.id }}" {{ loc.selected }}>{{ loc.name }}</option>
                 {% endfor %}
             </select>
-            <select name="sumber_dana" class="form-select" aria-label="Sumber dana">
+            <select name="sumber_dana" class="ims-control" aria-label="Sumber dana">
                 <option value="">Semua dana</option>
                 {% for sd in funding_sources %}
                 <option value="{{ sd.id }}" {{ sd.selected }}>{{ sd.name }}</option>
@@ -71,9 +71,9 @@
         </label>
 
         <div class="mobile-filter-actions">
-            <button type="submit" class="btn btn-primary">Terapkan</button>
+            <button type="submit" class="ims-btn ims-btn--primary">Terapkan</button>
             {% if search or selected_location or selected_sumber_dana or selected_program or selected_therapeutic_class or selected_low_stock or selected_quick %}
-            <a href="{% url 'mobile:stock_list' %}" class="btn btn-outline-secondary">Reset</a>
+            <a href="{% url 'mobile:stock_list' %}" class="ims-btn ims-btn--neutral">Reset</a>
             {% endif %}
         </div>
     </details>

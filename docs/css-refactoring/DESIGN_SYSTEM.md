@@ -69,3 +69,9 @@ The built-in browser was used first on `foundation-preview.html` at desktop widt
 | Responsive | At 390px, actions wrap, fields stay readable, and `document.documentElement.scrollWidth` measured 375px, below the 390px viewport. |
 
 The specimen is a component check, not a claim of whole-page fidelity. Its missing sidebar, top bar, records, and bottom navigation are intentional because the shared shell and mobile templates remain out of scope.
+
+## Wave 7 mobile/PWA
+
+The server-rendered mobile/PWA shell and all five routed child templates load generated Tailwind CSS through `mobile/base.html`, with scoped source in `backend/static_src/css/mobile.css`. Bootstrap CSS and the unused Bootstrap bundle are absent from mobile pages; Bootstrap Icons and the unchanged `mobile.js` remain. The historical `backend/static/mobile/css/mobile.css` is no longer loaded and is retained for the later repository cleanup. Manifest/service-worker behavior and routes are unchanged.
+
+The mobile source is imported into the component layer of `app.css`. Existing `mobile-*` layout hooks are project components; controls, alerts and approval badges reuse `ims-*` primitives. The four shared-stock badge values (`text-bg-success`, `text-bg-warning`, `text-bg-danger`, `text-bg-secondary`) have explicit scoped token mappings. No Bootstrap behavior bridge is needed on mobile. Focus outlines, 44px touch controls, responsive card wrapping, safe areas on all edges, and the independent sticky header/filter and fixed bottom navigation are defined in this source.

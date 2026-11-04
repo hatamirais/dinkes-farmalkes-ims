@@ -16,6 +16,7 @@
 @import "./stock-opname-forms.css";
 @import "./puskesmas-workflows.css";
 @import "./lplpo-forms.css";
+@import "./mobile.css";
 
 @source "../../templates/**/*.html";
 @source "../../apps/**/*.py";
