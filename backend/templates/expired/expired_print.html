@@ -1,32 +1,14 @@
+{% load static %}
 {% load number_format %}
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <title>Dokumen Kedaluwarsa - {{ expired_doc.document_number }}</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; color: #333; padding: 20px; }
-        h1 { font-size: 16px; text-align: center; margin-bottom: 4px; }
-        .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
-        .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11px; gap: 16px; }
-        .meta div { flex: 1; }
-        .meta strong { display: inline-block; min-width: 110px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
-        th { background: #f0f0f0; font-weight: bold; font-size: 10px; text-transform: uppercase; }
-        .text-end { text-align: right; }
-        .text-center { text-align: center; }
-        .footer { margin-top: 24px; display: flex; justify-content: space-between; }
-        .sign-box { width: 220px; text-align: center; }
-        .sign-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 4px; }
-        @media print {
-            body { padding: 10px; }
-            .no-print { display: none; }
-        }
-    </style>
+
+    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave8" rel="stylesheet">
 </head>
-<body>
+<body class="ims-print-document ims-print-expired">
     <div class="no-print" style="margin-bottom:16px;">
         <button data-action="print" style="padding:6px 16px; cursor:pointer;">🖨️ Cetak</button>
         <button data-action="close" style="padding:6px 16px; cursor:pointer; margin-left:8px;">✖ Tutup</button>

@@ -1,29 +1,15 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <title>Laporan LPLPO Diajukan</title>
-    <style>
-        @page { size: A4 landscape; margin: 10mm; }
-        body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; color: #111; }
-        h2 { margin: 0 0 6px; text-align: center; font-size: 18px; }
-        .subtitle { margin-bottom: 14px; text-align: center; color: #555; }
-        .filters { margin-bottom: 14px; font-size: 10px; }
-        .filters span { margin-right: 14px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #333; padding: 6px 8px; }
-        th { background: #eceff3; text-align: left; }
-        td.num, th.num { text-align: right; }
-        .empty { padding: 18px; text-align: center; color: #666; }
-        .no-print { margin-bottom: 12px; text-align: center; }
-        @media print {
-            .no-print { display: none !important; }
-        }
-    </style>
+
+    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave8" rel="stylesheet">
 </head>
-<body>
+<body class="ims-print-document ims-print-lplpo-report">
     <div class="no-print">
-        <button type="button" onclick="window.print()">Cetak</button>
+        <button type="button" data-action="print">Cetak</button>
     </div>
 
     <h2>Laporan LPLPO Diajukan Puskesmas</h2>
@@ -66,5 +52,6 @@
             {% endfor %}
         </tbody>
     </table>
+<script src="{% static 'js/confirm-actions.js' %}"></script>
 </body>
 </html>

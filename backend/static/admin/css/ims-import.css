@@ -1,0 +1,190 @@
+/* Django Admin compatibility only. Do not load application Tailwind preflight. */
+.opening-balance-import {
+        max-width: 1400px;
+    }
+
+    .opening-balance-guide {
+        background: var(--darkened-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 24px;
+        padding: 16px 18px 20px;
+    }
+
+    .opening-balance-guide h3 {
+        font-size: 14px;
+        margin: 0 0 16px;
+    }
+
+    .opening-balance-guide table,
+    .opening-balance-preview table {
+        border-collapse: collapse;
+        font-size: 12px;
+        width: 100%;
+    }
+
+    .opening-balance-guide th,
+    .opening-balance-preview th {
+        background: var(--darkened-bg);
+        color: var(--body-fg);
+        font-weight: 700;
+        padding: 8px;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .opening-balance-guide td,
+    .opening-balance-preview td {
+        border-top: 1px solid var(--hairline-color);
+        padding: 9px 8px;
+        vertical-align: top;
+    }
+
+    .opening-balance-guide tbody tr:nth-child(odd) td {
+        background: var(--body-bg);
+    }
+
+    .opening-balance-guide tbody tr:nth-child(even) td {
+        background: var(--darkened-bg);
+    }
+
+    .opening-balance-required {
+        color: var(--link-fg);
+        font-size: 17px;
+        font-weight: 700;
+    }
+
+    .opening-balance-optional {
+        color: var(--body-quiet-color);
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .opening-balance-field-list {
+        font-size: 14px;
+        margin: 0 0 28px;
+    }
+
+    .opening-balance-form-row {
+        border-bottom: 1px solid var(--hairline-color);
+        margin-bottom: 20px;
+        padding: 0 0 20px 12px;
+    }
+
+    .opening-balance-form-row label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .opening-balance-format-select {
+        /* Admin's fixed select height cannot accommodate this control's padding. */
+        height: auto;
+        min-height: 38px;
+        background: var(--body-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        color: var(--body-fg);
+        padding: 8px 32px 8px 10px;
+    }
+
+    .opening-balance-submit-box {
+        background: var(--darkened-bg);
+        border-radius: 4px;
+        margin-top: 32px;
+        padding: 16px;
+    }
+
+    .opening-balance-submit-box .default {
+        padding: 12px 20px;
+        text-transform: uppercase;
+    }
+
+    .opening-balance-confirm-copy {
+        font-size: 14px;
+        margin: 0 0 14px;
+    }
+
+    .opening-balance-preview {
+        margin-top: 28px;
+    }
+
+    .opening-balance-preview h3 {
+        font-size: 16px;
+        margin: 0 0 10px;
+    }
+
+    .opening-balance-preview h4 {
+        margin: 16px 0 8px;
+    }
+
+    .opening-balance-preview-wrap {
+        max-height: 720px;
+        overflow: auto;
+    }
+
+    .opening-balance-preview tbody tr td {
+        background: var(--selected-bg);
+        border-top-color: var(--border-color);
+    }
+
+    .opening-balance-preview tbody tr:nth-child(even) td {
+        background: var(--selected-bg);
+    }
+
+    .opening-balance-status {
+        color: var(--body-fg);
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .opening-balance-validation {
+        background: var(--body-bg);
+        border: 1px solid var(--error-fg);
+        border-radius: 8px;
+        margin: 0 0 24px;
+        padding: 16px 18px 20px;
+    }
+
+    .opening-balance-validation h3 {
+        color: var(--body-fg);
+        font-size: 16px;
+        margin: 0 0 8px;
+    }
+
+    .opening-balance-validation-meta {
+        color: var(--body-fg);
+        font-size: 13px;
+        margin: 0 0 14px;
+    }
+
+    .opening-balance-validation table {
+        border-collapse: collapse;
+        font-size: 12px;
+        width: 100%;
+    }
+
+    .opening-balance-validation th {
+        background: var(--darkened-bg);
+        color: var(--body-fg);
+        font-weight: 700;
+        padding: 8px;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .opening-balance-validation td {
+        background: var(--body-bg);
+        border-top: 1px solid var(--hairline-color);
+        padding: 8px;
+        vertical-align: top;
+    }
+
+.ims-admin-import-guide { background: var(--darkened-bg); color: var(--body-fg); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; padding: 15px; overflow-x: auto; }
+.ims-admin-import-guide h4 { margin-top: 0; }
+.ims-admin-import-guide p { font-size: 13px; }
+.ims-admin-import-guide table { width: 100%; font-size: 12px; border-collapse: collapse; }
+.ims-admin-import-guide th { border-bottom: 1px solid var(--border-color); text-align: left; padding: 4px; }
+.ims-admin-import-guide td { padding: 3px; }
+.opening-balance-import :is(.opening-balance-guide, .opening-balance-validation) { overflow-x: auto; }
+.opening-balance-import button:focus-visible, .ims-admin-import-guide a:focus-visible { outline: 2px solid var(--link-fg); outline-offset: 2px; }
