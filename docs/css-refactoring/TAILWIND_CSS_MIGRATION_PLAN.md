@@ -1,6 +1,6 @@
 # Tailwind CSS Migration Plan
 
-Status: incremental execution; Wave 5 Items, Users, shared settings, and Puskesmas subunits slices migrated, later slices pending
+Status: Waves 1-6 migrated; Wave 7 Mobile/PWA implemented; device verification pending; Waves 8-9 pending
 Scope: CSS and visual-system migration only  
 Deferred follow-up: Alpine.js and removal of Bootstrap JavaScript  
 Application: Django server-rendered Healthcare IMS
@@ -609,6 +609,8 @@ Requirements:
 - Preserve safe-area insets, manifest, install prompt, bottom navigation, and approval permissions.
 - Preserve touch-target sizing and narrow-screen table/list behavior.
 - Follow [`backend/apps/mobile/AGENTS.md`](../../backend/apps/mobile/AGENTS.md).
+
+Wave 7 implementation on 4 November 2026 covers `base.html`, `stock_list.html`, `stock_card.html`, `approval_inbox.html`, `distribution_approval_detail.html`, `expired_approval_detail.html`, and the required `partials/stock_item_results.html`. The independent base loads generated Tailwind CSS with `static_src/css/mobile.css`; Bootstrap Icons remain, while the unused mobile Bootstrap JavaScript bundle is removed because no mobile behavior references it. Views, routes, workflow logic, manifest/service worker and `mobile.js` are unchanged. Route-level automated and Chromium evidence, plus the pending native-install/device manual gate, are in the ledger. Wave 7 is not marked complete pending that device verification; Waves 8 and 9 remain outside this change.
 
 ### Wave 8: Print and standalone surfaces
 

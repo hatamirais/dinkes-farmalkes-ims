@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="id" data-bs-theme="light">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -8,9 +8,8 @@
     <title>{% block title %}IMS Mobile{% endblock %}</title>
     <link rel="manifest" href="{% url 'mobile:manifest' %}">
     <link rel="icon" type="image/svg+xml" href="{% static 'img/default-logo.svg' %}">
-    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}?v={{ app_version }}" rel="stylesheet">
+    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave7" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}?v={{ app_version }}" rel="stylesheet">
-    <link href="{% static 'mobile/css/mobile.css' %}?v={{ app_version }}-20260914a" rel="stylesheet">
 </head>
 <body class="mobile-shell">
     <header class="mobile-topbar">
@@ -25,7 +24,7 @@
         {% if messages %}
         <div class="mobile-messages">
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }} mb-2">{{ message }}</div>
+            <div class="ims-alert {% if message.tags == 'error' %}ims-alert--danger{% elif message.tags == 'success' %}ims-alert--success{% elif message.tags == 'warning' %}ims-alert--warning{% else %}ims-alert--info{% endif %}">{{ message }}</div>
             {% endfor %}
         </div>
         {% endif %}
@@ -65,7 +64,6 @@
         {% endif %}
     </nav>
 
-    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}?v={{ app_version }}"></script>
     <script src="{% static 'mobile/js/mobile.js' %}?v={{ app_version }}-20260914a"></script>
 </body>
 </html>
