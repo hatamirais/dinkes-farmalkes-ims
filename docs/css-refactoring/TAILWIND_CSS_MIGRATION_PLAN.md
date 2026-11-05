@@ -1,12 +1,17 @@
 # Tailwind CSS Migration Plan
 
-Status: Waves 1-6 migrated; Wave 7 Mobile/PWA implemented; device verification pending; Wave 8 print/Admin verified; Wave 9 implemented; verification and user visual acceptance tracked in ledger
+Status: CSS implementation Waves 1–9 merged through PR #311; v2.0.0 closeout prepared; native PWA/device acceptance remains pending (#309).
 Scope: CSS and visual-system migration only  
 Deferred follow-up: Alpine.js and removal of Bootstrap JavaScript  
 Application: Django server-rendered Healthcare IMS
-Integration Branch: `chore/tailwind-migration`
-Sub Branch : `tailwind/core`, `tailwind/error`, `tailwind/dashboard`, etc
+Historical integration branch: `chore/tailwind-migration`
+Historical sub-branches: `tailwind/core`, `tailwind/error`, `tailwind/dashboard`, etc
 Package manager: Bun 1.3.14 (toolchain migration implemented; visual direction approved)
+
+## Current closeout — 5 November 2026
+
+Implementation is merged through [PR #311](https://github.com/hatamirais/dinkes-farmalkes-ims/pull/311) at `1a7c305`. [The closeout audit](MIGRATION_CLOSEOUT.md) maps every definition-of-done requirement to code and recorded evidence, lists intentional dependencies and identifies remaining acceptance work. Links to deleted legacy CSS in the baseline point to immutable pre-cleanup commit `1c51be6`. Earlier baselines, proposed steps and per-wave paragraphs below describe their original implementation-time state; they are not current package/setup requirements. No Bootstrap CSS or Crispy runtime dependency remains. Native PWA/device checks and issue #309 are not marked passed.
+
 
 ## 1. Objective
 
@@ -65,8 +70,8 @@ The selected local Python interpreter was `venv/Scripts/python.exe` (Python 3.14
 - 18 templates use crispy-forms tags.
 - 51 templates contain at least one inline `style` attribute; there are 346 inline style attributes in total.
 - 33 templates contain 34 `<style>` blocks.
-- [`backend/static/css/style.css`](../../backend/static/css/style.css) has 1,779 lines and directly overrides Bootstrap components.
-- [`backend/static/mobile/css/mobile.css`](../../backend/static/mobile/css/mobile.css) has 826 lines.
+- [`backend/static/css/style.css`](https://github.com/hatamirais/dinkes-farmalkes-ims/blob/1c51be6bc5012c19d5dfeabb1485e00d1a372303/backend/static/css/style.css) has 1,779 lines and directly overrides Bootstrap components.
+- [`backend/static/mobile/css/mobile.css`](https://github.com/hatamirais/dinkes-farmalkes-ims/blob/1c51be6bc5012c19d5dfeabb1485e00d1a372303/backend/static/mobile/css/mobile.css) has 826 lines.
 - The vendored Bootstrap minified stylesheet is approximately 233 KB before WhiteNoise compression.
 
 ### 4.2 Runtime coupling
@@ -84,7 +89,7 @@ Bootstrap is not only a stylesheet dependency.
 - Bootstrap behavior attributes currently cover dismiss, toggle, target, placement, title, autohide, and delay.
 - [`backend/templates/base.html`](../../backend/templates/base.html) loads both Bootstrap CSS and `bootstrap.bundle.min.js`.
 - [`backend/templates/mobile/base.html`](../../backend/templates/mobile/base.html) also loads Bootstrap CSS and JavaScript.
-- Tom Select uses [`backend/static/vendor/tom-select/tom-select.bootstrap5.min.css`](../../backend/static/vendor/tom-select/tom-select.bootstrap5.min.css), which depends on Bootstrap custom properties.
+- Tom Select uses [`backend/static/vendor/tom-select/tom-select.bootstrap5.min.css`](https://github.com/hatamirais/dinkes-farmalkes-ims/blob/1c51be6bc5012c19d5dfeabb1485e00d1a372303/backend/static/vendor/tom-select/tom-select.bootstrap5.min.css), which depends on Bootstrap custom properties.
 - Bootstrap Icons 1.11.3 are independently vendored under [`backend/static/vendor/bootstrap-icons/`](../../backend/static/vendor/bootstrap-icons/).
 
 ### 4.3 Forms and Python-side presentation coupling
@@ -627,7 +632,7 @@ Wave 8 implementation covers seven standalone print templates, shared print foun
 
 ### Wave 9: Bootstrap CSS removal
 
-Implemented on 5 November 2026 from `main` (`1c51be6`) on `tailwind/wave9-css-removal`. Current inventory, retained behavior/style adapters and verification results are recorded in the ledger. Earlier baseline counts and wave notes are historical. Physical-device/install checks from Wave 7 and user visual acceptance remain explicit completion requirements; this implementation does not mark them passed.
+Implemented on 5 November 2026 from `main` (`1c51be6`) on `tailwind/wave9-css-removal`. Current inventory, retained behavior/style adapters and verification results are recorded in the ledger. Earlier baseline counts and wave notes are historical. The user released the visual-check hold and authorized review/publication; PR #311 is merged. Physical-device/install checks from Wave 7 remain explicit pending acceptance requirements; this implementation does not mark them passed.
 
 Only after every surface has passed its wave gate:
 
@@ -845,4 +850,4 @@ Any AI agent executing this plan must:
 
 The approved concept set in `CONCEPT_REVIEW.md` now supplies the visual reference. Root `DESIGN.md` preserves the exact existing logo and defines the approved target system. The user also confirmed labels above form controls.
 
-Before later browser-sensitive template migrations, confirm the minimum supported desktop browsers and mobile OS/browser versions. Item List is the first Tailwind pilot. Reviewers for later form, mobile, and print rollouts remain to be identified; see the migration ledger for the completed shell slice and remaining surfaces.
+There are no further Bootstrap CSS migration waves planned. Future browser-sensitive changes still need an explicit supported browser/OS matrix; the recorded Chromium checks do not establish coverage of every browser. The remaining mobile/device acceptance work and issue #309 are tracked in MIGRATION_CLOSEOUT.md and the migration ledger.

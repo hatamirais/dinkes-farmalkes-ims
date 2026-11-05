@@ -681,3 +681,7 @@ If model fields, routes, settings, permission logic, or import behavior change:
 ## Wave 9 presentation dependency cleanup
 
 All IMS surfaces use the generated Tailwind stylesheet. `base.html` aliases the Tailwind desktop shell; native Django Admin styling remains isolated. Bound-field rendering replaces remaining Crispy calls, and unused helpers, Crispy packages/settings, Bootstrap CSS, legacy stylesheets and the Tom Select Bootstrap theme are removed. Bootstrap JavaScript, behavior hooks, Bootstrap Icons, Flatpickr and the CSP remain. No route, model, workflow, permission or stock calculation changes. The historical `CrispyAuthenticationForm` class name remains a compatibility name for the existing Django AuthenticationForm subclass; it does not import Crispy.
+
+## v2.0.0 presentation release closeout
+
+Wave 9 is merged through PR #311 (`1a7c305`). VERSION advances from `1.35.0` to `2.0.0` to mark the completed CSS implementation and changed presentation/dependency contract. This closeout changes documentation/version metadata only; the schema, routes, permissions and stock/workflow contracts above are unchanged. See [the migration closeout](docs/css-refactoring/MIGRATION_CLOSEOUT.md) for requirement-level evidence and the still-pending native PWA/device acceptance tracked in issue #309. Bootstrap JavaScript/behavior styles, Bootstrap Icons, Flatpickr and native Admin remain intentional dependencies.

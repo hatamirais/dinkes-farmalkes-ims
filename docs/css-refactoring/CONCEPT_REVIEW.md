@@ -1,5 +1,7 @@
 # Tailwind visual direction
 
+Implementation status: all nine CSS waves are merged through PR #311. This file preserves concept approval and reference history; [MIGRATION_CLOSEOUT.md](MIGRATION_CLOSEOUT.md) records current acceptance status and remaining device/install checks.
+
 Status: **Visual direction approved by the user on 20 October 2026.** These images are visual concepts, not screenshots of rendered Tailwind pages. Root [`DESIGN.md`](../../DESIGN.md) is the target visual contract. The shared desktop shell, Item List and Items forms/delete confirmation, Users list and account forms, general and numbering settings, Puskesmas Poli/Pustu list and forms, both dashboard variants, authentication/errors, the stock read-only, Puskesmas self-check, and transfer list/detail slices, receiving lists/details, the procurement/distribution/allocation/recall/expired/stock-opname list/detail group, LPLPO read-only lists/details, reports/numbering history, four Puskesmas read-only reports, and user detail/delegation list have since migrated using this direction. The item, Users, settings, and Poli/Pustu forms keep labels above inputs as approved; the workflow group keeps live Indonesian content and dense tables; no separate concept exists for each document detail or report.
 
 The concepts were grounded in the live local dashboard, item list and form, distribution detail, quick-create modal, login, centralized 404, mobile stock page, and a print-media capture of the SBBK. They preserve the existing Indonesian information architecture and show record-specific content as neutral masks to avoid inventing operational data. The current logo source remains [`backend/static/img/default-logo.svg`](../../backend/static/img/default-logo.svg); implementation must use that asset exactly, even where image generation approximated its edges.
@@ -18,7 +20,7 @@ The user confirmed on 20 October 2026 that migrated forms should keep labels **a
 | Mobile stock surface | [Mobile stock](concepts/mobile-stock.png) |
 | Print document | [SBBK](concepts/sbbk-print.png) |
 
-## Proposed direction
+## Approved direction
 
 - **Palette:** deep navy sidebar and dark text; white working surfaces on a very pale blue-gray page; restrained blue-teal primary actions. Keep green for success, amber for warning, and red for danger. Status colors carry labels as well as color.
 - **Typography:** a system UI sans stack for application chrome and body copy, with firm but compact headings. Use a plain, legible print face. No new web-font dependency is proposed.
