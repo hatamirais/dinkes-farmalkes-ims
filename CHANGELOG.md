@@ -7,9 +7,13 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-05
+
+Major presentation release: the Bootstrap CSS → Tailwind implementation is complete across IMS surfaces. Custom templates/styles relying on Bootstrap CSS, Crispy helpers or the removed assets must adopt the project-owned rendering/components. Bootstrap JavaScript and its behavior bridge remain; this version does not introduce a new workflow or schema contract.
+
 ### Added
 
-- Added the approved `DESIGN.md` visual contract, nine CSS migration concepts, a migration ledger, and a static foundation preview for the planned Tailwind rollout.
+- Added the approved `DESIGN.md` visual contract, nine CSS migration concepts, a migration ledger, and a static foundation preview for the Tailwind rollout.
 - Added a pinned Bun 1.3.14 toolchain, Tailwind CSS 4.3.3 source and generated stylesheet, reproducible CSS build/check commands, and a GitHub Actions check for generated CSS.
 - Added the authenticated Tailwind desktop shell with shared role-aware navigation, a responsive sidebar, top bar, user menu, and flash messages, plus the Daftar Barang pilot page.
 - Added page links to the existing 25-row stock transfer list paginator so later transfers are reachable.
@@ -18,9 +22,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
-- Implemented the Wave 9 presentation cleanup: replaced active Crispy rendering with bound Django fields and project-owned controls, and replaced remaining component presentation classes while preserving JavaScript hooks.
+- Completed the Wave 9 presentation cleanup: replaced active Crispy rendering with bound Django fields and project-owned controls, and replaced remaining component presentation classes while preserving JavaScript hooks.
 - Removed unused Bootstrap CSS, desktop/mobile legacy stylesheets, the Tom Select Bootstrap theme, Crispy helpers/packages/settings, duplicate legacy base and unreachable manual receiving-plan template. `base.html` now aliases the Tailwind shell; Bootstrap JavaScript/state styles, Bootstrap Icons, Flatpickr and native Django Admin styling remain.
-
 - Migrated seven standalone print documents to scoped Tailwind print styles with named A4 pages, repeated table headings, protected row/signature breaks, and hidden print controls; wide Stock Opname reports now use landscape.
 - Kept embedded report and SBBK print output on white paper with explicit A4 page layouts, and isolated Admin import styling with native Django light/dark theme variables without loading application Tailwind preflight.
 - Migrated the server-rendered mobile/PWA shell, stock list and card, approval inbox, and distribution/expired approval details to Tailwind while retaining session authentication, permissions, stock and workflow rules, CSRF-protected actions, and existing JavaScript behavior.
@@ -42,10 +45,10 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Migrated general and numbering settings to Tailwind while retaining bound fields, logo upload, the numbering rule formset, validation, live previews, and Bootstrap JavaScript collapse.
 - Migrated the Puskesmas Poli/Pustu list and create/edit forms to Tailwind while retaining facility isolation, filters, bound fields, and POST-only delete behavior.
 - Migrated local Playwright dependency installation and script entry points from npm to Bun while keeping the browser helpers on Node for Windows compatibility.
-- Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. Legacy pages continue to load Bootstrap CSS; both desktop bases retain Bootstrap JavaScript during the migration.
-- Migrated login, account lockout, password change, password-change completion, and centralized 400/403/404/429/500/503 pages to Tailwind CSS while preserving authentication and error-handler behavior. Other legacy pages continue to use Bootstrap CSS.
+- Migrated the desktop and Puskesmas dashboards to the Tailwind shell while preserving their server-provided content, actions, links, role conditions, and empty states. The final desktop shell retains Bootstrap JavaScript and its project-owned behavior styles.
+- Migrated login, account lockout, password change, password-change completion, and centralized 400/403/404/429/500/503 pages to Tailwind CSS while preserving authentication and error-handler behavior. All IMS surfaces now use Tailwind without Bootstrap CSS.
 - Completed the Wave 4 Tailwind migration for read-only stock lists/cards/history, the Puskesmas stock snapshot and self-check, receiving lists/details, and procurement, distribution, allocation, recall, expired, stock-opname, LPLPO, and stock transfer lists/details.
-- Migrated central inventory reports and numbering history, four Puskesmas reports, user detail, and the authority delegation list to Tailwind while retaining their existing filters, values, links, exports, and permission gates. Dedicated print documents and admin pages remain in later waves.
+- Migrated central inventory reports and numbering history, four Puskesmas reports, user detail, and the authority delegation list to Tailwind while retaining their existing filters, values, links, exports, and permission gates. Standalone print documents use Tailwind; Admin retains isolated native styling.
 - Displayed monetary values in affected central and Puskesmas reports with two Indonesian decimal digits without changing the underlying calculations.
 - Documented that migrated forms keep labels above inputs and that UI content or behavior conflicts require review before template changes.
 
@@ -72,6 +75,11 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 - Separated adjacent sidebar highlights, restored contrast for the `Buat Penerimaan` plus icon, and corrected the missing Penerimaan sidebar glyph.
 - Fitted all stock-card ledger columns within browser-printed A4 pages and kept the stock-card search dropdown visible beyond its selector panel.
 - Restored mouse-selectable Barang suggestions in the expired-audit report modal on Tailwind pages by styling the shared typeahead dropdown above the modal backdrop.
+
+### Known limitations
+
+- Native PWA installation, physical-device/standalone checks, and installation-prompt issue [#309](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/309) remain open follow-up work. Chromium/browser evidence does not establish those device results.
+- Physical-printer driver differences were not tested; print-media/PDF evidence remains the recorded verification. Bootstrap JavaScript removal, Alpine.js and CSP tightening are outside this CSS migration.
 
 ### Security
 

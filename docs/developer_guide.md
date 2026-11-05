@@ -261,6 +261,8 @@ Kontrak visual ada di root `DESIGN.md`, daftar kelas fondasi di `docs/css-refact
 
 ## Versioning
 
+Rilis 2.0.0 menandai kontrak presentasi Tailwind setelah implementasi migrasi CSS Wave 1–9 digabung. Audit penutupan dan pengecualian penerimaan PWA/perangkat tercatat di [MIGRATION_CLOSEOUT.md](css-refactoring/MIGRATION_CLOSEOUT.md); jangan menandai issue #309 atau pemeriksaan perangkat lulus tanpa bukti.
+
 Repositori menggunakan semantic versioning dengan format `MAJOR.MINOR.PATCH` pada file `VERSION` di root.
 
 - Melihat versi aktif: `python manage.py app_version`

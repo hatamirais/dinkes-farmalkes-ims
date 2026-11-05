@@ -1,5 +1,7 @@
 # Wave 9 verification — 5 November 2026
 
+Merged via PR #311 at `1a7c305`. This is the implementation-time evidence record; [the v2.0.0 closeout audit](../MIGRATION_CLOSEOUT.md) records current release/acceptance status without rewriting earlier test runs.
+
 Branch: `tailwind/wave9-css-removal`, from local `main` at `1c51be6`. The user authorized review, commit, push and PR creation on 5 November 2026 after the visual-check handoff.
 
 ## Environment and scope
