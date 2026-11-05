@@ -1,0 +1,427 @@
+/* Wave 8: scoped document styles; no application navigation is printed. */
+@layer components {
+  .ims-print-document {
+    --ims-print-ink: var(--color-ims-print-ink);
+    --ims-print-rule: var(--color-ims-print-rule);
+    margin: 0;
+    background: white;
+    color: var(--ims-print-ink);
+    line-height: normal;
+  }
+  .ims-print-document thead { display: table-header-group; }
+  .ims-print-document tr { break-inside: avoid; }
+  .ims-print-document :is(.footer, .footer-row, .signatures, .sign-block, .sign-box) { break-inside: avoid; }
+  .ims-print-document .loc-header { break-after: avoid; }
+  .ims-print-document button:focus-visible, .ims-print-document a:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
+  @media print {
+    .ims-print-document { padding: 0 !important; }
+    .ims-print-document :is(.no-print, .toolbar, .screen-nav) { display: none !important; }
+    .ims-print-document th { print-color-adjust: exact; }
+  }
+  @page ims-opname-discrepancy { size: A4 landscape; margin: 12mm; }
+  .ims-print-opname-discrepancy {
+    page: ims-opname-discrepancy;
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        & { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; color: var(--ims-print-ink); padding: 20px; }
+        h1 { font-size: 16px; text-align: center; margin-bottom: 4px; }
+        .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
+        .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11px; }
+        .meta div { flex: 1; }
+        .meta strong { display: inline-block; min-width: 100px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid var(--ims-print-rule); padding: 4px 6px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+        .text-end { text-align: right; }
+        .text-center { text-align: center; }
+        .loc-header { background: #e8e8e8; font-weight: bold; padding: 6px; border: 1px solid var(--ims-print-rule); margin-top: 12px; }
+        .discrepancy { color: #c0392b; font-weight: bold; }
+        .footer { margin-top: 24px; display: flex; justify-content: space-between; }
+        .sign-box { width: 200px; text-align: center; }
+        .sign-line { border-top: 1px solid var(--ims-print-ink); margin-top: 60px; padding-top: 4px; }
+        .checkbox { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--ims-print-ink); margin-right: 6px; vertical-align: middle; }
+        @media print {
+            & { padding: 10px; }
+            .no-print { display: none; }
+        }
+
+  }
+  @page ims-opname-report { size: A4 landscape; margin: 12mm; }
+  .ims-print-opname-report {
+    page: ims-opname-report;
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        & { font-family: "Segoe UI", Tahoma, sans-serif; font-size: 11px; color: #222; padding: 20px; }
+        h1 { font-size: 16px; text-align: center; margin-bottom: 4px; text-transform: uppercase; }
+        .subtitle { text-align: center; font-size: 12px; color: #555; margin-bottom: 16px; }
+        .meta { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 12px; font-size: 11px; }
+        .meta div { flex: 1; }
+        .meta strong { display: inline-block; min-width: 110px; }
+        .summary { margin-bottom: 12px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        th, td { border: 1px solid var(--ims-print-rule); padding: 4px 6px; text-align: left; vertical-align: top; }
+        th { background: #f0f0f0; font-weight: 700; font-size: 10px; text-transform: uppercase; }
+        .text-end { text-align: right; }
+        .text-center { text-align: center; }
+        .loc-header { background: #e8e8e8; font-weight: 700; padding: 6px; border: 1px solid var(--ims-print-rule); margin-top: 12px; }
+        .discrepancy { color: #c0392b; font-weight: 700; }
+        .signatures { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; margin-top: 28px; page-break-inside: avoid; }
+        .sign-box { width: 220px; min-height: 112px; text-align: center; }
+        .sign-role { min-height: 32px; }
+        .sign-name { border-top: 1px solid var(--ims-print-ink); margin-top: 60px; padding-top: 4px; font-weight: 700; }
+        .sign-meta { margin-top: 3px; font-size: 10px; color: #555; }
+        .no-print { margin-bottom: 16px; }
+        .no-print button { padding: 6px 16px; cursor: pointer; }
+        @media print {
+            & { padding: 10px; }
+            .no-print { display: none; }
+            th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
+  }
+  @page ims-stock-card { size: A4 portrait; margin: 12mm 10mm 15mm 10mm; }
+  .ims-print-stock-card {
+    page: ims-stock-card;
+
+        /* ─── Reset & Page ──────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+
+        & {
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: 11px;
+            color: #111;
+            background: #fff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* ─── Card Container ────────────────────────────────────────── */
+        .stock-card-page {
+            page-break-after: always;
+            position: relative;
+        }
+        .stock-card-page:last-child { page-break-after: auto; }
+
+        /* ─── Institutional Header ──────────────────────────────────── */
+        .kop-surat {
+            display: flex;
+            align-items: center;
+            border-bottom: 3px double #111;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+        .kop-logo {
+            width: 70px;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 14px;
+            flex-shrink: 0;
+        }
+        .kop-logo img {
+            max-width: 100%;
+            max-height: 80px;
+        }
+        .kop-text {
+            flex-grow: 1;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .kop-text .kop-line1 {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .kop-text .kop-line2 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .kop-text .kop-line3 {
+            font-size: 11px;
+        }
+        .kop-spacer {
+            width: 70px;
+            flex-shrink: 0;
+        }
+
+        /* ─── Title Row ─────────────────────────────────────────────── */
+        .card-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 1px solid #333;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }
+        .card-title-row h2 {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .card-unit-price {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        /* ─── Meta Grid ─────────────────────────────────────────────── */
+        .card-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 20px;
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+        .meta-line {
+            display: flex;
+        }
+        .meta-label {
+            min-width: 130px;
+            font-weight: 700;
+        }
+        .meta-value::before { content: ": "; }
+
+        /* ─── Transaction Table ─────────────────────────────────────── */
+        .ledger-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        .ledger-table th,
+        .ledger-table td {
+            border: 1px solid #444;
+            padding: 3px 5px;
+            vertical-align: top;
+        }
+        .ledger-table thead th {
+            background: #f0f0f0;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 0.03em;
+        }
+        .ledger-table .num-cell {
+            text-align: right;
+            font-family: "Consolas", "Courier New", monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .ledger-table .text-center { text-align: center; }
+        .ledger-table .doc-cell {
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 9px;
+        }
+
+        .tfoot-row td {
+            font-weight: 700;
+            background: #f0f0f0;
+        }
+        .opening-row td {
+            font-weight: 700;
+            font-style: italic;
+            background: #f8f8f8;
+        }
+        .empty-row td {
+            text-align: center;
+            font-style: italic;
+            color: #888;
+            padding: 16px 5px;
+        }
+
+        /* ─── Footer ────────────────────────────────────────────────── */
+        .page-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            color: #888;
+            padding: 4px 0;
+        }
+
+        /* ─── Screen-only navigation ────────────────────────────────── */
+        .screen-nav {
+            padding: 12px 16px;
+            background: #f3f4f6;
+            border-bottom: 1px solid #d1d5db;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .screen-nav a, .screen-nav button {
+            font-size: 13px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            text-decoration: none;
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #374151;
+        }
+        .screen-nav button.primary {
+            background: #2563eb;
+            color: #fff;
+            border-color: #2563eb;
+        }
+        @media print {
+            .screen-nav { display: none !important; }
+        }
+
+
+    & { counter-reset: page-num; }
+    .stock-card-page { counter-increment: page-num; }
+    .stock-card-page::after {
+        content: "Halaman " counter(page-num) " — Dicetak: " var(--ims-print-time) "";
+        display: block;
+        text-align: center;
+        font-size: 9px;
+        color: #999;
+        margin-top: 10px;
+        padding-top: 6px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+  }
+  @page ims-expired { size: A4 portrait; margin: 12mm; }
+  .ims-print-expired {
+    page: ims-expired;
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        & { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; color: #333; padding: 20px; }
+        h1 { font-size: 16px; text-align: center; margin-bottom: 4px; }
+        .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
+        .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11px; gap: 16px; }
+        .meta div { flex: 1; }
+        .meta strong { display: inline-block; min-width: 110px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+        .text-end { text-align: right; }
+        .text-center { text-align: center; }
+        .footer { margin-top: 24px; display: flex; justify-content: space-between; }
+        .sign-box { width: 220px; text-align: center; }
+        .sign-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 4px; }
+        @media print {
+            & { padding: 10px; }
+            .no-print { display: none; }
+        }
+
+  }
+  @page ims-expired-audit { size: A4 landscape; margin: 12mm; }
+  .ims-print-expired-audit {
+    page: ims-expired-audit;
+
+
+        & { font-family: "Segoe UI", Arial, sans-serif; color: #111; font-size: 11px; }
+        .toolbar { margin-bottom: 12px; }
+        .toolbar button { padding: 8px 14px; border: 1px solid #222; background: #222; color: #fff; cursor: pointer; }
+        .header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+        .header-logo { width: 78px; flex: 0 0 78px; text-align: center; }
+        .header-logo img { max-width: 72px; max-height: 72px; object-fit: contain; }
+        .header-text { flex: 1; text-align: center; }
+        .header-text h1, .header-text h2, .header-text p { margin: 0; }
+        .header-text h1 { font-size: 15px; }
+        .header-text h2 { font-size: 17px; margin-top: 2px; }
+        .header-spacer { width: 78px; flex: 0 0 78px; }
+        .meta { margin-bottom: 14px; font-size: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #999; padding: 5px 6px; vertical-align: top; }
+        th { background: #f3f4f6; text-align: left; }
+        .text-right { text-align: right; }
+        .summary { margin-top: 18px; }
+        .muted { color: #666; }
+        .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 28px; page-break-inside: avoid; }
+        .signature-box { width: 42%; text-align: center; }
+        .signature-role { min-height: 34px; }
+        .signature-name { margin-top: 64px; font-weight: 700; text-decoration: underline; }
+        .signature-meta { margin-top: 4px; }
+        @media print {
+            .toolbar { display: none; }
+        }
+
+  }
+  @page ims-lplpo { size: A4 landscape; margin: 10mm; }
+  .ims-print-lplpo {
+    page: ims-lplpo;
+
+
+        & { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9px; line-height: 1.3; color: #000; }
+        h2 { text-align: center; margin-bottom: 4px; font-size: 14px; }
+        .header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 10px; }
+        .header-logo { width: 78px; flex: 0 0 78px; text-align: center; }
+        .header-logo img { max-width: 72px; max-height: 72px; object-fit: contain; }
+        .header-text { flex: 1; text-align: center; }
+        .header-text h1, .header-text h3, .header-text p { margin: 0; }
+        .header-text h1 { font-size: 12px; }
+        .header-text h3 { font-size: 13px; margin-top: 2px; }
+        .header-text p { font-size: 9px; margin-top: 2px; }
+        .header-spacer { width: 78px; flex: 0 0 78px; }
+        .meta { text-align: center; margin-bottom: 10px; font-size: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        th, td { border: 1px solid #333; padding: 2px 4px; }
+        th { background: #e9ecef; text-align: center; font-weight: 600; }
+        td.num { text-align: right; }
+        .cat-header td { background: #f0f0f0; font-weight: 600; }
+        .footer-row { margin-top: 20px; display: flex; justify-content: space-between; }
+        .sign-block { text-align: center; width: 30%; }
+        .sign-line { border-bottom: 1px solid #000; width: 80%; margin: 50px auto 4px; }
+        @media print {
+            .no-print { display: none !important; }
+        }
+
+  }
+  @page ims-lplpo-report { size: A4 landscape; margin: 10mm; }
+  .ims-print-lplpo-report {
+    page: ims-lplpo-report;
+
+
+        & { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; color: #111; }
+        h2 { margin: 0 0 6px; text-align: center; font-size: 18px; }
+        .subtitle { margin-bottom: 14px; text-align: center; color: #555; }
+        .filters { margin-bottom: 14px; font-size: 10px; }
+        .filters span { margin-right: 14px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #333; padding: 6px 8px; }
+        th { background: #eceff3; text-align: left; }
+        td.num, th.num { text-align: right; }
+        .empty { padding: 18px; text-align: center; color: #666; }
+        .no-print { margin-bottom: 12px; text-align: center; }
+        @media print {
+            .no-print { display: none !important; }
+        }
+
+  }
+
+  .ims-print-document :is(h1, h2, h3) { font-weight: 700; }
+  .ims-print-document :is(.no-print, .toolbar, .screen-nav) { flex-wrap: wrap; }
+  .ims-print-document :is(.no-print, .toolbar, .screen-nav) button { min-height: 38px; border: 1px solid var(--ims-print-rule); border-radius: 4px; background: white; color: var(--ims-print-ink); padding: 6px 16px; cursor: pointer; }
+  .ims-print-lplpo :is(.footer-row p) { margin-block: 1em; }
+  @media screen and (max-width: 48rem) {
+    .ims-print-document { overflow-x: auto; }
+    .ims-print-document .meta { flex-wrap: wrap; gap: 12px; }
+    .ims-print-document .meta > div { min-width: 240px; }
+    .ims-print-document :is(.signatures, .footer, .footer-row) { flex-wrap: wrap; gap: 24px; }
+  }
+
+  /* Already-migrated desktop reports retain their report-specific page rules. */
+  @page ims-report-landscape { size: A4 landscape; margin: 10mm; }
+  @page ims-report-portrait { size: A4 portrait; margin: 10mm; }
+  @page ims-sbbk { size: A4 portrait; margin: 0; }
+  @media print {
+    body:has(.ims-report) { page: ims-report-landscape; }
+    body:has(.ims-numbering-history, .ims-report-puskesmas-persediaan, .ims-report-puskesmas-rekap-persediaan) { page: ims-report-portrait; }
+    body:has(.sbbk-print-sheet.d-print-block) { page: ims-sbbk; }
+    body:has(.ims-report, .sbbk-print-sheet.d-print-block),
+    body:has(.ims-report, .sbbk-print-sheet.d-print-block) :is(#page-content-wrapper, .main-content) { background: white !important; color: var(--color-ims-print-ink); }
+    :is(.ims-report, .sbbk-print-sheet) thead { display: table-header-group; }
+    :is(.ims-report, .sbbk-print-sheet) tr { break-inside: avoid; }
+    .sbbk-print-sheet { color: var(--color-ims-print-ink); }
+    .sbbk-signatures { break-inside: avoid; }
+    .ims-report :is(.ims-table-scroll, .table-responsive) { overflow: visible !important; }
+  }
+}

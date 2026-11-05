@@ -1,40 +1,12 @@
 <!DOCTYPE html>
-{% load number_format %}
+{% load number_format static %}
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <title>Laporan Stock Opname - {{ opname.document_number }}</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: "Segoe UI", Tahoma, sans-serif; font-size: 11px; color: #222; padding: 20px; }
-        h1 { font-size: 16px; text-align: center; margin-bottom: 4px; text-transform: uppercase; }
-        .subtitle { text-align: center; font-size: 12px; color: #555; margin-bottom: 16px; }
-        .meta { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 12px; font-size: 11px; }
-        .meta div { flex: 1; }
-        .meta strong { display: inline-block; min-width: 110px; }
-        .summary { margin-bottom: 12px; font-size: 11px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
-        th { background: #f0f0f0; font-weight: 700; font-size: 10px; text-transform: uppercase; }
-        .text-end { text-align: right; }
-        .text-center { text-align: center; }
-        .loc-header { background: #e8e8e8; font-weight: 700; padding: 6px; border: 1px solid #ccc; margin-top: 12px; }
-        .discrepancy { color: #c0392b; font-weight: 700; }
-        .signatures { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; margin-top: 28px; page-break-inside: avoid; }
-        .sign-box { width: 220px; min-height: 112px; text-align: center; }
-        .sign-role { min-height: 32px; }
-        .sign-name { border-top: 1px solid #333; margin-top: 60px; padding-top: 4px; font-weight: 700; }
-        .sign-meta { margin-top: 3px; font-size: 10px; color: #555; }
-        .no-print { margin-bottom: 16px; }
-        .no-print button { padding: 6px 16px; cursor: pointer; }
-        @media print {
-            body { padding: 10px; }
-            .no-print { display: none; }
-            th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-    </style>
+    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave8" rel="stylesheet">
 </head>
-<body>
+<body class="ims-print-document ims-print-opname-report">
     <div class="no-print">
         <button data-action="print">Cetak</button>
         <button data-action="close" style="margin-left:8px;">Tutup</button>

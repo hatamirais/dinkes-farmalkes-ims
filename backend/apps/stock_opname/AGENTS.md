@@ -17,3 +17,7 @@ App-specific guidance for physical stock counting.
 - Once numbered, `period_end` remains bound to the issue and cannot change.
 - Django Admin keeps the whole header editable only in Draft and keeps `period_end` read-only for every numbered record.
 - Django Admin must not hard-delete Stock Opname parents; workflow deletion/voiding preserves audit and number reservations.
+
+## Print presentation
+
+Standalone print templates use the generated Tailwind stylesheet and scoped document rules in `static_src/css/print.css`. Preserve every data expression, source-layer identifier, quantity/price formatter, status/facility gate and signature branch. Print styles use named A4 pages and hide action toolbars; printing never mutates stock or changes workflow status.

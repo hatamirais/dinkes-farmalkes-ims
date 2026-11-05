@@ -62,3 +62,9 @@ App-specific guidance for stock balances and ledger behavior.
 - Opening-balance imports enforce `Item.requires_expiry_date`.
 - Blank `expiry_date` is allowed only for catalog items marked as non-expiring.
 - Legacy no-expiry sentinel backfills normalize copied outbound history fields (`DistributionItem.issued_expiry_date` and downstream Puskesmas receipt-confirmation `expiry_date`) to `NULL` so historical UI/reporting renders `Tanpa kedaluwarsa` consistently.
+
+## Print presentation
+
+Standalone print templates use the generated Tailwind stylesheet and scoped document rules in `static_src/css/print.css`. Preserve every data expression, source-layer identifier, quantity/price formatter, status/facility gate and signature branch. Print styles use named A4 pages and hide action toolbars; printing never mutates stock or changes workflow status.
+
+The opening-balance import guide, validation and preview use scoped `admin/css/ims-import.css` with Django theme variables. Native Admin controls, preview tokens, CSRF and the explicit confirmation checkpoint are unchanged; do not load application Tailwind preflight into Admin.

@@ -1,24 +1,29 @@
 {% extends "admin/import_export/import.html" %}
-{% load i18n %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/ims-import.css' %}?v={{ app_version }}-wave8">
+{% endblock %}
 
 {% block content %}
-<div style="background: #1a2733; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #2a3a4a;">
-    <h4 style="margin-top: 0;">📋 Format CSV — {{ column_guide_title }}</h4>
+<div class="ims-admin-import-guide">
+    <h4>📋 Format CSV — {{ column_guide_title }}</h4>
     {% if column_guide_description %}
-    <p style="font-size: 13px;">{{ column_guide_description }}</p>
+    <p>{{ column_guide_description }}</p>
     {% endif %}
-    <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+    <table>
         <thead>
-            <tr style="border-bottom: 1px solid #3a4a5a;">
-                <th style="text-align: left; padding: 4px;">Kolom</th>
-                <th style="text-align: left; padding: 4px;">Wajib</th>
-                <th style="text-align: left; padding: 4px;">Keterangan</th>
+            <tr>
+                <th>Kolom</th>
+                <th>Wajib</th>
+                <th>Keterangan</th>
             </tr>
         </thead>
         <tbody>
             {% for col in column_guide %}
             <tr>
-                <td style="padding: 3px;"><code>{{ col.name }}</code></td>
+                <td><code>{{ col.name }}</code></td>
                 <td>{% if col.required %}✅{% else %}❌{% endif %}</td>
                 <td>{{ col.description }}</td>
             </tr>

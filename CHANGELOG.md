@@ -18,6 +18,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Migrated seven standalone print documents to scoped Tailwind print styles with named A4 pages, repeated table headings, protected row/signature breaks, and hidden print controls; wide Stock Opname reports now use landscape.
+- Kept embedded report and SBBK print output on white paper with explicit A4 page layouts, and isolated Admin import styling with native Django light/dark theme variables without loading application Tailwind preflight.
 - Migrated the server-rendered mobile/PWA shell, stock list and card, approval inbox, and distribution/expired approval details to Tailwind while retaining session authentication, permissions, stock and workflow rules, CSRF-protected actions, and existing JavaScript behavior.
 - Removed Bootstrap CSS and the unused Bootstrap JavaScript bundle from mobile pages while preserving the manifest, service worker, install guidance, safe-area layout, and bottom navigation; native installation and physical-device verification remain pending.
 - Migrated Stock Opname create/edit, physical-count input, and draft-delete confirmation to Tailwind while retaining their permissions, status checks, and count submission fields.
@@ -46,6 +48,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Restored the LPLPO submitted-report Cetak button under the existing Content Security Policy by using the shared external print handler instead of an inline event handler.
 - Restored Puskesmas request form add/remove row controls and prevented hidden deleted rows from blocking browser validation while preserving formset deletion markers.
 - Corrected the Puskesmas receipt list's `Konfirmasi` button contrast and aligned the request list's Filter and Reset controls with its search fields.
 - Restored complete borders and card spacing in Allocation detail distribution tracking so facility cards remain visually contained on wide and narrow screens.

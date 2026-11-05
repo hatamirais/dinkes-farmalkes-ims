@@ -3,37 +3,10 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <style>
-        @page { size: A4 landscape; margin: 1.2cm; }
-        body { font-family: "Segoe UI", Arial, sans-serif; color: #111; font-size: 11px; }
-        .toolbar { margin-bottom: 12px; }
-        .toolbar button { padding: 8px 14px; border: 1px solid #222; background: #222; color: #fff; cursor: pointer; }
-        .header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
-        .header-logo { width: 78px; flex: 0 0 78px; text-align: center; }
-        .header-logo img { max-width: 72px; max-height: 72px; object-fit: contain; }
-        .header-text { flex: 1; text-align: center; }
-        .header-text h1, .header-text h2, .header-text p { margin: 0; }
-        .header-text h1 { font-size: 15px; }
-        .header-text h2 { font-size: 17px; margin-top: 2px; }
-        .header-spacer { width: 78px; flex: 0 0 78px; }
-        .meta { margin-bottom: 14px; font-size: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #999; padding: 5px 6px; vertical-align: top; }
-        th { background: #f3f4f6; text-align: left; }
-        .text-right { text-align: right; }
-        .summary { margin-top: 18px; }
-        .muted { color: #666; }
-        .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 28px; page-break-inside: avoid; }
-        .signature-box { width: 42%; text-align: center; }
-        .signature-role { min-height: 34px; }
-        .signature-name { margin-top: 64px; font-weight: 700; text-decoration: underline; }
-        .signature-meta { margin-top: 4px; }
-        @media print {
-            .toolbar { display: none; }
-        }
-    </style>
+
+    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave8" rel="stylesheet">
 </head>
-<body>
+<body class="ims-print-document ims-print-expired-audit">
     <div class="toolbar">
         <button type="button" data-action="print">Cetak / Save PDF</button>
     </div>
@@ -86,7 +59,7 @@
         <tbody>
             {% for row in report_data.rows %}
             <tr>
-   
+
                 <td>{{ row.document_reference }}</td>
                 <td>{{ row.nama_barang }}</td>
                 <td>{{ row.batch_lot }}</td>

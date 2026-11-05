@@ -60,3 +60,7 @@ The create, edit, PIC review, and existing-document XLSX import screens use the 
 - Import updates only the existing document's editable Puskesmas fields: `stock_awal`, `penerimaan`, `harga_satuan`, `stock_gudang_puskesmas`, `waktu_kosong`, `permintaan_jumlah`, and `permintaan_alasan`.
 - Import preserves `pemakaian` as server-authoritative from detailed consumption and recomputes all derived fields server-side.
 - Import is POST-limited by `LPLPO_IMPORT_RATE_LIMIT`.
+
+## Print presentation
+
+Standalone print templates use the generated Tailwind stylesheet and scoped document rules in `static_src/css/print.css`. Preserve every data expression, source-layer identifier, quantity/price formatter, status/facility gate and signature branch. Print styles use named A4 pages and hide action toolbars; printing never mutates stock or changes workflow status.

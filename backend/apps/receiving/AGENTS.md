@@ -51,3 +51,7 @@ App-specific guidance for receiving workflows.
 - CSV column docs must match the receiving admin parser/resource classes.
 - The receiving CSV header is `import_group`, not `document_number`; opening-balance CSV continues to use `document_number` because it owns a separate source-document identity.
 - Quick-create lookup POST mutations are covered by `@item_mutation_ratelimit`, not the user-management throttle bucket.
+
+## Admin presentation
+
+The receiving changelist and CSV import retain native Django Admin CSS and controls. Shared import-with-guide overrides use scoped `admin/css/ims-import.css`; never load application Tailwind preflight into Admin. CSV field names, validation, POST behavior and stock posting remain unchanged.

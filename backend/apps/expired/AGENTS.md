@@ -14,3 +14,7 @@ App-specific guidance for expired-stock and disposal workflows.
 - Drafts have no official number. Issuance uses the central numbering service and workflow business date atomically.
 - Legacy numbered step-back Draft/Prepared rows retain their number, issue row, and sequence position.
 - Django Admin must not hard-delete Expired parents. Lifecycle transitions and deletion/voiding use workflow services.
+
+## Print presentation
+
+Standalone print templates use the generated Tailwind stylesheet and scoped document rules in `static_src/css/print.css`. Preserve every data expression, source-layer identifier, quantity/price formatter, status/facility gate and signature branch. Print styles use named A4 pages and hide action toolbars; printing never mutates stock or changes workflow status.

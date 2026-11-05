@@ -44,6 +44,7 @@ docs/obat-progran.txt
 .agents/
 .codex/
 security-audit/
+docs/zap-test/
 docs/*.csv
 .error/
 .dev/

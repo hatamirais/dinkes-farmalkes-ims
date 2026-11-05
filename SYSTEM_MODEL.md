@@ -659,6 +659,10 @@ Defined in `backend/apps/receiving/admin.py` (`ReceivingAdmin.import_csv_view`):
 - Decimal parser supports comma decimal separator and rejects blank, `0`, negative, `NaN`, and `Infinity` quantities
 - Runs in `@transaction.atomic`
 
+## Print and Admin presentation
+
+Wave 8 standalone print pages load the generated Tailwind stylesheet with scoped rules in `backend/static_src/css/print.css`. Named A4 page rules keep stock cards and expired documents portrait, and wide Stock Opname, expired audit and LPLPO reports landscape. Repeated table headings, row/signature break protection and print-only control hiding are shared. Embedded desktop reports retain their content and report-specific styles while using named A4 page sizes and white paper backgrounds. Django Admin keeps native Admin CSS; only the two import-guide overrides load scoped `admin/css/ims-import.css`, without application Tailwind preflight. Views, route names, workflow checkpoints, import formats and stock calculations are unchanged. The LPLPO submitted-queue print button uses the existing external print handler to comply with the unchanged CSP.
+
 ## 8) Documentation Maintenance Policy
 
 If model fields, routes, settings, permission logic, or import behavior change:
