@@ -56,7 +56,7 @@
     .form-page-card {
         min-height: calc(100vh - 150px);
     }
-    .form-page-card .card-body {
+    .form-page-card .ims-panel-body {
         display: flex;
         flex-direction: column;
     }
@@ -343,16 +343,16 @@
 {% endblock %}
 
 {% block content %}
-<div class="ims-workflow ims-allocation-form card content-card table-container form-page-card">
-    <div class="card-header">
+<div class="ims-workflow ims-allocation-form ims-panel content-card table-container form-page-card">
+    <div class="ims-panel-header">
         <span><i class="bi bi-diagram-3 me-2"></i>{{ title }}</span>
     </div>
-    <div class="card-body">
+    <div class="ims-panel-body">
         <form method="post" novalidate id="allocation-form">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div class="alert alert-danger py-2">
+            <div class="ims-alert ims-alert--danger py-2">
                 {% for error in form.non_field_errors %}
                 <div>{{ error }}</div>
                 {% endfor %}
@@ -375,26 +375,26 @@
                 </button>
             </div>
 
-            <div id="wizard-validation-alert" class="alert alert-warning py-2 mb-3 d-none" role="alert"></div>
+            <div id="wizard-validation-alert" class="ims-alert ims-alert--warning py-2 mb-3 d-none" role="alert"></div>
 
             {# ═══════ STEP 1: Info Umum ═══════ #}
             <div class="wizard-panel active" id="step-1">
-                <div class="row g-3">
-                    <div class="col-12">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-12">
                         {% tailwind_field form.title %}
                     </div>
-                    <div class="col-md-6">
+                    <div class="ims-layout-col-md-6">
                         {% tailwind_field form.allocation_date %}
                     </div>
-                    <div class="col-md-6">
+                    <div class="ims-layout-col-md-6">
                         {% tailwind_field form.referensi %}
                     </div>
-                    <div class="col-12">
+                    <div class="ims-layout-col-12">
                         {% tailwind_field form.notes %}
                     </div>
 
                     {# ─── Facility Picker ─── #}
-                    <div class="col-12">
+                    <div class="ims-layout-col-12">
                         <div class="selection-picker border rounded-3 p-3">
                             <div class="selection-picker-header">
                                 <div class="selection-picker-title">
@@ -403,23 +403,23 @@
                                         <div class="selection-picker-summary js-selection-summary" data-empty-summary="Belum ada fasilitas dipilih">Belum ada fasilitas dipilih</div>
                                     </div>
                                 </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-primary js-selection-bulk-action" data-selection-target="allocation-facility-list" data-selection-action="select-all">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="ims-btn ims-btn--sm ims-btn--secondary js-selection-bulk-action" data-selection-target="allocation-facility-list" data-selection-action="select-all">
                                         Pilih Semua
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary js-selection-bulk-action" data-selection-target="allocation-facility-list" data-selection-action="clear-all">
+                                    <button type="button" class="ims-btn ims-btn--sm ims-btn--neutral js-selection-bulk-action" data-selection-target="allocation-facility-list" data-selection-action="clear-all">
                                         Bersihkan
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#allocation-facility-picker-body" aria-expanded="false" aria-controls="allocation-facility-picker-body">
+                                    <button class="ims-btn ims-btn--sm ims-btn--neutral" type="button" data-bs-toggle="collapse" data-bs-target="#allocation-facility-picker-body" aria-expanded="false" aria-controls="allocation-facility-picker-body">
                                         <i class="bi bi-chevron-down"></i>
                                     </button>
                                 </div>
                             </div>
                             <div class="collapse selection-picker-body" id="allocation-facility-picker-body">
                                 <div class="mb-3">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                        <input type="text" class="form-control js-selection-filter" data-selection-filter-target="allocation-facility-list" placeholder="Cari fasilitas..." autocomplete="off">
+                                    <div class="ims-input-group ims-input-group--compact">
+                                        <span class="ims-input-addon"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="ims-control js-selection-filter" data-selection-filter-target="allocation-facility-list" placeholder="Cari fasilitas..." autocomplete="off">
                                     </div>
                                 </div>
                                 <div class="selection-picker-list" id="allocation-facility-list">
@@ -431,15 +431,15 @@
                                         </span>
                                     </label>
                                     {% endfor %}
-                                    <div class="selection-picker-empty text-muted small d-none">Tidak ada fasilitas yang cocok.</div>
+                                    <div class="selection-picker-empty text-muted text-ims-xs d-none">Tidak ada fasilitas yang cocok.</div>
                                 </div>
                             </div>
                         </div>
-                        {% for error in form.selected_facilities.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                        {% for error in form.selected_facilities.errors %}<div class="ims-error block">{{ error }}</div>{% endfor %}
                     </div>
 
                     {# ─── Staff Picker ─── #}
-                    <div class="col-12">
+                    <div class="ims-layout-col-12">
                         <div class="selection-picker border rounded-3 p-3">
                             <div class="selection-picker-header">
                                 <div class="selection-picker-title">
@@ -448,23 +448,23 @@
                                         <div class="selection-picker-summary js-selection-summary" data-empty-summary="Belum ada petugas dipilih">Belum ada petugas dipilih</div>
                                     </div>
                                 </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-primary js-selection-bulk-action" data-selection-target="allocation-staff-list" data-selection-action="select-all">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="ims-btn ims-btn--sm ims-btn--secondary js-selection-bulk-action" data-selection-target="allocation-staff-list" data-selection-action="select-all">
                                         Pilih Semua
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary js-selection-bulk-action" data-selection-target="allocation-staff-list" data-selection-action="clear-all">
+                                    <button type="button" class="ims-btn ims-btn--sm ims-btn--neutral js-selection-bulk-action" data-selection-target="allocation-staff-list" data-selection-action="clear-all">
                                         Bersihkan
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#allocation-staff-picker-body" aria-expanded="false" aria-controls="allocation-staff-picker-body">
+                                    <button class="ims-btn ims-btn--sm ims-btn--neutral" type="button" data-bs-toggle="collapse" data-bs-target="#allocation-staff-picker-body" aria-expanded="false" aria-controls="allocation-staff-picker-body">
                                         <i class="bi bi-chevron-down"></i>
                                     </button>
                                 </div>
                             </div>
                             <div class="collapse selection-picker-body" id="allocation-staff-picker-body">
                                 <div class="mb-3">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                        <input type="text" class="form-control js-selection-filter" data-selection-filter-target="allocation-staff-list" placeholder="Cari petugas..." autocomplete="off">
+                                    <div class="ims-input-group ims-input-group--compact">
+                                        <span class="ims-input-addon"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="ims-control js-selection-filter" data-selection-filter-target="allocation-staff-list" placeholder="Cari petugas..." autocomplete="off">
                                     </div>
                                 </div>
                                 <div class="selection-picker-list" id="allocation-staff-list">
@@ -476,16 +476,16 @@
                                         </span>
                                     </label>
                                     {% endfor %}
-                                    <div class="selection-picker-empty text-muted small d-none">Tidak ada petugas yang cocok.</div>
+                                    <div class="selection-picker-empty text-muted text-ims-xs d-none">Tidak ada petugas yang cocok.</div>
                                 </div>
                             </div>
                         </div>
-                        {% for error in form.assigned_staff.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                        {% for error in form.assigned_staff.errors %}<div class="ims-error block">{{ error }}</div>{% endfor %}
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end mt-4">
-                    <button type="button" class="btn btn-primary btn-sm js-wizard-next" data-next-step="2">
+                <div class="flex justify-end mt-4">
+                    <button type="button" class="ims-btn ims-btn--primary ims-btn--sm js-wizard-next" data-next-step="2">
                         Selanjutnya <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
@@ -493,24 +493,24 @@
 
             {# ═══════ STEP 2: Pilih Item ═══════ #}
             <div class="wizard-panel" id="step-2">
-                <div class="mb-2 small text-muted">Pilih barang dan batch stok yang akan dialokasikan. Angka stok memakai stok tersedia untuk dialokasikan (stok fisik dikurangi reservasi outbound aktif). Satu barang dapat dipecah ke beberapa batch bila stok tersedia tersebar.</div>
+                <div class="mb-2 text-ims-xs text-muted">Pilih barang dan batch stok yang akan dialokasikan. Angka stok memakai stok tersedia untuk dialokasikan (stok fisik dikurangi reservasi outbound aktif). Satu barang dapat dipecah ke beberapa batch bila stok tersedia tersebar.</div>
 
                 {{ formset.management_form }}
 
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="allocation-items">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-muted text-ims-xs">Minimal satu baris item harus tersedia.</span>
+                    <div class="flex gap-2">
+                        <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-clear" data-formset-target="allocation-items">
                             <i class="bi bi-trash me-1"></i>Hapus Semua
                         </button>
-                        <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="allocation-items">
+                        <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm formset-add" data-formset-target="allocation-items">
                             <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                         </button>
                     </div>
                 </div>
 
                 <div class="table-responsive" data-formset="allocation-items" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Item alokasi" tabindex="0">
-                    <table class="table ims-table table-sm allocation-item-table">
+                    <table class="table ims-table ims-table--compact allocation-item-table">
                         <thead>
                             <tr>
                                 <th class="allocation-item-col-item">Barang</th>
@@ -541,7 +541,7 @@
                                 </td>
                                 <td class="js-available-qty allocation-item-available-cell">{{ item_form.total_qty_available.value|default:"—" }}</td>
                                 <td class="text-center allocation-item-remove-cell">
-                                    <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                    <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                     <div class="d-none">{{ item_form.DELETE }}</div>
@@ -552,14 +552,14 @@
                             </tr>
                             {% if item_form.non_field_errors %}
                             <tr>
-                                <td colspan="4" class="text-danger small py-1">
+                                <td colspan="4" class="text-danger text-ims-xs py-1">
                                     {% for error in item_form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
                                 </td>
                             </tr>
                             {% endif %}
                             {% for field in item_form %}
                                 {% for error in field.errors %}
-                                <tr><td colspan="4" class="text-danger small py-1">{{ field.label }}: {{ error }}</td></tr>
+                                <tr><td colspan="4" class="text-danger text-ims-xs py-1">{{ field.label }}: {{ error }}</td></tr>
                                 {% endfor %}
                             {% endfor %}
                             {% endfor %}
@@ -588,7 +588,7 @@
                         </td>
                         <td class="js-available-qty allocation-item-available-cell">—</td>
                         <td class="text-center allocation-item-remove-cell">
-                            <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                            <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                 <i class="bi bi-trash"></i>
                             </button>
                             <div class="d-none">{{ formset.empty_form.DELETE }}</div>
@@ -599,11 +599,11 @@
                     </tr>
                 </template>
 
-                <div class="d-flex justify-content-between mt-4 js-step-2-nav">
-                    <button type="button" class="btn btn-outline-secondary btn-sm js-wizard-prev" data-prev-step="1">
+                <div class="flex justify-between mt-4 js-step-2-nav">
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm js-wizard-prev" data-prev-step="1">
                         <i class="bi bi-arrow-left me-1"></i>Sebelumnya
                     </button>
-                    <button type="button" class="btn btn-primary btn-sm js-wizard-next" data-next-step="3">
+                    <button type="button" class="ims-btn ims-btn--primary ims-btn--sm js-wizard-next" data-next-step="3">
                         Selanjutnya <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
@@ -611,11 +611,11 @@
 
             {# ═══════ STEP 3: Alokasi per Fasilitas (Matrix) ═══════ #}
             <div class="wizard-panel" id="step-3">
-                <div class="mb-2 small text-muted">Tentukan jumlah per fasilitas untuk masing-masing item. Total alokasi tidak boleh melebihi stok tersedia untuk dialokasikan.</div>
+                <div class="mb-2 text-ims-xs text-muted">Tentukan jumlah per fasilitas untuk masing-masing item. Total alokasi tidak boleh melebihi stok tersedia untuk dialokasikan.</div>
 
                 <div class="table-responsive alloc-matrix-scroll" role="region" aria-label="Alokasi per fasilitas" tabindex="0">
-                    <table class="table table-sm table-bordered alloc-matrix" id="alloc-matrix-table">
-                        <thead class="table-light">
+                    <table class="table ims-table--compact ims-table--ruled alloc-matrix" id="alloc-matrix-table">
+                        <thead class="ims-table-heading">
                             <tr id="matrix-header-row">
                                 <th>Barang (Batch)</th>
                                 <th>Stok Tersedia</th>
@@ -628,15 +628,15 @@
                         </tbody>
                     </table>
                 </div>
-                <div id="matrix-empty-msg" class="text-muted small py-3 text-center d-none">
+                <div id="matrix-empty-msg" class="text-muted text-ims-xs py-3 text-center d-none">
                     Pilih item pada Step 2 dan fasilitas pada Step 1 terlebih dahulu.
                 </div>
 
-                <div class="d-flex justify-content-between mt-4">
-                    <button type="button" class="btn btn-outline-secondary btn-sm js-wizard-prev" data-prev-step="2">
+                <div class="flex justify-between mt-4">
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm js-wizard-prev" data-prev-step="2">
                         <i class="bi bi-arrow-left me-1"></i>Sebelumnya
                     </button>
-                    <button type="button" class="btn btn-primary btn-sm js-wizard-next" data-next-step="4">
+                    <button type="button" class="ims-btn ims-btn--primary ims-btn--sm js-wizard-next" data-next-step="4">
                         Selanjutnya <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 </div>
@@ -644,27 +644,27 @@
 
             {# ═══════ STEP 4: Review & Simpan ═══════ #}
             <div class="wizard-panel" id="step-4">
-                <div class="mb-3 small text-muted">Periksa kembali data alokasi sebelum menyimpan.</div>
+                <div class="mb-3 text-ims-xs text-muted">Periksa kembali data alokasi sebelum menyimpan.</div>
 
                 <div class="review-section" id="review-header">
-                    <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i>Info Umum</h6>
+                    <h6 class="font-bold mb-2"><i class="bi bi-info-circle me-1"></i>Info Umum</h6>
                     <div id="review-header-content"></div>
                 </div>
 
                 <div class="review-section" id="review-items">
-                    <h6 class="fw-bold mb-2"><i class="bi bi-list-ul me-1"></i>Item & Alokasi</h6>
+                    <h6 class="font-bold mb-2"><i class="bi bi-list-ul me-1"></i>Item & Alokasi</h6>
                     <div id="review-matrix-content"></div>
                 </div>
 
-                <div class="d-flex justify-content-between mt-4">
-                    <button type="button" class="btn btn-outline-secondary btn-sm js-wizard-prev" data-prev-step="3">
+                <div class="flex justify-between mt-4">
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm js-wizard-prev" data-prev-step="3">
                         <i class="bi bi-arrow-left me-1"></i>Sebelumnya
                     </button>
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="flex gap-2">
+                        <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>
-                        <a href="{% if allocation %}{% url 'allocation:allocation_detail' allocation.pk %}{% else %}{% url 'allocation:allocation_list' %}{% endif %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% if allocation %}{% url 'allocation:allocation_detail' allocation.pk %}{% else %}{% url 'allocation:allocation_list' %}{% endif %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </div>
             </div>
@@ -681,6 +681,6 @@
 {% if existing_allocations %}
 {{ existing_allocations|json_script:"existing-allocations" }}
 {% endif %}
-<script src="{% static 'js/allocation-form.js' %}?v={{ app_version }}-20261019b"></script>
+<script src="{% static 'js/allocation-form.js' %}?v={{ app_version }}-wave9"></script>
 {% endblock %}
 

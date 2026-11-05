@@ -1774,7 +1774,7 @@ class LPLPOWorkflowTests(LPLPOTestCase):
 		self.assertContains(response, "Dokumen Distribusi Dibuat")
 		self.assertNotContains(
 			response,
-			'<span class="badge text-bg-primary">Didistribusikan</span>',
+			'<span class="ims-badge text-bg-primary">Didistribusikan</span>',
 			html=True,
 		)
 

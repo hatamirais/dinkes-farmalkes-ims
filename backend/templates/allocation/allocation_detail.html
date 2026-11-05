@@ -55,7 +55,7 @@
     .dist-tracking-card.status-prepared { border-left-color: #fbbf24; }
     .dist-tracking-card.status-distributed { border-left-color: #4ade80; }
     .dist-tracking-anchor { scroll-margin-top: 1rem; }
-    .dist-tracking-card .card-body {
+    .dist-tracking-card .ims-panel-body {
         display: flex;
         flex-direction: column;
     }
@@ -77,23 +77,23 @@
 {% endblock %}
 
 {% block content %}
-<div class="ims-workflow ims-workflow-detail card content-card table-container">
-    <div class="card-header d-flex align-items-center justify-content-between">
+<div class="ims-workflow ims-workflow-detail ims-panel content-card table-container">
+    <div class="ims-panel-header flex items-center justify-between">
         <span><i class="bi bi-diagram-3 me-2"></i>{{ allocation.document_number|default:"Belum diterbitkan" }}</span>
         <span class="badge-status badge-{{ allocation.status|lower }}">{{ allocation.get_status_display }}</span>
     </div>
 
-    <div class="card-body">
+    <div class="ims-panel-body">
         {% if allocation.title %}
         <div class="mb-3">
-            <div class="text-muted small">Judul Alokasi</div>
+            <div class="text-muted text-ims-xs">Judul Alokasi</div>
             <h5 class="mb-0">{{ allocation.title }}</h5>
         </div>
         {% endif %}
 
         {# ─── Rejection Alert ─── #}
         {% if allocation.status == 'REJECTED' and allocation.rejection_reason %}
-        <div class="alert alert-warning py-2 mb-3">
+        <div class="ims-alert ims-alert--warning py-2 mb-3">
             <i class="bi bi-exclamation-triangle me-1"></i>
             <strong>Ditolak:</strong> {{ allocation.rejection_reason }}
         </div>
@@ -125,56 +125,56 @@
         </div>
 
         {# ─── Header Info ─── #}
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="text-muted small">Tanggal Alokasi</div>
+        <div class="ims-layout-row ims-layout-g-3 mb-4">
+            <div class="ims-layout-col-md-4">
+                <div class="text-muted text-ims-xs">Tanggal Alokasi</div>
                 <div class="fw-semibold">{{ allocation.allocation_date|date:"d/m/Y" }}</div>
             </div>
-            <div class="col-md-4">
-                <div class="text-muted small">Referensi</div>
+            <div class="ims-layout-col-md-4">
+                <div class="text-muted text-ims-xs">Referensi</div>
                 <div class="fw-semibold">{{ allocation.referensi|default:"—" }}</div>
             </div>
-            <div class="col-md-4">
-                <div class="text-muted small">Dibuat oleh</div>
+            <div class="ims-layout-col-md-4">
+                <div class="text-muted text-ims-xs">Dibuat oleh</div>
                 <div class="fw-semibold">{{ allocation.created_by }}</div>
             </div>
             {% if allocation.submitted_by %}
-            <div class="col-md-4">
-                <div class="text-muted small">Diajukan oleh</div>
+            <div class="ims-layout-col-md-4">
+                <div class="text-muted text-ims-xs">Diajukan oleh</div>
                 <div class="fw-semibold">{{ allocation.submitted_by }} <small class="text-muted">({{ allocation.submitted_at|date:"d/m/Y H:i" }})</small></div>
             </div>
             {% endif %}
             {% if allocation.approved_by %}
-            <div class="col-md-4">
-                <div class="text-muted small">Disetujui oleh</div>
+            <div class="ims-layout-col-md-4">
+                <div class="text-muted text-ims-xs">Disetujui oleh</div>
                 <div class="fw-semibold">{{ allocation.approved_by }} <small class="text-muted">({{ allocation.approved_at|date:"d/m/Y H:i" }})</small></div>
             </div>
             {% endif %}
             {% if allocation.notes %}
-            <div class="col-12">
-                <div class="text-muted small">Catatan</div>
+            <div class="ims-layout-col-12">
+                <div class="text-muted text-ims-xs">Catatan</div>
                 <div>{{ allocation.notes }}</div>
             </div>
             {% endif %}
         </div>
 
         {# ─── Fasilitas & Petugas ─── #}
-        <div class="row g-3 mb-4">
-            <div class="col-md-6">
-                <h6 class="fw-bold"><i class="bi bi-building me-1"></i>Fasilitas Tujuan</h6>
-                <div class="d-flex flex-wrap gap-1">
+        <div class="ims-layout-row ims-layout-g-3 mb-4">
+            <div class="ims-layout-col-md-6">
+                <h6 class="font-bold"><i class="bi bi-building me-1"></i>Fasilitas Tujuan</h6>
+                <div class="flex flex-wrap gap-1">
                     {% for facility in selected_facilities %}
-                    <span class="badge bg-light text-dark border">{{ facility.name }}</span>
+                    <span class="ims-badge bg-light text-dark border">{{ facility.name }}</span>
                     {% empty %}
                     <span class="text-muted">—</span>
                     {% endfor %}
                 </div>
             </div>
-            <div class="col-md-6">
-                <h6 class="fw-bold"><i class="bi bi-people me-1"></i>Petugas</h6>
-                <div class="d-flex flex-wrap gap-1">
+            <div class="ims-layout-col-md-6">
+                <h6 class="font-bold"><i class="bi bi-people me-1"></i>Petugas</h6>
+                <div class="flex flex-wrap gap-1">
                     {% for staff in assigned_staff %}
-                    <span class="badge bg-light text-dark border">{{ staff }}</span>
+                    <span class="ims-badge bg-light text-dark border">{{ staff }}</span>
                     {% empty %}
                     <span class="text-muted">—</span>
                     {% endfor %}
@@ -183,11 +183,11 @@
         </div>
 
         {# ─── Allocation Matrix ─── #}
-        <h6 class="fw-bold mb-3"><i class="bi bi-grid-3x3 me-1"></i>Matriks Alokasi</h6>
+        <h6 class="font-bold mb-3"><i class="bi bi-grid-3x3 me-1"></i>Matriks Alokasi</h6>
         {% if items_with_allocations %}
         <div class="table-responsive mb-4 ims-table-scroll">
-            <table class="table table-sm table-bordered alloc-matrix-table ims-table">
-                <thead class="table-light">
+            <table class="table ims-table--compact ims-table--ruled alloc-matrix-table ims-table">
+                <thead class="ims-table-heading">
                     <tr>
                         <th>Barang (Batch)</th>
                         <th>Tersedia</th>
@@ -229,7 +229,7 @@
         {# ─── Distribution Tracking (post-approval) ─── #}
         {% if distributions %}
         <hr>
-        <h6 class="fw-bold mb-3">
+        <h6 class="font-bold mb-3">
             <i class="bi bi-truck me-1"></i>Tracking Distribusi
             <small class="text-muted ms-2">({{ delivery_delivered }}/{{ delivery_total }} terkirim)</small>
         </h6>
@@ -244,16 +244,16 @@
         </div>
         {% endif %}
 
-        <div class="row g-3 dist-tracking-grid">
+        <div class="ims-layout-row ims-layout-g-3 dist-tracking-grid">
             {% for dist in distributions %}
-            <div class="col-md-6 col-lg-4 dist-tracking-anchor" id="distribution-{{ dist.pk }}">
-                <div class="card dist-tracking-card status-{{ dist.status|lower }} h-100">
-                    <div class="card-body">
+            <div class="ims-layout-col-md-6 ims-layout-col-lg-4 dist-tracking-anchor" id="distribution-{{ dist.pk }}">
+                <div class="ims-panel dist-tracking-card status-{{ dist.status|lower }} h-full">
+                    <div class="ims-panel-body">
                                 <a href="{% url 'distribution:distribution_detail' dist.pk %}"
                                     class="stretched-link"
                                     target="_blank" rel="noopener noreferrer"
                                     aria-label="Lihat detail distribusi {{ dist.document_number|default:'belum diterbitkan' }}"></a>
-                            <div class="d-flex align-items-start justify-content-between mb-2">
+                            <div class="flex items-start justify-between mb-2">
                                 <div>
                                     <h6 class="fw-semibold mb-1">{{ dist.facility.name }}</h6>
                                     <small class="text-muted">{{ dist.document_number|default:"Belum diterbitkan" }}</small>
@@ -261,7 +261,7 @@
                                 <span class="badge-status badge-{{ dist.status|lower }}">{{ dist.get_status_display }}</span>
                             </div>
 
-                            <div class="small text-muted mb-2">
+                            <div class="text-ims-xs text-muted mb-2">
                                 {{ dist.items.count }} item
                                 {% if dist.distributed_date %}
                                 · Dikirim {{ dist.distributed_date|date:"d/m/Y" }}
@@ -269,11 +269,11 @@
                         </div>
 
                         {# Action buttons #}
-                        <div class="d-flex gap-2 mt-auto dist-tracking-card-actions">
+                        <div class="flex gap-2 mt-auto dist-tracking-card-actions">
                             {% if dist.status == 'VERIFIED' %}
                                 <form method="post" action="{% url 'allocation:allocation_distribution_prepare' allocation.pk dist.pk %}" data-card-action="true">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-warning ims-btn ims-btn--sm"
+                                <button type="submit" class="ims-btn ims-btn--sm ims-btn--warning-outline ims-btn ims-btn--sm"
                                         data-confirm-action="Siapkan distribusi ke {{ dist.facility.name }}?">
                                     <i class="bi bi-box-seam me-1"></i>Siapkan
                                 </button>
@@ -281,13 +281,13 @@
                             {% elif dist.status == 'PREPARED' %}
                                 <form method="post" action="{% url 'allocation:allocation_distribution_deliver' allocation.pk dist.pk %}" data-card-action="true">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-success ims-btn ims-btn--sm"
+                                <button type="submit" class="ims-btn ims-btn--sm ims-btn--success-outline ims-btn ims-btn--sm"
                                         data-confirm-action="Konfirmasi pengiriman ke {{ dist.facility.name }}? Stok akan dikurangi.">
                                     <i class="bi bi-check-circle me-1"></i>Konfirmasi Kirim
                                 </button>
                             </form>
                             {% elif dist.status == 'DISTRIBUTED' %}
-                            <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Terkirim</span>
+                            <span class="text-success text-ims-xs"><i class="bi bi-check-circle-fill me-1"></i>Terkirim</span>
                             {% endif %}
                         </div>
                     </div>
@@ -299,21 +299,21 @@
 
         {# ─── Action Buttons ─── #}
         <hr>
-        <div class="d-flex flex-wrap gap-2 mt-3">
+        <div class="flex flex-wrap gap-2 mt-3">
             {% if allocation.status == 'DRAFT' %}
-            <a href="{% url 'allocation:allocation_edit' allocation.pk %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
+            <a href="{% url 'allocation:allocation_edit' allocation.pk %}" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary">
                 <i class="bi bi-pencil me-1"></i>Edit
             </a>
-            <form method="post" action="{% url 'allocation:allocation_submit' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_submit' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary"
+                <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary"
                         data-confirm-action="Ajukan alokasi ini untuk persetujuan?">
                     <i class="bi bi-send me-1"></i>Ajukan
                 </button>
             </form>
-            <form method="post" action="{% url 'allocation:allocation_delete' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_delete' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"
+                <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger"
                         data-confirm-action="Hapus alokasi ini? Tindakan ini tidak dapat dibatalkan.">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
@@ -321,20 +321,20 @@
             {% endif %}
 
             {% if allocation.status == 'SUBMITTED' %}
-            <form method="post" action="{% url 'allocation:allocation_approve' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_approve' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary"
+                <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary"
                         data-confirm-action="Setujui alokasi ini? Distribusi per fasilitas akan dibuat otomatis.">
                     <i class="bi bi-check-circle me-1"></i>Setujui
                 </button>
             </form>
-            <button type="button" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"
+            <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger"
                     data-bs-toggle="modal" data-bs-target="#rejectModal">
                 <i class="bi bi-x-circle me-1"></i>Tolak
             </button>
-            <form method="post" action="{% url 'allocation:allocation_reset_to_draft' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_reset_to_draft' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral"
                         data-confirm-action="Kembalikan alokasi ke Draft?">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Kembali ke Draft
                 </button>
@@ -342,9 +342,9 @@
             {% endif %}
 
             {% if allocation.status == 'APPROVED' %}
-            <form method="post" action="{% url 'allocation:allocation_step_back' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_step_back' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral"
                         data-confirm-action="Kembalikan alokasi ini ke status Diajukan? Distribusi turunan yang belum terkirim akan dihapus.">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Kembali ke status sebelumnya
                 </button>
@@ -352,25 +352,25 @@
             {% endif %}
 
             {% if allocation.status == 'REJECTED' %}
-            <a href="{% url 'allocation:allocation_edit' allocation.pk %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
+            <a href="{% url 'allocation:allocation_edit' allocation.pk %}" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary">
                 <i class="bi bi-pencil me-1"></i>Edit & Ajukan Ulang
             </a>
-            <form method="post" action="{% url 'allocation:allocation_reset_to_draft' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_reset_to_draft' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Kembali ke Draft
                 </button>
             </form>
-            <form method="post" action="{% url 'allocation:allocation_delete' allocation.pk %}" class="d-inline">
+            <form method="post" action="{% url 'allocation:allocation_delete' allocation.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"
+                <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger"
                         data-confirm-action="Hapus alokasi ini?">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
             </form>
             {% endif %}
 
-            <a href="{% url 'allocation:allocation_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+            <a href="{% url 'allocation:allocation_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar
             </a>
         </div>
@@ -389,13 +389,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <label for="rejection_reason" class="form-label fw-semibold">Alasan Penolakan <span class="text-danger">*</span></label>
-                    <textarea name="rejection_reason" id="rejection_reason" class="form-control ims-control" rows="3" required
+                    <label for="rejection_reason" class="ims-label fw-semibold">Alasan Penolakan <span class="text-danger">*</span></label>
+                    <textarea name="rejection_reason" id="rejection_reason" class="ims-control ims-control" rows="3" required
                               placeholder="Jelaskan alasan penolakan alokasi ini..."></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-circle me-1"></i>Tolak</button>
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="ims-btn ims-btn--danger ims-btn--sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-circle me-1"></i>Tolak</button>
                 </div>
             </form>
         </div>

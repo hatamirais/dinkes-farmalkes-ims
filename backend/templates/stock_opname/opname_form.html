@@ -6,11 +6,11 @@
 
 {% block content %}
 <div class="ims-opname-form ims-workflow">
-        <div class="card content-card">
-            <div class="card-header">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header">
                 <span><i class="bi bi-clipboard-plus me-2"></i>{{ title }}</span>
             </div>
-            <div class="card-body">
+            <div class="ims-panel-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {% if form.hidden_fields %}{% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}{% endif %}
@@ -22,13 +22,13 @@
                         {% endfor %}
                     </div>
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger mt-3">
+                    <div class="ims-alert ims-alert--danger mt-3">
                         {% for error in form.non_field_errors %}
                         <p class="mb-0">{{ error }}</p>
                         {% endfor %}
                     </div>
                     {% endif %}
-                    <div class="d-flex gap-2 mt-4">
+                    <div class="flex gap-2 mt-4">
                         <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>

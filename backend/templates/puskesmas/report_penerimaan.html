@@ -33,9 +33,9 @@
     @media print {
         .main-content { padding: 0 !important; }
         .report-print-sheet { max-width: none; padding: 0 5mm; }
-        .card { border: none !important; box-shadow: none !important; }
-        .card-body { padding: 0 !important; }
-        .table-light th {
+        .ims-panel { border: none !important; box-shadow: none !important; }
+        .ims-panel-body { padding: 0 !important; }
+        .ims-table-heading th {
             background-color: #f8f9fa !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -52,23 +52,23 @@
 {% block content %}
 <div class="ims-workflow ims-report ims-report-puskesmas ims-report-puskesmas-penerimaan">
 <!-- Filter Bar -->
-<div class="row mb-4 d-print-none">
-    <div class="col-12">
-        <div class="card shadow-sm border-0">
-            <div class="card-body bg-light">
-                <form method="get" class="row g-3 align-items-end ims-report-filters">
-                    <div class="col-md-auto">
+<div class="ims-layout-row mb-4 d-print-none">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel shadow-sm border-0">
+            <div class="ims-panel-body bg-light">
+                <form method="get" class="ims-layout-row ims-layout-g-3 items-end ims-report-filters">
+                    <div class="ims-layout-col-md-auto">
                         {{ form.start_date.label_tag }}
                         {{ form.start_date }}
                     </div>
-                    <div class="col-md-auto">
+                    <div class="ims-layout-col-md-auto">
                         {{ form.end_date.label_tag }}
                         {{ form.end_date }}
                     </div>
                     {% if all_facilities %}
-                    <div class="col-md-auto">
-                        <label for="id_facility" class="form-label">Fasilitas</label>
-                        <select name="facility" id="id_facility" class="form-select">
+                    <div class="ims-layout-col-md-auto">
+                        <label for="id_facility" class="ims-label">Fasilitas</label>
+                        <select name="facility" id="id_facility" class="ims-control">
                             <option value="">Semua Fasilitas</option>
                             {% for f in all_facilities %}
                             <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>
@@ -78,21 +78,21 @@
                         </select>
                     </div>
                     {% endif %}
-                    <div class="col d-flex flex-wrap align-items-end gap-2">
-                        <button type="submit" class="btn btn-primary ims-btn ims-btn--primary">
+                    <div class="ims-layout-col flex flex-wrap items-end gap-2">
+                        <button type="submit" class="ims-btn ims-btn--primary ims-btn ims-btn--primary">
                             <i class="bi bi-filter"></i> Terapkan Filter
                         </button>
-                        <a href="{% url 'puskesmas:report_penerimaan' %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral">Reset</a>
-                        <button type="button" class="btn btn-dark ims-btn ims-btn--neutral" data-action="print">
+                        <a href="{% url 'puskesmas:report_penerimaan' %}" class="ims-btn ims-btn--neutral ims-btn ims-btn--neutral">Reset</a>
+                        <button type="button" class="ims-btn ims-btn--ink ims-btn ims-btn--neutral" data-action="print">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
-                        <button type="submit" name="format" value="excel" class="btn btn-success ims-btn ims-btn--secondary">
+                        <button type="submit" name="format" value="excel" class="ims-btn ims-btn--confirm ims-btn ims-btn--secondary">
                             <i class="bi bi-file-earmark-excel"></i> Export Excel
                         </button>
                     </div>
                 </form>
                 {% if form.errors %}
-                <div class="mt-2 text-danger small">
+                <div class="mt-2 text-danger text-ims-xs">
                     {% for field in form %}{% for error in field.errors %}<div>{{ field.label }}: {{ error }}</div>{% endfor %}{% endfor %}
                     {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
                 </div>
@@ -133,18 +133,18 @@
 </div>
 
 <!-- Report Table -->
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
+<div class="ims-layout-row">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel shadow-sm border-0">
+            <div class="ims-panel-body">
                 {% if not all_facilities and facility %}
-                <div class="mb-2 text-muted small">
+                <div class="mb-2 text-muted text-ims-xs">
                     <i class="bi bi-geo-alt"></i> Fasilitas: <strong>{{ facility.name }}</strong>
                 </div>
                 {% endif %}
                 <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel laporan" tabindex="0">
-                    <table class="table ims-table table-bordered align-middle mb-0">
-                        <thead class="table-light text-center">
+                    <table class="table ims-table ims-table--ruled align-middle mb-0">
+                        <thead class="ims-table-heading text-center">
                             <tr>
                                 <th style="width: 50px;">NO</th>
                                 <th style="width: 130px;">TANGGAL</th>
@@ -176,7 +176,7 @@
                                     <td>{{ row.notes|default:"-" }}</td>
                                 </tr>
                                 {% endfor %}
-                                <tr class="table-warning fw-bold">
+                                <tr class="table-warning font-bold">
                                     <td colspan="6" class="text-center">TOTAL</td>
                                     <td class="text-end">{{ total_quantity|id_decimal:0 }}</td>
                                     <td></td>
@@ -187,10 +187,10 @@
                             {% else %}
                             <tr>
                                 <td colspan="11" class="ims-report-empty text-muted py-4">
-                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    <i class="bi bi-inbox block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data penerimaan untuk periode ini.
                                     {% if not facility %}
-                                    <div class="mt-1 small">Pilih fasilitas untuk melihat data.</div>
+                                    <div class="mt-1 text-ims-xs">Pilih fasilitas untuk melihat data.</div>
                                     {% endif %}
                                 </td>
                             </tr>

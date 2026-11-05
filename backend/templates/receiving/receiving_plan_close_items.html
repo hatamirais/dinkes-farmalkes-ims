@@ -5,20 +5,20 @@
 
 {% block content %}
 <div class="ims-receiving-form ims-receiving-close">
-    <div class="col-lg-10">
-        <div class="card content-card">
-            <div class="card-header">
+    <div class="ims-layout-col-lg-10">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header">
                 <span><i class="bi bi-x-circle me-2"></i>Tutup Sisa Rencana</span>
             </div>
-            <div class="card-body">
-                <div class="mb-3 small text-muted">
+            <div class="ims-panel-body">
+                <div class="mb-3 text-ims-xs text-muted">
                     No. Dokumen: <strong>{{ receiving.document_number }}</strong>
                 </div>
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {{ formset.management_form }}
                     <div class="table-responsive" role="region" aria-label="Penutupan sisa rencana" tabindex="0">
-                        <table class="table ims-table table-sm" style="min-width: 760px;">
+                        <table class="table ims-table ims-table--compact" style="min-width: 760px;">
                             <thead>
                                 <tr>
                                     <th>Barang</th>
@@ -42,7 +42,7 @@
                                 </tr>
                                 {% for error in item_form.errors.values %}
                                 <tr>
-                                    <td colspan="6" class="text-danger small py-1">{{ error }}</td>
+                                    <td colspan="6" class="text-danger text-ims-xs py-1">{{ error }}</td>
                                 </tr>
                                 {% endfor %}
                                 {% endfor %}
@@ -50,11 +50,11 @@
                         </table>
                     </div>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-danger">
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" class="ims-btn ims-btn--danger">
                             <i class="bi bi-check-lg me-1"></i>Tutup Sisa
                         </button>
-                        <a href="{% url 'receiving:receiving_plan_detail' receiving.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'receiving:receiving_plan_detail' receiving.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>

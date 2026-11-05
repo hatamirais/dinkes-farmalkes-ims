@@ -78,12 +78,12 @@ test("Recall create keeps its formset, validation, and contained table scrolling
   expect(errors).toEqual([]);
 });
 
-test("an unmigrated workflow form keeps Bootstrap CSS", async ({ page }) => {
+test("expired form uses Tailwind without Bootstrap CSS", async ({ page }) => {
   await page.goto("/expired/create/");
   await expect(page.locator('form[data-item-picker-table]')).toBeVisible();
   const styles = await page.evaluate(() => ({
     tailwind: !!document.querySelector('link[href*="app.tailwind.css"]'),
     bootstrap: !!document.querySelector('link[href*="bootstrap.min.css"]'),
   }));
-  expect(styles).toEqual({ tailwind: false, bootstrap: true });
+  expect(styles).toEqual({ tailwind: true, bootstrap: false });
 });

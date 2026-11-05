@@ -7,7 +7,7 @@
 {% block content %}
 <div class="ims-workflow ims-puskesmas ims-puskesmas-detail ims-puskesmas-receiving-detail">
     {% if locked_lplpo %}
-    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+    <div class="ims-alert ims-alert--warning flex items-center gap-2 mb-4">
         <i class="bi bi-lock-fill fs-5"></i>
         <div>
             Konfirmasi penerimaan periode ini terkunci karena LPLPO {{ locked_lplpo.document_number }} sudah berstatus <strong>{{ locked_lplpo.get_status_display }}</strong>.
@@ -15,40 +15,40 @@
     </div>
     {% endif %}
 
-    <div class="row g-4">
-        <div class="col-12 col-lg-8">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="ims-layout-row ims-layout-g-4">
+        <div class="ims-layout-col-12 ims-layout-col-lg-8">
+            <div class="ims-panel mb-4">
+                <div class="ims-panel-header flex justify-between items-center">
                     <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>Informasi Konfirmasi</h6>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="flex items-center gap-2">
                         {% if receipt_confirmation.status == 'CONFIRMED' %}
-                        <span class="badge text-bg-success">Terkonfirmasi</span>
+                        <span class="ims-badge text-bg-success">Terkonfirmasi</span>
                         {% else %}
-                        <span class="badge text-bg-warning">Draft: barang belum lengkap</span>
+                        <span class="ims-badge text-bg-warning">Draft: barang belum lengkap</span>
                         {% endif %}
                         <span class="fw-semibold text-muted">{{ receipt_confirmation.document_number }}</span>
                     </div>
                 </div>
-                <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-4">Puskesmas</dt>
-                        <dd class="col-sm-8">{{ receipt_confirmation.facility.name }} <span class="text-muted small">({{ receipt_confirmation.facility.code }})</span></dd>
+                <div class="ims-panel-body">
+                    <dl class="ims-layout-row mb-0">
+                        <dt class="ims-layout-col-sm-4">Puskesmas</dt>
+                        <dd class="ims-layout-col-sm-8">{{ receipt_confirmation.facility.name }} <span class="text-muted text-ims-xs">({{ receipt_confirmation.facility.code }})</span></dd>
 
-                        <dt class="col-sm-4">Distribusi Sumber</dt>
-                        <dd class="col-sm-8">
+                        <dt class="ims-layout-col-sm-4">Distribusi Sumber</dt>
+                        <dd class="ims-layout-col-sm-8">
                             {% if receipt_confirmation.distribution %}
                             {{ receipt_confirmation.distribution.document_number }}
-                            <span class="text-muted small">({{ receipt_confirmation.distribution.distributed_date|date:"d/m/Y" }})</span>
+                            <span class="text-muted text-ims-xs">({{ receipt_confirmation.distribution.distributed_date|date:"d/m/Y" }})</span>
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}
                         </dd>
 
-                        <dt class="col-sm-4">Tanggal Terima</dt>
-                        <dd class="col-sm-8">{{ receipt_confirmation.received_date|date:"d F Y" }}</dd>
+                        <dt class="ims-layout-col-sm-4">Tanggal Terima</dt>
+                        <dd class="ims-layout-col-sm-8">{{ receipt_confirmation.received_date|date:"d F Y" }}</dd>
 
-                        <dt class="col-sm-4">Status</dt>
-                        <dd class="col-sm-8">
+                        <dt class="ims-layout-col-sm-4">Status</dt>
+                        <dd class="ims-layout-col-sm-8">
                             {% if receipt_confirmation.status == 'CONFIRMED' %}
                             Terkonfirmasi penuh
                             {% else %}
@@ -56,25 +56,25 @@
                             {% endif %}
                         </dd>
 
-                        <dt class="col-sm-4">Dibuat Oleh</dt>
-                        <dd class="col-sm-8">{{ receipt_confirmation.created_by }} <span class="text-muted small">{{ receipt_confirmation.created_at|date:"d M Y H:i" }}</span></dd>
+                        <dt class="ims-layout-col-sm-4">Dibuat Oleh</dt>
+                        <dd class="ims-layout-col-sm-8">{{ receipt_confirmation.created_by }} <span class="text-muted text-ims-xs">{{ receipt_confirmation.created_at|date:"d M Y H:i" }}</span></dd>
 
                         {% if receipt_confirmation.notes %}
-                        <dt class="col-sm-4">Catatan</dt>
-                        <dd class="col-sm-8">{{ receipt_confirmation.notes }}</dd>
+                        <dt class="ims-layout-col-sm-4">Catatan</dt>
+                        <dd class="ims-layout-col-sm-8">{{ receipt_confirmation.notes }}</dd>
                         {% endif %}
                     </dl>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
+            <div class="ims-panel">
+                <div class="ims-panel-header">
                     <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Baris Konfirmasi</h6>
                 </div>
-                <div class="card-body p-0">
+                <div class="ims-panel-body p-0">
                     <div class="table-responsive">
-                        <table class="table ims-table table-sm align-middle mb-0" id="items-table">
-                            <thead class="table-light">
+                        <table class="table ims-table ims-table--compact align-middle mb-0" id="items-table">
+                            <thead class="ims-table-heading">
                                 <tr>
                                     <th>#</th>
                                     <th>Barang</th>
@@ -90,15 +90,15 @@
                             <tbody>
                                 {% for item_obj in items %}
                                 <tr>
-                                    <td class="text-muted small">{{ forloop.counter }}</td>
+                                    <td class="text-muted text-ims-xs">{{ forloop.counter }}</td>
                                     <td>
                                         <strong>{{ item_obj.item.nama_barang }}</strong>
                                         {% if item_obj.item.is_program_item %}
-                                        <span class="badge text-bg-info-subtle text-info ms-1 small">[P]</span>
+                                        <span class="ims-badge text-bg-info-subtle text-info ms-1 text-ims-xs">[P]</span>
                                         {% endif %}
                                         <br><small class="text-muted">{{ item_obj.item.kode_barang }}</small>
                                     </td>
-                                    <td class="small text-muted">
+                                    <td class="text-ims-xs text-muted">
                                         {% if item_obj.distribution_item %}
                                         {{ item_obj.distribution_item.id }}
                                         {% if item_obj.distribution_item.issued_batch_lot %}
@@ -113,7 +113,7 @@
                                     <td>{% if item_obj.expiry_date %}{{ item_obj.expiry_date|date:"d/m/Y" }}{% else %}Tanpa kedaluwarsa{% endif %}</td>
                                     <td class="text-end">Rp {{ item_obj.unit_price|id_price_exact }}</td>
                                     <td class="text-end">Rp {{ item_obj.total_price|id_value_exact }}</td>
-                                    <td class="text-muted small">{{ item_obj.notes|default:"–" }}</td>
+                                    <td class="text-muted text-ims-xs">{{ item_obj.notes|default:"–" }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
@@ -127,32 +127,32 @@
             </div>
         </div>
 
-        <div class="col-12 col-lg-4">
-            <div class="card">
-                <div class="card-header"><h6 class="mb-0">Aksi</h6></div>
-                <div class="card-body d-grid gap-2">
+        <div class="ims-layout-col-12 ims-layout-col-lg-4">
+            <div class="ims-panel">
+                <div class="ims-panel-header"><h6 class="mb-0">Aksi</h6></div>
+                <div class="ims-panel-body grid gap-2">
                     {% if can_manage and not locked_lplpo %}
-                    <a href="{% url 'puskesmas:receiving_edit' receipt_confirmation.pk %}" class="btn btn-outline-primary w-100" id="edit-btn">
+                    <a href="{% url 'puskesmas:receiving_edit' receipt_confirmation.pk %}" class="ims-btn ims-btn--secondary w-full" id="edit-btn">
                         <i class="bi bi-pencil me-1"></i>Edit
                     </a>
-                    <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal" id="delete-open-btn">
+                    <button type="button" class="ims-btn ims-btn--danger-outline w-full" data-bs-toggle="modal" data-bs-target="#deleteModal" id="delete-open-btn">
                         <i class="bi bi-trash me-1"></i>Hapus
                     </button>
                     {% endif %}
-                    <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-link w-100 text-muted" id="back-btn">
+                    <a href="{% url 'puskesmas:receiving_list' %}" class="ims-btn ims-btn--link w-full text-muted" id="back-btn">
                         <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar
                     </a>
                 </div>
             </div>
 
-            <div class="card mt-3">
-                <div class="card-header"><h6 class="mb-0 text-muted">Riwayat</h6></div>
-                <ul class="list-group list-group-flush small">
-                    <li class="list-group-item d-flex justify-content-between">
+            <div class="ims-panel mt-3">
+                <div class="ims-panel-header"><h6 class="mb-0 text-muted">Riwayat</h6></div>
+                <ul class="ims-list ims-list--flush text-ims-xs">
+                    <li class="ims-list-item flex justify-between">
                         <span class="text-muted">Dibuat</span>
                         <span>{{ receipt_confirmation.created_at|date:"d M Y H:i" }}</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between">
+                    <li class="ims-list-item flex justify-between">
                         <span class="text-muted">Terakhir Diubah</span>
                         <span>{{ receipt_confirmation.updated_at|date:"d M Y H:i" }}</span>
                     </li>
@@ -174,10 +174,10 @@
                 Tindakan ini tidak dapat dibatalkan.
             </div>
             <div class="modal-footer border-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
                 <form method="post" action="{% url 'puskesmas:receiving_delete' receipt_confirmation.pk %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger" id="confirm-delete-btn">Hapus</button>
+                    <button type="submit" class="ims-btn ims-btn--danger" id="confirm-delete-btn">Hapus</button>
                 </form>
             </div>
         </div>

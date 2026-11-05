@@ -29,9 +29,9 @@ class RecallForm(forms.ModelForm):
         model = Recall
         fields = ['recall_date', 'supplier', 'notes']
         widgets = {
-            'recall_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'supplier': forms.Select(attrs={'class': 'form-select'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'recall_date': forms.DateInput(attrs={'class': 'ims-control', 'type': 'date'}),
+            'supplier': forms.Select(attrs={'class': 'ims-control'}),
+            'notes': forms.Textarea(attrs={'class': 'ims-control', 'rows': 2}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -49,17 +49,17 @@ class RecallItemForm(forms.ModelForm):
         fields = ['item', 'stock', 'quantity', 'notes']
         widgets = {
             'item': forms.Select(attrs={
-                'class': 'form-select form-select-sm js-typeahead-select js-item-select',
+                'class': 'ims-control form-select-sm js-typeahead-select js-item-select',
             }),
             'stock': StockByItemSelect(attrs={
-                'class': 'form-select form-select-sm js-stock-select',
+                'class': 'ims-control form-select-sm js-stock-select',
             }),
             'quantity': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm',
+                'class': 'ims-control form-control-sm',
                 'min': '0.01',
                 'step': '0.01',
             }),
-            'notes': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'notes': forms.TextInput(attrs={'class': 'ims-control form-control-sm'}),
         }
 
     def __init__(self, *args, **kwargs):

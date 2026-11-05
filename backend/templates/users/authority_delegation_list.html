@@ -8,9 +8,9 @@
     <div class="table-header">
         <div>
             <h5 class="mb-1"><i class="bi bi-person-check me-2"></i>Delegasi Wewenang</h5>
-            <p class="text-muted small mb-0">Penugasan sementara Plh. Kepala Instalasi per modul.</p>
+            <p class="text-muted text-ims-xs mb-0">Penugasan sementara Plh. Kepala Instalasi per modul.</p>
         </div>
-        <a href="{% url 'users:authority_delegation_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
+        <a href="{% url 'users:authority_delegation_create' %}" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary">
             <i class="bi bi-plus-lg me-1"></i>Buat Delegasi
         </a>
     </div>
@@ -40,11 +40,11 @@
                             {% if delegation.ends_at %}s.d. {{ delegation.ends_at|date:'d M Y, H:i' }}{% else %}Berlaku sampai dicabut{% endif %}
                         </small>
                     </td>
-                    <td><span class="badge {{ delegation.status_class }}">{{ delegation.display_status }}</span></td>
+                    <td><span class="ims-badge {{ delegation.status_class }}">{{ delegation.display_status }}</span></td>
                     <td>{{ delegation.granted_by.full_name|default:delegation.granted_by.username }}</td>
                     <td class="text-end">
                         {% if delegation.can_revoke %}
-                        <a href="{% url 'users:authority_delegation_revoke' delegation.pk %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger">
+                        <a href="{% url 'users:authority_delegation_revoke' delegation.pk %}" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger">
                             <i class="bi bi-x-circle me-1"></i>Cabut
                         </a>
                         {% else %}
@@ -52,8 +52,8 @@
                         {% endif %}
                     </td>
                 </tr>
-                <tr class="table-light">
-                    <td colspan="6" class="small text-muted py-2">
+                <tr class="ims-table-heading">
+                    <td colspan="6" class="text-ims-xs text-muted py-2">
                         <strong>Dasar:</strong> {{ delegation.reason }}
                         {% if delegation.revoked_at %}
                         <span class="ms-2"><strong>Dicabut:</strong> {{ delegation.revoked_at|date:'d M Y, H:i' }} — {{ delegation.revocation_reason }}</span>

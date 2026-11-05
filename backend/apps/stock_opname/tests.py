@@ -1251,15 +1251,14 @@ class StockOpnameQualityTests(StockOpnameTestMixin, TestCase):
 
 
     # ------------------------------------------------------------------
-    # F9 — FormHelper remains configured for the form contract.
+    # F9 — Bound widgets render without a presentation-package helper.
     # ------------------------------------------------------------------
-    def test_form_has_crispy_helper(self):
+    def test_form_uses_project_controls(self):
         from apps.stock_opname.forms import StockOpnameForm
-        from crispy_forms.helper import FormHelper
 
         form = StockOpnameForm()
-        self.assertIsInstance(form.helper, FormHelper)
-        self.assertFalse(form.helper.form_tag)
+        self.assertEqual(form.fields['period_type'].widget.attrs['class'], 'ims-control')
+        self.assertEqual(form.fields['period_start'].widget.input_type, 'date')
 
     # ------------------------------------------------------------------
     # F14 — edit blocked for IN_PROGRESS and COMPLETED opnames

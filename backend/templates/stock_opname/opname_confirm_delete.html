@@ -5,27 +5,27 @@
 
 {% block content %}
 <div class="ims-opname-delete ims-workflow">
-        <div class="card content-card">
-            <div class="card-header">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header">
                 <span><i class="bi bi-exclamation-triangle me-2"></i>Konfirmasi Hapus</span>
             </div>
-            <div class="card-body">
-                <div class="alert alert-warning">
+            <div class="ims-panel-body">
+                <div class="ims-alert ims-alert--warning">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     Apakah Anda yakin ingin menghapus Stock Opname <strong>{{ opname.document_number|default:"Belum diterbitkan" }}</strong>?
                     <br><small class="text-muted">Semua data penghitungan dalam sesi ini akan ikut terhapus.</small>
                 </div>
-                <dl class="row mb-3">
-                    <dt class="col-5">No. Dokumen</dt>
-                    <dd class="col-7">{{ opname.document_number|default:"Belum diterbitkan" }}</dd>
-                    <dt class="col-5">Periode</dt>
-                    <dd class="col-7">{{ opname.get_period_type_display }} ({{ opname.period_start|date:'d/m/Y' }} — {{ opname.period_end|date:'d/m/Y' }})</dd>
-                    <dt class="col-5">Status</dt>
-                    <dd class="col-7">{{ opname.get_status_display }}</dd>
+                <dl class="ims-layout-row mb-3">
+                    <dt class="ims-layout-col-5">No. Dokumen</dt>
+                    <dd class="ims-layout-col-7">{{ opname.document_number|default:"Belum diterbitkan" }}</dd>
+                    <dt class="ims-layout-col-5">Periode</dt>
+                    <dd class="ims-layout-col-7">{{ opname.get_period_type_display }} ({{ opname.period_start|date:'d/m/Y' }} — {{ opname.period_end|date:'d/m/Y' }})</dd>
+                    <dt class="ims-layout-col-5">Status</dt>
+                    <dd class="ims-layout-col-7">{{ opname.get_status_display }}</dd>
                 </dl>
                 <form method="post">
                     {% csrf_token %}
-                    <div class="d-flex gap-2">
+                    <div class="flex gap-2">
                         <button type="submit" class="ims-btn ims-btn--danger">
                             <i class="bi bi-trash me-1"></i>Ya, Hapus
                         </button>

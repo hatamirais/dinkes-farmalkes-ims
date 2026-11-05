@@ -5,16 +5,16 @@
 
 {% block content %}
 <div class="ims-workflow ims-lplpo ims-lplpo-form ims-lplpo-edit">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="flex justify-between items-center mb-3">
         <div>
             <h5 class="mb-0">{{ lplpo.document_number }}</h5>
             <span class="text-muted">{{ lplpo.facility.name }} — {{ lplpo.period_display }}</span>
         </div>
-        <div class="d-flex gap-2">
-            <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary" id="edit-export-xlsx-btn">
+        <div class="flex gap-2">
+            <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="ims-btn ims-btn--neutral" id="edit-export-xlsx-btn">
                 <i class="bi bi-download me-1"></i>Export XLSX
             </a>
-            <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="btn btn-outline-secondary" id="edit-import-xlsx-btn">
+            <a href="{% url 'lplpo:lplpo_import_xlsx' lplpo.pk %}" class="ims-btn ims-btn--neutral" id="edit-import-xlsx-btn">
                 <i class="bi bi-upload me-1"></i>Import XLSX
             </a>
         </div>
@@ -24,23 +24,23 @@
         {% csrf_token %}
 
         {% if is_january_bootstrap %}
-        <div class="alert alert-info" role="alert">
+        <div class="ims-alert ims-alert--info" role="alert">
             <div class="fw-semibold mb-1">Dokumen Bootstrap Januari</div>
-            <div class="small mb-1">
+            <div class="text-ims-xs mb-1">
                 LPLPO {{ lplpo.period_display }} menjadi baseline stok awal tahunan untuk {{ lplpo.facility.name }}.
             </div>
-            <div class="small mb-0">
+            <div class="text-ims-xs mb-0">
                 Isi <strong>Stock Awal</strong> Januari secara manual berdasarkan stok pembuka dan catatan administrasi fasilitas. Bila ada konfirmasi penerimaan Januari yang sudah terkonfirmasi, sistem akan mengusulkan <strong>Penerimaan</strong> total serta <strong>Harga Satuan</strong> rata-rata tertimbang per item, tetapi operator tetap boleh menyesuaikannya sebelum menyimpan.
             </div>
-            <div class="small mt-1 mb-0">
+            <div class="text-ims-xs mt-1 mb-0">
                 Mulai Februari, <strong>Stock Awal</strong> dikunci mengikuti <strong>Sisa Stok</strong> bulan sebelumnya. Batch atau harga ganda pada konfirmasi Januari tetap disimpan rinci di dokumen penerimaan, lalu diringkas menjadi satu baris item LPLPO memakai rata-rata tertimbang.
             </div>
         </div>
         {% endif %}
 
-        <div class="alert alert-secondary" role="alert">
+        <div class="ims-alert ims-alert--muted" role="alert">
             <div class="fw-semibold mb-1">Pemakaian Dibaca dari Modul Pemakaian Rinci</div>
-            <div class="small mb-0">
+            <div class="text-ims-xs mb-0">
                 Kolom <strong>Pemakaian</strong> pada LPLPO tidak lagi diedit langsung.
                 {% if linked_consumption %}
                 Perbarui data melalui <a href="{% url 'puskesmas:consumption_edit' linked_consumption.pk %}">dokumen pemakaian rinci periode ini</a>.
@@ -51,21 +51,21 @@
         </div>
 
         {% if has_form_errors %}
-        <div class="alert alert-danger" role="alert">
+        <div class="ims-alert ims-alert--danger" role="alert">
             Data belum tersimpan. Periksa kembali kolom yang bermasalah pada baris yang ditandai.
         </div>
         {% endif %}
 
         {% for cat_name, cat_items in grouped.items %}
-        <div class="card mb-3">
-            <div class="card-header py-2 category-header">
+        <div class="ims-panel mb-3">
+            <div class="ims-panel-header py-2 category-header">
                 <strong>{{ cat_name }}</strong>
-                <span class="badge text-bg-secondary ms-1">{{ cat_items|length }}</span>
+                <span class="ims-badge text-bg-secondary ms-1">{{ cat_items|length }}</span>
             </div>
-            <div class="card-body p-0">
+            <div class="ims-panel-body p-0">
                 <div class="table-responsive">
-                    <table class="table ims-table table-sm table-bordered align-middle mb-0 lplpo-table">
-                        <thead class="table-light">
+                    <table class="table ims-table ims-table--compact ims-table--ruled align-middle mb-0 lplpo-table">
+                        <thead class="ims-table-heading">
                             <tr>
                                 <th rowspan="2" style="width:20%">Barang</th>
                                 <th rowspan="2" class="text-center" style="width:50px">Satuan</th>
@@ -87,10 +87,10 @@
                             {% for li, f in cat_items %}
                             <tr class="lplpo-row" data-item-pk="{{ li.pk }}">
                                 <td>
-                                    <strong class="small">{{ li.item.nama_barang }}</strong>
+                                    <strong class="text-ims-xs">{{ li.item.nama_barang }}</strong>
                                     <br><small class="text-muted">{{ li.item.kode_barang }}</small>
                                     {% if f.errors %}
-                                    <div class="small text-danger mt-2">
+                                    <div class="text-ims-xs text-danger mt-2">
                                         {% for field in f %}
                                             {% for error in field.errors %}
                                             <div>{{ field.label }}: {{ error }}</div>
@@ -102,11 +102,11 @@
                                     </div>
                                     {% endif %}
                                 </td>
-                                <td class="text-center text-muted small">{{ li.item.satuan.code }}</td>
+                                <td class="text-center text-muted text-ims-xs">{{ li.item.satuan.code }}</td>
                                 <td>
                                     {% if stock_awal_locked %}
                                     <input type="number" value="{{ li.stock_awal|floatformat:'0' }}"
-                                        class="form-control form-control-sm text-end" readonly
+                                        class="ims-control form-control-sm text-end" readonly
                                         title="Auto-filled dari bulan sebelumnya">
                                     <input type="hidden" name="item_{{ li.pk }}-stock_awal" value="{{ li.stock_awal|floatformat:'0' }}">
                                     {% else %}
@@ -123,7 +123,7 @@
                                 <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"0" }}</td>
                                 <td>
                                     {{ f.pemakaian }}
-                                    <div class="small text-muted">Dari pemakaian rinci</div>
+                                    <div class="text-ims-xs text-muted">Dari pemakaian rinci</div>
                                 </td>
                                 <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                                 <td class="text-end computed-cell js-stock-optimum">{{ li.stock_optimum|floatformat:"-2" }}</td>
@@ -141,11 +141,11 @@
         </div>
         {% endfor %}
 
-        <div class="d-flex gap-2 mb-4">
-            <button type="submit" class="btn btn-primary" id="save-btn">
+        <div class="flex gap-2 mb-4">
+            <button type="submit" class="ims-btn ims-btn--primary" id="save-btn">
                 <i class="bi bi-save me-1"></i>Simpan
             </button>
-            <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="btn btn-outline-secondary">Batal</a>
+            <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
         </div>
     </form>
 </div>

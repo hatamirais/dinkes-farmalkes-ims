@@ -6,50 +6,50 @@
 {% block content %}
 <div class="ims-workflow ims-puskesmas ims-puskesmas-list ims-puskesmas-request-list">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="flex justify-between items-center mb-4">
         <div>
             <h4 class="mb-1">Permintaan Barang Puskesmas</h4>
             <p class="text-muted mb-0">Daftar permintaan barang dari Puskesmas</p>
         </div>
         {% if request.user.role == 'PUSKESMAS' %}
-        <a href="{% url 'puskesmas:request_create' %}" class="btn btn-primary">
+        <a href="{% url 'puskesmas:request_create' %}" class="ims-btn ims-btn--primary">
             <i class="bi bi-plus-lg me-1"></i> Buat Permintaan
         </a>
         {% endif %}
     </div>
 
     <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-body py-2">
-            <form method="get" class="row g-2 align-items-end ims-request-filters">
-                <div class="col-12 col-md-4 ims-request-filter-search">
+    <div class="ims-panel mb-4">
+        <div class="ims-panel-body py-2">
+            <form method="get" class="ims-layout-row ims-layout-g-2 items-end ims-request-filters">
+                <div class="ims-layout-col-12 ims-layout-col-md-4 ims-request-filter-search">
                     <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor / puskesmas..."
-                        class="form-control form-control-sm" id="search-input">
+                        class="ims-control form-control-sm" id="search-input">
                 </div>
-                <div class="col-6 col-md-3 ims-request-filter-select">
-                    <select name="status" class="form-select form-select-sm" id="status-filter">
+                <div class="ims-layout-col-6 ims-layout-col-md-3 ims-request-filter-select">
+                    <select name="status" class="ims-control form-select-sm" id="status-filter">
                         <option value="">Semua Status</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-auto ims-request-filter-actions">
-                    <button type="submit" class="btn btn-primary" id="filter-btn">
+                <div class="ims-layout-col-auto ims-request-filter-actions">
+                    <button type="submit" class="ims-btn ims-btn--primary" id="filter-btn">
                         <i class="bi bi-funnel me-1"></i>Filter
                     </button>
-                    <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary" id="reset-btn">Reset</a>
+                    <a href="{% url 'puskesmas:request_list' %}" class="ims-btn ims-btn--neutral" id="reset-btn">Reset</a>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Table -->
-    <div class="card">
-        <div class="card-body p-0">
+    <div class="ims-panel">
+        <div class="ims-panel-body p-0">
             <div class="table-responsive">
-                <table class="table ims-table table-hover mb-0" id="request-table">
-                    <thead class="table-light">
+                <table class="table ims-table ims-table--hover mb-0" id="request-table">
+                    <thead class="ims-table-heading">
                         <tr>
                             <th>Nomor</th>
                             <th>Puskesmas</th>
@@ -64,7 +64,7 @@
                         <tr>
                             <td>
                                 <a href="{% url 'puskesmas:request_detail' req.pk %}"
-                                    class="fw-semibold text-decoration-none">
+                                    class="fw-semibold no-underline">
                                     {{ req.document_number }}
                                 </a>
                             </td>
@@ -72,19 +72,19 @@
                             <td>{{ req.request_date|date:"d M Y" }}</td>
                             <td>
                                 {% if req.status == 'DRAFT' %}
-                                <span class="badge text-bg-secondary">Draft</span>
+                                <span class="ims-badge text-bg-secondary">Draft</span>
                                 {% elif req.status == 'SUBMITTED' %}
-                                <span class="badge text-bg-warning">Diajukan</span>
+                                <span class="ims-badge text-bg-warning">Diajukan</span>
                                 {% elif req.status == 'APPROVED' %}
-                                <span class="badge text-bg-success">Disetujui</span>
+                                <span class="ims-badge text-bg-success">Disetujui</span>
                                 {% elif req.status == 'REJECTED' %}
-                                <span class="badge text-bg-danger">Ditolak</span>
+                                <span class="ims-badge text-bg-danger">Ditolak</span>
                                 {% endif %}
                             </td>
-                            <td class="text-muted small">{{ req.created_by }}</td>
+                            <td class="text-muted text-ims-xs">{{ req.created_by }}</td>
                             <td class="text-end">
                                 <a href="{% url 'puskesmas:request_detail' req.pk %}"
-                                    class="btn btn-sm btn-outline-primary" id="view-req-{{ req.pk }}">
+                                    class="ims-btn ims-btn--sm ims-btn--secondary" id="view-req-{{ req.pk }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -92,7 +92,7 @@
                         {% empty %}
                         <tr>
                             <td colspan="6" class="text-center text-muted py-4">
-                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                <i class="bi bi-inbox fs-3 block mb-2"></i>
                                 Belum ada permintaan.
                             </td>
                         </tr>
@@ -102,23 +102,23 @@
             </div>
         </div>
         {% if requests.has_other_pages %}
-        <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="ims-panel-footer flex justify-between items-center">
             <small class="text-muted">
                 Halaman {{ requests.number }} dari {{ requests.paginator.num_pages }}
                 ({{ requests.paginator.count }} total)
             </small>
             <nav>
-                <ul class="pagination pagination-sm mb-0">
+                <ul class="ims-pagination ims-pagination--compact mb-0">
                     {% if requests.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ requests.previous_page_number }}&q={{ search }}&status={{ selected_status }}">
+                    <li class="ims-page-item">
+                        <a class="ims-page-link" href="?page={{ requests.previous_page_number }}&q={{ search }}&status={{ selected_status }}">
                             &laquo;
                         </a>
                     </li>
                     {% endif %}
                     {% if requests.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ requests.next_page_number }}&q={{ search }}&status={{ selected_status }}">
+                    <li class="ims-page-item">
+                        <a class="ims-page-link" href="?page={{ requests.next_page_number }}&q={{ search }}&status={{ selected_status }}">
                             &raquo;
                         </a>
                     </li>

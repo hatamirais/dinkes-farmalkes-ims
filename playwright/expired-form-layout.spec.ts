@@ -84,11 +84,11 @@ test("selected stock query prefills the existing formset fields", async ({ page 
   expect(Number(quantity)).toBeGreaterThan(0);
 });
 
-test("an unmigrated workflow form retains Bootstrap CSS", async ({ page }) => {
+test("stock opname form uses Tailwind without Bootstrap CSS", async ({ page }) => {
   await page.goto("/stock-opname/create/");
   const styles = await page.evaluate(() => ({
     tailwind: !!document.querySelector('link[href*="app.tailwind.css"]'),
     bootstrap: !!document.querySelector('link[href*="bootstrap.min.css"]'),
   }));
-  expect(styles).toEqual({ tailwind: false, bootstrap: true });
+  expect(styles).toEqual({ tailwind: true, bootstrap: false });
 });

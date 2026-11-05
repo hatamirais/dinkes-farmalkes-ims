@@ -39,9 +39,9 @@ try {
 
     Set-Location (Join-Path $repoRoot "backend")
 
-    python -c "import crispy_forms" *> $null
+    python -c "import django" *> $null
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Missing dependency: crispy_forms" -ForegroundColor Yellow
+        Write-Host "Missing dependency: django" -ForegroundColor Yellow
         Write-Host "Run: pip install -r requirements.txt" -ForegroundColor Yellow
         exit 1
     }

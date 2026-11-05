@@ -7,25 +7,25 @@
 {% block content %}
 <div class="ims-procurement-form ims-procurement-amendment">
     <div class="ims-procurement-panel">
-        <div class="card content-card">
-            <div class="card-header"><span>{{ title }}</span></div>
-            <div class="card-body">
-                <div class="alert alert-secondary mb-3">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>{{ title }}</span></div>
+            <div class="ims-panel-body">
+                <div class="ims-alert ims-alert--muted mb-3">
                     <div class="ims-procurement-meta-grid">
-                        <div class="col-md-3">
-                            <span class="text-muted d-block small">Kontrak acuan</span>
+                        <div class="ims-layout-col-md-3">
+                            <span class="text-muted block text-ims-xs">Kontrak acuan</span>
                             <a href="{% url 'procurement:contract_detail' contract.pk %}">{{ contract.document_number }}</a>
                         </div>
-                        <div class="col-md-3">
-                            <span class="text-muted d-block small">Tanggal</span>
+                        <div class="ims-layout-col-md-3">
+                            <span class="text-muted block text-ims-xs">Tanggal</span>
                             {{ contract.contract_date|date:"d/m/Y" }}
                         </div>
-                        <div class="col-md-3">
-                            <span class="text-muted d-block small">Supplier</span>
+                        <div class="ims-layout-col-md-3">
+                            <span class="text-muted block text-ims-xs">Supplier</span>
                             {{ contract.supplier.name }}
                         </div>
-                        <div class="col-md-3">
-                            <span class="text-muted d-block small">Sumber Dana</span>
+                        <div class="ims-layout-col-md-3">
+                            <span class="text-muted block text-ims-xs">Sumber Dana</span>
                             {{ contract.sumber_dana.name }}
                         </div>
                     </div>
@@ -34,7 +34,7 @@
                 <div class="mb-4">
                     <h6 class="fw-semibold mb-2">Ringkasan Kontrak vs Realisasi</h6>
                     <div class="table-responsive" role="region" aria-label="Ringkasan kontrak dan realisasi" tabindex="0">
-                        <table class="table ims-table table-sm align-middle mb-0">
+                        <table class="table ims-table ims-table--compact align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Barang</th>
@@ -76,13 +76,13 @@
                     <div class="mt-4">
                         <h6 class="fw-semibold mb-3">Baris Amandemen</h6>
                         {% if formset.non_form_errors %}
-                        <div class="alert alert-danger py-2">{{ formset.non_form_errors }}</div>
+                        <div class="ims-alert ims-alert--danger py-2">{{ formset.non_form_errors }}</div>
                         {% endif %}
                         {{ formset.management_form }}
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="text-muted small">Tambah atau hapus baris amandemen sesuai kebutuhan revisi kontrak.</span>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="procurement-amendment-lines">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-muted text-ims-xs">Tambah atau hapus baris amandemen sesuai kebutuhan revisi kontrak.</span>
+                            <div class="flex gap-2">
+                                <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm formset-add" data-formset-target="procurement-amendment-lines">
                                     <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                                 </button>
                             </div>
@@ -110,7 +110,7 @@
                                         <td class="text-end">{{ line_form.revised_unit_price }}{{ line_form.revised_unit_price.errors }}</td>
                                         <td>{{ line_form.notes }}{{ line_form.notes.errors }}</td>
                                         <td class="text-center">
-                                            <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                            <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                             <div class="d-none">{{ line_form.DELETE }}</div>
@@ -131,7 +131,7 @@
                             <td class="text-end">{{ formset.empty_form.revised_unit_price }}</td>
                             <td>{{ formset.empty_form.notes }}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <div class="d-none">{{ formset.empty_form.DELETE }}</div>
@@ -139,12 +139,12 @@
                         </tr>
                     </template>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">Simpan</button>
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" class="ims-btn ims-btn--primary">Simpan</button>
                         {% if amendment %}
-                        <a href="{% url 'procurement:amendment_detail' amendment.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'procurement:amendment_detail' amendment.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                         {% else %}
-                        <a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'procurement:contract_detail' contract.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                         {% endif %}
                     </div>
                 </form>

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/svg+xml" href="{% static 'img/default-logo.svg' %}?v={{ app_version }}-20260812">
     <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}?v={{ app_version }}-20260416"
         rel="stylesheet">
-    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave8-print" rel="stylesheet">
+    <link href="{% static 'css/app.tailwind.css' %}?v={{ app_version }}-wave9" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -35,7 +35,7 @@
                     {% endif %}
                     <span>{{ system_settings.platform_label|default:"Healthcare IMS" }}</span>
                 </a>
-                <button class="btn btn-link sidebar-toggle d-lg-none" id="sidebarToggle">
+                <button class="ims-btn ims-btn--link sidebar-toggle d-lg-none" id="sidebarToggle">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -48,82 +48,82 @@
             <!-- Top Navbar -->
             <nav class="navbar navbar-expand-lg navbar-top">
                 <div class="container-fluid">
-                    <div class="d-flex align-items-center gap-2 navbar-left-tools">
-                        <button class="btn btn-link sidebar-toggle d-lg-none" id="sidebarToggleMobile" type="button" aria-label="Buka menu navigasi">
+                    <div class="flex items-center gap-2 navbar-left-tools">
+                        <button class="ims-btn ims-btn--link sidebar-toggle d-lg-none" id="sidebarToggleMobile" type="button" aria-label="Buka menu navigasi">
                             <i class="bi bi-list fs-4"></i>
                         </button>
-                        <button class="btn btn-link sidebar-collapse-btn d-none d-lg-flex" id="sidebarCollapseBtn" type="button" aria-label="Tampilkan/sembunyikan panel samping"
+                        <button class="ims-btn ims-btn--link sidebar-collapse-btn d-none d-lg-flex" id="sidebarCollapseBtn" type="button" aria-label="Tampilkan/sembunyikan panel samping"
                             title="Tampilkan/sembunyikan panel samping">
                             <i class="bi bi-layout-sidebar"></i>
                         </button>
 
                         {% if request.resolver_match.app_name == 'distribution' and request.resolver_match.url_name != 'distribution_list' %}
-                        <a href="{% url 'distribution:distribution_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'distribution:distribution_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Distribusi">
                             <i class="bi bi-arrow-left me-1"></i>Distribusi
                         </a>
                         {% elif request.resolver_match.app_name == 'allocation' and request.resolver_match.url_name != 'allocation_list' %}
-                        <a href="{% url 'allocation:allocation_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'allocation:allocation_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Alokasi">
                             <i class="bi bi-arrow-left me-1"></i>Alokasi
                         </a>
                         {% elif request.resolver_match.app_name == 'recall' and request.resolver_match.url_name != 'recall_list' %}
-                        <a href="{% url 'recall:recall_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'recall:recall_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Recall / Retur">
                             <i class="bi bi-arrow-left me-1"></i>Recall / Retur
                         </a>
                         {% elif request.resolver_match.app_name == 'expired' and request.resolver_match.url_name != 'expired_list' %}
-                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'expired:expired_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Kedaluwarsa">
                             <i class="bi bi-arrow-left me-1"></i>Kedaluwarsa
                         </a>
                         {% elif request.resolver_match.url_name == 'expired_alerts' %}
-                        <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'expired:expired_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Kedaluwarsa">
                             <i class="bi bi-arrow-left me-1"></i>Kedaluwarsa
                         </a>
                         {% elif request.resolver_match.app_name == 'procurement' and request.resolver_match.url_name != 'contract_list' %}
-                        <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'procurement:contract_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke SPJ / Pengadaan">
                             <i class="bi bi-arrow-left me-1"></i>SPJ / Pengadaan
                         </a>
                         {% elif request.resolver_match.app_name == 'receiving' and 'receiving_plan_' in request.resolver_match.url_name and request.resolver_match.url_name != 'receiving_plan_list' %}
-                        <a href="{% url 'receiving:receiving_plan_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'receiving:receiving_plan_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Rencana Penerimaan">
                             <i class="bi bi-arrow-left me-1"></i>Rencana Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'receiving' and request.resolver_match.url_name != 'receiving_list' %}
-                        <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'receiving:receiving_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Buat Penerimaan">
                             <i class="bi bi-arrow-left me-1"></i>Buat Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'stock' and request.resolver_match.url_name == 'transfer_create' or request.resolver_match.app_name == 'stock' and request.resolver_match.url_name == 'transfer_detail' or request.resolver_match.app_name == 'stock' and request.resolver_match.url_name == 'transfer_complete' %}
-                        <a href="{% url 'stock:transfer_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'stock:transfer_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Mutasi Lokasi">
                             <i class="bi bi-arrow-left me-1"></i>Mutasi Lokasi
                         </a>
                         {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':10' == 'receiving_' and request.resolver_match.url_name != 'receiving_list' %}
-                        <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'puskesmas:receiving_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Konfirmasi Penerimaan">
                             <i class="bi bi-arrow-left me-1"></i>Konfirmasi Penerimaan
                         </a>
                         {% elif request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'request_' and request.resolver_match.url_name != 'request_list' %}
-                        <a href="{% url 'puskesmas:request_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'puskesmas:request_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Permintaan Puskesmas">
                             <i class="bi bi-arrow-left me-1"></i>Permintaan Puskesmas
                         </a>
                         {% elif request.resolver_match.app_name == 'lplpo' and request.resolver_match.url_name != 'lplpo_list' %}
-                        <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'lplpo:lplpo_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke LPLPO">
                             <i class="bi bi-arrow-left me-1"></i>LPLPO
                         </a>
                         {% elif request.resolver_match.url_name|slice:':20' == 'authority_delegation' and request.resolver_match.url_name != 'authority_delegation_list' %}
-                        <a href="{% url 'users:authority_delegation_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'users:authority_delegation_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Delegasi Wewenang">
                             <i class="bi bi-arrow-left me-1"></i>Delegasi Wewenang
                         </a>
                         {% elif request.resolver_match.app_name == 'users' and request.resolver_match.url_name != 'user_list' %}
-                        <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary btn-sm"
+                        <a href="{% url 'users:user_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm"
                             title="Kembali ke Manajemen Pengguna">
                             <i class="bi bi-arrow-left me-1"></i>Manajemen Pengguna
                         </a>
@@ -133,31 +133,31 @@
                     <div class="navbar-title-center">
                         <h5 class="mb-0 page-title">{% block page_title %}Dashboard{% endblock %}</h5>
                     </div>
-                    <div class="d-flex align-items-center gap-3">
+                    <div class="flex items-center gap-3">
                         {% if can_view_mobile_stock or can_view_mobile_approvals %}
-                        <a href="{% url 'mobile:home' %}" class="btn btn-outline-primary btn-sm d-none d-lg-inline-flex align-items-center gap-1" title="Buka IMS Mobile">
+                        <a href="{% url 'mobile:home' %}" class="ims-btn ims-btn--secondary ims-btn--sm d-none d-lg-inline-flex items-center gap-1" title="Buka IMS Mobile">
                             <i class="bi bi-phone"></i><span>Mobile</span>
                         </a>
                         {% endif %}
-                        <span class="badge text-bg-light border">v{{ app_version }}</span>
+                        <span class="ims-badge text-bg-light border">v{{ app_version }}</span>
                         {% if user.is_authenticated %}
                         {% if user.role != 'PUSKESMAS' or nav_notification_count > 0 %}
                         <div class="dropdown">
-                            <button class="btn btn-link position-relative p-1" type="button" data-bs-toggle="dropdown"
+                            <button class="ims-btn ims-btn--link position-relative p-1" type="button" data-bs-toggle="dropdown"
                                 aria-expanded="false" title="Notifikasi aktivitas" aria-label="Notifikasi">
                                 <i class="bi bi-bell fs-5"></i>
                                 {% if nav_notification_count > 0 %}
                                 <span
-                                    class="position-absolute badge rounded-pill bg-danger"
+                                    class="position-absolute ims-badge rounded-full bg-danger"
                                     style="font-size:0.6rem; min-width: 1.2rem;">
                                     {{ nav_notification_count }}
-                                    <span class="visually-hidden">aktivitas perlu diperiksa</span>
+                                    <span class="sr-only">aktivitas perlu diperiksa</span>
                                 </span>
                                 {% endif %}
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-0 overflow-hidden"
                                 style="width: 320px; max-width: calc(100vw - 2rem);">
-                                <div class="px-3 py-2 border-bottom text-center text-muted small">
+                                <div class="px-3 py-2 border-bottom text-center text-muted text-ims-xs">
                                     {% if nav_notification_count > 0 %}
                                     {{ nav_notification_count }} aktivitas perlu diperiksa
                                     {% else %}
@@ -167,21 +167,21 @@
                                 {% if nav_notification_items %}
                                 {% for item in nav_notification_items %}
                                 <a href="{{ item.url }}"
-                                    class="dropdown-item d-flex align-items-center justify-content-between gap-3 py-3 px-3">
-                                    <span class="d-flex align-items-center gap-2 min-w-0">
+                                    class="dropdown-item flex items-center justify-between gap-3 py-3 px-3">
+                                    <span class="flex items-center gap-2 min-w-0">
                                         <i class="bi {{ item.icon }} text-primary"></i>
-                                        <span class="small text-wrap">{{ item.label }}</span>
+                                        <span class="text-ims-xs text-wrap">{{ item.label }}</span>
                                     </span>
-                                    <span class="text-muted small">{{ item.count }}</span>
+                                    <span class="text-muted text-ims-xs">{{ item.count }}</span>
                                 </a>
                                 {% endfor %}
                                 {% else %}
-                                <div class="px-3 py-3 text-center text-muted small">
+                                <div class="px-3 py-3 text-center text-muted text-ims-xs">
                                     Semua modul sedang bersih.
                                 </div>
                                 {% endif %}
                                 <div class="border-top text-center">
-                                    <a href="{% url 'dashboard' %}" class="dropdown-item py-2 small text-primary">Lihat
+                                    <a href="{% url 'dashboard' %}" class="dropdown-item py-2 text-ims-xs text-primary">Lihat
                                         Dashboard</a>
                                 </div>
                             </div>
@@ -189,7 +189,7 @@
                         {% endif %}
                         {% endif %}
                         <div class="dropdown">
-                            <button class="btn btn-link dropdown-toggle user-dropdown" type="button"
+                            <button class="ims-btn ims-btn--link dropdown-toggle user-dropdown" type="button"
                                 data-bs-toggle="dropdown">
                                 <i class="bi bi-person-circle"></i>
                                 <span class="d-none d-md-inline">{{ user.full_name|default:user.username }}</span>
@@ -203,12 +203,12 @@
             <!-- Main Content -->
             <main class="main-content">
                 {% if can_view_mobile_stock or can_view_mobile_approvals %}
-                <div class="alert alert-primary d-lg-none align-items-center justify-content-between gap-2 py-2 px-3 mb-3" data-mobile-discovery hidden>
-                    <span class="small">
+                <div class="ims-alert ims-alert--primary d-lg-none items-center justify-between gap-2 py-2 px-3 mb-3" data-mobile-discovery hidden>
+                    <span class="text-ims-xs">
                         <i class="bi bi-phone me-1"></i>IMS Mobile tersedia untuk {% if can_view_mobile_stock and can_view_mobile_approvals %}cek stok dan persetujuan{% elif can_view_mobile_stock %}cek stok{% else %}persetujuan{% endif %} di layar kecil.
                     </span>
-                    <span class="d-inline-flex align-items-center gap-2">
-                        <a href="{% url 'mobile:home' %}" class="btn btn-primary btn-sm">Buka</a>
+                    <span class="inline-flex items-center gap-2">
+                        <a href="{% url 'mobile:home' %}" class="ims-btn ims-btn--primary ims-btn--sm">Buka</a>
                         <button type="button" class="btn-close" data-mobile-discovery-dismiss aria-label="Tutup"></button>
                     </span>
                 </div>
@@ -219,7 +219,7 @@
                     <div class="toast flash-toast show text-bg-{% if 'error' in message.tags %}danger{% elif 'success' in message.tags %}success{% elif 'warning' in message.tags %}warning{% elif 'info' in message.tags %}info{% else %}primary{% endif %} border-0"
                         role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true"
                         data-bs-delay="4500">
-                        <div class="d-flex align-items-center">
+                        <div class="flex items-center">
                             <div class="toast-body">{{ message }}</div>
                             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
                                 aria-label="Close"></button>
@@ -245,7 +245,7 @@
     {% endif %}
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}?v={{ app_version }}-20260416"></script>
-    <script src="{% static 'js/app.js' %}?v={{ app_version }}-wave6-stock-transfer-retained-errors"></script>
+    <script src="{% static 'js/app.js' %}?v={{ app_version }}-wave9"></script>
     <script src="{% static 'js/confirm-actions.js' %}?v={{ app_version }}-20260416"></script>
     {% block extra_js %}{% endblock %}
 </body>

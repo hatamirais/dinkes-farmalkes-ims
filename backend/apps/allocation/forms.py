@@ -44,21 +44,21 @@ class AllocationForm(forms.ModelForm):
         widgets = {
             "title": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "ims-control",
                     "placeholder": "Judul alokasi (opsional)",
                 }
             ),
             "referensi": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "ims-control",
                     "placeholder": "Nomor BAST / SP (opsional)",
                 }
             ),
             "allocation_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"},
+                attrs={"class": "ims-control", "type": "date"},
                 format="%Y-%m-%d",
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 1}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 1}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -89,14 +89,14 @@ class AllocationItemForm(forms.ModelForm):
         widgets = {
             "item": forms.Select(
                 attrs={
-                    "class": "form-select form-select-sm js-typeahead-select js-item-select"
+                    "class": "ims-control form-select-sm js-typeahead-select js-item-select"
                 }
             ),
             "stock": StockByItemSelect(
-                attrs={"class": "form-select form-select-sm js-stock-select"}
+                attrs={"class": "ims-control form-select-sm js-stock-select"}
             ),
             "total_qty_available": forms.HiddenInput(),
-            "notes": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+            "notes": forms.TextInput(attrs={"class": "ims-control form-control-sm"}),
         }
 
     def __init__(self, *args, **kwargs):

@@ -1,5 +1,3 @@
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Layout
 from django import forms
 from django.forms import inlineformset_factory
 
@@ -103,23 +101,23 @@ class ProcurementContractForm(forms.ModelForm):
         widgets = {
             "contract_date": IndonesianDateInput(
                 attrs={
-                    "class": "form-control js-date-mask",
+                    "class": "ims-control js-date-mask",
                     "data-native-date-picker": "true",
                     "placeholder": "DD/MM/YYYY",
                     "inputmode": "numeric",
                     "autocomplete": "off",
                 }
             ),
-            "supplier": forms.Select(attrs={"class": "form-select"}),
-            "sumber_dana": forms.Select(attrs={"class": "form-select"}),
+            "supplier": forms.Select(attrs={"class": "ims-control"}),
+            "sumber_dana": forms.Select(attrs={"class": "ims-control"}),
             "external_document_number": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "ims-control",
                     "autocomplete": "off",
                     "placeholder": "Contoh: 800/8766.a/KD.F",
                 }
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 1}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 1}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -127,16 +125,6 @@ class ProcurementContractForm(forms.ModelForm):
         self.fields["contract_date"].input_formats = INDONESIAN_DATE_INPUT_FORMATS
         self.fields["supplier"].queryset = Supplier.objects.filter(is_active=True).order_by("name")
         self.fields["sumber_dana"].queryset = FundingSource.objects.filter(is_active=True).order_by("name")
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("contract_date", css_class="mb-3"),
-            Div("supplier", css_class="mb-3"),
-            Div("sumber_dana", css_class="mb-3"),
-            Div("external_document_number", css_class="mb-3"),
-            Div("notes", css_class="mb-0"),
-        )
 
     def clean_notes(self):
         return _normalize_text_value(self.cleaned_data.get("notes"), field_label="Catatan")
@@ -161,7 +149,7 @@ class ProcurementContractCancelForm(forms.Form):
         required=True,
         widget=forms.Textarea(
             attrs={
-                "class": "form-control",
+                "class": "ims-control",
                 "rows": 2,
                 "placeholder": "Alasan pembatalan SPJ",
             }
@@ -183,7 +171,7 @@ class ProcurementContractLineForm(forms.ModelForm):
         decimal_places=PRICE_DECIMAL_PLACES,
         widget=IndonesianPriceTextInput(
             attrs={
-                "class": "form-control form-control-sm",
+                "class": "ims-control form-control-sm",
                 "inputmode": "decimal",
                 "min": "0.0000000001",
             }
@@ -194,9 +182,9 @@ class ProcurementContractLineForm(forms.ModelForm):
         model = ProcurementContractLine
         fields = ["item", "original_quantity", "original_unit_price", "notes"]
         widgets = {
-            "item": forms.Select(attrs={"class": "form-select form-select-sm js-typeahead-select"}),
-            "original_quantity": forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0.01"}),
-            "notes": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+            "item": forms.Select(attrs={"class": "ims-control form-select-sm js-typeahead-select"}),
+            "original_quantity": forms.NumberInput(attrs={"class": "ims-control form-control-sm", "step": "0.01", "min": "0.01"}),
+            "notes": forms.TextInput(attrs={"class": "ims-control form-control-sm"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -242,26 +230,19 @@ class ProcurementAmendmentForm(forms.ModelForm):
         widgets = {
             "amendment_date": IndonesianDateInput(
                 attrs={
-                    "class": "form-control js-date-mask",
+                    "class": "ims-control js-date-mask",
                     "data-native-date-picker": "true",
                     "placeholder": "DD/MM/YYYY",
                     "inputmode": "numeric",
                     "autocomplete": "off",
                 }
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["amendment_date"].input_formats = INDONESIAN_DATE_INPUT_FORMATS
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("amendment_date", css_class="mb-3"),
-            Div("notes", css_class="mb-0"),
-        )
 
     def clean_notes(self):
         return _normalize_text_value(self.cleaned_data.get("notes"), field_label="Catatan")
@@ -279,7 +260,7 @@ class ProcurementAmendmentLineForm(forms.ModelForm):
         decimal_places=PRICE_DECIMAL_PLACES,
         widget=IndonesianPriceTextInput(
             attrs={
-                "class": "form-control form-control-sm",
+                "class": "ims-control form-control-sm",
                 "inputmode": "decimal",
                 "min": "0.0000000001",
             }
@@ -290,9 +271,9 @@ class ProcurementAmendmentLineForm(forms.ModelForm):
         model = ProcurementAmendmentLine
         fields = ["contract_line", "revised_quantity", "revised_unit_price", "notes"]
         widgets = {
-            "contract_line": forms.Select(attrs={"class": "form-select form-select-sm"}),
-            "revised_quantity": forms.NumberInput(attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0.01"}),
-            "notes": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+            "contract_line": forms.Select(attrs={"class": "ims-control form-select-sm"}),
+            "revised_quantity": forms.NumberInput(attrs={"class": "ims-control form-control-sm", "step": "0.01", "min": "0.01"}),
+            "notes": forms.TextInput(attrs={"class": "ims-control form-control-sm"}),
         }
 
     def __init__(self, *args, **kwargs):

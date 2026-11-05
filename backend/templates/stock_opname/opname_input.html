@@ -6,14 +6,14 @@
 
 {% block content %}
 <div class="ims-opname-input ims-workflow">
-        <div class="card content-card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="ims-panel content-card mb-3">
+            <div class="ims-panel-header flex justify-between items-center">
                 <span><i class="bi bi-pencil-square me-2"></i>{{ opname.document_number }} — Input Hitung</span>
                 <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm">
                     <i class="bi bi-arrow-left me-1"></i>Kembali
                 </a>
             </div>
-            <div class="card-body">
+            <div class="ims-panel-body">
                 <!-- Location filter -->
                 <form method="get" class="ims-opname-filter mb-3">
                     <div>
@@ -50,11 +50,11 @@
                             <tbody>
                                 {% for item in items %}
                                 <tr>
-                                    <td><span class="badge bg-light text-dark">{{ item.stock.location.code }}</span></td>
+                                    <td><span class="ims-badge bg-light text-dark">{{ item.stock.location.code }}</span></td>
                                     <td>{{ item.stock.item.nama_barang }}</td>
                                     <td>
                                         {% if item.stock.is_expired or item.stock.is_near_expiry %}
-                                        <span class="badge bg-danger">{{ item.stock.expiry_date_display }}</span>
+                                        <span class="ims-badge bg-danger">{{ item.stock.expiry_date_display }}</span>
                                         {% else %}
                                         {{ item.stock.expiry_date_display }}
                                         {% endif %}
@@ -62,7 +62,7 @@
                                     <td>{{ item.stock.batch_lot }}</td>
                                     <td>
                                         <div>{{ item.stock.sumber_dana.code }}</div>
-                                        <div class="small text-muted">Dok: {{ item.stock.source_document_number }}</div>
+                                        <div class="text-ims-xs text-muted">Dok: {{ item.stock.source_document_number }}</div>
                                     </td>
                                     <td class="text-end">{{ item.stock.unit_price|id_price_exact }}</td>
                                     <td>{{ item.stock.item.satuan.name|default:'-' }}</td>
@@ -91,7 +91,7 @@
                         </table>
                     </div>
 
-                    <div class="d-flex gap-2 mt-3">
+                    <div class="flex gap-2 mt-3">
                         <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>

@@ -1,5 +1,3 @@
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Layout
 from django import forms
 
 from apps.users.models import User
@@ -12,12 +10,12 @@ class StockOpnameForm(forms.ModelForm):
         model = StockOpname
         fields = ['period_type', 'period_start', 'period_end', 'categories', 'assigned_to', 'notes']
         widgets = {
-            'period_type': forms.Select(attrs={'class': 'form-select'}),
-            'period_start': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'period_end': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'period_type': forms.Select(attrs={'class': 'ims-control'}),
+            'period_start': forms.DateInput(attrs={'class': 'ims-control', 'type': 'date'}),
+            'period_end': forms.DateInput(attrs={'class': 'ims-control', 'type': 'date'}),
             'categories': forms.CheckboxSelectMultiple(),
             'assigned_to': forms.CheckboxSelectMultiple(),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'notes': forms.Textarea(attrs={'class': 'ims-control', 'rows': 2}),
         }
         labels = {
             'period_type': 'Tipe Periode',
@@ -47,18 +45,6 @@ class StockOpnameForm(forms.ModelForm):
                 'Tanggal selesai dikunci setelah nomor dokumen diterbitkan.'
             )
 
-        # Keep the form helper contract; the Tailwind page renders bound fields.
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div('period_type', css_class='mb-3'),
-            Div('period_start', css_class='mb-3'),
-            Div('period_end', css_class='mb-3'),
-            Div('categories', css_class='mb-3'),
-            Div('assigned_to', css_class='mb-3'),
-            Div('notes', css_class='mb-0'),
-        )
 
     def clean(self):
         cleaned_data = super().clean()

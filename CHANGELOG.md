@@ -18,6 +18,9 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Changed
 
+- Implemented the Wave 9 presentation cleanup: replaced active Crispy rendering with bound Django fields and project-owned controls, and replaced remaining component presentation classes while preserving JavaScript hooks.
+- Removed unused Bootstrap CSS, desktop/mobile legacy stylesheets, the Tom Select Bootstrap theme, Crispy helpers/packages/settings, duplicate legacy base and unreachable manual receiving-plan template. `base.html` now aliases the Tailwind shell; Bootstrap JavaScript/state styles, Bootstrap Icons, Flatpickr and native Django Admin styling remain.
+
 - Migrated seven standalone print documents to scoped Tailwind print styles with named A4 pages, repeated table headings, protected row/signature breaks, and hidden print controls; wide Stock Opname reports now use landscape.
 - Kept embedded report and SBBK print output on white paper with explicit A4 page layouts, and isolated Admin import styling with native Django light/dark theme variables without loading application Tailwind preflight.
 - Migrated the server-rendered mobile/PWA shell, stock list and card, approval inbox, and distribution/expired approval details to Tailwind while retaining session authentication, permissions, stock and workflow rules, CSRF-protected actions, and existing JavaScript behavior.

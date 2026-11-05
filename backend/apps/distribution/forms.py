@@ -41,18 +41,18 @@ class DistributionForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "distribution_type": forms.Select(attrs={"class": "form-select"}),
+            "distribution_type": forms.Select(attrs={"class": "ims-control"}),
             "request_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "ims-control", "type": "date"}
             ),
-            "facility": forms.Select(attrs={"class": "form-select"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
             "program": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "ims-control",
                     "placeholder": "Contoh: TB, HIV, Imunisasi",
                 }
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -138,19 +138,19 @@ class DistributionItemForm(forms.ModelForm):
         widgets = {
             "item": forms.Select(
                 attrs={
-                    "class": "form-select form-select-sm js-typeahead-select js-item-select"
+                    "class": "ims-control form-select-sm js-typeahead-select js-item-select"
                 }
             ),
             "quantity_requested": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "1"}
             ),
             "quantity_approved": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "0"}
+                attrs={"class": "ims-control form-control-sm", "min": "0"}
             ),
             "stock": StockByItemSelect(
-                attrs={"class": "form-select form-select-sm js-stock-select"}
+                attrs={"class": "ims-control form-select-sm js-stock-select"}
             ),
-            "notes": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+            "notes": forms.TextInput(attrs={"class": "ims-control form-control-sm"}),
         }
 
     def __init__(self, *args, **kwargs):

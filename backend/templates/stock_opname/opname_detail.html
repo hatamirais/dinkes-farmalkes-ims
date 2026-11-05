@@ -5,33 +5,33 @@
 {% block page_title %}Detail Stock Opname{% endblock %}
 
 {% block content %}
-<div class="ims-workflow ims-workflow-detail row justify-content-center">
-    <div class="col-lg-12">
-        <div class="card content-card mb-3">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <dl class="row mb-0">
-                            <dt class="col-5">No. Dokumen</dt>
-                            <dd class="col-7 fw-semibold">{{ opname.document_number|default:"Belum diterbitkan" }}</dd>
-                            <dt class="col-5">Tipe Periode</dt>
-                            <dd class="col-7"><span class="badge bg-info text-dark">{{ opname.get_period_type_display }}</span></dd>
-                            <dt class="col-5">Periode</dt>
-                            <dd class="col-7">{{ opname.period_start|date:"d/m/Y" }} &mdash; {{ opname.period_end|date:"d/m/Y" }}</dd>
-                            <dt class="col-5">Status</dt>
-                            <dd class="col-7">
+<div class="ims-workflow ims-workflow-detail ims-layout-row justify-center">
+    <div class="ims-layout-col-lg-12">
+        <div class="ims-panel content-card mb-3">
+            <div class="ims-panel-body">
+                <div class="ims-layout-row">
+                    <div class="ims-layout-col-md-6">
+                        <dl class="ims-layout-row mb-0">
+                            <dt class="ims-layout-col-5">No. Dokumen</dt>
+                            <dd class="ims-layout-col-7 fw-semibold">{{ opname.document_number|default:"Belum diterbitkan" }}</dd>
+                            <dt class="ims-layout-col-5">Tipe Periode</dt>
+                            <dd class="ims-layout-col-7"><span class="ims-badge bg-info text-dark">{{ opname.get_period_type_display }}</span></dd>
+                            <dt class="ims-layout-col-5">Periode</dt>
+                            <dd class="ims-layout-col-7">{{ opname.period_start|date:"d/m/Y" }} &mdash; {{ opname.period_end|date:"d/m/Y" }}</dd>
+                            <dt class="ims-layout-col-5">Status</dt>
+                            <dd class="ims-layout-col-7">
                                 {% if opname.status == "DRAFT" %}
-                                <span class="badge bg-secondary">Draft</span>
+                                <span class="ims-badge bg-secondary">Draft</span>
                                 {% elif opname.status == "IN_PROGRESS" %}
-                                <span class="badge bg-warning text-dark">Sedang Berjalan</span>
+                                <span class="ims-badge bg-warning text-dark">Sedang Berjalan</span>
                                 {% else %}
-                                <span class="badge bg-success">Selesai</span>
+                                <span class="ims-badge bg-success">Selesai</span>
                                 {% endif %}
                             </dd>
-                            <dt class="col-5">Kategori</dt>
-                            <dd class="col-7">
+                            <dt class="ims-layout-col-5">Kategori</dt>
+                            <dd class="ims-layout-col-7">
                                 {% for cat in opname.categories.all %}
-                                <span class="badge bg-primary me-1">{{ cat.name }}</span>
+                                <span class="ims-badge bg-primary me-1">{{ cat.name }}</span>
                                 {% empty %}
                                 {% if opname.status == "DRAFT" %}
                                 <span class="text-muted">Semua kategori</span>
@@ -42,32 +42,32 @@
                             </dd>
                         </dl>
                     </div>
-                    <div class="col-md-6">
-                        <dl class="row mb-0">
-                            <dt class="col-5">Dibuat Oleh</dt>
-                            <dd class="col-7">{{ opname.created_by.full_name|default:opname.created_by.username }}</dd>
-                            <dt class="col-5">Tanggal Dibuat</dt>
-                            <dd class="col-7">{{ opname.created_at|date:"d/m/Y H:i" }}</dd>
+                    <div class="ims-layout-col-md-6">
+                        <dl class="ims-layout-row mb-0">
+                            <dt class="ims-layout-col-5">Dibuat Oleh</dt>
+                            <dd class="ims-layout-col-7">{{ opname.created_by.full_name|default:opname.created_by.username }}</dd>
+                            <dt class="ims-layout-col-5">Tanggal Dibuat</dt>
+                            <dd class="ims-layout-col-7">{{ opname.created_at|date:"d/m/Y H:i" }}</dd>
                             {% if opname.completed_at %}
-                            <dt class="col-5">Diselesaikan Oleh</dt>
-                            <dd class="col-7">
+                            <dt class="ims-layout-col-5">Diselesaikan Oleh</dt>
+                            <dd class="ims-layout-col-7">
                                 {% if opname.completed_by %}
                                 {{ opname.completed_by.full_name|default:opname.completed_by.username }}
                                 {% else %}
                                 -
                                 {% endif %}
                             </dd>
-                            <dt class="col-5">Selesai Pada</dt>
-                            <dd class="col-7">{{ opname.completed_at|date:"d/m/Y H:i" }}</dd>
+                            <dt class="ims-layout-col-5">Selesai Pada</dt>
+                            <dd class="ims-layout-col-7">{{ opname.completed_at|date:"d/m/Y H:i" }}</dd>
                             {% endif %}
                             {% if opname.notes %}
-                            <dt class="col-5">Catatan</dt>
-                            <dd class="col-7">{{ opname.notes|linebreaksbr }}</dd>
+                            <dt class="ims-layout-col-5">Catatan</dt>
+                            <dd class="ims-layout-col-7">{{ opname.notes|linebreaksbr }}</dd>
                             {% endif %}
-                            <dt class="col-5">Ditugaskan Kepada</dt>
-                            <dd class="col-7">
+                            <dt class="ims-layout-col-5">Ditugaskan Kepada</dt>
+                            <dd class="ims-layout-col-7">
                                 {% for user in opname.assigned_to.all %}
-                                <span class="badge bg-secondary me-1">{{ user.full_name|default:user.username }}</span>
+                                <span class="ims-badge bg-secondary me-1">{{ user.full_name|default:user.username }}</span>
                                 {% empty %}
                                 <span class="text-muted">-</span>
                                 {% endfor %}
@@ -76,50 +76,50 @@
                     </div>
                 </div>
                 <hr class="ims-opname-detail-divider">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="flex justify-between items-center flex-wrap gap-2">
                     <div>
                         {% if opname.status != "DRAFT" %}
                         <span class="me-3"><strong>{{ counted_items }}</strong> / {{ total_items }} item dihitung ({{ progress }}%)</span>
                         <span class="text-danger"><strong>{{ discrepancy_count }}</strong> selisih</span>
                         {% endif %}
                     </div>
-                    <div class="d-flex gap-2">
+                    <div class="flex gap-2">
                         {% if opname.status == "IN_PROGRESS" %}
-                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">
+                        <a href="{% url 'stock_opname:opname_detail' opname.pk %}" class="ims-btn ims-btn--secondary ims-btn--sm ims-btn ims-btn--sm ims-btn--secondary">
                             <i class="bi bi-arrow-clockwise me-1"></i>Refresh Stok Update
                         </a>
                         {% endif %}
                         {% if opname.status == "DRAFT" %}
                         <form method="post" action="{% url 'stock_opname:opname_start' opname.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm-click="Mulai stock opname?">
+                            <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary" data-confirm-click="Mulai stock opname?">
                                 <i class="bi bi-play-fill me-1"></i>Mulai Opname
                             </button>
                         </form>
                         {% elif opname.status == "IN_PROGRESS" %}
-                        <a href="{% url 'stock_opname:opname_input' opname.pk %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
+                        <a href="{% url 'stock_opname:opname_input' opname.pk %}" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary">
                             <i class="bi bi-pencil-square me-1"></i>Input Hitung
                         </a>
                         {% if can_complete_opname %}
                         <form method="post" action="{% url 'stock_opname:opname_complete' opname.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm-click="Selesaikan stock opname ini?">
+                            <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary" data-confirm-click="Selesaikan stock opname ini?">
                                 <i class="bi bi-check-circle me-1"></i>Selesaikan
                             </button>
                         </form>
                         {% endif %}
                         {% endif %}
                         {% if opname.status != "DRAFT" %}
-                        <a href="{% url 'stock_opname:opname_report_print' opname.pk %}" class="btn btn-outline-dark btn-sm ims-btn ims-btn--sm" target="_blank">
+                        <a href="{% url 'stock_opname:opname_report_print' opname.pk %}" class="ims-btn ims-btn--ink-outline ims-btn--sm ims-btn ims-btn--sm" target="_blank">
                             <i class="bi bi-printer me-1"></i>Cetak Opname
                         </a>
                         {% endif %}
                         {% if opname.status != "DRAFT" and discrepancy_count > 0 %}
-                        <a href="{% url 'stock_opname:opname_print' opname.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral" target="_blank">
+                        <a href="{% url 'stock_opname:opname_print' opname.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral" target="_blank">
                             <i class="bi bi-printer me-1"></i>Cetak Selisih
                         </a>
                         {% endif %}
-                        <a href="{% url 'stock_opname:opname_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+                        <a href="{% url 'stock_opname:opname_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                             <i class="bi bi-arrow-left me-1"></i>Kembali
                         </a>
                     </div>
@@ -127,13 +127,13 @@
             </div>
         </div>
         {% for loc_data in locations %}
-        <div class="card content-card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="ims-panel content-card mb-3">
+            <div class="ims-panel-header flex justify-between items-center">
                 <span><i class="bi bi-geo-alt me-1"></i>{{ loc_data.location.code }} &mdash; {{ loc_data.location.name }}</span>
-                <span class="text-muted small">{{ loc_data.counted }} / {{ loc_data.total }} dihitung | {{ loc_data.discrepancies }} selisih</span>
+                <span class="text-muted text-ims-xs">{{ loc_data.counted }} / {{ loc_data.total }} dihitung | {{ loc_data.discrepancies }} selisih</span>
             </div>
             <div class="table-responsive ims-table-scroll">
-                <table class="table table-sm table-hover align-middle mb-0 ims-table">
+                <table class="table ims-table--compact ims-table--hover align-middle mb-0 ims-table">
                     <thead>
                         <tr>
                             <th>Nama Barang</th>
@@ -155,7 +155,7 @@
                             <td>{{ item.stock.item.nama_barang }}</td>
                             <td>
                                 {% if item.stock.is_expired or item.stock.is_near_expiry %}
-                                <span class="badge bg-danger">{{ item.stock.expiry_date_display }}</span>
+                                <span class="ims-badge bg-danger">{{ item.stock.expiry_date_display }}</span>
                                 {% else %}
                                 {{ item.stock.expiry_date_display }}
                                 {% endif %}
@@ -163,7 +163,7 @@
                             <td>{{ item.stock.batch_lot }}</td>
                             <td>
                                 <div>{{ item.stock.sumber_dana.code }}</div>
-                                <div class="small text-muted">Dok: {{ item.stock.source_document_number }}</div>
+                                <div class="text-ims-xs text-muted">Dok: {{ item.stock.source_document_number }}</div>
                             </td>
                             <td class="text-end">{{ item.stock.unit_price|id_price_exact }}</td>
                             <td>{{ item.stock.item.satuan.name|default:"-" }}</td>
@@ -182,12 +182,12 @@
                             </td>
                             <td class="text-end">
                                 {% if item.current_difference is not None %}
-                                <span class="{% if item.has_current_discrepancy %}fw-bold text-danger{% endif %}">{{ item.current_difference }}</span>
+                                <span class="{% if item.has_current_discrepancy %}font-bold text-danger{% endif %}">{{ item.current_difference }}</span>
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td class="small">{{ item.notes|default:"" }}</td>
+                            <td class="text-ims-xs">{{ item.notes|default:"" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -195,9 +195,9 @@
             </div>
         </div>
         {% empty %}
-        <div class="card content-card">
-            <div class="card-body text-center text-muted py-4">
-                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        <div class="ims-panel content-card">
+            <div class="ims-panel-body text-center text-muted py-4">
+                <i class="bi bi-inbox fs-1 block mb-2"></i>
                 {% if opname.status == "DRAFT" %}
                 <p>Klik "Mulai Opname" untuk snapshot stok saat ini.</p>
                 {% else %}

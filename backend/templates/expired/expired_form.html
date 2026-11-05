@@ -5,16 +5,16 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="ims-expired-form card content-card table-container form-page-card">
-    <div class="card-header">
+<div class="ims-expired-form ims-panel content-card table-container form-page-card">
+    <div class="ims-panel-header">
         <span><i class="bi bi-trash me-2"></i>{{ title }}</span>
     </div>
-    <div class="card-body">
+    <div class="ims-panel-body">
         <form method="post" novalidate data-item-picker-table="true" data-item-table-target="expired-items" data-item-required-field="quantity" data-item-required-message="Kuantitas wajib diisi." data-item-focus-field="stock" data-item-dependent-fields="stock,quantity,notes">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div class="alert alert-danger py-2">
+            <div class="ims-alert ims-alert--danger py-2">
                 {% for error in form.non_field_errors %}
                 <div>{{ error }}</div>
                 {% endfor %}
@@ -30,26 +30,26 @@
             </div>
 
             <hr>
-            <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Kedaluwarsa</h6>
+            <h6 class="font-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Kedaluwarsa</h6>
 
             {{ formset.management_form }}
             
-            <div class="alert alert-danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
+            <div class="ims-alert ims-alert--danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
 
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <span class="text-muted small">Minimal satu baris item harus tersedia.</span>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="expired-items">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-muted text-ims-xs">Minimal satu baris item harus tersedia.</span>
+                <div class="flex gap-2">
+                    <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-clear" data-formset-target="expired-items">
                         <i class="bi bi-trash me-1"></i>Hapus Semua
                     </button>
-                    <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="expired-items">
+                    <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm formset-add" data-formset-target="expired-items">
                         <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                     </button>
                 </div>
             </div>
 
             <div class="table-responsive" data-formset="expired-items" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Item kedaluwarsa" tabindex="0">
-                <table class="table ims-table table-sm">
+                <table class="table ims-table ims-table--compact">
                     <thead>
                         <tr>
                             <th>Barang</th>
@@ -70,7 +70,7 @@
                             </td>
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ item_form.notes }}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <div class="d-none">{{ item_form.DELETE }}</div>
@@ -79,7 +79,7 @@
                         </tr>
                         {% if item_form.non_field_errors %}
                         <tr>
-                            <td colspan="5" class="text-danger small py-1">
+                            <td colspan="5" class="text-danger text-ims-xs py-1">
                                 {% for error in item_form.non_field_errors %}
                                 <div>{{ error }}</div>
                                 {% endfor %}
@@ -89,7 +89,7 @@
                         {% for field in item_form %}
                             {% for error in field.errors %}
                             <tr>
-                                <td colspan="5" class="text-danger small py-1">
+                                <td colspan="5" class="text-danger text-ims-xs py-1">
                                     {{ field.label }}: {{ error }}
                                 </td>
                             </tr>
@@ -110,7 +110,7 @@
                     </td>
                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ formset.empty_form.notes }}</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                        <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                             <i class="bi bi-trash"></i>
                         </button>
                         <div class="d-none">{{ formset.empty_form.DELETE }}</div>
@@ -119,13 +119,13 @@
                 </tr>
             </template>
 
-            <div class="mb-2 small text-muted">Tip: Pilih batch stok yang sudah kedaluwarsa untuk memastikan catatan pemusnahan akurat.</div>
+            <div class="mb-2 text-ims-xs text-muted">Tip: Pilih batch stok yang sudah kedaluwarsa untuk memastikan catatan pemusnahan akurat.</div>
 
-            <div class="d-flex gap-2 mt-4">
-                <button type="submit" class="btn btn-primary">
+            <div class="flex gap-2 mt-4">
+                <button type="submit" class="ims-btn ims-btn--primary">
                     <i class="bi bi-check-lg me-1"></i>Simpan
                 </button>
-                <a href="{% if is_edit %}{% url 'expired:expired_detail' expired_doc.pk %}{% else %}{% url 'expired:expired_list' %}{% endif %}" class="btn btn-outline-secondary">Batal</a>
+                <a href="{% if is_edit %}{% url 'expired:expired_detail' expired_doc.pk %}{% else %}{% url 'expired:expired_list' %}{% endif %}" class="ims-btn ims-btn--neutral">Batal</a>
             </div>
         </form>
     </div>

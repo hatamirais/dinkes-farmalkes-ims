@@ -9,11 +9,11 @@ ALLOCATION_ORIGIN_FILTER = "ALLOCATION"
 class InventoryReportFilterForm(forms.Form):
     start_date = forms.DateField(
         label='Tanggal Mulai',
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'ims-control'})
     )
     end_date = forms.DateField(
         label='Tanggal Akhir',
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'ims-control'})
     )
 
     def clean(self):
@@ -53,7 +53,7 @@ class PengeluaranReportFilterForm(InventoryReportFilterForm):
         queryset=None,
         required=False,
         empty_label='Semua Fasilitas',
-        widget=forms.Select(attrs={'class': 'form-select'}),
+        widget=forms.Select(attrs={'class': 'ims-control'}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -73,13 +73,13 @@ class NumberingHistoryFilterForm(forms.Form):
         label='Jenis Dokumen',
         required=False,
         choices=[('', 'Semua Dokumen')],
-        widget=forms.Select(attrs={'class': 'form-select'}),
+        widget=forms.Select(attrs={'class': 'ims-control'}),
     )
     year = forms.IntegerField(
         label='Tahun',
         min_value=1000,
         max_value=9999,
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '2026'}),
+        widget=forms.NumberInput(attrs={'class': 'ims-control', 'placeholder': '2026'}),
     )
 
     def __init__(self, *args, **kwargs):

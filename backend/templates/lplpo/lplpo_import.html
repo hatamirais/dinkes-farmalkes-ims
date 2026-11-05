@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load crispy_forms_tags %}
+{% load tailwind_forms %}
 
 {% block title %}Import XLSX {{ lplpo.document_number }} – Healthcare IMS{% endblock %}
 {% block page_title %}Import XLSX LPLPO{% endblock %}
@@ -7,33 +7,33 @@
 {% block content %}
 <div class="ims-workflow ims-lplpo ims-lplpo-form ims-lplpo-import">
     <div class="ims-lplpo-form-shell">
-            <div class="card">
-                <div class="card-header">
+            <div class="ims-panel">
+                <div class="ims-panel-header">
                     <h6 class="mb-0"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import XLSX LPLPO</h6>
                 </div>
-                <div class="card-body">
+                <div class="ims-panel-body">
                     <div class="mb-3">
                         <div class="fw-semibold">{{ lplpo.document_number }}</div>
-                        <div class="text-muted small">{{ lplpo.facility.name }} — {{ lplpo.period_display }}</div>
+                        <div class="text-muted text-ims-xs">{{ lplpo.facility.name }} — {{ lplpo.period_display }}</div>
                     </div>
 
-                    <div class="alert alert-secondary small" role="alert">
+                    <div class="ims-alert ims-alert--muted text-ims-xs" role="alert">
                         Ekspor workbook dari dokumen ini terlebih dahulu, isi kolom editable secara offline, lalu impor kembali workbook yang sama.
                         Kolom <strong>pemakaian</strong> dan seluruh nilai turunan tetap dihitung dari sistem saat impor.
                     </div>
 
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
-                        {{ form.xlsx_file|as_crispy_field }}
+                        {% tailwind_field form.xlsx_file show_required=True %}
 
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary" id="import-xlsx-submit-btn">
+                        <div class="flex gap-2">
+                            <button type="submit" class="ims-btn ims-btn--primary" id="import-xlsx-submit-btn">
                                 <i class="bi bi-upload me-1"></i>Import XLSX
                             </button>
-                            <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="btn btn-outline-secondary" id="download-xlsx-template-btn">
+                            <a href="{% url 'lplpo:lplpo_export_xlsx' lplpo.pk %}" class="ims-btn ims-btn--neutral" id="download-xlsx-template-btn">
                                 <i class="bi bi-download me-1"></i>Export XLSX
                             </a>
-                            <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="btn btn-link text-muted ms-auto">
+                            <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="ims-btn ims-btn--link text-muted ms-auto">
                                 Kembali
                             </a>
                         </div>

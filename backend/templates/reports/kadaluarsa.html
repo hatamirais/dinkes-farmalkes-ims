@@ -35,9 +35,9 @@
     @media print {
         .main-content { padding: 0 !important; }
         .report-print-sheet { max-width: none; padding: 0 5mm; }
-        .card { border: none !important; box-shadow: none !important; }
-        .card-body { padding: 0 !important; }
-        .table-light th {
+        .ims-panel { border: none !important; box-shadow: none !important; }
+        .ims-panel-body { padding: 0 !important; }
+        .ims-table-heading th {
             background-color: #f8f9fa !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -54,28 +54,28 @@
 {% block content %}
 <div class="ims-workflow ims-report ims-report-kadaluarsa">
 <!-- Filter Bar -->
-<div class="row mb-4 d-print-none">
-    <div class="col-12">
-        <div class="card shadow-sm border-0">
-            <div class="card-body bg-light">
-                <form method="get" class="row g-3 align-items-end ims-report-filters">
-                    <div class="col-md-auto">
+<div class="ims-layout-row mb-4 d-print-none">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel shadow-sm border-0">
+            <div class="ims-panel-body bg-light">
+                <form method="get" class="ims-layout-row ims-layout-g-3 items-end ims-report-filters">
+                    <div class="ims-layout-col-md-auto">
                         {{ form.start_date.label_tag }}
                         {{ form.start_date }}
                     </div>
-                    <div class="col-md-auto">
+                    <div class="ims-layout-col-md-auto">
                         {{ form.end_date.label_tag }}
                         {{ form.end_date }}
                     </div>
-                    <div class="col d-flex flex-wrap align-items-end gap-2">
-                        <button type="submit" class="btn btn-primary ims-btn ims-btn--primary">
+                    <div class="ims-layout-col flex flex-wrap items-end gap-2">
+                        <button type="submit" class="ims-btn ims-btn--primary ims-btn ims-btn--primary">
                             <i class="bi bi-filter"></i> Terapkan Filter
                         </button>
-                        <a href="{% url 'reports:kadaluarsa' %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral">Reset</a>
-                        <button type="button" class="btn btn-dark ims-btn ims-btn--neutral" data-action="print">
+                        <a href="{% url 'reports:kadaluarsa' %}" class="ims-btn ims-btn--neutral ims-btn ims-btn--neutral">Reset</a>
+                        <button type="button" class="ims-btn ims-btn--ink ims-btn ims-btn--neutral" data-action="print">
                             <i class="bi bi-printer"></i> Cetak Laporan
                         </button>
-                        <button type="submit" name="format" value="excel" class="btn btn-success ims-btn ims-btn--secondary">
+                        <button type="submit" name="format" value="excel" class="ims-btn ims-btn--confirm ims-btn ims-btn--secondary">
                             <i class="bi bi-file-earmark-excel"></i> Export Excel
                         </button>
                     </div>
@@ -115,13 +115,13 @@
 </div>
 
 <!-- Report Table -->
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
+<div class="ims-layout-row">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel shadow-sm border-0">
+            <div class="ims-panel-body">
                 <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel laporan" tabindex="0">
-                    <table class="table ims-table table-bordered align-middle mb-0">
-                        <thead class="table-light text-center">
+                    <table class="table ims-table ims-table--ruled align-middle mb-0">
+                        <thead class="ims-table-heading text-center">
                             <tr>
                                 <th style="width: 50px;">NO</th>
                                 <th style="width: 170px;">NO. DOKUMEN</th>
@@ -151,7 +151,7 @@
                                     <td class="text-end">Rp {{ row.total_price|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
-                                <tr class="table-warning fw-bold">
+                                <tr class="table-warning font-bold">
                                     <td colspan="8" class="text-center">TOTAL</td>
                                     <td class="text-end">{{ total_quantity|id_decimal:0 }}</td>
                                     <td class="text-end">Rp {{ total_value|id_decimal:2 }}</td>
@@ -159,7 +159,7 @@
                             {% else %}
                             <tr>
                                 <td colspan="10" class="text-center text-muted py-4">
-                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    <i class="bi bi-inbox block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data kadaluarsa/rusak untuk periode ini.
                                 </td>
                             </tr>
@@ -173,7 +173,7 @@
 </div>
 
 <!-- Print Signature -->
-<div class="d-none d-print-flex report-print-sheet justify-content-between mt-5" style="page-break-inside: avoid;">
+<div class="d-none d-print-flex report-print-sheet justify-between mt-5" style="page-break-inside: avoid;">
     <div class="report-sign-box">
         Mengetahui,<br>Kepala Instalasi Farmasi
         <div class="report-sign-name">[Nama Kepala Instalasi]</div>

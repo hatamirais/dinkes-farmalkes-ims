@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load crispy_forms_tags %}
+{% load tailwind_forms %}
 
 {% block title %}Buat LPLPO – Healthcare IMS{% endblock %}
 {% block page_title %}Buat LPLPO Baru{% endblock %}
@@ -7,51 +7,51 @@
 {% block content %}
 <div class="ims-workflow ims-lplpo ims-lplpo-form ims-lplpo-create">
     <div class="ims-lplpo-form-shell">
-            <div class="card">
-                <div class="card-header">
+            <div class="ims-panel">
+                <div class="ims-panel-header">
                     <h6 class="mb-0"><i class="bi bi-calendar-plus me-2"></i>Pilih Periode LPLPO</h6>
                 </div>
-                <div class="card-body">
+                <div class="ims-panel-body">
                     <form method="post" id="create-form">
                         {% csrf_token %}
 
                         {% if form.is_january_bootstrap %}
-                        <div class="alert alert-info" role="alert">
+                        <div class="ims-alert ims-alert--info" role="alert">
                             <div class="fw-semibold mb-1">Bootstrap Januari Tahun Berjalan</div>
-                            <div class="small mb-1">
+                            <div class="text-ims-xs mb-1">
                                 LPLPO ini menjadi baseline stok awal tahunan untuk {{ form.selected_facility.name }} pada tahun {{ form.active_year }}.
                             </div>
-                            <div class="small mb-0">
+                            <div class="text-ims-xs mb-0">
                                 Isi <strong>Stock Awal</strong> dari stok pembuka aktual atau catatan administrasi fasilitas. Bila ada konfirmasi penerimaan Januari yang sudah terkonfirmasi, sistem akan mengusulkan <strong>Penerimaan</strong> total dan <strong>Harga Satuan</strong> rata-rata tertimbang per item sebagai baseline yang masih bisa diedit operator. Batch atau harga ganda tetap diringkas menjadi satu baris item pada LPLPO Januari.
                             </div>
                         </div>
                         {% endif %}
 
                         {% if form.non_field_errors %}
-                        <div class="alert alert-warning mb-3">
+                        <div class="ims-alert ims-alert--warning mb-3">
                             {{ form.non_field_errors }}
                         </div>
                         {% endif %}
 
-                        {{ form.bulan|as_crispy_field }}
-                        {{ form.tahun|as_crispy_field }}
+                        {% tailwind_field form.bulan show_required=True %}
+                        {% tailwind_field form.tahun show_required=True %}
 
                         {% if request.user.is_superuser or not request.user.facility %}
-                        {{ form.facility|as_crispy_field }}
+                        {% tailwind_field form.facility show_required=True %}
                         {% else %}
                         {{ form.facility }}
                         {% endif %}
-                        {{ form.notes|as_crispy_field }}
+                        {% tailwind_field form.notes show_required=True %}
 
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary" id="submit-create-btn"{% if not form.can_create %} disabled{% endif %}>
+                        <div class="flex gap-2">
+                            <button type="submit" class="ims-btn ims-btn--primary" id="submit-create-btn"{% if not form.can_create %} disabled{% endif %}>
                                 <i class="bi bi-plus-lg me-1"></i>Buat LPLPO
                             </button>
-                            <a href="{% if request.user.is_superuser %}{% url 'lplpo:lplpo_list' %}{% else %}{% url 'lplpo:lplpo_my_list' %}{% endif %}" class="btn btn-outline-secondary">Batal</a>
+                            <a href="{% if request.user.is_superuser %}{% url 'lplpo:lplpo_list' %}{% else %}{% url 'lplpo:lplpo_my_list' %}{% endif %}" class="ims-btn ims-btn--neutral">Batal</a>
                         </div>
                     </form>
                 </div>
-                <div class="card-footer text-muted small">
+                <div class="ims-panel-footer text-muted text-ims-xs">
                     <i class="bi bi-info-circle me-1"></i>
                     Semua item aktif akan otomatis ditambahkan. Periode pembuatan dikunci berurutan per tahun server aktif, mulai dari Januari.
                 </div>

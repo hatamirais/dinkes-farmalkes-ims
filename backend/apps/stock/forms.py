@@ -30,11 +30,11 @@ class StockTransferForm(forms.ModelForm):
         fields = ["transfer_date", "source_location", "destination_location", "notes"]
         widgets = {
             "transfer_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "ims-control", "type": "date"}
             ),
-            "source_location": forms.Select(attrs={"class": "form-select"}),
-            "destination_location": forms.Select(attrs={"class": "form-select"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "source_location": forms.Select(attrs={"class": "ims-control"}),
+            "destination_location": forms.Select(attrs={"class": "ims-control"}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):

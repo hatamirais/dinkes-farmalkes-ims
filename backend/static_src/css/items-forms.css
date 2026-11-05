@@ -8,8 +8,12 @@
   .ims-form-panel-body { padding: 24px; }
   .ims-form-stack { display: grid; gap: 20px; }
   .ims-form-field { min-width: 0; }
+  .ims-form-field > .ims-choice-group { display: grid; gap: 8px; }
+  .ims-choice-group label { display: flex; align-items: baseline; gap: 8px; }
+  .ims-choice-group :is(input[type="radio"], input[type="checkbox"]) { width: 16px; height: 16px; flex: none; accent-color: var(--color-ims-primary); }
+  .ims-choice-group :is(input[type="radio"], input[type="checkbox"]):focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
   .ims-form-label-row { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-  .ims-form-label-row .ims-label { margin: 0; }
+  .ims-form-field > .ims-form-label-row > .ims-label { margin: 0; }
   .ims-form-field > .ims-choice, .ims-form-field > .ims-switch { display: block; }
   .ims-form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; border-top: 1px solid var(--color-ims-border); padding-top: 20px; }
   .ims-delete-panel { text-align: center; }

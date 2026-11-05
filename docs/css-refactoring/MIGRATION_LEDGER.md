@@ -1,10 +1,33 @@
 # Tailwind migration ledger
 
+Updated 5 November 2026. Current dependency state and Wave 9 verification are recorded immediately below; older per-wave rows and notes retain their implementation-time context.
+
 Updated 4 November 2026. **Waves 3, 4, and 5 complete; the stock-transfer creation, procurement form, receiving form, Allocation form, Distribution form, Recall form, Expired/Disposal form, Stock Opname form, Puskesmas workflow, LPLPO form, and authority delegation form slices of Wave 6 are verified.** Wave 4 covers desktop stock and Puskesmas stock read-only pages, receiving and workflow lists/details, LPLPO read-only pages, reports/numbering history, stock transfer list/detail, user-side read-only pages, and the Puskesmas operator stock self-check. The Items slice covers item create/edit, four lookup create routes, delete confirmation, and four quick-create dialogs; no lookup edit route exists. The Users slice covers the user list and account create/edit forms. The shared settings slice covers general and numbering settings forms. The Puskesmas subunits slice covers the list and create/edit forms; delete remains a POST action without a page. Simple filters already exist on migrated pages, while remaining Bootstrap filters belong to other Wave 6 workflows. Wave 6 form slices are complete; Wave 7 mobile implementation and route checks are recorded below; native-install/device verification remains pending. Wave 8 print/Admin implementation and verification are recorded below; Wave 9 repository-wide removal remains separate.
+
+## Wave 9: current dependency inventory and acceptance
+
+Implementation branch: `tailwind/wave9-css-removal`, created from local `main` at `1c51be6`. After the visual-check handoff, the user authorized review, commit, push and PR creation on 5 November 2026.
+
+| Dependency at Wave 9 baseline | Confirmed source | Result |
+| --- | --- | --- |
+| Active Crispy field rendering | Six templates: Puskesmas receipt/consumption, LPLPO create/import, delegation create/revoke; 22 rendering calls. Request form had an unused tag-library load. | Bound Django fields through project-owned renderer; zero Crispy rendering calls. |
+| Unused Crispy helpers | Seven initializers across Procurement, Puskesmas, LPLPO and Stock Opname forms | Removed; field/queryset/validation behavior retained. |
+| Legacy CSS bases | `base.html` and duplicated `base_bootstrap.html` | `base.html` aliases Tailwind; unused duplicate removed. |
+| Unreachable manual receiving-plan template | No view references `receiving_plan_form.html`; `receiving_plan_create` redirects to procurement | Unused template removed; route/redirect unchanged. |
+| Vendored and custom Bootstrap CSS | `static/vendor/bootstrap/css/`, `static/css/style.css`, `static/mobile/css/mobile.css`, Tom Select Bootstrap theme | Removed from source; all active IMS stylesheet links use generated Tailwind. |
+| Crispy packages/settings | Both requirements files and `INSTALLED_APPS` / `CRISPY_*` | Both packages and their settings removed; test launcher checks Django instead. Historical `CrispyAuthenticationForm` name remains, without a Crispy import. |
+| Bootstrap custom properties | Project templates, CSS sources and JavaScript | Zero `--bs-*` references. |
+| Native Django Admin | Admin templates and `admin/css/ims-import.css` | Unchanged; no application Tailwind preflight. |
+
+All 118 current templates have an explicit rendering path: Tailwind desktop, independent Tailwind mobile, standalone print/error, shared partial, compatibility alias, or native Django Admin. Presentation component classes use `ims-*`; display/alignment primitives use Tailwind. The existing scoped layout rules remain authoritative rather than importing Bootstrap's utilities. App CSS and changed-script URLs use the `wave9` cache key.
+
+Retained dependencies: Bootstrap JavaScript and 133 `data-bs-*` attributes; seven scripts call `bootstrap.*` (`app`, `distribution-form`, `item-form`, `quick-create`, `rekap-filter`, `user-form`, `user-list`). Retained bridge selectors include collapse/show/collapsing/fade, dropdown, nav/tab state, modal/dialog/backdrop, tooltip and toast families, `btn-close`, the dismissible alert's `.alert`, responsive shell aliases, and `d-none`. Existing application hooks `.table`, `.table-responsive`, `.form-control-sm`, `.form-check-label` and status-color classes remain where current scripts/data adapters require them. Bootstrap Icons and Flatpickr remain independent vendored dependencies. No Alpine or workflow changes.
+
+Automated gate passed: all owning-app suites, URL consistency and renderer guards, 12 committed Playwright tests, six-role desktop/narrow browser checks, CSS build/check, Django checks and WhiteNoise collection. Verification details and evidence: [Wave 9 verification record](evidence/WAVE9_VERIFICATION.md). The user released the visual-check hold and authorized publishing this branch. Native PWA installation/physical-device checks inherited from Wave 7 remain pending; automated/browser verification does not substitute for those checks.
 
 | Surface | Source template | Base / CSS dependency | Interaction or form contract | Existing verification | Status |
 | --- | --- | --- | --- | --- | --- |
-| Desktop shell | `backend/templates/base_tailwind.html`; legacy `base.html` / `base_bootstrap.html` | Tailwind CSS on migrated pages; Bootstrap CSS and `style.css` on legacy | Shared sidebar and user-menu semantics; Bootstrap JS collapse, dropdown and toast bridge | Seven-profile browser link check; core tests; desktop/narrow screenshots | Tailwind active; legacy preserved |
+| Desktop shell | `backend/templates/base_tailwind.html`; legacy `base.html` / `base_bootstrap.html` | Tailwind CSS; compatibility alias; retained Bootstrap JS/state bridge | Shared sidebar and user-menu semantics; Bootstrap JS collapse, dropdown and toast bridge | Seven-profile browser link check; core tests; desktop/narrow screenshots | Tailwind only; `base.html` alias; Wave 9 |
 | Desktop and Puskesmas dashboards | `backend/templates/dashboard.html`, `dashboard_puskesmas.html` | Tailwind desktop base | Server-computed quick links, transactions, expiry list, auditor reports, facility metrics and recent lists | Dashboard/core tests; GUDANG, PUSKESMAS and AUDITOR browser checks; seven-profile navigation check | Tailwind Wave 2 |
 | Dense item list | `backend/templates/items/item_list.html` | Tailwind desktop base | Existing filters, XLSX export, create/edit/delete links, pagination, table scroll | Browser desktop/narrow, items tests | Tailwind pilot |
 | Stock list | `backend/templates/stock/stock_list.html` | Tailwind desktop base | Five GET filters, four quick links, stock summaries, source-document rows, expiry/funding badges, 25-row pagination | `StockListViewTests`; GUDANG desktop/narrow browser checks | Tailwind Wave 4 stock slice |

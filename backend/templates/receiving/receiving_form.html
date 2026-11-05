@@ -5,8 +5,8 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="ims-receiving-form card content-card table-container form-page-card">
-            <div class="card-header">
+<div class="ims-receiving-form ims-panel content-card table-container form-page-card">
+            <div class="ims-panel-header">
                 <span><i class="bi bi-inbox-fill me-2"></i>{{ title }}</span>
                 <details class="ims-receiving-info">
                     <summary aria-label="Informasi nomor dokumen" title="Informasi nomor dokumen">
@@ -15,11 +15,11 @@
                     <div class="ims-receiving-info-message">Nomor dokumen resmi diterbitkan otomatis ketika stok penerimaan diposting.</div>
                 </details>
             </div>
-            <div class="card-body">
+            <div class="ims-panel-body">
                 <form method="post" novalidate data-item-picker-table="true" data-item-table-target="receiving-items" data-item-required-field="quantity" data-item-required-message="Kuantitas wajib diisi." data-item-focus-field="quantity" data-item-dependent-fields="quantity,batch_lot,expiry_date,unit_price,location">
                     {% csrf_token %}
-                    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-                    {% if formset.non_form_errors %}<div class="alert alert-danger" role="alert">{{ formset.non_form_errors }}</div>{% endif %}
+                    {% if form.non_field_errors %}<div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+                    {% if formset.non_form_errors %}<div class="ims-alert ims-alert--danger" role="alert">{{ formset.non_form_errors }}</div>{% endif %}
                     <div class="ims-receiving-grid mb-4">
                         {% for field in form %}
                         <div class="ims-receiving-field{% if field.name == 'notes' or field.name == 'correction_reason' %} ims-receiving-field--wide{% endif %}">
@@ -30,31 +30,31 @@
                         </div>
                         {% endfor %}
                     </div>
-                    <div class="mb-2 small text-muted">Tip: Gunakan tombol <i class="bi bi-plus-lg"></i> untuk menambah supplier atau sumber dana tanpa meninggalkan form.</div>
+                    <div class="mb-2 text-ims-xs text-muted">Tip: Gunakan tombol <i class="bi bi-plus-lg"></i> untuk menambah supplier atau sumber dana tanpa meninggalkan form.</div>
 
                     <hr>
-                    <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Penerimaan</h6>
+                    <h6 class="font-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Penerimaan</h6>
                     {{ formset.management_form }}
-                    <div class="alert alert-danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small">Tambah baris untuk menambah item penerimaan.</span>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="receiving-items">
+                    <div class="ims-alert ims-alert--danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-muted text-ims-xs">Tambah baris untuk menambah item penerimaan.</span>
+                        <div class="flex gap-2">
+                            <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-clear" data-formset-target="receiving-items">
                                 <i class="bi bi-trash me-1"></i>Hapus Semua
                             </button>
-                            <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="receiving-items">
+                            <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm formset-add" data-formset-target="receiving-items">
                                 <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                             </button>
                         </div>
                     </div>
                     <div class="table-responsive" data-formset="receiving-items" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Item penerimaan" tabindex="0">
-                        <table class="table ims-table table-sm align-middle" id="itemTable" style="min-width: 1280px;">
+                        <table class="table ims-table ims-table--compact align-middle" id="itemTable" style="min-width: 1280px;">
                             <thead>
                                 <tr>
                                     <th style="min-width:360px;">Barang <span class="text-danger">*</span></th>
                                     <th style="min-width:130px;">Kuantitas <span class="text-danger">*</span></th>
                                     <th style="min-width:150px;">Batch/Lot</th>
-                                    <th style="min-width:190px;">Tanggal Kedaluwarsa <span class="text-muted small">(jika wajib)</span></th>
+                                    <th style="min-width:190px;">Tanggal Kedaluwarsa <span class="text-muted text-ims-xs">(jika wajib)</span></th>
                                     <th style="min-width:150px;">Harga Satuan <span class="text-danger">*</span></th>
                                     <th style="min-width:260px;">Lokasi <span class="text-danger">*</span></th>
                                     <th class="text-center" style="min-width:70px;">Hapus</th>
@@ -66,42 +66,42 @@
                                     <td>
                                         {{ item_form.item }}
                                         {% for error in item_form.item.errors %}
-                                        <div class="text-danger small py-1">{{ error }}</div>
+                                        <div class="text-danger text-ims-xs py-1">{{ error }}</div>
                                         {% endfor %}
                                     </td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="quantity">
                                         {{ item_form.quantity }}
                                         <div class="item-picker-field-error d-none js-item-picker-field-error" data-field-name="quantity">Kuantitas wajib diisi.</div>
                                         {% for error in item_form.quantity.errors %}
-                                        <div class="text-danger small py-1">{{ error }}</div>
+                                        <div class="text-danger text-ims-xs py-1">{{ error }}</div>
                                         {% endfor %}
                                     </td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="batch_lot">
                                         {{ item_form.batch_lot }}
                                         {% for error in item_form.batch_lot.errors %}
-                                        <div class="text-danger small py-1">{{ error }}</div>
+                                        <div class="text-danger text-ims-xs py-1">{{ error }}</div>
                                         {% endfor %}
                                     </td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="expiry_date">
                                         {{ item_form.expiry_date }}
                                         {% for error in item_form.expiry_date.errors %}
-                                        <div class="text-danger small py-1">{{ error }}</div>
+                                        <div class="text-danger text-ims-xs py-1">{{ error }}</div>
                                         {% endfor %}
                                     </td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="unit_price">
                                         {{ item_form.unit_price }}
                                         {% for error in item_form.unit_price.errors %}
-                                        <div class="text-danger small py-1">{{ error }}</div>
+                                        <div class="text-danger text-ims-xs py-1">{{ error }}</div>
                                         {% endfor %}
                                     </td>
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="location">
                                         {{ item_form.location }}
                                         {% for error in item_form.location.errors %}
-                                        <div class="text-danger small py-1">{{ error }}</div>
+                                        <div class="text-danger text-ims-xs py-1">{{ error }}</div>
                                         {% endfor %}
                                     </td>
                                     <td class="text-center">
-                                        <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                        <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                         <div class="d-none">{{ item_form.DELETE }}</div>
@@ -113,13 +113,13 @@
                                 {% for hidden_field in item_form.hidden_fields %}
                                     {% for error in hidden_field.errors %}
                                 <tr>
-                                    <td colspan="7" class="text-danger small py-1">Baris item tidak valid: {{ error }}</td>
+                                    <td colspan="7" class="text-danger text-ims-xs py-1">Baris item tidak valid: {{ error }}</td>
                                 </tr>
                                     {% endfor %}
                                 {% endfor %}
                                 {% if item_form.non_field_errors %}
                                 <tr>
-                                    <td colspan="7" class="text-danger small py-1">{{ item_form.non_field_errors }}</td>
+                                    <td colspan="7" class="text-danger text-ims-xs py-1">{{ item_form.non_field_errors }}</td>
                                 </tr>
                                 {% endif %}
                                 {% endfor %}
@@ -138,7 +138,7 @@
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="unit_price">{{ formset.empty_form.unit_price }}</td>
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="location">{{ formset.empty_form.location }}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <div class="d-none">{{ formset.empty_form.DELETE }}</div>
@@ -147,14 +147,14 @@
                         </tr>
                     </template>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>
                         {% if cancel_url_pk %}
-                        <a href="{% url cancel_url cancel_url_pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url cancel_url cancel_url_pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                         {% else %}
-                        <a href="{% url 'receiving:receiving_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'receiving:receiving_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                         {% endif %}
                     </div>
                 </form>
@@ -170,37 +170,37 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
-                        <input type="text" id="supplier-code" class="form-control form-control-sm" placeholder="SUP-001" maxlength="20">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label class="ims-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-code" class="ims-control form-control-sm" placeholder="SUP-001" maxlength="20">
                     </div>
-                    <div class="col-md-8">
-                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
-                        <input type="text" id="supplier-name" class="form-control form-control-sm" placeholder="PT Kimia Farma">
+                    <div class="ims-layout-col-md-8">
+                        <label class="ims-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-name" class="ims-control form-control-sm" placeholder="PT Kimia Farma">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Alamat</label>
-                        <textarea id="supplier-address" class="form-control form-control-sm" rows="2" placeholder="Jl. Contoh No. 123"></textarea>
+                    <div class="ims-layout-col-12">
+                        <label class="ims-label fw-semibold">Alamat</label>
+                        <textarea id="supplier-address" class="ims-control form-control-sm" rows="2" placeholder="Jl. Contoh No. 123"></textarea>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Telepon</label>
-                        <input type="text" id="supplier-phone" class="form-control form-control-sm" placeholder="021-12345678" maxlength="50">
+                    <div class="ims-layout-col-md-6">
+                        <label class="ims-label fw-semibold">Telepon</label>
+                        <input type="text" id="supplier-phone" class="ims-control form-control-sm" placeholder="021-12345678" maxlength="50">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Email</label>
-                        <input type="email" id="supplier-email" class="form-control form-control-sm" placeholder="info@supplier.com">
+                    <div class="ims-layout-col-md-6">
+                        <label class="ims-label fw-semibold">Email</label>
+                        <input type="email" id="supplier-email" class="ims-control form-control-sm" placeholder="info@supplier.com">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Catatan</label>
-                        <textarea id="supplier-notes" class="form-control form-control-sm" rows="2" placeholder="Catatan tambahan"></textarea>
+                    <div class="ims-layout-col-12">
+                        <label class="ims-label fw-semibold">Catatan</label>
+                        <textarea id="supplier-notes" class="ims-control form-control-sm" rows="2" placeholder="Catatan tambahan"></textarea>
                     </div>
                 </div>
-                <div id="supplier-error" class="text-danger small d-none mt-2"></div>
+                <div id="supplier-error" class="text-danger text-ims-xs d-none mt-2"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btn-save-supplier"
+                <button type="button" class="ims-btn ims-btn--muted ims-btn--sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--primary ims-btn--sm" id="btn-save-supplier"
                     data-quick-create
                     data-url="{% url 'receiving:quick_create_supplier' %}"
                     data-fields="supplier-code,supplier-name,supplier-address,supplier-phone,supplier-email,supplier-notes"
@@ -224,25 +224,25 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
-                        <input type="text" id="sumber-dana-code" class="form-control form-control-sm" placeholder="DAK" maxlength="20">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label class="ims-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-code" class="ims-control form-control-sm" placeholder="DAK" maxlength="20">
                     </div>
-                    <div class="col-md-8">
-                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
-                        <input type="text" id="sumber-dana-name" class="form-control form-control-sm" placeholder="Dana Alokasi Khusus">
+                    <div class="ims-layout-col-md-8">
+                        <label class="ims-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-name" class="ims-control form-control-sm" placeholder="Dana Alokasi Khusus">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Keterangan</label>
-                        <textarea id="sumber-dana-description" class="form-control form-control-sm" rows="2" placeholder="Deskripsi sumber dana"></textarea>
+                    <div class="ims-layout-col-12">
+                        <label class="ims-label fw-semibold">Keterangan</label>
+                        <textarea id="sumber-dana-description" class="ims-control form-control-sm" rows="2" placeholder="Deskripsi sumber dana"></textarea>
                     </div>
                 </div>
-                <div id="sumber-dana-error" class="text-danger small d-none mt-2"></div>
+                <div id="sumber-dana-error" class="text-danger text-ims-xs d-none mt-2"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btn-save-sumber-dana"
+                <button type="button" class="ims-btn ims-btn--muted ims-btn--sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--primary ims-btn--sm" id="btn-save-sumber-dana"
                     data-quick-create
                     data-url="{% url 'receiving:quick_create_funding_source' %}"
                     data-fields="sumber-dana-code,sumber-dana-name,sumber-dana-description"
@@ -266,21 +266,21 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
-                        <input type="text" id="receiving-type-code" class="form-control form-control-sm" placeholder="MUTASI" maxlength="20">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label class="ims-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="receiving-type-code" class="ims-control form-control-sm" placeholder="MUTASI" maxlength="20">
                     </div>
-                    <div class="col-md-8">
-                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
-                        <input type="text" id="receiving-type-name" class="form-control form-control-sm" placeholder="Mutasi Internal">
+                    <div class="ims-layout-col-md-8">
+                        <label class="ims-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="receiving-type-name" class="ims-control form-control-sm" placeholder="Mutasi Internal">
                     </div>
                 </div>
-                <div id="receiving-type-error" class="text-danger small d-none mt-2"></div>
+                <div id="receiving-type-error" class="text-danger text-ims-xs d-none mt-2"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btn-save-receiving-type"
+                <button type="button" class="ims-btn ims-btn--muted ims-btn--sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--primary ims-btn--sm" id="btn-save-receiving-type"
                     data-quick-create
                     data-url="{% url 'receiving:quick_create_receiving_type' %}"
                     data-fields="receiving-type-code,receiving-type-name"

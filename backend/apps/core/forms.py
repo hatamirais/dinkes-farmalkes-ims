@@ -107,7 +107,7 @@ class DocumentNumberRuleForm(forms.ModelForm):
         }
         widgets = {
             "template": forms.TextInput(
-                attrs={"class": "form-control font-monospace", "autocomplete": "off"}
+                attrs={"class": "ims-control font-mono", "autocomplete": "off"}
             ),
         }
 

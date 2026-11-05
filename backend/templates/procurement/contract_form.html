@@ -5,13 +5,13 @@
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<div class="ims-procurement-form ims-procurement-contract card content-card table-container form-page-card">
-            <div class="card-header"><span>{{ title }}</span></div>
-            <div class="card-body">
+<div class="ims-procurement-form ims-procurement-contract ims-panel content-card table-container form-page-card">
+            <div class="ims-panel-header"><span>{{ title }}</span></div>
+            <div class="ims-panel-body">
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+                    <div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>
                     {% endif %}
                     <div class="ims-procurement-grid">
                         {% for field in form %}
@@ -22,18 +22,18 @@
                         </div>
                         {% endfor %}
                     </div>
-                    <div class="mt-2 small text-muted">Tip: Gunakan tombol <i class="bi bi-plus-lg"></i> untuk menambah supplier atau sumber dana tanpa meninggalkan form.</div>
+                    <div class="mt-2 text-ims-xs text-muted">Tip: Gunakan tombol <i class="bi bi-plus-lg"></i> untuk menambah supplier atau sumber dana tanpa meninggalkan form.</div>
 
                     <div class="mt-4">
                         <h6 class="fw-semibold mb-3">Baris Kontrak</h6>
                         {% if formset.non_form_errors %}
-                        <div class="alert alert-danger py-2">{{ formset.non_form_errors }}</div>
+                        <div class="ims-alert ims-alert--danger py-2">{{ formset.non_form_errors }}</div>
                         {% endif %}
                         {{ formset.management_form }}
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="text-muted small">Tambah baris untuk menambah item kontrak.</span>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="procurement-lines">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-muted text-ims-xs">Tambah baris untuk menambah item kontrak.</span>
+                            <div class="flex gap-2">
+                                <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm formset-add" data-formset-target="procurement-lines">
                                     <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                                 </button>
                             </div>
@@ -50,10 +50,10 @@
                                 <thead>
                                     <tr>
                                         <th>Barang</th>
-                                        <th class="text-end text-nowrap">Jumlah Awal</th>
-                                        <th class="text-end text-nowrap">Harga Awal</th>
+                                        <th class="text-end whitespace-nowrap">Jumlah Awal</th>
+                                        <th class="text-end whitespace-nowrap">Harga Awal</th>
                                         <th>Catatan</th>
-                                        <th class="text-center text-nowrap">Hapus</th>
+                                        <th class="text-center whitespace-nowrap">Hapus</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -68,7 +68,7 @@
                                         <td class="text-end">{{ line_form.original_unit_price }}{{ line_form.original_unit_price.errors }}</td>
                                         <td>{{ line_form.notes }}{{ line_form.notes.errors }}</td>
                                         <td class="text-center">
-                                            <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                            <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                             <div class="d-none">{{ line_form.DELETE }}</div>
@@ -89,7 +89,7 @@
                             <td class="text-end">{{ formset.empty_form.original_unit_price }}</td>
                             <td>{{ formset.empty_form.notes }}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <div class="d-none">{{ formset.empty_form.DELETE }}</div>
@@ -97,12 +97,12 @@
                         </tr>
                     </template>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">Simpan</button>
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" class="ims-btn ims-btn--primary">Simpan</button>
                         {% if contract %}
-                        <a href="{% url 'procurement:contract_detail' contract.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'procurement:contract_detail' contract.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                         {% else %}
-                        <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'procurement:contract_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                         {% endif %}
                     </div>
                 </form>
@@ -117,37 +117,37 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label for="supplier-code" class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
-                        <input type="text" id="supplier-code" class="form-control form-control-sm" placeholder="SUP-001" maxlength="20">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label for="supplier-code" class="ims-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-code" class="ims-control form-control-sm" placeholder="SUP-001" maxlength="20">
                     </div>
-                    <div class="col-md-8">
-                        <label for="supplier-name" class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
-                        <input type="text" id="supplier-name" class="form-control form-control-sm" placeholder="PT Kimia Farma">
-                    </div>
-                    <div class="ims-procurement-modal-full">
-                        <label for="supplier-address" class="form-label fw-semibold">Alamat</label>
-                        <textarea id="supplier-address" class="form-control form-control-sm" rows="2" placeholder="Jl. Contoh No. 123"></textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="supplier-phone" class="form-label fw-semibold">Telepon</label>
-                        <input type="text" id="supplier-phone" class="form-control form-control-sm" placeholder="021-12345678" maxlength="50">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="supplier-email" class="form-label fw-semibold">Email</label>
-                        <input type="email" id="supplier-email" class="form-control form-control-sm" placeholder="info@supplier.com">
+                    <div class="ims-layout-col-md-8">
+                        <label for="supplier-name" class="ims-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="supplier-name" class="ims-control form-control-sm" placeholder="PT Kimia Farma">
                     </div>
                     <div class="ims-procurement-modal-full">
-                        <label for="supplier-notes" class="form-label fw-semibold">Catatan</label>
-                        <textarea id="supplier-notes" class="form-control form-control-sm" rows="2" placeholder="Catatan tambahan"></textarea>
+                        <label for="supplier-address" class="ims-label fw-semibold">Alamat</label>
+                        <textarea id="supplier-address" class="ims-control form-control-sm" rows="2" placeholder="Jl. Contoh No. 123"></textarea>
+                    </div>
+                    <div class="ims-layout-col-md-6">
+                        <label for="supplier-phone" class="ims-label fw-semibold">Telepon</label>
+                        <input type="text" id="supplier-phone" class="ims-control form-control-sm" placeholder="021-12345678" maxlength="50">
+                    </div>
+                    <div class="ims-layout-col-md-6">
+                        <label for="supplier-email" class="ims-label fw-semibold">Email</label>
+                        <input type="email" id="supplier-email" class="ims-control form-control-sm" placeholder="info@supplier.com">
+                    </div>
+                    <div class="ims-procurement-modal-full">
+                        <label for="supplier-notes" class="ims-label fw-semibold">Catatan</label>
+                        <textarea id="supplier-notes" class="ims-control form-control-sm" rows="2" placeholder="Catatan tambahan"></textarea>
                     </div>
                 </div>
-                <div id="supplier-error" class="text-danger small d-none mt-2"></div>
+                <div id="supplier-error" class="text-danger text-ims-xs d-none mt-2"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary btn-sm"
+                <button type="button" class="ims-btn ims-btn--muted ims-btn--sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--primary ims-btn--sm"
                     data-quick-create
                     data-url="{% url 'procurement:quick_create_supplier' %}"
                     data-fields="supplier-code,supplier-name,supplier-address,supplier-phone,supplier-email,supplier-notes"
@@ -170,25 +170,25 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label for="sumber-dana-code" class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
-                        <input type="text" id="sumber-dana-code" class="form-control form-control-sm" placeholder="DAK" maxlength="20">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label for="sumber-dana-code" class="ims-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-code" class="ims-control form-control-sm" placeholder="DAK" maxlength="20">
                     </div>
-                    <div class="col-md-8">
-                        <label for="sumber-dana-name" class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
-                        <input type="text" id="sumber-dana-name" class="form-control form-control-sm" placeholder="Dana Alokasi Khusus">
+                    <div class="ims-layout-col-md-8">
+                        <label for="sumber-dana-name" class="ims-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="sumber-dana-name" class="ims-control form-control-sm" placeholder="Dana Alokasi Khusus">
                     </div>
                     <div class="ims-procurement-modal-full">
-                        <label for="sumber-dana-description" class="form-label fw-semibold">Keterangan</label>
-                        <textarea id="sumber-dana-description" class="form-control form-control-sm" rows="2" placeholder="Deskripsi sumber dana"></textarea>
+                        <label for="sumber-dana-description" class="ims-label fw-semibold">Keterangan</label>
+                        <textarea id="sumber-dana-description" class="ims-control form-control-sm" rows="2" placeholder="Deskripsi sumber dana"></textarea>
                     </div>
                 </div>
-                <div id="sumber-dana-error" class="text-danger small d-none mt-2"></div>
+                <div id="sumber-dana-error" class="text-danger text-ims-xs d-none mt-2"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary btn-sm"
+                <button type="button" class="ims-btn ims-btn--muted ims-btn--sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--primary ims-btn--sm"
                     data-quick-create
                     data-url="{% url 'procurement:quick_create_funding_source' %}"
                     data-fields="sumber-dana-code,sumber-dana-name,sumber-dana-description"

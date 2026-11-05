@@ -196,7 +196,7 @@
                                                             id="{{ field.id_for_label }}_{{ value }}"
                                                             value="{{ value }}"
                                                             {% if field.value|stringformat:'s' == value|stringformat:'s' %}checked{% endif %}
-                                                            class="visually-hidden"
+                                                            class="sr-only"
                                                             {% if field.errors %}aria-invalid="true"{% endif %}
                                                         >
                                                         <span class="scope-label-text">{{ label }}</span>
@@ -320,5 +320,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/user-form.js' %}?v={{ app_version }}-wave5-users"></script>
+<script src="{% static 'js/user-form.js' %}?v={{ app_version }}-wave9"></script>
 {% endblock %}

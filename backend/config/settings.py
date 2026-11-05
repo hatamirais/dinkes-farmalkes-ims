@@ -62,8 +62,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third-party
-    "crispy_forms",
-    "crispy_bootstrap5",
     "django_filters",
     "import_export",
     "axes",
@@ -193,10 +191,6 @@ PRIVATE_MEDIA_ROOT = Path(
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Crispy Forms
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # ─── django-auditlog: Object Change History ─────────────────────────
 # django-auditlog stores create/update/delete history in database-backed
@@ -423,7 +417,7 @@ if not DEBUG:
 SECURE_CSP = {
     "default-src": ["'self'"],
     "script-src": ["'self'"],
-    "style-src": ["'self'", "'unsafe-inline'"],  # Bootstrap relies on inline styles
+    "style-src": ["'self'", "'unsafe-inline'"],  # Existing template and widget inline styles
     "img-src": ["'self'", "data:"],
     "font-src": ["'self'"],
     "connect-src": ["'self'"],
