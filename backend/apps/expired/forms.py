@@ -20,8 +20,8 @@ class ExpiredForm(forms.ModelForm):
         model = Expired
         fields = ['report_date', 'notes']
         widgets = {
-            'report_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'report_date': forms.DateInput(attrs={'class': 'ims-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'ims-control', 'rows': 2}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -39,17 +39,17 @@ class ExpiredItemForm(forms.ModelForm):
         fields = ['item', 'stock', 'quantity', 'notes']
         widgets = {
             'item': forms.Select(attrs={
-                'class': 'form-select form-select-sm js-typeahead-select js-item-select',
+                'class': 'ims-control form-select-sm js-typeahead-select js-item-select',
             }),
             'stock': StockByItemSelect(attrs={
-                'class': 'form-select form-select-sm js-stock-select',
+                'class': 'ims-control form-select-sm js-stock-select',
             }),
             'quantity': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm',
+                'class': 'ims-control form-control-sm',
                 'min': '0.01',
                 'step': '0.01',
             }),
-            'notes': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'notes': forms.TextInput(attrs={'class': 'ims-control form-control-sm'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -175,30 +175,30 @@ class ExpiredAuditReportFilterForm(forms.Form):
         label="Basis Tanggal",
         choices=DATE_FIELD_CHOICES,
         initial="disposed_at",
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
 
     start_date = forms.DateField(
         label="Tanggal Mulai",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(attrs={"type": "date", "class": "ims-control"}),
     )
     end_date = forms.DateField(
         label="Tanggal Selesai",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(attrs={"type": "date", "class": "ims-control"}),
     )
     location = forms.ModelChoiceField(
         label="Lokasi",
         required=False,
         queryset=Location.objects.none(),
         empty_label="Semua Lokasi",
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
     item = forms.ModelChoiceField(
         label="Barang",
         required=False,
         queryset=Item.objects.none(),
         empty_label="Semua Barang",
-        widget=forms.Select(attrs={"class": "form-select js-typeahead-select"}),
+        widget=forms.Select(attrs={"class": "ims-control js-typeahead-select"}),
     )
     outcome_type = forms.CharField(
         required=False,
@@ -210,7 +210,7 @@ class ExpiredAuditReportFilterForm(forms.Form):
         required=False,
         queryset=FundingSource.objects.none(),
         empty_label="Semua Sumber Dana",
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
 
     def __init__(self, *args, **kwargs):

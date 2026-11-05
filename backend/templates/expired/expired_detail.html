@@ -4,74 +4,74 @@
 {% block page_title %}Detail Barang Kedaluwarsa{% endblock %}
 
 {% block content %}
-<div class="ims-workflow ims-workflow-detail row g-3">
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header"><span>Informasi Dokumen</span></div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-5 text-muted">No. Dokumen</dt>
-                    <dd class="col-7 fw-semibold">{{ expired_doc.document_number|default:"Belum diterbitkan" }}</dd>
+<div class="ims-workflow ims-workflow-detail ims-layout-row ims-layout-g-3">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>Informasi Dokumen</span></div>
+            <div class="ims-panel-body">
+                <dl class="ims-layout-row mb-0">
+                    <dt class="ims-layout-col-5 text-muted">No. Dokumen</dt>
+                    <dd class="ims-layout-col-7 fw-semibold">{{ expired_doc.document_number|default:"Belum diterbitkan" }}</dd>
 
-                    <dt class="col-5 text-muted">Tanggal</dt>
-                    <dd class="col-7">{{ expired_doc.report_date|date:"d/m/Y" }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Tanggal</dt>
+                    <dd class="ims-layout-col-7">{{ expired_doc.report_date|date:"d/m/Y" }}</dd>
 
-                    <dt class="col-5 text-muted">Status</dt>
-                    <dd class="col-7"><span class="badge-status badge-{{ expired_doc.status|lower }}">{{ expired_doc.get_status_display }}</span></dd>
+                    <dt class="ims-layout-col-5 text-muted">Status</dt>
+                    <dd class="ims-layout-col-7"><span class="badge-status badge-{{ expired_doc.status|lower }}">{{ expired_doc.get_status_display }}</span></dd>
 
-                    <dt class="col-5 text-muted">Dibuat oleh</dt>
-                    <dd class="col-7">{{ expired_doc.created_by }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Dibuat oleh</dt>
+                    <dd class="ims-layout-col-7">{{ expired_doc.created_by }}</dd>
 
                     {% if expired_doc.verified_by %}
-                    <dt class="col-5 text-muted">Diverifikasi</dt>
-                    <dd class="col-7">{{ expired_doc.verified_by }} <br><small class="text-muted">{{ expired_doc.verified_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-layout-col-5 text-muted">Diverifikasi</dt>
+                    <dd class="ims-layout-col-7">{{ expired_doc.verified_by }} <br><small class="text-muted">{{ expired_doc.verified_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
                     {% if expired_doc.disposed_by %}
-                    <dt class="col-5 text-muted">Dimusnahkan</dt>
-                    <dd class="col-7">{{ expired_doc.disposed_by }} <br><small class="text-muted">{{ expired_doc.disposed_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-layout-col-5 text-muted">Dimusnahkan</dt>
+                    <dd class="ims-layout-col-7">{{ expired_doc.disposed_by }} <br><small class="text-muted">{{ expired_doc.disposed_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
                     {% if expired_doc.notes %}
-                    <dt class="col-5 text-muted">Catatan</dt>
-                    <dd class="col-7">{{ expired_doc.notes }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Catatan</dt>
+                    <dd class="ims-layout-col-7">{{ expired_doc.notes }}</dd>
                     {% endif %}
                 </dl>
             </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2 mt-3">
+        <div class="flex flex-wrap gap-2 mt-3">
             {% if expired_doc.status == 'DRAFT' %}
-            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
             <form method="post" action="{% url 'expired:expired_submit' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Ajukan dokumen ini?">
+                <button type="submit" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Ajukan dokumen ini?">
                     <i class="bi bi-send me-1"></i>Ajukan
                 </button>
             </form>
             <form method="post" action="{% url 'expired:expired_delete' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger" data-confirm="Hapus dokumen draft ini? Tindakan ini tidak dapat dibatalkan.">
+                <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger" data-confirm="Hapus dokumen draft ini? Tindakan ini tidak dapat dibatalkan.">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
             </form>
             {% elif expired_doc.status == 'SUBMITTED' %}
-            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+            <a href="{% url 'expired:expired_edit' expired_doc.pk %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-pencil me-1"></i>Ubah
             </a>
             {% if can_approve_expired_actions %}
             <form method="post" action="{% url 'expired:expired_verify' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Verifikasi dokumen ini? Stok akan dikurangi sesuai item yang dilaporkan.">
+                <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Verifikasi dokumen ini? Stok akan dikurangi sesuai item yang dilaporkan.">
                     <i class="bi bi-patch-check me-1"></i>Verifikasi
                 </button>
             </form>
             {% endif %}
             <form method="post" action="{% url 'expired:expired_reset_to_draft' expired_doc.pk %}" data-confirm-submit="Kembalikan dokumen ini ke Draft?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-warning btn-sm ims-btn ims-btn--sm">
+                <button type="submit" class="ims-btn ims-btn--warning-outline ims-btn--sm ims-btn ims-btn--sm">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
                 </button>
             </form>
@@ -79,7 +79,7 @@
             {% if can_dispose_expired_actions %}
             <form method="post" action="{% url 'expired:expired_dispose' expired_doc.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">
+                <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Tandai dokumen ini sebagai dimusnahkan?">
                     <i class="bi bi-check2-circle me-1"></i>Tandai Dimusnahkan
                 </button>
             </form>
@@ -87,7 +87,7 @@
             {% elif expired_doc.status == 'DISPOSED' %}
             <form method="post" action="{% url 'expired:expired_step_back' expired_doc.pk %}" data-confirm-submit="Kembalikan status dokumen ke Terverifikasi?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke Terverifikasi
                 </button>
             </form>
@@ -95,21 +95,21 @@
             {% if expired_doc.status == 'SUBMITTED' %}
             <form method="post" action="{% url 'expired:expired_step_back' expired_doc.pk %}" data-confirm-submit="Kembalikan dokumen ini ke status sebelumnya?">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                     <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke status sebelumnya
                 </button>
             </form>
             {% endif %}
-            <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+            <a href="{% url 'expired:expired_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-arrow-left me-1"></i>Kembali
             </a>
         </div>
     </div>
 
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header"><span>Daftar Item Kedaluwarsa</span></div>
-            <div class="card-body p-0">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>Daftar Item Kedaluwarsa</span></div>
+            <div class="ims-panel-body p-0">
                 <div class="table-responsive ims-table-scroll">
                     <table class="table ims-table">
                         <thead>
@@ -134,13 +134,13 @@
                                 <td>{{ ei.stock.expiry_date|date:"d/m/Y"|default:"Tanpa kedaluwarsa" }}</td>
                                 <td>{{ ei.stock.location.name }}</td>
                                 <td class="text-end fw-semibold">{{ ei.quantity }}</td>
-                                <td class="text-muted small">{{ ei.notes|default:"-" }}</td>
+                                <td class="text-muted text-ims-xs">{{ ei.notes|default:"-" }}</td>
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="8">
                                     <div class="empty-state">
-                                        <i class="bi bi-inbox d-block"></i>
+                                        <i class="bi bi-inbox block"></i>
                                         <p>Belum ada item kedaluwarsa</p>
                                     </div>
                                 </td>

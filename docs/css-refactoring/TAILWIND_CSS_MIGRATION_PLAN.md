@@ -1,6 +1,6 @@
 # Tailwind CSS Migration Plan
 
-Status: Waves 1-6 migrated; Wave 7 Mobile/PWA implemented; device verification pending; Wave 8 print/Admin verified; Wave 9 pending
+Status: Waves 1-6 migrated; Wave 7 Mobile/PWA implemented; device verification pending; Wave 8 print/Admin verified; Wave 9 implemented; verification and user visual acceptance tracked in ledger
 Scope: CSS and visual-system migration only  
 Deferred follow-up: Alpine.js and removal of Bootstrap JavaScript  
 Application: Django server-rendered Healthcare IMS
@@ -626,6 +626,8 @@ Requirements:
 Wave 8 implementation covers seven standalone print templates, shared print foundations for embedded reports/SBBK, and five Django Admin overrides. `print.css` is compiled into the existing generated stylesheet; Admin uses a separate scoped compatibility stylesheet and retains native Django styles rather than application preflight. All document data, signatures, formats and workflow permissions are preserved. The user approved the LPLPO queue print-button CSP fix using the existing external handler. Wave 7 native-install checks and issue #309 remain separate. Wave 8 exit gate passed on 4 November 2026; see the migration ledger for route-level PDF/browser evidence and documented physical-printer limitations.
 
 ### Wave 9: Bootstrap CSS removal
+
+Implemented on 5 November 2026 from `main` (`1c51be6`) on `tailwind/wave9-css-removal`. Current inventory, retained behavior/style adapters and verification results are recorded in the ledger. Earlier baseline counts and wave notes are historical. Physical-device/install checks from Wave 7 and user visual acceptance remain explicit completion requirements; this implementation does not mark them passed.
 
 Only after every surface has passed its wave gate:
 

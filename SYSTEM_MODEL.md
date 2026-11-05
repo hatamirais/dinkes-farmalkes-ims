@@ -677,3 +677,7 @@ If model fields, routes, settings, permission logic, or import behavior change:
    - `/jazzband/django-axes`
    - `/jazzband/django-auditlog`
 
+
+## Wave 9 presentation dependency cleanup
+
+All IMS surfaces use the generated Tailwind stylesheet. `base.html` aliases the Tailwind desktop shell; native Django Admin styling remains isolated. Bound-field rendering replaces remaining Crispy calls, and unused helpers, Crispy packages/settings, Bootstrap CSS, legacy stylesheets and the Tom Select Bootstrap theme are removed. Bootstrap JavaScript, behavior hooks, Bootstrap Icons, Flatpickr and the CSP remain. No route, model, workflow, permission or stock calculation changes. The historical `CrispyAuthenticationForm` class name remains a compatibility name for the existing Django AuthenticationForm subclass; it does not import Crispy.

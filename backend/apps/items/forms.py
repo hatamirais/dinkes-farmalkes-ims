@@ -43,17 +43,17 @@ class ItemForm(forms.ModelForm):
             "description",
         ]
         widgets = {
-            "barcode": forms.TextInput(attrs={"class": "form-control", "maxlength": 100}),
-            "nama_barang": forms.TextInput(attrs={"class": "form-control", "maxlength": 255}),
-            "satuan": forms.Select(attrs={"class": "form-select"}),
-            "kategori": forms.Select(attrs={"class": "form-select"}),
+            "barcode": forms.TextInput(attrs={"class": "ims-control", "maxlength": 100}),
+            "nama_barang": forms.TextInput(attrs={"class": "ims-control", "maxlength": 255}),
+            "satuan": forms.Select(attrs={"class": "ims-control"}),
+            "kategori": forms.Select(attrs={"class": "ims-control"}),
             "is_program_item": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "is_essential": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "program": forms.Select(attrs={"class": "form-select"}),
-            "therapeutic_classes": forms.SelectMultiple(attrs={"class": "form-select"}),
+            "program": forms.Select(attrs={"class": "ims-control"}),
+            "therapeutic_classes": forms.SelectMultiple(attrs={"class": "ims-control"}),
             "requires_expiry_date": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "minimum_stock": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "minimum_stock": forms.NumberInput(attrs={"class": "ims-control", "min": "0", "step": "0.01"}),
+            "description": forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -202,9 +202,9 @@ class UnitForm(LookupValidationMixin, forms.ModelForm):
         model = Unit
         fields = ["code", "name", "description"]
         widgets = {
-            "code": forms.TextInput(attrs={"class": "form-control", "maxlength": 20}),
-            "name": forms.TextInput(attrs={"class": "form-control", "maxlength": 100}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "code": forms.TextInput(attrs={"class": "ims-control", "maxlength": 20}),
+            "name": forms.TextInput(attrs={"class": "ims-control", "maxlength": 100}),
+            "description": forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
         }
 
     def clean_code(self):
@@ -224,9 +224,9 @@ class CategoryForm(LookupValidationMixin, forms.ModelForm):
         model = Category
         fields = ["code", "name", "sort_order"]
         widgets = {
-            "code": forms.TextInput(attrs={"class": "form-control", "maxlength": 20}),
-            "name": forms.TextInput(attrs={"class": "form-control", "maxlength": 100}),
-            "sort_order": forms.NumberInput(attrs={"class": "form-control"}),
+            "code": forms.TextInput(attrs={"class": "ims-control", "maxlength": 20}),
+            "name": forms.TextInput(attrs={"class": "ims-control", "maxlength": 100}),
+            "sort_order": forms.NumberInput(attrs={"class": "ims-control"}),
         }
 
     def clean_code(self):
@@ -243,9 +243,9 @@ class ProgramForm(LookupValidationMixin, forms.ModelForm):
         model = Program
         fields = ["code", "name", "description", "is_active"]
         widgets = {
-            "code": forms.TextInput(attrs={"class": "form-control", "maxlength": 20}),
-            "name": forms.TextInput(attrs={"class": "form-control", "maxlength": 100}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "code": forms.TextInput(attrs={"class": "ims-control", "maxlength": 20}),
+            "name": forms.TextInput(attrs={"class": "ims-control", "maxlength": 100}),
+            "description": forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -266,9 +266,9 @@ class TherapeuticClassForm(LookupValidationMixin, forms.ModelForm):
         model = TherapeuticClass
         fields = ["code", "name", "description", "is_active"]
         widgets = {
-            "code": forms.TextInput(attrs={"class": "form-control", "maxlength": 20}),
-            "name": forms.TextInput(attrs={"class": "form-control", "maxlength": 100}),
-            "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "code": forms.TextInput(attrs={"class": "ims-control", "maxlength": 20}),
+            "name": forms.TextInput(attrs={"class": "ims-control", "maxlength": 100}),
+            "description": forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 

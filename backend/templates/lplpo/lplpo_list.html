@@ -6,7 +6,7 @@
 {% block content %}
 <div class="ims-workflow ims-lplpo ims-lplpo-list container-fluid">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4 ims-lplpo-list-header">
+    <div class="flex justify-between items-center mb-4 ims-lplpo-list-header">
         <div>
             {% if is_all %}
             {% if can_manage_all_lplpo %}
@@ -21,19 +21,19 @@
             <p class="text-muted mb-0">Laporan Pemakaian & Lembar Permintaan Obat fasilitas Anda</p>
             {% endif %}
         </div>
-        <div class="d-flex gap-2">
+        <div class="flex gap-2">
             {% if request.user.role == 'PUSKESMAS' or can_manage_all_lplpo %}
-            <a href="{% url 'lplpo:lplpo_create' %}" class="btn btn-primary ims-btn ims-btn--primary" id="create-lplpo-btn">
+            <a href="{% url 'lplpo:lplpo_create' %}" class="ims-btn ims-btn--primary ims-btn ims-btn--primary" id="create-lplpo-btn">
                 <i class="bi bi-plus-lg me-1"></i> Buat LPLPO Baru
             </a>
             {% endif %}
             {% if is_all and can_create_manual_lplpo_distribution %}
-            <a href="{% url 'distribution:manual_lplpo_create' %}" class="btn btn-primary ims-btn ims-btn--primary" id="create-manual-lplpo-distribution-btn">
+            <a href="{% url 'distribution:manual_lplpo_create' %}" class="ims-btn ims-btn--primary ims-btn ims-btn--primary" id="create-manual-lplpo-distribution-btn">
                 <i class="bi bi-plus-lg me-1"></i> Buat Distribusi LPLPO
             </a>
             {% endif %}
             {% if is_all %}
-            <a href="{% url 'lplpo:lplpo_print_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral" target="_blank" id="print-report-btn">
+            <a href="{% url 'lplpo:lplpo_print_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="ims-btn ims-btn--neutral ims-btn ims-btn--neutral" target="_blank" id="print-report-btn">
                 <i class="bi bi-printer me-1"></i> Cetak Laporan
             </a>
             {% endif %}
@@ -41,17 +41,17 @@
     </div>
 
     <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-body py-2">
-            <form method="get" class="row g-2 align-items-end ims-lplpo-filters">
+    <div class="ims-panel mb-4">
+        <div class="ims-panel-body py-2">
+            <form method="get" class="ims-layout-row ims-layout-g-2 items-end ims-lplpo-filters">
                 {% if is_all %}
-                <div class="col-12 col-md-4">
+                <div class="ims-layout-col-12 ims-layout-col-md-4">
                     <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor / puskesmas..."
-                        class="form-control form-control-sm ims-control" id="search-input">
+                        class="ims-control form-control-sm ims-control" id="search-input">
                 </div>
                 {% endif %}
-                <div class="col-6 col-md-3">
-                    <select name="status" class="form-select form-select-sm ims-control" id="status-filter">
+                <div class="ims-layout-col-6 ims-layout-col-md-3">
+                    <select name="status" class="ims-control form-select-sm ims-control" id="status-filter">
                         <option value="">Semua Status</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>
@@ -83,27 +83,27 @@
                     </select>
                 </div>
                 {% if is_all %}
-                        <div class="col-6 col-md-2">
-                            <select name="submitted_month" class="form-select form-select-sm ims-control" id="submitted-month-filter">
+                        <div class="ims-layout-col-6 ims-layout-col-md-2">
+                            <select name="submitted_month" class="ims-control form-select-sm ims-control" id="submitted-month-filter">
                                 <option value="">Bulan Pengajuan</option>
                                 {% for value, label in submission_month_choices %}
                                 <option value="{{ value }}" {% if value == selected_submitted_month %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-6 col-md-2">
+                        <div class="ims-layout-col-6 ims-layout-col-md-2">
                             <input type="number" name="submitted_year" value="{{ selected_submitted_year }}" placeholder="Tahun Pengajuan"
-                                class="form-control form-control-sm ims-control" id="submitted-year-filter">
+                                class="ims-control form-control-sm ims-control" id="submitted-year-filter">
                 </div>
                 {% endif %}
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-primary ims-btn ims-btn--sm ims-btn--primary" id="filter-btn">
+                <div class="ims-layout-col-auto">
+                    <button type="submit" class="ims-btn ims-btn--sm ims-btn--primary ims-btn ims-btn--sm ims-btn--primary" id="filter-btn">
                         <i class="bi bi-funnel me-1"></i>Filter
                     </button>
                     {% if is_all %}
-                    <a href="{% url 'lplpo:lplpo_list' %}" class="btn btn-sm btn-outline-secondary ms-1 ims-btn ims-btn--sm ims-btn--neutral" id="reset-btn">Reset</a>
+                    <a href="{% url 'lplpo:lplpo_list' %}" class="ims-btn ims-btn--sm ims-btn--neutral ms-1 ims-btn ims-btn--sm ims-btn--neutral" id="reset-btn">Reset</a>
                     {% else %}
-                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="btn btn-sm btn-outline-secondary ms-1 ims-btn ims-btn--sm ims-btn--neutral" id="reset-btn">Reset</a>
+                    <a href="{% url 'lplpo:lplpo_my_list' %}" class="ims-btn ims-btn--sm ims-btn--neutral ms-1 ims-btn ims-btn--sm ims-btn--neutral" id="reset-btn">Reset</a>
                     {% endif %}
                 </div>
             </form>
@@ -111,11 +111,11 @@
     </div>
 
     <!-- Table -->
-    <div class="card">
-        <div class="card-body p-0">
+    <div class="ims-panel">
+        <div class="ims-panel-body p-0">
             <div class="table-responsive ims-table-scroll">
-                <table class="table table-hover mb-0 ims-table" id="lplpo-table">
-                    <thead class="table-light">
+                <table class="table ims-table--hover mb-0 ims-table" id="lplpo-table">
+                    <thead class="ims-table-heading">
                         <tr>
                             <th>Nomor</th>
                             {% if is_all %}<th>Puskesmas</th>{% endif %}
@@ -131,7 +131,7 @@
                         <tr>
                             <td>
                                 <a href="{% url 'lplpo:lplpo_detail' lp.pk %}"
-                                    class="fw-semibold text-decoration-none">
+                                    class="fw-semibold no-underline">
                                     {{ lp.document_number }}
                                 </a>
                             </td>
@@ -142,29 +142,29 @@
                             {% if is_all %}<td>{{ lp.submitted_at|date:"d/m/Y H:i"|default:"-" }}</td>{% endif %}
                             <td>
                                 {% if lp.status == 'DRAFT' %}
-                                <span class="badge text-bg-secondary">Draft</span>
+                                <span class="ims-badge text-bg-secondary">Draft</span>
                                 {% elif lp.status == 'SUBMITTED' %}
-                                <span class="badge text-bg-warning">{% if request.user.role == 'PUSKESMAS' %}Menunggu Verifikasi PIC{% else %}Menunggu Verifikasi PIC{% endif %}</span>
+                                <span class="ims-badge text-bg-warning">{% if request.user.role == 'PUSKESMAS' %}Menunggu Verifikasi PIC{% else %}Menunggu Verifikasi PIC{% endif %}</span>
                                 {% elif lp.status == 'PIC_VERIFIED' %}
-                                <span class="badge text-bg-info">{% if request.user.role == 'PUSKESMAS' %}Sedang Ditinjau PIC{% else %}Terverifikasi PIC{% endif %}</span>
+                                <span class="ims-badge text-bg-info">{% if request.user.role == 'PUSKESMAS' %}Sedang Ditinjau PIC{% else %}Terverifikasi PIC{% endif %}</span>
                                 {% elif lp.status == 'REJECTED_PUSKESMAS' %}
-                                <span class="badge text-bg-danger">{% if request.user.role == 'PUSKESMAS' %}Ditolak PIC{% else %}Dikembalikan ke Puskesmas{% endif %}</span>
+                                <span class="ims-badge text-bg-danger">{% if request.user.role == 'PUSKESMAS' %}Ditolak PIC{% else %}Dikembalikan ke Puskesmas{% endif %}</span>
                                 {% elif lp.status == 'REVIEWED' %}
-                                <span class="badge text-bg-primary">Ditinjau PIC (Legacy)</span>
+                                <span class="ims-badge text-bg-primary">Ditinjau PIC (Legacy)</span>
                                 {% elif lp.status == 'REJECTED_PIC' %}
-                                <span class="badge text-bg-danger">{% if request.user.role == 'PUSKESMAS' %}Direvisi oleh PIC{% else %}Dikembalikan ke PIC{% endif %}</span>
+                                <span class="ims-badge text-bg-danger">{% if request.user.role == 'PUSKESMAS' %}Direvisi oleh PIC{% else %}Dikembalikan ke PIC{% endif %}</span>
                                 {% elif lp.status == 'APPROVED' %}
-                                <span class="badge text-bg-success">{% if lp.distribution_id %}{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Diproses{% else %}Distribusi Diproses{% endif %}{% else %}Siap Distribusi{% endif %}</span>
+                                <span class="ims-badge text-bg-success">{% if lp.distribution_id %}{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Diproses{% else %}Distribusi Diproses{% endif %}{% else %}Siap Distribusi{% endif %}</span>
                                 {% elif lp.status == 'DISTRIBUTED' %}
-                                <span class="badge text-bg-primary">{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Dibuat{% else %}Didistribusikan{% endif %}</span>
+                                <span class="ims-badge text-bg-primary">{% if request.user.role == 'PUSKESMAS' %}Dokumen Distribusi Dibuat{% else %}Didistribusikan{% endif %}</span>
                                 {% elif lp.status == 'CLOSED' %}
-                                <span class="badge text-bg-success">{% if request.user.role == 'PUSKESMAS' %}Sudah Didistribusikan{% else %}Ditutup{% endif %}</span>
+                                <span class="ims-badge text-bg-success">{% if request.user.role == 'PUSKESMAS' %}Sudah Didistribusikan{% else %}Ditutup{% endif %}</span>
                                 {% endif %}
                             </td>
-                            <td class="text-muted small">{{ lp.created_by }}</td>
+                            <td class="text-muted text-ims-xs">{{ lp.created_by }}</td>
                             <td class="text-end">
                                 <a href="{% url 'lplpo:lplpo_detail' lp.pk %}"
-                                    class="btn btn-sm btn-outline-primary ims-btn ims-btn--sm ims-btn--secondary" id="view-lplpo-{{ lp.pk }}">
+                                    class="ims-btn ims-btn--sm ims-btn--secondary ims-btn ims-btn--sm ims-btn--secondary" id="view-lplpo-{{ lp.pk }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -172,7 +172,7 @@
                         {% empty %}
                         <tr>
                             <td colspan="{% if is_all %}7{% else %}5{% endif %}" class="text-center text-muted py-4">
-                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                <i class="bi bi-inbox fs-3 block mb-2"></i>
                                 {% if is_all %}Belum ada LPLPO yang diajukan.{% else %}Belum ada LPLPO.{% endif %}
                             </td>
                         </tr>
@@ -182,21 +182,21 @@
             </div>
         </div>
         {% if lplpos.has_other_pages %}
-        <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="ims-panel-footer flex justify-between items-center">
             <small class="text-muted">
                 Halaman {{ lplpos.number }} dari {{ lplpos.paginator.num_pages }}
                 ({{ lplpos.paginator.count }} total)
             </small>
             <nav>
-                <ul class="pagination pagination-sm mb-0">
+                <ul class="ims-pagination ims-pagination--compact mb-0">
                     {% if lplpos.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link ims-page-link" href="?page={{ lplpos.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&laquo;</a>
+                    <li class="ims-page-item">
+                        <a class="ims-page-link ims-page-link" href="?page={{ lplpos.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&laquo;</a>
                     </li>
                     {% endif %}
                     {% if lplpos.has_next %}
-                    <li class="page-item">
-                        <a class="page-link ims-page-link" href="?page={{ lplpos.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&raquo;</a>
+                    <li class="ims-page-item">
+                        <a class="ims-page-link ims-page-link" href="?page={{ lplpos.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_submitted_month %}&submitted_month={{ selected_submitted_month }}{% endif %}{% if selected_submitted_year %}&submitted_year={{ selected_submitted_year }}{% endif %}">&raquo;</a>
                     </li>
                     {% endif %}
                 </ul>

@@ -5,24 +5,24 @@
 
 {% block content %}
 <div class="ims-workflow ims-report ims-numbering-history">
-<div class="row mb-4 d-print-none">
-    <div class="col-12">
-        <div class="card shadow-sm border-0">
-            <div class="card-body bg-light">
-                <form method="get" class="row g-3 align-items-end ims-report-filters">
-                    <div class="col-md-4">
+<div class="ims-layout-row mb-4 d-print-none">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel shadow-sm border-0">
+            <div class="ims-panel-body bg-light">
+                <form method="get" class="ims-layout-row ims-layout-g-3 items-end ims-report-filters">
+                    <div class="ims-layout-col-md-4">
                         {{ form.rule_key.label_tag }}
                         {{ form.rule_key }}
                     </div>
-                    <div class="col-md-2">
+                    <div class="ims-layout-col-md-2">
                         {{ form.year.label_tag }}
                         {{ form.year }}
                     </div>
-                    <div class="col-md-auto d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary ims-btn ims-btn--primary"><i class="bi bi-filter"></i> Terapkan Filter</button>
-                        <a href="{% url 'reports:numbering_history' %}" class="btn btn-outline-secondary ims-btn ims-btn--neutral">Reset</a>
-                        <button type="button" class="btn btn-dark ims-btn ims-btn--neutral" data-action="print"><i class="bi bi-printer"></i> Cetak</button>
-                        <button type="submit" name="format" value="excel" class="btn btn-success ims-btn ims-btn--secondary"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
+                    <div class="ims-layout-col-md-auto flex flex-wrap gap-2">
+                        <button type="submit" class="ims-btn ims-btn--primary ims-btn ims-btn--primary"><i class="bi bi-filter"></i> Terapkan Filter</button>
+                        <a href="{% url 'reports:numbering_history' %}" class="ims-btn ims-btn--neutral ims-btn ims-btn--neutral">Reset</a>
+                        <button type="button" class="ims-btn ims-btn--ink ims-btn ims-btn--neutral" data-action="print"><i class="bi bi-printer"></i> Cetak</button>
+                        <button type="submit" name="format" value="excel" class="ims-btn ims-btn--confirm ims-btn ims-btn--secondary"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
                     </div>
                 </form>
             </div>
@@ -39,18 +39,18 @@
     <div>Tahun {{ form.year.value }}{% if selected_rule_label %} · {{ selected_rule_label }}{% endif %}</div>
 </div>
 
-<div class="card shadow-sm border-0">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+<div class="ims-panel shadow-sm border-0">
+    <div class="ims-panel-header bg-white flex justify-between items-center">
         <div>
             <h5 class="card-title mb-1">Ledger Nomor Resmi</h5>
-            <p class="text-muted mb-0 small">Nomor yang sudah diterbitkan tetap tercatat; pembatalan ditandai VOID dan tidak menggunakan ulang urutan.</p>
+            <p class="text-muted mb-0 text-ims-xs">Nomor yang sudah diterbitkan tetap tercatat; pembatalan ditandai VOID dan tidak menggunakan ulang urutan.</p>
         </div>
-        <span class="badge text-bg-light">{{ history_rows|length }} nomor</span>
+        <span class="ims-badge text-bg-light">{{ history_rows|length }} nomor</span>
     </div>
-    <div class="card-body">
+    <div class="ims-panel-body">
         <div class="table-responsive ims-table-scroll" role="region" aria-label="Riwayat penomoran dokumen" tabindex="0">
-            <table class="table table-hover table-bordered align-middle mb-0 ims-table">
-                <thead class="table-light">
+            <table class="table ims-table--hover ims-table--ruled align-middle mb-0 ims-table">
+                <thead class="ims-table-heading">
                     <tr>
                         <th class="text-center" style="width:56px">No</th>
                         <th>No. Dokumen</th>
@@ -70,11 +70,11 @@
                         <td class="text-center">{{ forloop.counter }}</td>
                         <td>
                             <div class="fw-semibold">{{ row.document_number }}</div>
-                            <div class="small text-muted">{{ row.target_label }}</div>
-                            {% if row.is_void %}<div class="small text-danger">Alasan: {{ row.void_reason }}</div>{% endif %}
+                            <div class="text-ims-xs text-muted">{{ row.target_label }}</div>
+                            {% if row.is_void %}<div class="text-ims-xs text-danger">Alasan: {{ row.void_reason }}</div>{% endif %}
                         </td>
                         <td>{{ row.rule_label }}</td>
-                        <td><span class="badge rounded-pill {{ row.status_badge_class }}">{{ row.issue_status }}</span></td>
+                        <td><span class="ims-badge rounded-full {{ row.status_badge_class }}">{{ row.issue_status }}</span></td>
                         <td>{{ row.target_status }}</td>
                         <td>{{ row.business_date|date:"d/m/Y" }}</td>
                         <td><code>{{ row.period_key }} / {{ row.sequence_value }}</code></td>
@@ -84,7 +84,7 @@
                             {% else %}
                             <div class="text-muted">Tidak diketahui</div>
                             {% endif %}
-                            <div class="small text-muted">{{ row.issued_by }}</div>
+                            <div class="text-ims-xs text-muted">{{ row.issued_by }}</div>
                         </td>
                         <td>
                             {% if row.is_void %}
@@ -93,14 +93,14 @@
                                 {% else %}
                                 <div class="text-muted">Waktu tidak diketahui</div>
                                 {% endif %}
-                                <div class="small text-muted">{{ row.voided_by }}</div>
+                                <div class="text-ims-xs text-muted">{{ row.voided_by }}</div>
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td class="d-print-none">
                             {% if row.workflow_url %}
-                            <a href="{{ row.workflow_url }}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">Buka</a>
+                            <a href="{{ row.workflow_url }}" class="ims-btn ims-btn--secondary ims-btn--sm ims-btn ims-btn--sm ims-btn--secondary">Buka</a>
                             {% else %}
                             <span class="text-muted">Dokumen dihapus</span>
                             {% endif %}

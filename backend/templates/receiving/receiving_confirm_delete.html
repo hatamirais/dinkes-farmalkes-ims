@@ -5,32 +5,32 @@
 {% block page_title %}Batalkan Penerimaan{% endblock %}
 
 {% block content %}
-<div class="ims-receiving-form ims-receiving-cancel card content-card">
-    <div class="card-header">
+<div class="ims-receiving-form ims-receiving-cancel ims-panel content-card">
+    <div class="ims-panel-header">
         <span><i class="bi bi-trash me-2"></i>Batalkan Penerimaan</span>
     </div>
-    <div class="card-body">
-        <div class="alert alert-warning">
+    <div class="ims-panel-body">
+        <div class="ims-alert ims-alert--warning">
             Pembatalan akan mengurangi stok dari penerimaan ini dan menambahkan transaksi koreksi. Riwayat transaksi awal tetap disimpan.
         </div>
 
-        <dl class="row">
-            <dt class="col-md-3 text-muted">No. Dokumen</dt>
-            <dd class="col-md-9 fw-semibold">{{ receiving.document_number }}</dd>
-            <dt class="col-md-3 text-muted">Tanggal</dt>
-            <dd class="col-md-9">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>
-            <dt class="col-md-3 text-muted">Status</dt>
-            <dd class="col-md-9">{{ receiving.get_status_display }}</dd>
+        <dl class="ims-layout-row">
+            <dt class="ims-layout-col-md-3 text-muted">No. Dokumen</dt>
+            <dd class="ims-layout-col-md-9 fw-semibold">{{ receiving.document_number }}</dd>
+            <dt class="ims-layout-col-md-3 text-muted">Tanggal</dt>
+            <dd class="ims-layout-col-md-9">{{ receiving.receiving_date|date:"d/m/Y" }}</dd>
+            <dt class="ims-layout-col-md-3 text-muted">Status</dt>
+            <dd class="ims-layout-col-md-9">{{ receiving.get_status_display }}</dd>
         </dl>
 
         <form method="post" novalidate>
             {% csrf_token %}
             <div class="mb-3">{% tailwind_field form.cancel_reason '' '' True %}</div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-danger">
+            <div class="flex gap-2">
+                <button type="submit" class="ims-btn ims-btn--danger">
                     <i class="bi bi-trash me-1"></i>Batalkan Penerimaan
                 </button>
-                <a href="{% url 'receiving:receiving_detail' receiving.pk %}" class="btn btn-outline-secondary">Kembali</a>
+                <a href="{% url 'receiving:receiving_detail' receiving.pk %}" class="ims-btn ims-btn--neutral">Kembali</a>
             </div>
         </form>
     </div>

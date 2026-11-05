@@ -144,10 +144,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 var req = reqs[key];
                 var icon = req.el.querySelector('i');
                 if (req.regex.test(val)) {
-                    icon.className = 'bi bi-check text-success fw-bold me-1';
+                    icon.className = 'bi bi-check text-success font-bold me-1';
                     req.el.classList.replace('text-muted', 'text-success');
                 } else {
-                    icon.className = 'bi bi-x text-danger fw-bold me-1';
+                    icon.className = 'bi bi-x text-danger font-bold me-1';
                     req.el.classList.replace('text-success', 'text-muted');
                 }
             }
@@ -176,9 +176,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             navigator.clipboard.writeText(pwd).then(function () {
                 var toast = document.createElement('div');
-                toast.className = 'toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-3';
+                toast.className = 'toast items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-3';
                 toast.setAttribute('role', 'alert');
-                toast.innerHTML = '<div class="d-flex"><div class="toast-body">Password disalin!</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+                toast.innerHTML = '<div class="flex"><div class="toast-body">Password disalin!</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
                 document.body.appendChild(toast);
                 var bsToast = new bootstrap.Toast(toast, { delay: 2000 });
                 bsToast.show();

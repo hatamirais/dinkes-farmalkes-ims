@@ -109,7 +109,7 @@ function initTypeaheadSelects() {
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'form-control form-control-sm typeahead-input';
+        input.className = 'ims-control form-control-sm typeahead-input';
         input.placeholder = select.getAttribute('data-search-placeholder') || 'Cari barang...';
         input.setAttribute('autocomplete', 'off');
         input.setAttribute('aria-label', 'Cari barang');
@@ -601,11 +601,11 @@ function initStockCardSearch() {
             a.className = 'search-result-item';
 
             const row = document.createElement('div');
-            row.className = 'd-flex justify-content-between align-items-center';
+            row.className = 'flex justify-between items-center';
 
             const left = document.createElement('div');
             const nameEl = document.createElement('div');
-            nameEl.className = 'fw-bold';
+            nameEl.className = 'font-bold';
             nameEl.textContent = name;
             const codeEl = document.createElement('div');
             codeEl.className = 'item-code';
@@ -614,10 +614,10 @@ function initStockCardSearch() {
             left.appendChild(codeEl);
 
             const right = document.createElement('div');
-            right.className = 'text-end text-muted small';
+            right.className = 'text-end text-muted text-ims-xs';
             const categoryRow = document.createElement('div');
             const categoryBadge = document.createElement('span');
-            categoryBadge.className = 'badge bg-light text-dark border';
+            categoryBadge.className = 'ims-badge bg-light text-dark border';
             categoryBadge.textContent = category;
             categoryRow.appendChild(categoryBadge);
             const stockEl = document.createElement('div');
@@ -1289,14 +1289,14 @@ function initDateMaskInputs() {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = input.classList.contains('form-control-sm')
-            ? 'btn btn-outline-secondary btn-sm js-native-date-picker-button'
-            : 'btn btn-outline-secondary js-native-date-picker-button';
+            ? 'ims-btn ims-btn--neutral ims-btn--sm js-native-date-picker-button'
+            : 'ims-btn ims-btn--neutral js-native-date-picker-button';
         button.setAttribute('aria-label', 'Pilih tanggal');
         button.setAttribute('title', 'Pilih tanggal');
         button.innerHTML = '<i class="bi bi-calendar3"></i>';
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'input-group';
+        wrapper.className = 'ims-input-group';
         input.parentNode.insertBefore(wrapper, input);
         wrapper.appendChild(input);
         wrapper.appendChild(button);

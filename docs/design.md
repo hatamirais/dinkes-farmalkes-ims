@@ -1,3 +1,5 @@
+> Historical inventory-table sketch. This is not the implemented UI contract: its bulk actions, columns and metrics were not adopted. Use [DESIGN.md](../DESIGN.md), [SYSTEM_MODEL.md](../SYSTEM_MODEL.md) and the current stock templates/services. Bootstrap-style badge names below are historical; active IMS components use project-owned styling.
+
 # Inventory Table UI
 
 ## Expiry Status

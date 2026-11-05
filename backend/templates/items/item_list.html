@@ -7,16 +7,16 @@
 {% block content %}
 <div class="ims-item-list">
     <div class="ims-item-header">
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <div class="flex flex-col flex-lg-row justify-between align-items-lg-center gap-3">
                 <div>
                     <h5 class="mb-1"><i class="bi bi-box-seam me-2"></i>Daftar Barang</h5>
                     <p class="text-muted mb-0">Kelola kode, satuan, kategori, program, dan kelas terapi dalam satu daftar kerja.</p>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                    <a href="{% url 'items:item_export' %}?q={{ search|urlencode }}&kategori={{ selected_kategori|urlencode }}&program={{ selected_program|urlencode }}&essential={{ selected_essential|urlencode }}&therapeutic_class={{ selected_therapeutic_class|urlencode }}" class="btn btn-outline-success btn-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{% url 'items:item_export' %}?q={{ search|urlencode }}&kategori={{ selected_kategori|urlencode }}&program={{ selected_program|urlencode }}&essential={{ selected_essential|urlencode }}&therapeutic_class={{ selected_therapeutic_class|urlencode }}" class="ims-btn ims-btn--success-outline ims-btn--sm">
                         <i class="bi bi-file-earmark-excel me-1"></i>Export XLSX
                     </a>
-                    <a href="{% url 'items:item_create' %}" class="btn btn-primary btn-sm">
+                    <a href="{% url 'items:item_create' %}" class="ims-btn ims-btn--primary ims-btn--sm">
                         <i class="bi bi-plus-lg me-1"></i>Tambah Barang
                     </a>
                 </div>
@@ -27,12 +27,12 @@
             <form method="get" class="ims-item-filters">
                 <input type="hidden" name="per_page" value="{{ per_page }}">
                 <div>
-                    <label for="item-search" class="form-label small text-muted mb-1">Pencarian</label>
-                    <input id="item-search" type="text" name="q" class="form-control" placeholder="Kode, barcode, atau nama barang" value="{{ search }}">
+                    <label for="item-search" class="ims-label text-ims-xs text-muted mb-1">Pencarian</label>
+                    <input id="item-search" type="text" name="q" class="ims-control" placeholder="Kode, barcode, atau nama barang" value="{{ search }}">
                 </div>
                 <div>
-                    <label for="item-category" class="form-label small text-muted mb-1">Kategori</label>
-                    <select id="item-category" name="kategori" class="form-select">
+                    <label for="item-category" class="ims-label text-ims-xs text-muted mb-1">Kategori</label>
+                    <select id="item-category" name="kategori" class="ims-control">
                         <option value="">Semua Kategori</option>
                         {% for cat in categories %}
                         <option value="{{ cat.id }}" {{ cat.selected }}>{{ cat.name }}</option>
@@ -40,24 +40,24 @@
                     </select>
                 </div>
                 <div>
-                    <label for="item-program" class="form-label small text-muted mb-1">Tipe</label>
-                    <select id="item-program" name="program" class="form-select">
+                    <label for="item-program" class="ims-label text-ims-xs text-muted mb-1">Tipe</label>
+                    <select id="item-program" name="program" class="ims-control">
                         <option value="">Semua Tipe</option>
                         <option value="1" {{ program_1_selected }}>Program [P]</option>
                         <option value="0" {{ program_0_selected }}>Non-Program</option>
                     </select>
                 </div>
                 <div>
-                    <label for="item-essential" class="form-label small text-muted mb-1">Esensial</label>
-                    <select id="item-essential" name="essential" class="form-select">
+                    <label for="item-essential" class="ims-label text-ims-xs text-muted mb-1">Esensial</label>
+                    <select id="item-essential" name="essential" class="ims-control">
                         <option value="">Semua Esensial</option>
                         <option value="1" {{ essential_1_selected }}>Esensial [E]</option>
                         <option value="0" {{ essential_0_selected }}>Non-Esensial</option>
                     </select>
                 </div>
                 <div>
-                    <label for="item-therapeutic-class" class="form-label small text-muted mb-1">Terapi Obat</label>
-                    <select id="item-therapeutic-class" name="therapeutic_class" class="form-select">
+                    <label for="item-therapeutic-class" class="ims-label text-ims-xs text-muted mb-1">Terapi Obat</label>
+                    <select id="item-therapeutic-class" name="therapeutic_class" class="ims-control">
                         <option value="">Semua Terapi Obat</option>
                         {% for therapeutic in therapeutic_classes %}
                         <option value="{{ therapeutic.id }}" {{ therapeutic.selected }}>{{ therapeutic.name }}</option>
@@ -65,23 +65,23 @@
                     </select>
                 </div>
                 <div>
-                    <button type="submit" class="btn btn-primary text-nowrap">
+                    <button type="submit" class="ims-btn ims-btn--primary whitespace-nowrap">
                         <i class="bi bi-search"></i><span class="d-lg-none ms-1">Filter</span>
                     </button>
                 </div>
                 {% if filters_active %}
                 <div class="ims-filter-reset">
-                    <a href="{% url 'items:item_list' %}" class="btn btn-outline-secondary btn-sm">Reset filter</a>
+                    <a href="{% url 'items:item_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm">Reset filter</a>
                 </div>
                 {% endif %}
             </form>
     </section>
 
     <section class="ims-item-surface" aria-label="Hasil daftar barang">
-        <div class="card-body p-0">
+        <div class="ims-panel-body p-0">
             <div class="ims-item-table-scroll table-responsive" style="max-height: 65vh;" tabindex="0" aria-label="Daftar barang, gulir untuk melihat semua kolom">
-                <table class="ims-item-table table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="ims-item-table table ims-table--hover align-middle mb-0">
+                    <thead class="ims-table-heading">
                         <tr>
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 320px;">Barang</th>
                             <th class="sticky-top bg-light" style="top: 0; z-index: 1; min-width: 110px;">Satuan</th>
@@ -97,7 +97,7 @@
                         <tr>
                             <td>
                                 <div class="fw-semibold">{{ item.nama_barang }}</div>
-                                <div class="small text-muted d-flex flex-wrap align-items-center gap-2 mt-1">
+                                <div class="text-ims-xs text-muted flex flex-wrap items-center gap-2 mt-1">
                                     <code>{{ item.kode_barang }}</code>
                                     {% if item.barcode %}
                                     <code>{{ item.barcode }}</code>
@@ -105,24 +105,24 @@
                                     <span>Tanpa barcode</span>
                                     {% endif %}
                                     {% if item.is_essential %}
-                                    <span class="badge bg-danger-subtle text-danger">[E] Esensial</span>
+                                    <span class="ims-badge bg-danger-subtle text-danger">[E] Esensial</span>
                                     {% endif %}
                                 </div>
                             </td>
                             <td>
                                 <span class="fw-semibold">{{ item.satuan.code }}</span>
-                                <div class="small text-muted">{{ item.satuan.name }}</div>
+                                <div class="text-ims-xs text-muted">{{ item.satuan.name }}</div>
                             </td>
-                            <td><span class="badge bg-light text-dark border">{{ item.kategori.name }}</span></td>
+                            <td><span class="ims-badge bg-light text-dark border">{{ item.kategori.name }}</span></td>
                             <td>
                                 {% if item.is_program_item %}
                                     {% if item.program %}
-                                        <span class="badge bg-primary-subtle text-primary">[P] {{ item.program.code }} - {{ item.program.name }}</span>
+                                        <span class="ims-badge bg-primary-subtle text-primary">[P] {{ item.program.code }} - {{ item.program.name }}</span>
                                     {% else %}
                                         {% if default_program %}
-                                            <span class="badge bg-primary-subtle text-primary">[P] {{ default_program.code }} - {{ default_program.name }}</span>
+                                            <span class="ims-badge bg-primary-subtle text-primary">[P] {{ default_program.code }} - {{ default_program.name }}</span>
                                         {% else %}
-                                            <span class="badge bg-secondary-subtle text-secondary">[P] DEFAULT</span>
+                                            <span class="ims-badge bg-secondary-subtle text-secondary">[P] DEFAULT</span>
                                         {% endif %}
                                     {% endif %}
                                 {% else %}
@@ -130,9 +130,9 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="d-flex flex-wrap gap-1">
+                                <div class="flex flex-wrap gap-1">
                                     {% for therapeutic in item.therapeutic_classes.all %}
-                                    <span class="badge bg-success-subtle text-success">{{ therapeutic.name }}</span>
+                                    <span class="ims-badge bg-success-subtle text-success">{{ therapeutic.name }}</span>
                                     {% empty %}
                                     <span class="text-muted">-</span>
                                     {% endfor %}
@@ -140,10 +140,10 @@
                             </td>
                             <td class="text-end fw-semibold">{{ item.minimum_stock|floatformat:"-2" }}</td>
                             <td class="text-end">
-                                <a href="{% url 'items:item_update' item.pk %}" class="btn btn-sm btn-outline-secondary" title="Ubah" aria-label="Ubah {{ item.nama_barang }}">
+                                <a href="{% url 'items:item_update' item.pk %}" class="ims-btn ims-btn--sm ims-btn--neutral" title="Ubah" aria-label="Ubah {{ item.nama_barang }}">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="{% url 'items:item_delete' item.pk %}" class="btn btn-sm btn-outline-danger" title="Hapus" aria-label="Hapus {{ item.nama_barang }}">
+                                <a href="{% url 'items:item_delete' item.pk %}" class="ims-btn ims-btn--sm ims-btn--danger-outline" title="Hapus" aria-label="Hapus {{ item.nama_barang }}">
                                     <i class="bi bi-trash"></i>
                                 </a>
                             </td>
@@ -151,15 +151,15 @@
                         {% empty %}
                         <tr>
                             <td colspan="7" class="text-center py-5">
-                                <div class="d-flex flex-column align-items-center gap-2 text-muted">
+                                <div class="flex flex-col items-center gap-2 text-muted">
                                     <i class="bi bi-inbox fs-1"></i>
                                     {% if filters_active %}
                                     <div class="fw-semibold">Tidak ada barang yang cocok dengan filter.</div>
-                                    <div class="small">Coba ubah kata kunci, kategori, tipe, esensial, atau terapi obat.</div>
-                                    <a href="{% url 'items:item_list' %}" class="btn btn-outline-secondary btn-sm mt-2">Reset filter</a>
+                                    <div class="text-ims-xs">Coba ubah kata kunci, kategori, tipe, esensial, atau terapi obat.</div>
+                                    <a href="{% url 'items:item_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm mt-2">Reset filter</a>
                                     {% else %}
                                     <div class="fw-semibold">Belum ada data barang.</div>
-                                    <div class="small">Tambahkan barang untuk mulai mengelola katalog.</div>
+                                    <div class="text-ims-xs">Tambahkan barang untuk mulai mengelola katalog.</div>
                                     {% endif %}
                                 </div>
                             </td>
@@ -170,43 +170,43 @@
             </div>
         </div>
 
-        <div class="ims-item-footer card-footer bg-white border-0 px-4 py-3 d-flex justify-content-start justify-content-lg-end">
-            <div class="d-inline-flex flex-wrap align-items-center justify-content-start justify-content-lg-end gap-3 bg-light border rounded px-3 py-2">
-                <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+        <div class="ims-item-footer ims-panel-footer bg-white border-0 px-4 py-3 flex justify-start justify-content-lg-end">
+            <div class="inline-flex flex-wrap items-center justify-start justify-content-lg-end gap-3 bg-light border rounded px-3 py-2">
+                <form method="get" class="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="q" value="{{ search }}">
                     <input type="hidden" name="kategori" value="{{ selected_kategori }}">
                     <input type="hidden" name="program" value="{{ selected_program }}">
                     <input type="hidden" name="essential" value="{{ selected_essential }}">
                     <input type="hidden" name="therapeutic_class" value="{{ selected_therapeutic_class }}">
-                    <label for="item-per-page" class="small text-muted mb-0">Baris per halaman</label>
-                    <select id="item-per-page" name="per_page" class="form-select form-select-sm w-auto pe-5" style="min-width: 6.5rem;" aria-label="Baris per halaman" data-auto-submit>
+                    <label for="item-per-page" class="text-ims-xs text-muted mb-0">Baris per halaman</label>
+                    <select id="item-per-page" name="per_page" class="ims-control form-select-sm w-auto pe-5" style="min-width: 6.5rem;" aria-label="Baris per halaman" data-auto-submit>
                         {% for option in per_page_options %}
                         <option value="{{ option }}" {% if option == per_page %}selected{% endif %}>{{ option }} </option>
                         {% endfor %}
                     </select>
                 </form>
 
-                <div class="text-muted small text-nowrap">
+                <div class="text-muted text-ims-xs whitespace-nowrap">
                     {{ items.start_index }}&ndash;{{ items.end_index }} dari {{ items.paginator.count }} hasil
                 </div>
 
                 {% if items.has_other_pages %}
                 <nav aria-label="Paginasi barang">
-                    <ul class="pagination pagination-sm mb-0">
+                    <ul class="ims-pagination ims-pagination--compact mb-0">
                     {% if items.has_previous %}
-                    <li class="page-item"><a class="page-link" href="{% querystring per_page=per_page page=1 %}">&laquo;</a></li>
-                    <li class="page-item"><a class="page-link" href="{% querystring per_page=per_page page=items.previous_page_number %}">Sebelumnya</a></li>
+                    <li class="ims-page-item"><a class="ims-page-link" href="{% querystring per_page=per_page page=1 %}">&laquo;</a></li>
+                    <li class="ims-page-item"><a class="ims-page-link" href="{% querystring per_page=per_page page=items.previous_page_number %}">Sebelumnya</a></li>
                     {% endif %}
                     {% for num in items.paginator.page_range %}
                         {% if num == items.number %}
-                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        <li class="ims-page-item active"><span class="ims-page-link">{{ num }}</span></li>
                         {% elif num >= items.number|add:'-2' and num <= items.number|add:'2' %}
-                        <li class="page-item"><a class="page-link" href="{% querystring per_page=per_page page=num %}">{{ num }}</a></li>
+                        <li class="ims-page-item"><a class="ims-page-link" href="{% querystring per_page=per_page page=num %}">{{ num }}</a></li>
                         {% endif %}
                     {% endfor %}
                     {% if items.has_next %}
-                    <li class="page-item"><a class="page-link" href="{% querystring per_page=per_page page=items.next_page_number %}">Berikutnya</a></li>
-                    <li class="page-item"><a class="page-link" href="{% querystring per_page=per_page page=items.paginator.num_pages %}">&raquo;</a></li>
+                    <li class="ims-page-item"><a class="ims-page-link" href="{% querystring per_page=per_page page=items.next_page_number %}">Berikutnya</a></li>
+                    <li class="ims-page-item"><a class="ims-page-link" href="{% querystring per_page=per_page page=items.paginator.num_pages %}">&raquo;</a></li>
                     {% endif %}
                     </ul>
                 </nav>

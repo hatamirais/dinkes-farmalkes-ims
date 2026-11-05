@@ -7,14 +7,14 @@
 <div class="ims-workflow ims-workflow-list table-container">
     <div class="table-header">
         <h5><i class="bi bi-trash me-2"></i>Daftar Pemusnahan (Kedaluwarsa)</h5>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-dark btn-sm ims-btn ims-btn--sm" data-bs-toggle="modal" data-bs-target="#expiredAuditReportModal">
+        <div class="flex gap-2">
+            <button type="button" class="ims-btn ims-btn--ink-outline ims-btn--sm ims-btn ims-btn--sm" data-bs-toggle="modal" data-bs-target="#expiredAuditReportModal">
                 <i class="bi bi-file-earmark-text me-1"></i>Generate Expired Audit Report
             </button>
-            <a href="{% url 'expired:expired_alerts' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+            <a href="{% url 'expired:expired_alerts' %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                 <i class="bi bi-exclamation-triangle me-1"></i>Stok Mendekati/Kedaluwarsa
             </a>
-            <a href="{% url 'expired:expired_create' %}" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary">
+            <a href="{% url 'expired:expired_create' %}" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary">
                 <i class="bi bi-plus-lg me-1"></i>Buat Dokumen
             </a>
         </div>
@@ -22,17 +22,17 @@
 
     <div class="px-3 py-2 border-bottom bg-light">
         <form method="get" class="filter-form">
-            <input type="text" name="q" class="form-control ims-control" placeholder="Cari no. dokumen..." value="{{ search }}">
-            <select name="status" class="form-select ims-control">
+            <input type="text" name="q" class="ims-control ims-control" placeholder="Cari no. dokumen..." value="{{ search }}">
+            <select name="status" class="ims-control ims-control">
                 <option value="">Semua Status</option>
                 {% for value, label in status_choices %}
                 <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-search"></i></button>
+            <div class="flex gap-2">
+                <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-search"></i></button>
                 {% if search or selected_status %}
-                <a href="{% url 'expired:expired_list' %}" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-lg"></i></a>
+                <a href="{% url 'expired:expired_list' %}" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-lg"></i></a>
                 {% endif %}
             </div>
         </form>
@@ -58,17 +58,17 @@
             <tbody>
                 {% for e in expired_items %}
                 <tr>
-                    <td><a href="{% url 'expired:expired_detail' e.pk %}" class="fw-semibold text-decoration-none">{{ e.document_number|default:"Belum diterbitkan" }}</a></td>
+                    <td><a href="{% url 'expired:expired_detail' e.pk %}" class="fw-semibold no-underline">{{ e.document_number|default:"Belum diterbitkan" }}</a></td>
                     <td>{{ e.report_date|date:"d/m/Y" }}</td>
                     <td>
                         <span class="badge-status badge-{{ e.status|lower }}">{{ e.get_status_display }}</span>
                     </td>
                     <td>{{ e.created_by }}</td>
                     <td class="text-end">
-                        <a href="{% url 'expired:expired_detail' e.pk %}" class="btn btn-sm btn-outline-secondary ims-btn ims-btn--sm ims-btn--neutral" title="Lihat detail">
+                        <a href="{% url 'expired:expired_detail' e.pk %}" class="ims-btn ims-btn--sm ims-btn--neutral ims-btn ims-btn--sm ims-btn--neutral" title="Lihat detail">
                             <i class="bi bi-eye"></i>
                         </a>
-                        <a href="{% url 'expired:expired_print' e.pk %}" class="btn btn-sm btn-outline-dark ims-btn ims-btn--sm" target="_blank" title="Cetak dokumen">
+                        <a href="{% url 'expired:expired_print' e.pk %}" class="ims-btn ims-btn--sm ims-btn--ink-outline ims-btn ims-btn--sm" target="_blank" title="Cetak dokumen">
                             <i class="bi bi-printer"></i>
                         </a>
                     </td>
@@ -77,7 +77,7 @@
                 <tr>
                     <td colspan="5">
                         <div class="empty-state">
-                            <i class="bi bi-trash d-block"></i>
+                            <i class="bi bi-trash block"></i>
                             <p>Belum ada data barang kedaluwarsa</p>
                         </div>
                     </td>
@@ -88,21 +88,21 @@
     </div>
 
     {% if expired_items.has_other_pages %}
-    <nav class="d-flex justify-content-center py-3">
-        <ul class="pagination pagination-sm mb-0">
+    <nav class="flex justify-center py-3">
+        <ul class="ims-pagination ims-pagination--compact mb-0">
             {% if expired_items.has_previous %}
-            <li class="page-item">
-                <a class="page-link ims-page-link" href="?page={{ expired_items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&laquo;</a>
+            <li class="ims-page-item">
+                <a class="ims-page-link ims-page-link" href="?page={{ expired_items.previous_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&laquo;</a>
             </li>
             {% endif %}
             {% for num in expired_items.paginator.page_range %}
-            <li class="page-item {% if expired_items.number == num %}active{% endif %}">
-                <a class="page-link ims-page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
+            <li class="ims-page-item {% if expired_items.number == num %}active{% endif %}">
+                <a class="ims-page-link ims-page-link" href="?page={{ num }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ num }}</a>
             </li>
             {% endfor %}
             {% if expired_items.has_next %}
-            <li class="page-item">
-                <a class="page-link ims-page-link" href="?page={{ expired_items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&raquo;</a>
+            <li class="ims-page-item">
+                <a class="ims-page-link ims-page-link" href="?page={{ expired_items.next_page_number }}{% if search %}&q={{ search }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">&raquo;</a>
             </li>
             {% endif %}
         </ul>
@@ -119,28 +119,28 @@
             </div>
             <form method="get" action="{% url 'expired:expired_audit_report' %}">
                 <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
+                    <div class="ims-layout-row ims-layout-g-3">
+                        <div class="ims-layout-col-md-6">
                             {{ audit_form.date_field.label_tag }}
                             {{ audit_form.date_field }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="ims-layout-col-md-6">
                             {{ audit_form.start_date.label_tag }}
                             {{ audit_form.start_date }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="ims-layout-col-md-6">
                             {{ audit_form.end_date.label_tag }}
                             {{ audit_form.end_date }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="ims-layout-col-md-6">
                             {{ audit_form.location.label_tag }}
                             {{ audit_form.location }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="ims-layout-col-md-6">
                             {{ audit_form.funding_source.label_tag }}
                             {{ audit_form.funding_source }}
                         </div>
-                        <div class="col-12">
+                        <div class="ims-layout-col-12">
                             {{ audit_form.item.label_tag }}
                             {{ audit_form.item }}
                         </div>
@@ -148,11 +148,11 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" name="format" value="csv" class="btn btn-success ims-btn ims-btn--primary">
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" name="format" value="csv" class="ims-btn ims-btn--confirm ims-btn ims-btn--primary">
                         <i class="bi bi-filetype-csv me-1"></i>Download CSV
                     </button>
-                    <button type="submit" name="format" value="print" class="btn btn-dark ims-btn ims-btn--neutral" formtarget="_blank">
+                    <button type="submit" name="format" value="print" class="ims-btn ims-btn--ink ims-btn ims-btn--neutral" formtarget="_blank">
                         <i class="bi bi-printer me-1"></i>Print / Save PDF
                     </button>
                 </div>

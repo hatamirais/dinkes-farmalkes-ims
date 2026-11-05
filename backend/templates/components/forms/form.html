@@ -1,0 +1,5 @@
+{% load tailwind_forms %}
+{% if form.non_field_errors %}<div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+{% for field in form %}
+    {% tailwind_field field show_required=True %}
+{% endfor %}

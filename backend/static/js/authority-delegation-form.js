@@ -11,7 +11,7 @@
                     altFormat: "d/m/Y H:i",
                     altInput: true,
                     altInputClass:
-                        "form-control datetimeinput delegation-datetime-display",
+                        "ims-control datetimeinput delegation-datetime-display",
                     dateFormat: "Y-m-d\\TH:i",
                     disableMobile: true,
                     enableTime: true,

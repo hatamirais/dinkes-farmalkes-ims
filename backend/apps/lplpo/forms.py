@@ -1,8 +1,6 @@
 import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
 
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Layout
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -40,26 +38,26 @@ class LPLPOCreateForm(forms.Form):
 
     bulan = forms.ChoiceField(
         choices=[(i, get_indonesian_month_name(i)) for i in range(1, 13)],
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
         label="Bulan",
     )
     tahun = forms.IntegerField(
         min_value=2020,
         max_value=2099,
         initial=get_active_lplpo_year(),
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        widget=forms.NumberInput(attrs={"class": "ims-control"}),
         label="Tahun",
     )
     facility = forms.ModelChoiceField(
         queryset=None,  # Populated in __init__
         required=False,
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
         label="Fasilitas (Puskesmas)",
         help_text="Pilih puskesmas jika Anda bertindak mewakili puskesmas."
     )
     notes = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         label="Catatan",
     )
 
@@ -69,15 +67,6 @@ class LPLPOCreateForm(forms.Form):
         super().__init__(*args, **kwargs)
         from apps.items.models import Facility
 
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("bulan", css_class="mb-3"),
-            Div("tahun", css_class="mb-3"),
-            Div("facility", css_class="mb-3"),
-            Div("notes", css_class="mb-0"),
-        )
 
         self.fields["facility"].queryset = Facility.objects.filter(
             facility_type="PUSKESMAS", is_active=True
@@ -299,14 +288,14 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
             "permintaan_alasan",
         ]
         widgets = {
-            "stock_awal": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1"}),
-            "penerimaan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
-            "harga_satuan": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "any", "min": "0"}),
-            "pemakaian": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
-            "stock_gudang_puskesmas": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
-            "waktu_kosong": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
-            "permintaan_jumlah": forms.NumberInput(attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}),
-            "permintaan_alasan": forms.Textarea(attrs={"class": "form-control form-control-sm", "rows": 1}),
+            "stock_awal": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "1"}),
+            "penerimaan": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "harga_satuan": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "any", "min": "0"}),
+            "pemakaian": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "stock_gudang_puskesmas": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "waktu_kosong": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "permintaan_jumlah": forms.NumberInput(attrs={"class": "ims-control form-control-sm text-end", "step": "1", "min": "0"}),
+            "permintaan_alasan": forms.Textarea(attrs={"class": "ims-control form-control-sm", "rows": 1}),
         }
 
 
@@ -317,7 +306,7 @@ class LPLPOItemReviewForm(forms.ModelForm):
         required=False,
         min_value=0,
         widget=forms.NumberInput(
-            attrs={"class": "form-control form-control-sm text-end", "step": "1", "min": "0"}
+            attrs={"class": "ims-control form-control-sm text-end", "step": "1", "min": "0"}
         ),
     )
 
@@ -340,7 +329,7 @@ class LPLPOItemReviewForm(forms.ModelForm):
         ]
         widgets = {
             "pemberian_alasan": forms.Textarea(
-                attrs={"class": "form-control form-control-sm", "rows": 1}
+                attrs={"class": "ims-control form-control-sm", "rows": 1}
             ),
         }
 
@@ -357,7 +346,7 @@ class RejectLPLPOForm(forms.Form):
 
     rejection_reason = forms.CharField(
         max_length=1000,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
         label="Alasan Penolakan",
         error_messages={"required": "Alasan penolakan wajib diisi."},
     )
@@ -372,13 +361,6 @@ class RejectLPLPOForm(forms.Form):
 
 class LPLPOImportForm(forms.Form):
     xlsx_file = forms.FileField(label="File XLSX")
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(Div("xlsx_file", css_class="mb-0"))
 
     def clean_xlsx_file(self):
         uploaded_file = self.cleaned_data.get("xlsx_file")

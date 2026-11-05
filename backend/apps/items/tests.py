@@ -251,9 +251,9 @@ class ItemEssentialTagTests(TestCase):
         self.assertContains(response, "css/app.tailwind.css")
         self.assertNotContains(response, "vendor/bootstrap/css/bootstrap.min.css")
 
-        legacy = self.client.get(reverse("settings"), secure=True)
-        self.assertContains(legacy, "vendor/bootstrap/css/bootstrap.min.css")
-        self.assertNotContains(legacy, "css/app.tailwind.css")
+        settings_page = self.client.get(reverse("settings"), secure=True)
+        self.assertNotContains(settings_page, "vendor/bootstrap/css/bootstrap.min.css")
+        self.assertContains(settings_page, "css/app.tailwind.css")
 
     def test_item_list_shows_essential_badge_and_therapeutic_class(self):
         item = Item.objects.create(

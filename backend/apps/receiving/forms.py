@@ -137,7 +137,7 @@ def _item_requires_expiry_date(item):
     return bool(getattr(item, "requires_expiry_date", True))
 
 
-def _indonesian_date_attrs(css_class="form-control"):
+def _indonesian_date_attrs(css_class="ims-control"):
     return {
         "class": f"{css_class} js-date-mask",
         "data-native-date-picker": "true",
@@ -269,7 +269,7 @@ class ReceivingQuickCreateReceivingTypeForm(ReceivingQuickCreateValidationMixin,
 class BaseReceivingForm(forms.ModelForm):
     receiving_type = forms.CharField(
         error_messages={"required": "Tipe penerimaan wajib dipilih."},
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -302,9 +302,9 @@ class ReceivingForm(BaseReceivingForm):
             "receiving_date": IndonesianDateInput(
                 attrs=_indonesian_date_attrs()
             ),
-            "supplier": forms.Select(attrs={"class": "form-select"}),
-            "sumber_dana": forms.Select(attrs={"class": "form-select"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "supplier": forms.Select(attrs={"class": "ims-control"}),
+            "sumber_dana": forms.Select(attrs={"class": "ims-control"}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         }
 
     def clean_receiving_date(self):
@@ -326,7 +326,7 @@ class ReceivingEditForm(ReceivingForm):
     correction_reason = forms.CharField(
         label="Alasan Koreksi",
         required=True,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -364,7 +364,7 @@ class ReceivingCancelForm(forms.Form):
     cancel_reason = forms.CharField(
         label="Alasan Pembatalan",
         required=True,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
     )
 
     def clean_cancel_reason(self):
@@ -389,9 +389,9 @@ class PlannedReceivingForm(BaseReceivingForm):
             "receiving_date": IndonesianDateInput(
                 attrs=_indonesian_date_attrs()
             ),
-            "supplier": forms.Select(attrs={"class": "form-select"}),
-            "sumber_dana": forms.Select(attrs={"class": "form-select"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "supplier": forms.Select(attrs={"class": "ims-control"}),
+            "sumber_dana": forms.Select(attrs={"class": "ims-control"}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         }
 
 
@@ -403,7 +403,7 @@ class ReceivingItemForm(forms.ModelForm):
         decimal_places=PRICE_DECIMAL_PLACES,
         widget=IndonesianPriceTextInput(
             attrs={
-                "class": "form-control form-control-sm",
+                "class": "ims-control form-control-sm",
                 "inputmode": "decimal",
                 "min": "0",
             }
@@ -422,18 +422,18 @@ class ReceivingItemForm(forms.ModelForm):
         ]
         widgets = {
             "item": ItemExpirySelect(
-                attrs={"class": "form-select form-select-sm js-typeahead-select"}
+                attrs={"class": "ims-control form-select-sm js-typeahead-select"}
             ),
             "quantity": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "1"}
             ),
             "batch_lot": forms.TextInput(
-                attrs={"class": "form-control form-control-sm"}
+                attrs={"class": "ims-control form-control-sm"}
             ),
             "expiry_date": IndonesianDateInput(
-                attrs=_indonesian_date_attrs("form-control form-control-sm")
+                attrs=_indonesian_date_attrs("ims-control form-control-sm")
             ),
-            "location": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "location": forms.Select(attrs={"class": "ims-control form-select-sm"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -511,19 +511,19 @@ class ReceivingOrderItemForm(forms.ModelForm):
         fields = ["item", "planned_quantity", "unit_price", "notes"]
         widgets = {
             "item": forms.Select(
-                attrs={"class": "form-select form-select-sm js-typeahead-select"}
+                attrs={"class": "ims-control form-select-sm js-typeahead-select"}
             ),
             "planned_quantity": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "1"}
             ),
             "unit_price": forms.NumberInput(
                 attrs={
-                    "class": "form-control form-control-sm",
+                    "class": "ims-control form-control-sm",
                     "min": "0",
                     "step": "any",
                 }
             ),
-            "notes": forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+            "notes": forms.TextInput(attrs={"class": "ims-control form-control-sm"}),
         }
 
     def clean_planned_quantity(self):
@@ -562,7 +562,7 @@ class ReceivingReceiptItemForm(forms.ModelForm):
         decimal_places=PRICE_DECIMAL_PLACES,
         widget=IndonesianPriceTextInput(
             attrs={
-                "class": "form-control form-control-sm",
+                "class": "ims-control form-control-sm",
                 "inputmode": "decimal",
             }
         ),
@@ -570,19 +570,19 @@ class ReceivingReceiptItemForm(forms.ModelForm):
     order_item_label = forms.CharField(
         required=False,
         disabled=True,
-        widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
+        widget=forms.TextInput(attrs={"class": "ims-control form-control-sm"}),
     )
     planned_quantity = forms.CharField(
         required=False,
         disabled=True,
         widget=forms.TextInput(
-            attrs={"class": "form-control form-control-sm text-end", "readonly": True}
+            attrs={"class": "ims-control form-control-sm text-end", "readonly": True}
         ),
     )
     order_item = forms.ModelChoiceField(
         queryset=ReceivingOrderItem.objects.none(),
         widget=forms.Select(
-            attrs={"class": "form-select form-select-sm js-typeahead-select"}
+            attrs={"class": "ims-control form-select-sm js-typeahead-select"}
         ),
         required=True,
     )
@@ -599,15 +599,15 @@ class ReceivingReceiptItemForm(forms.ModelForm):
         ]
         widgets = {
             "quantity": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "1"}
             ),
             "batch_lot": forms.TextInput(
-                attrs={"class": "form-control form-control-sm"}
+                attrs={"class": "ims-control form-control-sm"}
             ),
             "expiry_date": IndonesianDateInput(
-                attrs=_indonesian_date_attrs("form-control form-control-sm")
+                attrs=_indonesian_date_attrs("ims-control form-control-sm")
             ),
-            "location": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "location": forms.Select(attrs={"class": "ims-control form-select-sm"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -752,7 +752,7 @@ class ReceivingCloseForm(forms.Form):
     closed_reason = forms.CharField(
         label="Alasan Penutupan",
         required=True,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
     )
 
 
@@ -763,7 +763,7 @@ class ReceivingOrderCloseItemForm(forms.ModelForm):
         widgets = {
             "is_cancelled": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "cancel_reason": forms.TextInput(
-                attrs={"class": "form-control form-control-sm"}
+                attrs={"class": "ims-control form-control-sm"}
             ),
         }
 

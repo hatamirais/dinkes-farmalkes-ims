@@ -1992,7 +1992,7 @@ class PuskesmasRequestCreateViewTests(SecureClientDefaultsMixin, TestCase):
 		create_response = self.client.get(reverse("puskesmas:request_create"))
 		self.assertNotContains(create_response, 'name="program"')
 		detail_response = self.client.get(reverse("puskesmas:request_detail", args=[req.pk]))
-		self.assertNotContains(detail_response, '<dt class="col-sm-4">Program</dt>')
+		self.assertNotContains(detail_response, '<dt class="ims-layout-col-sm-4">Program</dt>')
 		self.assertContains(detail_response, "[P]")
 
 	def test_detail_returns_403_when_operator_accesses_other_facility_request(self):

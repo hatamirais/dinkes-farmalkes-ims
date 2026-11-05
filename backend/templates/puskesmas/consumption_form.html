@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load crispy_forms_tags %}
+{% load tailwind_forms %}
 {% load number_format %}
 
 {% block title %}{{ title }} – Healthcare IMS{% endblock %}
@@ -9,66 +9,66 @@
 <div class="ims-workflow ims-puskesmas ims-puskesmas-consumption-form">
     <form method="post" novalidate>
         {% csrf_token %}
-        <div class="card mb-4">
-            <div class="card-header">
+        <div class="ims-panel mb-4">
+            <div class="ims-panel-header">
                 <h6 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Informasi Dokumen</h6>
             </div>
-            <div class="card-body">
+            <div class="ims-panel-body">
                 {% if form.non_field_errors %}
-                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                <div class="ims-alert ims-alert--danger">{{ form.non_field_errors }}</div>
                 {% endif %}
 
                 {% if is_edit %}
                 {{ form.facility }}{{ form.bulan }}{{ form.tahun }}
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Puskesmas</label>
-                        <input type="text" class="form-control" value="{{ consumption.facility.name }}" title="Puskesmas yang melaporkan pemakaian rinci ini." readonly>
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label class="ims-label fw-semibold">Puskesmas</label>
+                        <input type="text" class="ims-control" value="{{ consumption.facility.name }}" title="Puskesmas yang melaporkan pemakaian rinci ini." readonly>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label fw-semibold">Bulan</label>
-                        <input type="text" class="form-control" value="{{ consumption.bulan }}" title="Bulan periode pemakaian yang sedang diubah." readonly>
+                    <div class="ims-layout-col-md-2">
+                        <label class="ims-label fw-semibold">Bulan</label>
+                        <input type="text" class="ims-control" value="{{ consumption.bulan }}" title="Bulan periode pemakaian yang sedang diubah." readonly>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label fw-semibold">Tahun</label>
-                        <input type="text" class="form-control" value="{{ consumption.tahun }}" title="Tahun periode pemakaian yang sedang diubah." readonly>
+                    <div class="ims-layout-col-md-2">
+                        <label class="ims-label fw-semibold">Tahun</label>
+                        <input type="text" class="ims-control" value="{{ consumption.tahun }}" title="Tahun periode pemakaian yang sedang diubah." readonly>
                     </div>
-                    <div class="col-md-4">
-                        {{ form.notes|as_crispy_field }}
+                    <div class="ims-layout-col-md-4">
+                        {% tailwind_field form.notes show_required=True %}
                     </div>
                 </div>
                 {% else %}
                     {% if request.user.role == 'PUSKESMAS' %}
                     {{ form.facility }}
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold">Puskesmas</label>
-                            <input type="text" class="form-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" title="Puskesmas pemilik dokumen pemakaian rinci ini." readonly>
-                            {% if form.facility.errors %}<div class="text-danger small">{{ form.facility.errors }}</div>{% endif %}
+                    <div class="ims-layout-row ims-layout-g-3">
+                        <div class="ims-layout-col-md-4">
+                            <label class="ims-label fw-semibold">Puskesmas</label>
+                            <input type="text" class="ims-control" value="{{ request.user.facility.name|default:'Belum terhubung ke fasilitas' }}" title="Puskesmas pemilik dokumen pemakaian rinci ini." readonly>
+                            {% if form.facility.errors %}<div class="text-danger text-ims-xs">{{ form.facility.errors }}</div>{% endif %}
                         </div>
-                        <div class="col-md-2">
-                            {{ form.bulan|as_crispy_field }}
+                        <div class="ims-layout-col-md-2">
+                            {% tailwind_field form.bulan show_required=True %}
                         </div>
-                        <div class="col-md-2">
-                            {{ form.tahun|as_crispy_field }}
+                        <div class="ims-layout-col-md-2">
+                            {% tailwind_field form.tahun show_required=True %}
                         </div>
-                        <div class="col-md-4">
-                            {{ form.notes|as_crispy_field }}
+                        <div class="ims-layout-col-md-4">
+                            {% tailwind_field form.notes show_required=True %}
                         </div>
                     </div>
                     {% else %}
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            {{ form.facility|as_crispy_field }}
+                    <div class="ims-layout-row ims-layout-g-3">
+                        <div class="ims-layout-col-md-4">
+                            {% tailwind_field form.facility show_required=True %}
                         </div>
-                        <div class="col-md-2">
-                            {{ form.bulan|as_crispy_field }}
+                        <div class="ims-layout-col-md-2">
+                            {% tailwind_field form.bulan show_required=True %}
                         </div>
-                        <div class="col-md-2">
-                            {{ form.tahun|as_crispy_field }}
+                        <div class="ims-layout-col-md-2">
+                            {% tailwind_field form.tahun show_required=True %}
                         </div>
-                        <div class="col-md-4">
-                            {{ form.notes|as_crispy_field }}
+                        <div class="ims-layout-col-md-4">
+                            {% tailwind_field form.notes show_required=True %}
                         </div>
                     </div>
                     {% endif %}
@@ -77,22 +77,22 @@
         </div>
 
         {% if not selected_facility %}
-        <div class="alert alert-info">
+        <div class="ims-alert ims-alert--info">
             Pilih fasilitas Puskesmas terlebih dahulu untuk memuat kolom Poli/Pustu.
         </div>
         {% elif not subunits %}
-        <div class="alert alert-warning">
+        <div class="ims-alert ims-alert--warning">
             Belum ada Poli/Pustu aktif untuk {{ selected_facility.name }}. Tambahkan dulu melalui <a href="{% url 'puskesmas:subunit_list' %}">Poli/Pustu Puskesmas</a>.
         </div>
         {% else %}
-        <div class="card mb-4">
-            <div class="card-header">
+        <div class="ims-panel mb-4">
+            <div class="ims-panel-header">
                 <h6 class="mb-0"><i class="bi bi-table me-2"></i>Matriks Pemakaian</h6>
             </div>
-            <div class="card-body p-0">
+            <div class="ims-panel-body p-0">
                 <div class="table-responsive">
-                    <table class="table ims-table table-sm table-bordered align-middle mb-0 consumption-table">
-                        <thead class="table-light">
+                    <table class="table ims-table ims-table--compact ims-table--ruled align-middle mb-0 consumption-table">
+                        <thead class="ims-table-heading">
                             <tr>
                                 <th class="sticky-col">Barang</th>
                                 <th class="sticky-col-2 text-center">Satuan</th>
@@ -106,7 +106,7 @@
                                     <small class="text-muted">{{ subunit.get_subunit_type_display }}</small>
                                 </th>
                                 {% endfor %}
-                                <th class="text-center table-secondary" style="min-width:110px;">Total</th>
+                                <th class="text-center ims-table-summary" style="min-width:110px;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -118,19 +118,19 @@
                             {% for row in category_group.list %}
                             <tr class="ims-consumption-item-row">
                                 <td class="sticky-col">
-                                    <strong class="small">{{ row.item.nama_barang }}</strong><br>
+                                    <strong class="text-ims-xs">{{ row.item.nama_barang }}</strong><br>
                                     <small class="text-muted">{{ row.item.kode_barang }}</small>
                                 </td>
-                                <td class="sticky-col-2 text-center text-muted small">{{ row.item.satuan.code }}</td>
+                                <td class="sticky-col-2 text-center text-muted text-ims-xs">{{ row.item.satuan.code }}</td>
                                 <td class="text-end ims-consumption-stock-cell">
                                     {% if row.has_lplpo_stock %}{{ row.lplpo_stock|id_decimal:0 }}{% else %}<span class="text-muted">—</span>{% endif %}
                                 </td>
                                 {% for field in row.fields %}
                                 <td>
-                                    {{ field|as_crispy_field }}
+                                    {% tailwind_field field show_required=True %}
                                 </td>
                                 {% endfor %}
-                                <td class="table-secondary text-end ims-consumption-total-cell">
+                                <td class="ims-table-summary text-end ims-consumption-total-cell">
                                     <output class="ims-consumption-total" aria-live="polite" aria-label="Total pemakaian {{ row.item.nama_barang }}">{% if row.total_valid %}{{ row.display_total|id_decimal:0 }}{% else %}—{% endif %}</output>
                                 </td>
                             </tr>
@@ -143,19 +143,19 @@
         </div>
         {% endif %}
 
-        <div class="d-flex gap-2">
+        <div class="flex gap-2">
             {% if not is_edit and request.user.is_superuser %}
-            <button type="submit" name="action" value="load_matrix" class="btn btn-outline-primary">
+            <button type="submit" name="action" value="load_matrix" class="ims-btn ims-btn--secondary">
                 <i class="bi bi-layout-text-window-reverse me-1"></i>Muat Matriks
             </button>
             {% endif %}
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="ims-btn ims-btn--primary">
                 <i class="bi bi-save me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Pemakaian{% endif %}
             </button>
             {% if is_edit %}
-            <a href="{% url 'puskesmas:consumption_detail' consumption.pk %}" class="btn btn-outline-secondary">Batal</a>
+            <a href="{% url 'puskesmas:consumption_detail' consumption.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
             {% else %}
-            <a href="{% url 'puskesmas:consumption_list' %}" class="btn btn-outline-secondary">Batal</a>
+            <a href="{% url 'puskesmas:consumption_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
             {% endif %}
         </div>
     </form>

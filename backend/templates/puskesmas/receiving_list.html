@@ -5,27 +5,27 @@
 
 {% block content %}
 <div class="ims-workflow ims-puskesmas ims-puskesmas-list ims-puskesmas-receiving-list">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div class="flex flex-col flex-md-row justify-between align-items-md-center gap-3 mb-4">
         <div>
             <h4 class="mb-1">Konfirmasi Penerimaan</h4>
             <p class="text-muted mb-0">Puskesmas mengonfirmasi barang yang benar-benar diterima dari distribusi Instalasi Farmasi. Data ini menjadi sumber penerimaan LPLPO.</p>
         </div>
         {% if request.user.role == 'PUSKESMAS' or request.user.is_superuser %}
-        <a href="{% url 'puskesmas:receiving_create' %}" class="btn btn-outline-primary">
+        <a href="{% url 'puskesmas:receiving_create' %}" class="ims-btn ims-btn--secondary">
             <i class="bi bi-plus-lg me-1"></i>Buka Form Konfirmasi
         </a>
         {% endif %}
     </div>
 
     {% if pending_distributions %}
-    <div class="card mb-4">
-        <div class="card-header">
+    <div class="ims-panel mb-4">
+        <div class="ims-panel-header">
             <h6 class="mb-0"><i class="bi bi-truck me-2"></i>Distribusi Menunggu Konfirmasi</h6>
         </div>
-        <div class="card-body p-0">
+        <div class="ims-panel-body p-0">
             <div class="table-responsive">
-                <table class="table ims-table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table ims-table ims-table--hover align-middle mb-0">
+                    <thead class="ims-table-heading">
                         <tr>
                             <th>No. Distribusi</th>
                             <th>Puskesmas</th>
@@ -40,7 +40,7 @@
                             <td>{{ distribution.facility.name }}</td>
                             <td>{{ distribution.distributed_date|date:"d/m/Y" }}</td>
                             <td class="text-end">
-                                <a href="{% url 'puskesmas:receiving_create' %}?distribution={{ distribution.pk }}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'puskesmas:receiving_create' %}?distribution={{ distribution.pk }}" class="ims-btn ims-btn--sm ims-btn--primary">
                                     Konfirmasi
                                 </a>
                             </td>
@@ -53,21 +53,21 @@
     </div>
     {% endif %}
 
-    <div class="card">
-        <div class="card-body">
-            <form method="get" class="row g-2 mb-3">
-                <div class="col-md-4">
-                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor konfirmasi / distribusi / puskesmas..." class="form-control">
+    <div class="ims-panel">
+        <div class="ims-panel-body">
+            <form method="get" class="ims-layout-row ims-layout-g-2 mb-3">
+                <div class="ims-layout-col-md-4">
+                    <input type="text" name="q" value="{{ search }}" placeholder="Cari nomor konfirmasi / distribusi / puskesmas..." class="ims-control">
                 </div>
-                <div class="col-auto d-flex gap-2">
-                    <button type="submit" class="btn btn-outline-primary">Cari</button>
-                    <a href="{% url 'puskesmas:receiving_list' %}" class="btn btn-outline-secondary" id="reset-btn">Reset</a>
+                <div class="ims-layout-col-auto flex gap-2">
+                    <button type="submit" class="ims-btn ims-btn--secondary">Cari</button>
+                    <a href="{% url 'puskesmas:receiving_list' %}" class="ims-btn ims-btn--neutral" id="reset-btn">Reset</a>
                 </div>
             </form>
 
             <div class="table-responsive">
-                <table class="table ims-table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table ims-table ims-table--hover align-middle mb-0">
+                    <thead class="ims-table-heading">
                         <tr>
                             <th>No. Konfirmasi</th>
                             <th>No. Distribusi</th>
@@ -86,15 +86,15 @@
                             <td>{{ receiving.facility.name }}</td>
                             <td>
                                 {% if receiving.status == 'CONFIRMED' %}
-                                <span class="badge text-bg-success">Terkonfirmasi</span>
+                                <span class="ims-badge text-bg-success">Terkonfirmasi</span>
                                 {% else %}
-                                <span class="badge text-bg-warning">Draft: barang belum lengkap</span>
+                                <span class="ims-badge text-bg-warning">Draft: barang belum lengkap</span>
                                 {% endif %}
                             </td>
                             <td>{{ receiving.received_date|date:"d/m/Y" }}</td>
                             <td>{{ receiving.created_by }}</td>
                             <td class="text-end">
-                                <a href="{% url 'puskesmas:receiving_detail' receiving.pk %}" class="btn btn-sm btn-outline-primary">
+                                <a href="{% url 'puskesmas:receiving_detail' receiving.pk %}" class="ims-btn ims-btn--sm ims-btn--secondary">
                                     {% if receiving.status == 'CONFIRMED' %}Lihat{% else %}Lanjutkan{% endif %}
                                 </a>
                             </td>
@@ -109,17 +109,17 @@
             </div>
 
             {% if receivings.has_other_pages %}
-            <div class="d-flex justify-content-between align-items-center pt-3">
+            <div class="flex justify-between items-center pt-3">
                 <small class="text-muted">
                     Halaman {{ receivings.number }} dari {{ receivings.paginator.num_pages }} ({{ receivings.paginator.count }} total)
                 </small>
                 <nav>
-                    <ul class="pagination pagination-sm mb-0">
+                    <ul class="ims-pagination ims-pagination--compact mb-0">
                         {% if receivings.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?page={{ receivings.previous_page_number }}{% if search %}&q={{ search }}{% endif %}">&laquo;</a></li>
+                        <li class="ims-page-item"><a class="ims-page-link" href="?page={{ receivings.previous_page_number }}{% if search %}&q={{ search }}{% endif %}">&laquo;</a></li>
                         {% endif %}
                         {% if receivings.has_next %}
-                        <li class="page-item"><a class="page-link" href="?page={{ receivings.next_page_number }}{% if search %}&q={{ search }}{% endif %}">&raquo;</a></li>
+                        <li class="ims-page-item"><a class="ims-page-link" href="?page={{ receivings.next_page_number }}{% if search %}&q={{ search }}{% endif %}">&raquo;</a></li>
                         {% endif %}
                     </ul>
                 </nav>

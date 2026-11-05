@@ -108,14 +108,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="ims-distribution-form card content-card table-container form-page-card" id="distribution-form-container" data-url-facility="{% url 'items:quick_create_facility' %}">
-            <div class="card-header">
+<div class="ims-distribution-form ims-panel content-card table-container form-page-card" id="distribution-form-container" data-url-facility="{% url 'items:quick_create_facility' %}">
+            <div class="ims-panel-header">
                 <span><i class="bi {% if form_icon %}{{ form_icon }}{% else %}bi-send{% endif %} me-2"></i>{{ title }}</span>
             </div>
-            <div class="card-body">
+            <div class="ims-panel-body">
                 <form method="post" novalidate data-item-picker-table="true" data-item-table-target="distribution-items" data-item-required-field="quantity_requested" data-item-required-message="Kuantitas wajib diisi." data-item-focus-field="stock" data-item-dependent-fields="quantity_requested,quantity_approved,stock,notes">
                     {% csrf_token %}
-                    <div class="alert alert-info py-2 small">
+                    <div class="ims-alert ims-alert--info py-2 text-ims-xs">
                         <i class="bi bi-info-circle me-1"></i>
                         Nomor dokumen resmi dikelola sistem dan diterbitkan saat diajukan.
                     </div>
@@ -124,14 +124,14 @@
                     {% endfor %}
 
                     {% if form.non_field_errors %}
-                    <div class="alert alert-danger py-2">
+                    <div class="ims-alert ims-alert--danger py-2">
                         {% for error in form.non_field_errors %}
                         <div>{{ error }}</div>
                         {% endfor %}
                     </div>
                     {% endif %}
 
-                    <div class="row g-3 mb-4">
+                    <div class="ims-layout-row ims-layout-g-3 mb-4">
                         {% for field in form.visible_fields %}
                         {% if field.name == 'distribution_type' and not show_distribution_type %}{% else %}
                         <div class="ims-distribution-field{% if field.name == 'notes' or field.name == 'assigned_staff' %} ims-distribution-field--wide{% endif %}">
@@ -145,7 +145,7 @@
                                         </div>
                                     </div>
                                     <button
-                                        class="btn btn-sm btn-outline-secondary staff-picker-toggle"
+                                        class="ims-btn ims-btn--sm ims-btn--neutral staff-picker-toggle"
                                         type="button"
                                         data-bs-toggle="collapse"
                                         data-bs-target="#distribution-staff-picker-body"
@@ -158,11 +158,11 @@
                                 </div>
                                 <div class="collapse staff-picker-body" id="distribution-staff-picker-body">
                                     <div class="staff-picker-toolbar mb-3">
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                        <div class="ims-input-group ims-input-group--compact">
+                                            <span class="ims-input-addon"><i class="bi bi-search"></i></span>
                                             <input
                                                 type="text"
-                                                class="form-control js-staff-filter"
+                                                class="ims-control js-staff-filter"
                                                 data-staff-filter-target="distribution-staff-list"
                                                 placeholder="Cari petugas..."
                                                 autocomplete="off"
@@ -178,7 +178,7 @@
                                             </span>
                                         </label>
                                         {% endfor %}
-                                        <div class="staff-picker-empty text-muted small d-none">Tidak ada petugas yang cocok.</div>
+                                        <div class="staff-picker-empty text-muted text-ims-xs d-none">Tidak ada petugas yang cocok.</div>
                                     </div>
                                 </div>
                             </div>
@@ -189,40 +189,40 @@
                             {% endif %}
                             {% if field.name == 'assigned_staff' %}
                             {% if field.help_text %}
-                            <div class="form-text">{{ field.help_text }}</div>
+                            <div class="ims-help">{{ field.help_text }}</div>
                             {% endif %}
                             {% for error in field.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            <div class="ims-error block">{{ error }}</div>
                             {% endfor %}
                             {% endif %}
                         </div>
                         {% endif %}
                         {% endfor %}
                     </div>
-                    <div class="mb-2 small text-muted">Tip: kolom <strong>Stok Tersedia</strong> menampilkan stok yang masih bisa dialokasikan setelah dikurangi reservasi dokumen outbound lain.</div>
+                    <div class="mb-2 text-ims-xs text-muted">Tip: kolom <strong>Stok Tersedia</strong> menampilkan stok yang masih bisa dialokasikan setelah dikurangi reservasi dokumen outbound lain.</div>
                     {% if is_generated_lplpo_distribution %}
-                    <div class="alert alert-info py-2 small">
+                    <div class="ims-alert ims-alert--info py-2 text-ims-xs">
                         Distribusi ini dibuat dari review LPLPO. <strong>Kuantitas Diminta</strong> menyalin permintaan Puskesmas dan <strong>Kuantitas Disetujui</strong> menyalin hasil review PIC. Keduanya dikunci di halaman ini agar tahap edit hanya dipakai untuk memilih batch stok, memperbarui catatan, dan menyesuaikan petugas bila diperlukan.
                     </div>
                     {% endif %}
 
                     <hr>
-                    <h6 class="fw-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Distribusi</h6>
+                    <h6 class="font-bold mb-3"><i class="bi bi-list-ul me-1"></i>Item Distribusi</h6>
 
                     {{ formset.management_form }}
 
                     {% if formset.non_form_errors %}
-                    <div class="alert alert-danger py-2">
+                    <div class="ims-alert ims-alert--danger py-2">
                         {% for error in formset.non_form_errors %}
                         <div>{{ error }}</div>
                         {% endfor %}
                     </div>
                     {% endif %}
 
-                    <div class="alert alert-danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
+                    <div class="ims-alert ims-alert--danger py-2 d-none js-item-picker-table-error" role="alert">Tambahkan minimal satu item sebelum menyimpan.</div>
 
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-muted text-ims-xs">
                             {% if allow_item_row_mutation|default:True %}
                             Minimal satu baris item harus tersedia.
                             {% else %}
@@ -230,11 +230,11 @@
                             {% endif %}
                         </span>
                         {% if allow_item_row_mutation|default:True %}
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-danger btn-sm formset-clear" data-formset-target="distribution-items">
+                        <div class="flex gap-2">
+                            <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-clear" data-formset-target="distribution-items">
                                 <i class="bi bi-trash me-1"></i>Hapus Semua
                             </button>
-                            <button type="button" class="btn btn-outline-primary btn-sm formset-add" data-formset-target="distribution-items">
+                            <button type="button" class="ims-btn ims-btn--secondary ims-btn--sm formset-add" data-formset-target="distribution-items">
                                 <i class="bi bi-plus-lg me-1"></i>Tambah Baris
                             </button>
                         </div>
@@ -242,7 +242,7 @@
                     </div>
 
                     <div class="table-responsive" data-formset="distribution-items" data-formset-prefix="{{ formset.prefix }}" role="region" aria-label="Item distribusi" tabindex="0">
-                        <table class="table ims-table table-sm">
+                        <table class="table ims-table ims-table--compact">
                             <thead>
                                 <tr>
                                     <th>Barang</th>
@@ -273,7 +273,7 @@
                                     <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ item_form.notes }}</td>
                                     <td class="text-center">
                                         {% if allow_item_row_mutation|default:True %}
-                                        <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                        <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                         {% else %}
@@ -287,7 +287,7 @@
                                 </tr>
                                 {% if item_form.non_field_errors %}
                                 <tr>
-                                    <td colspan="{{ item_error_colspan|default:6 }}" class="text-danger small py-1">
+                                    <td colspan="{{ item_error_colspan|default:6 }}" class="text-danger text-ims-xs py-1">
                                         {% for error in item_form.non_field_errors %}
                                         <div>{{ error }}</div>
                                         {% endfor %}
@@ -297,7 +297,7 @@
                                 {% for field in item_form %}
                                     {% for error in field.errors %}
                                     <tr>
-                                        <td colspan="{{ item_error_colspan|default:6 }}" class="text-danger small py-1">
+                                        <td colspan="{{ item_error_colspan|default:6 }}" class="text-danger text-ims-xs py-1">
                                             {{ field.label }}: {{ error }}
                                         </td>
                                     </tr>
@@ -324,7 +324,7 @@
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="stock">{{ formset.empty_form.stock }}</td>
                             <td class="item-picker-dependent-cell js-item-picker-dependent" data-field-name="notes">{{ formset.empty_form.notes }}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm formset-remove" title="Hapus Baris">
+                                <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm formset-remove" title="Hapus Baris">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <div class="d-none">{{ formset.empty_form.DELETE }}</div>
@@ -334,11 +334,11 @@
                     </template>
                     {% endif %}
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan
                         </button>
-                        <a href="{% url back_url_name|default:'distribution:distribution_list' %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url back_url_name|default:'distribution:distribution_list' %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>
@@ -352,37 +352,37 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Kode <span class="text-danger">*</span></label>
-                        <input type="text" id="facility-code" class="form-control form-control-sm" placeholder="FASKES-002" maxlength="20">
+                <div class="ims-layout-row ims-layout-g-3">
+                    <div class="ims-layout-col-md-4">
+                        <label class="ims-label fw-semibold">Kode <span class="text-danger">*</span></label>
+                        <input type="text" id="facility-code" class="ims-control form-control-sm" placeholder="FASKES-002" maxlength="20">
                     </div>
-                    <div class="col-md-8">
-                        <label class="form-label fw-semibold">Nama <span class="text-danger">*</span></label>
-                        <input type="text" id="facility-name" class="form-control form-control-sm" placeholder="Puskesmas Meureubo">
+                    <div class="ims-layout-col-md-8">
+                        <label class="ims-label fw-semibold">Nama <span class="text-danger">*</span></label>
+                        <input type="text" id="facility-name" class="ims-control form-control-sm" placeholder="Puskesmas Meureubo">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Tipe Fasilitas</label>
-                        <select id="facility-type" class="form-select form-select-sm">
+                    <div class="ims-layout-col-md-6">
+                        <label class="ims-label fw-semibold">Tipe Fasilitas</label>
+                        <select id="facility-type" class="ims-control form-select-sm">
                             <option value="PUSKESMAS">Puskesmas</option>
                             <option value="RS">Rumah Sakit</option>
                             <option value="CLINIC">Klinik</option>
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Telepon</label>
-                        <input type="text" id="facility-phone" class="form-control form-control-sm" placeholder="0655-123456" maxlength="50">
+                    <div class="ims-layout-col-md-6">
+                        <label class="ims-label fw-semibold">Telepon</label>
+                        <input type="text" id="facility-phone" class="ims-control form-control-sm" placeholder="0655-123456" maxlength="50">
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Alamat</label>
-                        <textarea id="facility-address" class="form-control form-control-sm" rows="2" placeholder="Alamat fasilitas"></textarea>
+                    <div class="ims-layout-col-12">
+                        <label class="ims-label fw-semibold">Alamat</label>
+                        <textarea id="facility-address" class="ims-control form-control-sm" rows="2" placeholder="Alamat fasilitas"></textarea>
                     </div>
                 </div>
-                <div id="facility-error" class="text-danger small d-none mt-2"></div>
+                <div id="facility-error" class="text-danger text-ims-xs d-none mt-2"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btn-save-facility">
+                <button type="button" class="ims-btn ims-btn--muted ims-btn--sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="ims-btn ims-btn--primary ims-btn--sm" id="btn-save-facility">
                     <i class="bi bi-check-lg me-1"></i>Simpan
                 </button>
             </div>

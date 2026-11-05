@@ -856,7 +856,7 @@ function initAllocationForm() {
                 const input = document.createElement('input');
                 input.type = 'number';
                 input.min = '0';
-                input.classList.add('form-control', 'form-control-sm', 'js-matrix-qty');
+                input.classList.add('ims-control', 'form-control-sm', 'js-matrix-qty');
                 input.name = `alloc_${item.formIndex}_${f.id}`;
                 input.dataset.itemIndex = item.formIndex;
                 input.dataset.facilityId = f.id;
@@ -936,7 +936,7 @@ function initAllocationForm() {
         container.replaceChildren();
 
         const row = document.createElement('div');
-        row.className = 'row g-2 small';
+        row.className = 'ims-layout-row ims-layout-g-2 text-ims-xs';
 
         const appendSummary = (columnClass, label, value) => {
             const column = document.createElement('div');
@@ -950,22 +950,22 @@ function initAllocationForm() {
             row.appendChild(column);
         };
 
-        appendSummary('col-12', 'Judul', title?.value || '—');
-        appendSummary('col-md-4', 'Tanggal', tanggal?.value || '—');
-        appendSummary('col-md-4', 'Referensi', referensi?.value || '—');
+        appendSummary('ims-layout-col-12', 'Judul', title?.value || '—');
+        appendSummary('ims-layout-col-md-4', 'Tanggal', tanggal?.value || '—');
+        appendSummary('ims-layout-col-md-4', 'Referensi', referensi?.value || '—');
         appendSummary(
-            'col-md-6',
+            'ims-layout-col-md-6',
             'Fasilitas',
             facilities.map(f => f.name).join(', ') || '—'
         );
         appendSummary(
-            'col-md-6',
+            'ims-layout-col-md-6',
             'Petugas',
             staffNames.join(', ') || '—'
         );
 
         if (notes?.value) {
-            appendSummary('col-12', 'Catatan', notes.value);
+            appendSummary('ims-layout-col-12', 'Catatan', notes.value);
         }
 
         container.appendChild(row);
@@ -982,7 +982,7 @@ function initAllocationForm() {
 
         if (items.length === 0 || facilities.length === 0) {
             const emptyState = document.createElement('div');
-            emptyState.className = 'text-muted small';
+            emptyState.className = 'text-muted text-ims-xs';
             emptyState.textContent = 'Tidak ada data untuk ditampilkan.';
             container.appendChild(emptyState);
             return;
@@ -992,10 +992,10 @@ function initAllocationForm() {
         wrapper.className = 'table-responsive alloc-matrix-scroll';
 
         const table = document.createElement('table');
-        table.className = 'table table-sm table-bordered alloc-matrix';
+        table.className = 'table ims-table--compact ims-table--ruled alloc-matrix';
 
         const thead = document.createElement('thead');
-        thead.className = 'table-light';
+        thead.className = 'ims-table-heading';
         const headerRow = document.createElement('tr');
 
         ['Barang', 'Tersedia', ...facilities.map(f => f.name), 'Total'].forEach((label) => {

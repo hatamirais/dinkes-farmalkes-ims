@@ -5,76 +5,76 @@
 {% block page_title %}Detail SPJ / Pengadaan{% endblock %}
 
 {% block content %}
-<div class="ims-workflow ims-workflow-detail row g-3">
-    <div class="col-12 col-xl-4">
-        <div class="card content-card">
-            <div class="card-header"><span>Informasi SPJ</span></div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-5 text-muted">Nomor Internal IMS</dt>
-                    <dd class="col-7 fw-semibold">{{ contract.document_number|default:"Belum diterbitkan" }}</dd>
-                    <dt class="col-5 text-muted">Nomor Dokumen Eksternal</dt>
-                    <dd class="col-7">{{ contract.external_document_number|default:"-" }}</dd>
-                    <dt class="col-5 text-muted">Tanggal</dt>
-                    <dd class="col-7">{{ contract.contract_date|date:"d/m/Y" }}</dd>
-                    <dt class="col-5 text-muted">Supplier</dt>
-                    <dd class="col-7">{{ contract.supplier.name }}</dd>
-                    <dt class="col-5 text-muted">Sumber Dana</dt>
-                    <dd class="col-7">{{ contract.sumber_dana.name }}</dd>
-                    <dt class="col-5 text-muted">Status</dt>
-                    <dd class="col-7"><span class="badge-status badge-{{ contract.status|lower }}">{{ contract.get_status_display }}</span></dd>
-                    <dt class="col-5 text-muted">Dibuat Oleh</dt>
-                    <dd class="col-7">{{ contract.created_by }}</dd>
+<div class="ims-workflow ims-workflow-detail ims-layout-row ims-layout-g-3">
+    <div class="ims-layout-col-12 ims-layout-col-xl-4">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>Informasi SPJ</span></div>
+            <div class="ims-panel-body">
+                <dl class="ims-layout-row mb-0">
+                    <dt class="ims-layout-col-5 text-muted">Nomor Internal IMS</dt>
+                    <dd class="ims-layout-col-7 fw-semibold">{{ contract.document_number|default:"Belum diterbitkan" }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Nomor Dokumen Eksternal</dt>
+                    <dd class="ims-layout-col-7">{{ contract.external_document_number|default:"-" }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Tanggal</dt>
+                    <dd class="ims-layout-col-7">{{ contract.contract_date|date:"d/m/Y" }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Supplier</dt>
+                    <dd class="ims-layout-col-7">{{ contract.supplier.name }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Sumber Dana</dt>
+                    <dd class="ims-layout-col-7">{{ contract.sumber_dana.name }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Status</dt>
+                    <dd class="ims-layout-col-7"><span class="badge-status badge-{{ contract.status|lower }}">{{ contract.get_status_display }}</span></dd>
+                    <dt class="ims-layout-col-5 text-muted">Dibuat Oleh</dt>
+                    <dd class="ims-layout-col-7">{{ contract.created_by }}</dd>
                     {% if contract.approved_by %}
-                    <dt class="col-5 text-muted">Disetujui</dt>
-                    <dd class="col-7">{{ contract.approved_by }}<br><small class="text-muted">{{ contract.approved_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-layout-col-5 text-muted">Disetujui</dt>
+                    <dd class="ims-layout-col-7">{{ contract.approved_by }}<br><small class="text-muted">{{ contract.approved_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
                     {% if contract.cancelled_by %}
-                    <dt class="col-5 text-muted">Dibatalkan</dt>
-                    <dd class="col-7">{{ contract.cancelled_by }}<br><small class="text-muted">{{ contract.cancelled_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-layout-col-5 text-muted">Dibatalkan</dt>
+                    <dd class="ims-layout-col-7">{{ contract.cancelled_by }}<br><small class="text-muted">{{ contract.cancelled_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
                     {% if linked_receiving %}
-                    <dt class="col-5 text-muted">Rencana</dt>
-                    <dd class="col-7"><a href="{% url 'receiving:receiving_plan_detail' linked_receiving.pk %}" target="_blank" rel="noopener noreferrer">{{ linked_receiving.document_number }}</a></dd>
+                    <dt class="ims-layout-col-5 text-muted">Rencana</dt>
+                    <dd class="ims-layout-col-7"><a href="{% url 'receiving:receiving_plan_detail' linked_receiving.pk %}" target="_blank" rel="noopener noreferrer">{{ linked_receiving.document_number }}</a></dd>
                     {% endif %}
                     {% if contract.cancel_reason %}
-                    <dt class="col-5 text-muted">Alasan Batal</dt>
-                    <dd class="col-7">{{ contract.cancel_reason }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Alasan Batal</dt>
+                    <dd class="ims-layout-col-7">{{ contract.cancel_reason }}</dd>
                     {% endif %}
                     {% if contract.notes %}
-                    <dt class="col-5 text-muted">Catatan</dt>
-                    <dd class="col-7">{{ contract.notes }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Catatan</dt>
+                    <dd class="ims-layout-col-7">{{ contract.notes }}</dd>
                     {% endif %}
                 </dl>
             </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2 mt-3">
+        <div class="flex flex-wrap gap-2 mt-3">
             {% if contract_actions.can_edit %}
-            <a href="{% url 'procurement:contract_edit' contract.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <a href="{% url 'procurement:contract_edit' contract.pk %}" class="ims-btn ims-btn--secondary ims-btn--sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
             {% endif %}
             {% if contract_actions.can_submit %}
             <form method="post" action="{% url 'procurement:contract_submit' contract.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-send me-1"></i>Ajukan</button>
+                <button type="submit" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-send me-1"></i>Ajukan</button>
             </form>
             {% endif %}
             {% if contract_actions.can_approve %}
             <form method="post" action="{% url 'procurement:contract_approve' contract.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-patch-check me-1"></i>Setujui</button>
+                <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary"><i class="bi bi-patch-check me-1"></i>Setujui</button>
             </form>
             {% endif %}
             {% if contract_actions.can_create_amendment %}
-            <a href="{% url 'procurement:amendment_create' contract.pk %}" class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-plus-circle me-1"></i>Buat Amandemen</a>
+            <a href="{% url 'procurement:amendment_create' contract.pk %}" class="ims-btn ims-btn--secondary ims-btn--sm ims-btn ims-btn--sm ims-btn--secondary"><i class="bi bi-plus-circle me-1"></i>Buat Amandemen</a>
             {% endif %}
             {% if contract_actions.can_close %}
             <form method="post" action="{% url 'procurement:contract_close' contract.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-circle me-1"></i>Tutup Kontrak</button>
+                <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger"><i class="bi bi-x-circle me-1"></i>Tutup Kontrak</button>
             </form>
             {% endif %}
-            <a href="{% url 'procurement:contract_list' %}" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
+            <a href="{% url 'procurement:contract_list' %}" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
         </div>
 
         {% if contract_actions.can_cancel %}
@@ -83,17 +83,17 @@
             <div class="mb-2">
                 {{ cancel_form.cancel_reason }}
             </div>
-            <button type="submit" class="btn btn-outline-danger btn-sm ims-btn ims-btn--sm ims-btn--danger" data-confirm-submit="Batalkan SPJ ini?">
+            <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm ims-btn ims-btn--sm ims-btn--danger" data-confirm-submit="Batalkan SPJ ini?">
                 <i class="bi bi-x-circle me-1"></i>Batalkan SPJ
             </button>
         </form>
         {% endif %}
     </div>
 
-    <div class="col-12 col-xl-8">
-        <div class="card content-card mb-3">
-            <div class="card-header"><span>Ringkasan Kontrak vs Realisasi</span></div>
-            <div class="card-body p-0">
+    <div class="ims-layout-col-12 ims-layout-col-xl-8">
+        <div class="ims-panel content-card mb-3">
+            <div class="ims-panel-header"><span>Ringkasan Kontrak vs Realisasi</span></div>
+            <div class="ims-panel-body p-0">
                 <div class="table-responsive ims-table-scroll">
                     <table class="table mb-0 ims-table">
                         <thead>
@@ -129,9 +129,9 @@
             </div>
         </div>
 
-        <div class="card content-card">
-            <div class="card-header"><span>Riwayat Amandemen</span></div>
-            <div class="card-body p-0">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>Riwayat Amandemen</span></div>
+            <div class="ims-panel-body p-0">
                 <div class="table-responsive ims-table-scroll">
                     <table class="table mb-0 ims-table">
                         <thead>

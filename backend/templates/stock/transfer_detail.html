@@ -4,60 +4,60 @@
 {% block page_title %}Detail Mutasi Lokasi{% endblock %}
 
 {% block content %}
-<div class="ims-workflow ims-workflow-detail ims-transfer-detail row g-3">
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header"><span>Informasi Mutasi</span></div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-5 text-muted">No. Dokumen</dt>
-                    <dd class="col-7 fw-semibold">{{ transfer.document_number|default:"Belum diterbitkan" }}</dd>
+<div class="ims-workflow ims-workflow-detail ims-transfer-detail ims-layout-row ims-layout-g-3">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>Informasi Mutasi</span></div>
+            <div class="ims-panel-body">
+                <dl class="ims-layout-row mb-0">
+                    <dt class="ims-layout-col-5 text-muted">No. Dokumen</dt>
+                    <dd class="ims-layout-col-7 fw-semibold">{{ transfer.document_number|default:"Belum diterbitkan" }}</dd>
 
-                    <dt class="col-5 text-muted">Tanggal</dt>
-                    <dd class="col-7">{{ transfer.transfer_date|date:"d/m/Y" }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Tanggal</dt>
+                    <dd class="ims-layout-col-7">{{ transfer.transfer_date|date:"d/m/Y" }}</dd>
 
-                    <dt class="col-5 text-muted">Lokasi Asal</dt>
-                    <dd class="col-7">{{ transfer.source_location.name }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Lokasi Asal</dt>
+                    <dd class="ims-layout-col-7">{{ transfer.source_location.name }}</dd>
 
-                    <dt class="col-5 text-muted">Lokasi Tujuan</dt>
-                    <dd class="col-7">{{ transfer.destination_location.name }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Lokasi Tujuan</dt>
+                    <dd class="ims-layout-col-7">{{ transfer.destination_location.name }}</dd>
 
-                    <dt class="col-5 text-muted">Status</dt>
-                    <dd class="col-7">
+                    <dt class="ims-layout-col-5 text-muted">Status</dt>
+                    <dd class="ims-layout-col-7">
                         <span class="badge-status badge-{% if transfer.status == 'COMPLETED' %}verified{% else %}draft{% endif %}">{{ transfer.get_status_display }}</span>
                     </dd>
 
-                    <dt class="col-5 text-muted">Dibuat Oleh</dt>
-                    <dd class="col-7">{{ transfer.created_by }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Dibuat Oleh</dt>
+                    <dd class="ims-layout-col-7">{{ transfer.created_by }}</dd>
 
                     {% if transfer.completed_by %}
-                    <dt class="col-5 text-muted">Diselesaikan</dt>
-                    <dd class="col-7">{{ transfer.completed_by }}<br><small class="text-muted">{{ transfer.completed_at|date:"d/m/Y H:i" }}</small></dd>
+                    <dt class="ims-layout-col-5 text-muted">Diselesaikan</dt>
+                    <dd class="ims-layout-col-7">{{ transfer.completed_by }}<br><small class="text-muted">{{ transfer.completed_at|date:"d/m/Y H:i" }}</small></dd>
                     {% endif %}
 
                     {% if transfer.notes %}
-                    <dt class="col-5 text-muted">Catatan</dt>
-                    <dd class="col-7">{{ transfer.notes }}</dd>
+                    <dt class="ims-layout-col-5 text-muted">Catatan</dt>
+                    <dd class="ims-layout-col-7">{{ transfer.notes }}</dd>
                     {% endif %}
                 </dl>
             </div>
         </div>
     </div>
 
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header flex justify-between items-center">
                 <span>Daftar Item Mutasi</span>
                 {% if transfer.status == 'DRAFT' %}
                 <form method="post" action="{% url 'stock:transfer_complete' transfer.pk %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-primary btn-sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Selesaikan mutasi ini? Stok akan dipindahkan dan tidak bisa dibatalkan.">
+                    <button type="submit" class="ims-btn ims-btn--primary ims-btn--sm ims-btn ims-btn--sm ims-btn--primary" data-confirm="Selesaikan mutasi ini? Stok akan dipindahkan dan tidak bisa dibatalkan.">
                         <i class="bi bi-check2-circle me-1"></i>Selesaikan Mutasi
                     </button>
                 </form>
                 {% endif %}
             </div>
-            <div class="card-body p-0">
+            <div class="ims-panel-body p-0">
                 <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel item mutasi" tabindex="0">
                     <table class="table ims-table">
                         <thead>
@@ -82,13 +82,13 @@
                                 <td>{{ line.stock.expiry_date_display }}</td>
                                 <td><code>{{ line.stock.source_document_number|default:"-" }}</code></td>
                                 <td class="text-end fw-semibold">{{ line.quantity }}</td>
-                                <td class="text-muted small">{{ line.notes|default:"-" }}</td>
+                                <td class="text-muted text-ims-xs">{{ line.notes|default:"-" }}</td>
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="8">
                                     <div class="empty-state py-4">
-                                        <i class="bi bi-journal-x d-block"></i>
+                                        <i class="bi bi-journal-x block"></i>
                                         <p>Belum ada item mutasi.</p>
                                     </div>
                                 </td>

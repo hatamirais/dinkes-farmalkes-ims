@@ -71,9 +71,9 @@
             fragments.push(`
                 <tr class="group-row">
                     <td colspan="8" class="py-3">
-                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+                        <div class="flex flex-col flex-lg-row justify-between align-items-lg-center gap-2">
                             <div class="fw-semibold">${escapeHtml(facilityName)}</div>
-                            <div class="small text-muted">${formatNumber(items.length)} item pada snapshot aktif</div>
+                            <div class="text-ims-xs text-muted">${formatNumber(items.length)} item pada snapshot aktif</div>
                         </div>
                     </td>
                 </tr>

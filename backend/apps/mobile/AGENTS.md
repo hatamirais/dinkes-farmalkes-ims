@@ -17,6 +17,6 @@ App-specific guidance for the server-rendered mobile/PWA surface.
 
 ## Tailwind presentation
 
-The server-rendered mobile/PWA shell and all five routed child templates load generated Tailwind CSS through `mobile/base.html`, with scoped source in `backend/static_src/css/mobile.css`. Bootstrap CSS and the unused Bootstrap bundle are absent from mobile pages; Bootstrap Icons and the unchanged `mobile.js` remain. The historical `backend/static/mobile/css/mobile.css` is no longer loaded and is retained for the later repository cleanup. Manifest/service-worker behavior and routes are unchanged.
+The server-rendered mobile/PWA shell and all five routed child templates load generated Tailwind CSS through `mobile/base.html`, with scoped source in `backend/static_src/css/mobile.css`. Bootstrap CSS and the unused Bootstrap bundle are absent from mobile pages; Bootstrap Icons and the unchanged `mobile.js` remain. The historical `backend/static/mobile/css/mobile.css` was removed during Wave 9. Manifest/service-worker behavior and routes are unchanged.
 
 Keep all `data-mobile-*`, `data-pwa-*`, stock-result IDs, native confirmation forms, and session/CSRF contracts. Use the approved shared tokens and at least 44px touch targets. Dynamic stock-service `text-bg-*` values are adapted only under `.mobile-shell .mobile-stock-badge`; do not change the shared stock service for presentation. Device-only PWA checks and current route evidence are recorded in `docs/css-refactoring/MIGRATION_LEDGER.md`.

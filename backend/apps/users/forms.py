@@ -283,7 +283,7 @@ class AuthorityDelegationCreateForm(forms.Form):
     delegate = forms.ModelChoiceField(
         label="Pelaksana Harian",
         queryset=User.objects.none(),
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
     modules = forms.MultipleChoiceField(
         label="Modul yang Didelegasikan",
@@ -305,7 +305,7 @@ class AuthorityDelegationCreateForm(forms.Form):
         widget=forms.DateTimeInput(
             format="%Y-%m-%dT%H:%M",
             attrs={
-                "class": "form-control",
+                "class": "ims-control",
                 "type": "datetime-local",
                 "data-datetime-picker": "24h",
                 "placeholder": "DD/MM/YYYY HH:mm",
@@ -322,7 +322,7 @@ class AuthorityDelegationCreateForm(forms.Form):
         widget=forms.DateTimeInput(
             format="%Y-%m-%dT%H:%M",
             attrs={
-                "class": "form-control",
+                "class": "ims-control",
                 "type": "datetime-local",
                 "data-datetime-picker": "24h",
                 "placeholder": "DD/MM/YYYY HH:mm",
@@ -332,7 +332,7 @@ class AuthorityDelegationCreateForm(forms.Form):
     reason = forms.CharField(
         label="Alasan / Dasar Penugasan",
         max_length=500,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
     )
 
     def __init__(self, *args, actor, **kwargs):
@@ -554,7 +554,7 @@ class AuthorityDelegationRevokeForm(forms.Form):
     revocation_reason = forms.CharField(
         label="Alasan Pencabutan",
         max_length=500,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        widget=forms.Textarea(attrs={"class": "ims-control", "rows": 3}),
     )
 
     def clean_revocation_reason(self):

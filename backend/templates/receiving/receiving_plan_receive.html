@@ -5,14 +5,14 @@
 
 {% block content %}
 <div class="ims-receiving-form ims-receiving-execution">
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header">
                 <span><i class="bi bi-inbox-arrow-down me-2"></i>Terima Barang dari Rencana</span>
             </div>
-            <div class="card-body">
+            <div class="ims-panel-body">
                 <div class="mb-3">
-                    <div class="d-flex flex-wrap gap-3 small text-muted">
+                    <div class="flex flex-wrap gap-3 text-ims-xs text-muted">
                         <span><strong>No. Dokumen:</strong> {{ receiving.document_number }}</span>
                         <span><strong>Tanggal:</strong> {{ receiving.receiving_date|date:"d/m/Y" }}</span>
                         <span><strong>Sumber Dana:</strong> {{ receiving.sumber_dana.name }}</span>
@@ -23,14 +23,14 @@
                     {% csrf_token %}
                     {{ formset.management_form }}
                     {% if formset.non_form_errors %}
-                    <div class="alert alert-danger py-2">
+                    <div class="ims-alert ims-alert--danger py-2">
                         {% for error in formset.non_form_errors %}
                         <div>{{ error }}</div>
                         {% endfor %}
                     </div>
                     {% endif %}
                     <div class="table-responsive" role="region" aria-label="Item rencana penerimaan" tabindex="0">
-                        <table class="table ims-table table-sm align-middle" style="min-width: 1380px;">
+                        <table class="table ims-table ims-table--compact align-middle" style="min-width: 1380px;">
                             <thead>
                                 <tr>
                                     <th style="min-width: 260px;">Item Pesanan</th>
@@ -59,12 +59,12 @@
                                 </tr>
                                 {% for error in item_form.errors.values %}
                                 <tr>
-                                    <td colspan="7" class="text-danger small py-1">{{ error }}</td>
+                                    <td colspan="7" class="text-danger text-ims-xs py-1">{{ error }}</td>
                                 </tr>
                                 {% endfor %}
                                 {% for error in item_form.non_field_errors %}
                                 <tr>
-                                    <td colspan="7" class="text-danger small py-1">{{ error }}</td>
+                                    <td colspan="7" class="text-danger text-ims-xs py-1">{{ error }}</td>
                                 </tr>
                                 {% endfor %}
                                 {% endfor %}
@@ -72,11 +72,11 @@
                         </table>
                     </div>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="flex gap-2 mt-4">
+                        <button type="submit" class="ims-btn ims-btn--primary">
                             <i class="bi bi-check-lg me-1"></i>Simpan Penerimaan
                         </button>
-                        <a href="{% url 'receiving:receiving_plan_detail' receiving.pk %}" class="btn btn-outline-secondary">Batal</a>
+                        <a href="{% url 'receiving:receiving_plan_detail' receiving.pk %}" class="ims-btn ims-btn--neutral">Batal</a>
                     </div>
                 </form>
             </div>

@@ -120,72 +120,72 @@
 
 {% block content %}
 <div
-    class="ims-workflow ims-workflow-detail row g-3 {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}d-print-none{% endif %}">
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
+    class="ims-workflow ims-workflow-detail ims-layout-row ims-layout-g-3 {% if distribution.status == 'VERIFIED' or distribution.status == 'PREPARED' or distribution.approved_by %}d-print-none{% endif %}">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header flex justify-between items-center">
                 <span>Informasi {{ module_label|default:"Distribusi" }}</span>
-                <button class="btn btn-sm btn-outline-secondary ims-btn ims-btn--sm ims-btn--neutral" type="button" data-bs-toggle="collapse"
+                <button class="ims-btn ims-btn--sm ims-btn--neutral ims-btn ims-btn--sm ims-btn--neutral" type="button" data-bs-toggle="collapse"
                     data-bs-target="#distributionInfoPanel" aria-expanded="true" aria-controls="distributionInfoPanel"
                     title="Tampilkan/Sembunyikan Informasi Distribusi">
                     <i class="bi bi-list"></i>
                 </button>
             </div>
             <div id="distributionInfoPanel" class="collapse show">
-                <div class="card-body">
-                    <div class="row g-4 align-items-start">
-                        <div class="col-12 col-xl-8">
-                            <dl class="row mb-0">
-                                <dt class="col-5 text-muted">No. Dokumen</dt>
-                                <dd class="col-7 fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</dd>
+                <div class="ims-panel-body">
+                    <div class="ims-layout-row ims-layout-g-4 items-start">
+                        <div class="ims-layout-col-12 ims-layout-col-xl-8">
+                            <dl class="ims-layout-row mb-0">
+                                <dt class="ims-layout-col-5 text-muted">No. Dokumen</dt>
+                                <dd class="ims-layout-col-7 fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</dd>
 
-                                <dt class="col-5 text-muted">Tanggal</dt>
-                                <dd class="col-7">{{ distribution.request_date|date:"d/m/Y" }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Tanggal</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.request_date|date:"d/m/Y" }}</dd>
 
-                                <dt class="col-5 text-muted">Tipe</dt>
-                                <dd class="col-7">{{ distribution.get_distribution_type_display }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Tipe</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.get_distribution_type_display }}</dd>
 
                                 {% if distribution.program %}
-                                <dt class="col-5 text-muted">Program</dt>
-                                <dd class="col-7">{{ distribution.program }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Program</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.program }}</dd>
                                 {% endif %}
 
-                                <dt class="col-5 text-muted">Faskes Tujuan</dt>
-                                <dd class="col-7">{{ distribution.facility.name }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Faskes Tujuan</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.facility.name }}</dd>
 
-                                <dt class="col-5 text-muted">Status</dt>
-                                <dd class="col-7">
+                                <dt class="ims-layout-col-5 text-muted">Status</dt>
+                                <dd class="ims-layout-col-7">
                                     <span class="badge-status badge-{{ distribution.status|lower }}">{{ distribution.get_status_display }}</span>
                                 </dd>
 
-                                <dt class="col-5 text-muted">Dibuat oleh</dt>
-                                <dd class="col-7">{{ distribution.created_by }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Dibuat oleh</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.created_by }}</dd>
 
                                 {% if distribution.verified_by %}
-                                <dt class="col-5 text-muted">Diverifikasi</dt>
-                                <dd class="col-7">{{ distribution.verified_by }}<br><small class="text-muted">{{ distribution.verified_at|date:"d/m/Y H:i" }}</small></dd>
+                                <dt class="ims-layout-col-5 text-muted">Diverifikasi</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.verified_by }}<br><small class="text-muted">{{ distribution.verified_at|date:"d/m/Y H:i" }}</small></dd>
                                 {% endif %}
 
                                 {% if distribution.approved_by %}
-                                <dt class="col-5 text-muted">Didistribusikan</dt>
-                                <dd class="col-7">{{ distribution.approved_by }}<br><small class="text-muted">{{ distribution.approved_at|date:"d/m/Y H:i" }}</small></dd>
+                                <dt class="ims-layout-col-5 text-muted">Didistribusikan</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.approved_by }}<br><small class="text-muted">{{ distribution.approved_at|date:"d/m/Y H:i" }}</small></dd>
                                 {% endif %}
 
                                 {% if distribution.distributed_date %}
-                                <dt class="col-5 text-muted">Tgl Distribusi</dt>
-                                <dd class="col-7">{{ distribution.distributed_date|date:"d/m/Y" }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Tgl Distribusi</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.distributed_date|date:"d/m/Y" }}</dd>
                                 {% endif %}
 
                                 {% if distribution.notes %}
-                                <dt class="col-5 text-muted">Catatan</dt>
-                                <dd class="col-7">{{ distribution.notes }}</dd>
+                                <dt class="ims-layout-col-5 text-muted">Catatan</dt>
+                                <dd class="ims-layout-col-7">{{ distribution.notes }}</dd>
                                 {% endif %}
 
-                                <dt class="col-5 text-muted">Petugas</dt>
-                                <dd class="col-7">
+                                <dt class="ims-layout-col-5 text-muted">Petugas</dt>
+                                <dd class="ims-layout-col-7">
                                     {% if assigned_staff %}
                                     {% for staff in assigned_staff %}
-                                    <span class="badge text-bg-light border me-1 mb-1">{{ staff }}</span>
+                                    <span class="ims-badge text-bg-light border me-1 mb-1">{{ staff }}</span>
                                     {% endfor %}
                                     {% else %}
                                     <span class="text-muted">Belum ditentukan</span>
@@ -193,15 +193,15 @@
                                 </dd>
                             </dl>
                         </div>
-                        <div class="col-12 col-xl-4">
+                        <div class="ims-layout-col-12 ims-layout-col-xl-4">
                             <div class="border rounded-3 p-3 bg-light-subtle">
                                 <h6 class="mb-3">Aksi {{ module_label|default:"Distribusi" }}</h6>
-                                <div class="d-grid gap-2">
+                                <div class="grid gap-2">
                                     {% if is_allocation %}
                                     {# Allocation-generated: limited actions, managed by parent allocation #}
                                     {% if distribution.allocation and can_view_allocation_parent %}
                                     <a href="{% url 'allocation:allocation_detail' distribution.allocation.pk %}"
-                                        class="btn btn-outline-primary btn-sm ims-btn ims-btn--sm ims-btn--secondary">
+                                        class="ims-btn ims-btn--secondary ims-btn--sm ims-btn ims-btn--sm ims-btn--secondary">
                                         <i class="bi bi-diagram-3 me-1"></i>Lihat Alokasi Induk
                                     </a>
                                     {% endif %}
@@ -210,19 +210,19 @@
                                     <form method="post"
                                         action="{% url 'allocation:allocation_distribution_prepare' distribution.allocation.pk distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-info btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
+                                        <button type="submit" class="ims-btn ims-btn--info ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-box-seam me-1"></i>Siapkan Barang
                                         </button>
                                     </form>
                                     {% elif distribution.status == 'PREPARED' %}
-                                    <button type="button" class="btn btn-success btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary" data-bs-toggle="modal"
+                                    <button type="button" class="ims-btn ims-btn--confirm ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--primary" data-bs-toggle="modal"
                                         data-bs-target="#distributeModal">
                                         <i class="bi bi-truck me-1"></i>Distribusikan
                                     </button>
                                     {% endif %}
                                     {% endif %}
                                     {% if can_print_sbbk %}
-                                    <button type="button" class="btn btn-dark btn-sm ims-btn ims-btn--sm ims-btn--neutral" data-action="print">
+                                    <button type="button" class="ims-btn ims-btn--ink ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral" data-action="print">
                                         <i class="bi bi-printer me-1"></i>Cetak SBBK
                                     </button>
                                     {% endif %}
@@ -230,12 +230,12 @@
                                     {# Regular distribution: full workflow actions #}
                                     {% if can_edit_distribution %}
                                     <a href="{% url 'distribution:distribution_edit' distribution.pk %}"
-                                        class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+                                        class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                                         <i class="bi bi-pencil me-1"></i>Ubah
                                     </a>
                                     {% endif %}
                                     {% if can_return_lplpo_to_puskesmas %}
-                                    <button type="button" class="btn btn-outline-danger btn-sm w-100 ims-btn ims-btn--sm ims-btn--danger"
+                                    <button type="button" class="ims-btn ims-btn--danger-outline ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--danger"
                                         data-bs-toggle="modal" data-bs-target="#returnLplpoModal" id="return-lplpo-btn">
                                         <i class="bi bi-arrow-counterclockwise me-1"></i>Batalkan & Kembalikan ke
                                         Puskesmas
@@ -247,7 +247,7 @@
                                         action="{% url 'distribution:distribution_delete' distribution.pk %}"
                                         data-confirm-submit="Hapus distribusi ini? Tindakan ini tidak dapat dibatalkan.">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100 ims-btn ims-btn--sm ims-btn--danger">
+                                        <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--danger">
                                             <i class="bi bi-trash me-1"></i>Hapus Dokumen
                                         </button>
                                     </form>
@@ -256,7 +256,7 @@
                                     <form method="post"
                                         action="{% url 'distribution:distribution_prepare' distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-info btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
+                                        <button type="submit" class="ims-btn ims-btn--info ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-box-seam me-1"></i>Siap untuk Diajukan
                                         </button>
                                     </form>
@@ -265,7 +265,7 @@
                                     <form method="post"
                                         action="{% url 'distribution:distribution_submit' distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-primary btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
+                                        <button type="submit" class="ims-btn ims-btn--primary ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-send me-1"></i>Ajukan ke Kepala
                                         </button>
                                     </form>
@@ -273,7 +273,7 @@
                                     <form method="post"
                                         action="{% url 'distribution:distribution_verify' distribution.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-success btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary">
+                                        <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--primary">
                                             <i class="bi bi-patch-check me-1"></i>Setujui
                                         </button>
                                     </form>
@@ -282,13 +282,13 @@
                                         action="{% url 'distribution:distribution_reject' distribution.pk %}"
                                         data-confirm-submit="Yakin ingin mengembalikan distribusi ini ke petugas yang ditugaskan?">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100 ims-btn ims-btn--sm ims-btn--danger">
+                                        <button type="submit" class="ims-btn ims-btn--danger-outline ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--danger">
                                             <i class="bi bi-x-circle me-1"></i>Kembalikan ke Petugas
                                         </button>
                                     </form>
                                     {% endif %}
                                     {% elif can_distribute_distribution %}
-                                    <button type="button" class="btn btn-success btn-sm w-100 ims-btn ims-btn--sm ims-btn--primary" data-bs-toggle="modal"
+                                    <button type="button" class="ims-btn ims-btn--confirm ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--primary" data-bs-toggle="modal"
                                         data-bs-target="#distributeModal">
                                         <i class="bi bi-truck me-1"></i>Distribusikan
                                     </button>
@@ -298,7 +298,7 @@
                                         action="{% url 'distribution:distribution_reset_to_draft' distribution.pk %}"
                                         data-confirm-submit="Kembalikan status distribusi ke Draft?">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-warning btn-sm w-100 ims-btn ims-btn--sm">
+                                        <button type="submit" class="ims-btn ims-btn--warning-outline ims-btn--sm w-full ims-btn ims-btn--sm">
                                             <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
                                         </button>
                                     </form>
@@ -308,19 +308,19 @@
                                         action="{% url 'distribution:distribution_step_back' distribution.pk %}"
                                         data-confirm-submit="Kembalikan ke status sebelumnya?">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100 ims-btn ims-btn--sm ims-btn--neutral">
+                                        <button type="submit" class="ims-btn ims-btn--neutral ims-btn--sm w-full ims-btn ims-btn--sm ims-btn--neutral">
                                             <i class="bi bi-arrow-left-circle me-1"></i>Kembali ke status sebelumnya
                                         </button>
                                     </form>
                                     {% endif %}
                                     {% if can_print_sbbk %}
-                                    <button type="button" class="btn btn-dark btn-sm ims-btn ims-btn--sm ims-btn--neutral" data-action="print">
+                                    <button type="button" class="ims-btn ims-btn--ink ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral" data-action="print">
                                         <i class="bi bi-printer me-1"></i>Cetak SBBK
                                     </button>
                                     {% endif %}
                                     {% endif %}
                                     <a href="{% url module_back_url_name|default:'distribution:distribution_list' %}"
-                                        class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral">
+                                        class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral">
                                         <i class="bi bi-arrow-left me-1"></i>Kembali
                                     </a>
                                 </div>
@@ -332,17 +332,17 @@
         </div>
     </div>
 
-    <div class="col-12">
-        <div class="card content-card">
-            <div class="card-header"><span>Daftar Item {{ module_label|default:"Distribusi" }}</span></div>
-            <div class="card-body p-0">
+    <div class="ims-layout-col-12">
+        <div class="ims-panel content-card">
+            <div class="ims-panel-header"><span>Daftar Item {{ module_label|default:"Distribusi" }}</span></div>
+            <div class="ims-panel-body p-0">
                 {% if is_generated_lplpo_distribution %}
-                <div class="alert alert-info border-0 border-bottom rounded-0 mb-0">
+                <div class="ims-alert ims-alert--info border-0 border-bottom rounded-0 mb-0">
                     Distribusi ini dibuat dari review LPLPO. Kolom <strong>Jumlah {{ module_label|default:"Distribusi" }}</strong> menampilkan kuantitas yang disetujui saat review LPLPO, sedangkan nilai permintaan asal tetap tersimpan pada dokumen distribusi dan ditampilkan terkunci di layar <strong>Ubah</strong>.
                 </div>
                 {% endif %}
                 <div class="table-responsive ims-table-scroll">
-                    <table class="table table-bordered align-middle mb-0 ims-table">
+                    <table class="table ims-table--ruled align-middle mb-0 ims-table">
                         <thead>
                             <tr>
                                 <th class="text-center" style="width: 70px;">No</th>
@@ -368,7 +368,7 @@
                             <tr>
                                 <td colspan="5">
                                     <div class="empty-state">
-                                        <i class="bi bi-inbox d-block"></i>
+                                        <i class="bi bi-inbox block"></i>
                                         <p>Belum ada item {{ module_label|default:"distribusi"|lower }}</p>
                                     </div>
                                 </td>
@@ -404,19 +404,19 @@
                     <p class="mb-2">Anda akan mendistribusikan barang untuk:</p>
                     <div class="border rounded p-3 bg-light mb-3">
                         <div class="fw-semibold">{{ distribution.document_number|default:"Belum diterbitkan" }}</div>
-                        <div class="text-muted small">{{ distribution.facility }}</div>
-                        <div class="text-muted small">{{ distribution.items.count }} item</div>
+                        <div class="text-muted text-ims-xs">{{ distribution.facility }}</div>
+                        <div class="text-muted text-ims-xs">{{ distribution.items.count }} item</div>
                     </div>
-                    <div class="alert alert-warning py-2 mb-0">
+                    <div class="ims-alert ims-alert--warning py-2 mb-0">
                         <i class="bi bi-exclamation-triangle me-1"></i>
                         <strong>Perhatian:</strong> Stok akan dikurangi secara permanen. Pastikan barang fisik sudah
                         sesuai dengan SBBK sebelum melanjutkan.
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm ims-btn ims-btn--sm ims-btn--neutral"
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn--sm ims-btn ims-btn--sm ims-btn--neutral"
                         data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-success btn-sm ims-btn ims-btn--sm ims-btn--primary">
+                    <button type="submit" class="ims-btn ims-btn--confirm ims-btn--sm ims-btn ims-btn--sm ims-btn--primary">
                         <i class="bi bi-truck me-1"></i>Ya, Distribusikan
                     </button>
                 </div>
@@ -442,13 +442,13 @@
                         Tindakan ini akan membatalkan dokumen distribusi hasil LPLPO dan mengembalikan LPLPO ke
                         Puskesmas untuk diperbaiki lalu diajukan ulang.
                     </p>
-                    <label for="return_rejection_reason" class="form-label">Alasan Penolakan</label>
-                    <textarea class="form-control ims-control" id="return_rejection_reason" name="rejection_reason" rows="4"
+                    <label for="return_rejection_reason" class="ims-label">Alasan Penolakan</label>
+                    <textarea class="ims-control ims-control" id="return_rejection_reason" name="rejection_reason" rows="4"
                         required></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-danger ims-btn ims-btn--danger">Batalkan Distribusi</button>
+                    <button type="button" class="ims-btn ims-btn--neutral ims-btn ims-btn--neutral" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="ims-btn ims-btn--danger ims-btn ims-btn--danger">Batalkan Distribusi</button>
                 </div>
             </form>
         </div>
@@ -480,7 +480,7 @@
         </div>
     </div>
 
-    <table class="table table-bordered sbbk-print-table mb-0 ims-table">
+    <table class="table ims-table--ruled sbbk-print-table mb-0 ims-table">
         <thead>
             <tr>
                 <th class="text-center" style="width: 56px;">No</th>

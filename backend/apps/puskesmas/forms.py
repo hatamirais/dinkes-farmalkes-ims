@@ -1,8 +1,6 @@
 import unicodedata
 from decimal import Decimal
 
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Layout
 from django import forms
 from django.db.models import Q
 from django.forms import BaseFormSet, BaseInlineFormSet, formset_factory, inlineformset_factory
@@ -47,15 +45,15 @@ class PuskesmasRequestForm(forms.ModelForm):
         widgets = {
             "document_number": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "ims-control",
                     "placeholder": "Kosongkan untuk auto-generate",
                 }
             ),
-            "facility": forms.Select(attrs={"class": "form-select"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
             "request_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "ims-control", "type": "date"}
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -104,14 +102,14 @@ class PuskesmasRequestItemForm(forms.ModelForm):
         widgets = {
             "item": forms.Select(
                 attrs={
-                    "class": "form-select form-select-sm js-typeahead-select js-item-select"
+                    "class": "ims-control form-select-sm js-typeahead-select js-item-select"
                 }
             ),
             "quantity_requested": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1", "step": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "1", "step": "1"}
             ),
             "notes": forms.TextInput(
-                attrs={"class": "form-control form-control-sm", "placeholder": "Keterangan (opsional)"}
+                attrs={"class": "ims-control form-control-sm", "placeholder": "Keterangan (opsional)"}
             ),
         }
 
@@ -149,7 +147,7 @@ class ApprovalItemForm(forms.ModelForm):
         fields = ["quantity_approved"]
         widgets = {
             "quantity_approved": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "0", "step": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "0", "step": "1"}
             ),
         }
 
@@ -176,18 +174,18 @@ class PuskesmasReceiptConfirmationForm(forms.ModelForm):
         widgets = {
             "document_number": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "ims-control",
                     "placeholder": "Kosongkan untuk auto-generate",
                 }
             ),
-            "facility": forms.Select(attrs={"class": "form-select"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
             "distribution": forms.Select(
-                attrs={"class": "form-select js-typeahead-select"}
+                attrs={"class": "ims-control js-typeahead-select"}
             ),
             "received_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "ims-control", "type": "date"}
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -344,31 +342,31 @@ class PuskesmasReceiptConfirmationItemForm(forms.ModelForm):
         ]
         widgets = {
             "distribution_item": forms.Select(
-                attrs={"class": "form-select form-select-sm js-typeahead-select"}
+                attrs={"class": "ims-control form-select-sm js-typeahead-select"}
             ),
             "item": forms.Select(
                 attrs={
-                    "class": "form-select form-select-sm js-typeahead-select js-item-select"
+                    "class": "ims-control form-select-sm js-typeahead-select js-item-select"
                 }
             ),
             "quantity": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "1", "step": "1"}
+                attrs={"class": "ims-control form-control-sm", "min": "1", "step": "1"}
             ),
             "unit_price": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "min": "0", "step": "any"}
+                attrs={"class": "ims-control form-control-sm", "min": "0", "step": "any"}
             ),
             "batch_lot": forms.TextInput(
                 attrs={
-                    "class": "form-control form-control-sm",
+                    "class": "ims-control form-control-sm",
                     "placeholder": "Batch/Lot",
                 }
             ),
             "expiry_date": forms.DateInput(
-                attrs={"class": "form-control form-control-sm", "type": "date"}
+                attrs={"class": "ims-control form-control-sm", "type": "date"}
             ),
             "notes": forms.TextInput(
                 attrs={
-                    "class": "form-control form-control-sm",
+                    "class": "ims-control form-control-sm",
                     "placeholder": "Keterangan penyesuaian (opsional)",
                 }
             ),
@@ -676,26 +674,17 @@ class PuskesmasSubunitForm(forms.ModelForm):
         model = PuskesmasSubunit
         fields = ["facility", "name", "subunit_type", "is_active"]
         widgets = {
-            "facility": forms.Select(attrs={"class": "form-select"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
             "name": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "Contoh: Poli Umum"}
+                attrs={"class": "ims-control", "placeholder": "Contoh: Poli Umum"}
             ),
-            "subunit_type": forms.Select(attrs={"class": "form-select"}),
+            "subunit_type": forms.Select(attrs={"class": "ims-control"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("facility", css_class="mb-3"),
-            Div("name", css_class="mb-3"),
-            Div("subunit_type", css_class="mb-3"),
-            Div("is_active", css_class="form-check mb-0"),
-        )
 
         self.fields["facility"].label = "Puskesmas"
         self.fields["facility"].widget.attrs["title"] = (
@@ -760,14 +749,14 @@ class PuskesmasConsumptionMatrixForm(forms.ModelForm):
         model = PuskesmasConsumption
         fields = ["facility", "bulan", "tahun", "notes"]
         widgets = {
-            "facility": forms.Select(attrs={"class": "form-select"}),
+            "facility": forms.Select(attrs={"class": "ims-control"}),
             "bulan": forms.NumberInput(
-                attrs={"class": "form-control", "min": "1", "max": "12", "step": "1"}
+                attrs={"class": "ims-control", "min": "1", "max": "12", "step": "1"}
             ),
             "tahun": forms.NumberInput(
-                attrs={"class": "form-control", "min": "1000", "max": "9999", "step": "1"}
+                attrs={"class": "ims-control", "min": "1000", "max": "9999", "step": "1"}
             ),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "notes": forms.Textarea(attrs={"class": "ims-control", "rows": 2}),
         }
 
     def __init__(
@@ -787,15 +776,6 @@ class PuskesmasConsumptionMatrixForm(forms.ModelForm):
         self.lock_period = lock_period
         super().__init__(*args, **kwargs)
 
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.disable_csrf = True
-        self.helper.layout = Layout(
-            Div("facility", css_class="mb-3"),
-            Div("bulan", css_class="mb-3"),
-            Div("tahun", css_class="mb-3"),
-            Div("notes", css_class="mb-0"),
-        )
 
         self.fields["facility"].label = "Puskesmas"
         self.fields["facility"].widget.attrs["title"] = (
@@ -842,7 +822,7 @@ class PuskesmasConsumptionMatrixForm(forms.ModelForm):
                     initial=self.existing_entries.get((item.pk, subunit.pk), 0),
                     widget=forms.NumberInput(
                         attrs={
-                            "class": "form-control form-control-sm text-end",
+                            "class": "ims-control form-control-sm text-end",
                             "min": "0",
                             "step": "1",
                             "placeholder": "0",
@@ -953,11 +933,11 @@ class PuskesmasReceivingFilterForm(forms.Form):
 
     start_date = forms.DateField(
         label="Tanggal Mulai",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(attrs={"type": "date", "class": "ims-control"}),
     )
     end_date = forms.DateField(
         label="Tanggal Akhir",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(attrs={"type": "date", "class": "ims-control"}),
     )
     def clean(self):
         cleaned_data = super().clean()
@@ -1001,7 +981,7 @@ class PuskesmasPemakaianFilterForm(forms.Form):
         min_value=2000,
         max_value=2099,
         widget=forms.NumberInput(
-            attrs={"class": "form-control", "placeholder": "Contoh: 2026"}
+            attrs={"class": "ims-control", "placeholder": "Contoh: 2026"}
         ),
     )
     month = forms.ChoiceField(
@@ -1022,7 +1002,7 @@ class PuskesmasPemakaianFilterForm(forms.Form):
             ("11", "November"),
             ("12", "Desember"),
         ],
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
 
     @classmethod
@@ -1067,14 +1047,14 @@ class PuskesmasPersediaanFilterForm(forms.Form):
         min_value=2000,
         max_value=2099,
         widget=forms.NumberInput(
-            attrs={"class": "form-control", "placeholder": "Contoh: 2026"}
+            attrs={"class": "ims-control", "placeholder": "Contoh: 2026"}
         ),
     )
     period = forms.ChoiceField(
         label="Periode",
         required=True,
         choices=PERIOD_CHOICES,
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.Select(attrs={"class": "ims-control"}),
     )
 
     @classmethod

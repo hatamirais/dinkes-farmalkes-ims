@@ -23,7 +23,7 @@
 @source "../../apps/**/*.py";
 @source "../../static/js/**/*.js";
 
-/* Target tokens from root DESIGN.md. The current Bootstrap templates do not load this file. */
+/* Approved DESIGN.md tokens for every IMS surface; native Admin remains isolated. */
 @theme static {
   --color-ims-ink: #112538;
   --color-ims-muted: #506179;
@@ -374,20 +374,20 @@
   .ims-tailwind-shell .navbar-left-tools { flex: 0 1 auto; }
   .ims-tailwind-shell .navbar-title-center { flex: 1 1 auto; }
   .ims-tailwind-shell .page-title { margin: 0; font-size: 1.125rem; font-weight: 700; white-space: nowrap; }
-  .ims-tailwind-shell .navbar-top .btn-link { border: 0; background: transparent; color: var(--color-ims-ink); }
+  .ims-tailwind-shell .navbar-top .ims-btn--link { border: 0; background: transparent; color: var(--color-ims-ink); }
   .ims-tailwind-shell .sidebar-collapse-btn { padding: 5px; font-size: 1.2rem; }
-  .ims-tailwind-shell .navbar-top .badge { display: inline-flex; align-items: center; border: 1px solid var(--color-ims-border); border-radius: 6px; padding: 3px 7px; background: var(--color-ims-surface-muted); font-size: 0.75rem; white-space: nowrap; }
+  .ims-tailwind-shell .navbar-top .ims-badge { display: inline-flex; align-items: center; border: 1px solid var(--color-ims-border); border-radius: 6px; padding: 3px 7px; background: var(--color-ims-surface-muted); font-size: 0.75rem; white-space: nowrap; }
   .ims-tailwind-shell .navbar-top .dropdown { position: relative; }
   .ims-tailwind-shell .navbar-top .dropdown > button { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
   .ims-tailwind-shell .navbar-top .dropdown .position-relative { position: relative; }
-  .ims-tailwind-shell .navbar-top .dropdown .badge.position-absolute { position: absolute; top: -8px; right: -8px; border: 0; background: var(--color-ims-danger); color: #fff; }
+  .ims-tailwind-shell .navbar-top .dropdown .ims-badge.position-absolute { position: absolute; top: -8px; right: -8px; border: 0; background: var(--color-ims-danger); color: #fff; }
   .ims-tailwind-shell .user-dropdown { padding: 6px 0; }
   .ims-tailwind-shell .user-dropdown::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 2px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); }
   .ims-tailwind-shell .main-content { min-width: 0; padding: 24px; }
   .ims-tailwind-shell .sidebar-overlay { display: none; }
   .ims-tailwind-shell .d-none { display: none; }
-  .ims-tailwind-shell .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-  .ims-tailwind-shell .navbar-top .btn-outline-primary, .ims-tailwind-shell .navbar-top .btn-outline-secondary { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--color-ims-border); border-radius: 7px; padding: 5px 9px; color: var(--color-ims-primary); text-decoration: none; white-space: nowrap; }
+  .ims-tailwind-shell .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .ims-tailwind-shell .navbar-top .ims-btn--secondary, .ims-tailwind-shell .navbar-top .ims-btn--neutral { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--color-ims-border); border-radius: 7px; padding: 5px 9px; color: var(--color-ims-primary); text-decoration: none; white-space: nowrap; }
 
   /* Bootstrap JavaScript bridge: collapse, dropdown, notification toast. */
   .ims-tailwind-shell .collapse:not(.show) { display: none; }
@@ -402,7 +402,7 @@
   .ims-tailwind-shell .toast-container { position: fixed; z-index: 1080; top: 0; right: 0; display: grid; gap: 8px; padding: 16px; }
   .ims-tailwind-shell .toast { display: none; width: min(360px, calc(100vw - 32px)); border: 1px solid var(--color-ims-border); border-radius: 8px; background: #fff; box-shadow: var(--shadow-ims-dialog); }
   .ims-tailwind-shell .toast.show, .ims-tailwind-shell .toast.showing { display: block; }
-  .ims-tailwind-shell .toast > .d-flex { display: flex; align-items: center; }
+  .ims-tailwind-shell .toast > .flex { display: flex; align-items: center; }
   .ims-tailwind-shell .toast-body { flex: 1; padding: 12px 14px; }
   .ims-tailwind-shell .toast.text-bg-success { border-left: 4px solid var(--color-ims-success); color: var(--color-ims-success); }
   .ims-tailwind-shell .toast.text-bg-warning { border-left: 4px solid var(--color-ims-warning); color: var(--color-ims-warning); }
@@ -413,7 +413,7 @@
   .ims-tailwind-shell [data-mobile-discovery] { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; border: 1px solid var(--color-ims-border); border-radius: 8px; padding: 10px 12px; background: var(--color-ims-info-bg); }
   .ims-tailwind-shell [data-mobile-discovery][hidden] { display: none; }
   .ims-tailwind-shell [data-mobile-discovery] > span:last-child { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-  .ims-tailwind-shell [data-mobile-discovery] a { color: var(--color-ims-primary); }
+  .ims-tailwind-shell [data-mobile-discovery] a:not(.ims-btn--primary) { color: var(--color-ims-primary); }
 }
 
 /* Tailwind's collapse utility sets visibility: collapse; Bootstrap keeps the class on open submenus. */
@@ -464,12 +464,12 @@
   .ims-item-header p { margin: 4px 0 0; color: var(--color-ims-muted); }
   .ims-item-header > div:first-child > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
   .ims-item-filter-surface { margin-bottom: 16px; border: 1px solid var(--color-ims-border); border-radius: 10px; padding: 16px; background: #fff; box-shadow: var(--shadow-ims-surface); }
-  .ims-item-list .btn { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--color-ims-border); border-radius: 8px; padding: 6px 12px; background: #fff; color: var(--color-ims-primary); font-weight: 600; text-decoration: none; white-space: nowrap; }
-  .ims-item-list .btn:hover { background: var(--color-ims-surface-muted); }
-  .ims-item-list .btn-primary { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
-  .ims-item-list .btn-primary:hover { background: var(--color-ims-primary-hover); }
-  .ims-item-list .btn-outline-success { color: var(--color-ims-success); }
-  .ims-item-list .btn-outline-danger { color: var(--color-ims-danger); }
+  .ims-item-list .ims-btn { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--color-ims-border); border-radius: 8px; padding: 6px 12px; background: #fff; color: var(--color-ims-primary); font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .ims-item-list .ims-btn:hover { background: var(--color-ims-surface-muted); }
+  .ims-item-list .ims-btn--primary { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
+  .ims-item-list .ims-btn--primary:hover { background: var(--color-ims-primary-hover); }
+  .ims-item-list .ims-btn--success-outline { color: var(--color-ims-success); }
+  .ims-item-list .ims-btn--danger-outline { color: var(--color-ims-danger); }
   .ims-item-filters { display: grid; grid-template-columns: minmax(170px, 1.5fr) repeat(4, minmax(130px, 1fr)) auto; align-items: end; gap: 10px; }
   .ims-item-filters > input[type="hidden"] { display: none; }
   .ims-item-filters > div { min-width: 0; }
@@ -488,26 +488,26 @@
   .ims-item-table tbody tr:hover { background: #f8fbfd; }
   .ims-item-table .text-end { text-align: right; }
   .ims-item-table .fw-semibold { font-weight: 600; }
-  .ims-item-table .small, .ims-item-footer .small { font-size: 0.75rem; }
+  .ims-item-table .text-ims-xs, .ims-item-footer .text-ims-xs { font-size: 0.75rem; }
   .ims-item-table .text-muted, .ims-item-footer .text-muted { color: var(--color-ims-muted); }
   .ims-item-table code { color: var(--color-ims-primary); font-family: ui-monospace, monospace; }
-  .ims-item-table td > .d-flex { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .ims-item-table .badge { display: inline-block; border: 1px solid var(--color-ims-border); border-radius: 5px; padding: 2px 7px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); font-size: 0.75rem; font-weight: 600; }
+  .ims-item-table td > .flex { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .ims-item-table .ims-badge { display: inline-block; border: 1px solid var(--color-ims-border); border-radius: 5px; padding: 2px 7px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); font-size: 0.75rem; font-weight: 600; }
   .ims-item-table .bg-danger-subtle { background: var(--color-ims-danger-bg); color: var(--color-ims-danger); }
   .ims-item-table .bg-primary-subtle { background: var(--color-ims-info-bg); color: var(--color-ims-info); }
   .ims-item-table .bg-success-subtle { background: var(--color-ims-success-bg); color: var(--color-ims-success); }
   .ims-item-table .bg-secondary-subtle { background: var(--color-ims-surface-muted); color: var(--color-ims-muted); }
-  .ims-item-table .btn { min-width: 32px; min-height: 32px; padding: 4px; }
+  .ims-item-table .ims-btn { min-width: 32px; min-height: 32px; padding: 4px; }
   .ims-item-table td.text-center { text-align: center; }
   .ims-item-table td.py-5 { padding-block: 40px; }
-  .ims-item-table td.py-5 .d-flex { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ims-item-table td.py-5 .flex { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .ims-item-footer { display: flex; justify-content: flex-end; padding: 14px 24px; }
   .ims-item-footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 1px solid var(--color-ims-border); border-radius: 8px; padding: 8px 12px; background: var(--color-ims-surface-muted); }
   .ims-item-footer form { display: flex; align-items: center; gap: 8px; }
   .ims-item-footer select { width: 84px; min-height: 32px; padding: 4px 8px; }
   .ims-item-footer ul { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
-  .ims-item-footer .page-link { display: inline-flex; min-height: 30px; align-items: center; justify-content: center; border: 1px solid var(--color-ims-border); border-radius: 6px; padding: 3px 8px; background: #fff; color: var(--color-ims-primary); text-decoration: none; }
-  .ims-item-footer .page-item.active .page-link { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
+  .ims-item-footer .ims-page-link { display: inline-flex; min-height: 30px; align-items: center; justify-content: center; border: 1px solid var(--color-ims-border); border-radius: 6px; padding: 3px 8px; background: #fff; color: var(--color-ims-primary); text-decoration: none; }
+  .ims-item-footer .ims-page-item.active .ims-page-link { border-color: var(--color-ims-primary); background: var(--color-ims-primary); color: #fff; }
 }
 @media (max-width: 1199.98px) {
   .ims-item-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -741,7 +741,7 @@
   .ims-stock-card-select .search-result-item > div > div:first-child > div:first-child { font-weight: 700; }
   .ims-stock-card-select .search-result-item > div > div:last-child { color: var(--color-ims-muted); font-size: var(--text-ims-xs); text-align: right; }
   .ims-stock-card-select .search-result-item .item-code { color: var(--color-ims-muted); font-family: ui-monospace, monospace; font-size: var(--text-ims-sm); }
-  .ims-stock-card-select .search-result-item .badge { display: inline-flex; border: 1px solid var(--color-ims-border); border-radius: 5px; padding: 2px 6px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); }
+  .ims-stock-card-select .search-result-item .ims-badge { display: inline-flex; border: 1px solid var(--color-ims-border); border-radius: 5px; padding: 2px 6px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); }
   .ims-stock-card-select .search-results > .p-3 { padding: 12px; text-align: center; color: var(--color-ims-muted); }
 
   .ims-transaction-head { border-bottom: 1px solid var(--color-ims-border); }

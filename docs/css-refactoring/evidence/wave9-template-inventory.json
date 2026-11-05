@@ -1,0 +1,950 @@
+{
+  "baseline": "1c51be6",
+  "date": "2026-11-05",
+  "templates": [
+    {
+      "template": "400.html",
+      "parent": "errors/status.html",
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "403.html",
+      "parent": "errors/status.html",
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "404.html",
+      "parent": "errors/status.html",
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "429.html",
+      "parent": "errors/status.html",
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "500.html",
+      "parent": "errors/status.html",
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "503.html",
+      "parent": "errors/status.html",
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "admin/import_with_guide.html",
+      "parent": "admin/import_export/import.html",
+      "status": "native-admin",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "admin/receiving/csv_import.html",
+      "parent": "admin/base_site.html",
+      "status": "native-admin",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "admin/receiving/receiving_changelist.html",
+      "parent": "admin/change_list.html",
+      "status": "native-admin",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "admin/stock/opening_balance_csv_import.html",
+      "parent": "admin/base_site.html",
+      "status": "native-admin",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "admin/stock/stock_changelist.html",
+      "parent": "admin/change_list.html",
+      "status": "native-admin",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "allocation/allocation_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "allocation/allocation_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "allocation/allocation_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "base.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-compatibility-alias",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "base_tailwind.html",
+      "parent": null,
+      "status": "tailwind-desktop-shell",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 6
+    },
+    {
+      "template": "components/forms/field.html",
+      "parent": null,
+      "status": "shared-fragment-inherits-caller",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 2
+    },
+    {
+      "template": "components/forms/form.html",
+      "parent": null,
+      "status": "shared-fragment-inherits-caller",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "components/navigation/desktop_navigation.html",
+      "parent": null,
+      "status": "shared-fragment-inherits-caller",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 10
+    },
+    {
+      "template": "components/navigation/user_menu_items.html",
+      "parent": null,
+      "status": "shared-fragment-inherits-caller",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "core/numbering_settings_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 2
+    },
+    {
+      "template": "core/settings_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "dashboard.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "dashboard_puskesmas.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "distribution/distribution_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 12
+    },
+    {
+      "template": "distribution/distribution_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "distribution/distribution_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "errors/status.html",
+      "parent": null,
+      "status": "tailwind-standalone-error",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "expired/expired_alerts.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "expired/expired_audit_report_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "expired/expired_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "expired/expired_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "expired/expired_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "expired/expired_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "items/item_confirm_delete.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "items/item_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 8
+    },
+    {
+      "template": "items/item_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "items/lookup_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_create.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 12
+    },
+    {
+      "template": "lplpo/lplpo_edit.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_import.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_report_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "lplpo/lplpo_review.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/approval_inbox.html",
+      "parent": "mobile/base.html",
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/base.html",
+      "parent": null,
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/distribution_approval_detail.html",
+      "parent": "mobile/base.html",
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/expired_approval_detail.html",
+      "parent": "mobile/base.html",
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/partials/stock_item_results.html",
+      "parent": null,
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/stock_card.html",
+      "parent": "mobile/base.html",
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "mobile/stock_list.html",
+      "parent": "mobile/base.html",
+      "status": "tailwind-mobile",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "procurement/amendment_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "procurement/amendment_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "procurement/contract_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "procurement/contract_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "procurement/contract_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/consumption_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/consumption_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/consumption_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/receiving_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "puskesmas/receiving_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/receiving_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/report_pemakaian.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 1
+    },
+    {
+      "template": "puskesmas/report_penerimaan.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/report_persediaan.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/report_rekap_persediaan.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/request_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 10
+    },
+    {
+      "template": "puskesmas/request_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/request_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/stock_current.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/subunit_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "puskesmas/subunit_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "recall/recall_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "recall/recall_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "recall/recall_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_confirm_delete.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 6
+    },
+    {
+      "template": "receiving/receiving_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_plan_close_items.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_plan_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_plan_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "receiving/receiving_plan_receive.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "registration/lockout.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "registration/login.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "registration/password_change.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "registration/password_change_done.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/index.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/kadaluarsa.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/numbering_history.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/penerimaan_hibah.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/pengadaan.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/pengeluaran.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "reports/rekap.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 4
+    },
+    {
+      "template": "stock/puskesmas_stock.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/stock_card_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 2
+    },
+    {
+      "template": "stock/stock_card_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/stock_card_select.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/stock_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/transaction_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/transfer_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/transfer_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock/transfer_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_confirm_delete.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_input.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "stock_opname/opname_report_print.html",
+      "parent": null,
+      "status": "tailwind-standalone-print",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "users/authority_delegation_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "users/authority_delegation_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "users/authority_delegation_revoke.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "users/user_detail.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 0
+    },
+    {
+      "template": "users/user_form.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 17
+    },
+    {
+      "template": "users/user_list.html",
+      "parent": "base_tailwind.html",
+      "status": "tailwind-desktop",
+      "bootstrap_css": false,
+      "crispy_rendering": false,
+      "data_bs_attributes": 17
+    }
+  ]
+}
