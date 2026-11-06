@@ -340,6 +340,14 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
    - command dapat dijalankan sesuai dokumentasi
    - environment key benar-benar tersedia
 
+## Validasi Rincian Persediaan Puskesmas
+
+- Route: `/puskesmas/laporan/persediaan/`. Gunakan akun yang sudah memiliki akses laporan; perubahan kejelasan laporan #219 tidak mengubah hak akses atau sidebar (ditangani terpisah dalam #313).
+- Jalankan `.\scripts\run-django-test.ps1 -Target apps.puskesmas.tests.PuskesmasReportViewTests -KeepDb` untuk memeriksa sumber stok, isolasi fasilitas, metadata baseline, penomoran lintas kategori, hasil kosong, dan Excel.
+- Periksa layar serta print preview untuk satu fasilitas dan `Semua Fasilitas`: label `Stok Akhir Digital`, bulan batas, status baseline termasuk Draft, rentang penyesuaian, jumlah baris sumber, dan fasilitas yang dilewati harus sama. Nilai nol berbeda dari baseline yang tidak ada. Filter triwulan/semester menentukan batas akhir stok.
+- Unduh Excel dan cocokkan baris barang dengan layar. Header tetap pada baris 4 dan barang mulai baris 5; sheet `Sumber dan Cakupan` menyimpan metadata dan fasilitas yang dilewati. Hasil valid tanpa barang tetap menghasilkan workbook berisi penjelasan; filter tidak valid tetap menampilkan error HTML. Teks harus tetap diamankan terhadap formula Excel.
+- Verifikasi desktop, viewport sempit, dan print preview; informasi sumber tidak boleh tersembunyi saat mencetak. Setelah mengubah template/CSS jalankan `bun run css:build` dan `bun run css:check`.
+
 ## Referensi Teknis
 
 - `AGENTS.md`: orientasi coding agent dan konvensi repositori

@@ -15,6 +15,14 @@ App-specific guidance for Puskesmas facility workflows.
 - Report HTML displays money with two Indonesian decimal digits; this presentation rule does not round stored prices, report calculations, or Excel exports.
 - An active Puskesmas-specific Acting Kepala delegation may satisfy only the request approval/rejection authority check; it does not authorize reset-to-draft. It never bypasses linked-facility or same-facility isolation, which is rechecked between the locked actor and locked request before mutation. Delegated use must be recorded atomically in `AuthorityExercise`.
 
+## Rincian Persediaan Report
+
+- `/puskesmas/laporan/persediaan/` labels its calculated balance `Stok Akhir Digital`, distinct from warehouse availability.
+- The latest usable same-year LPLPO up to the selected end month is the baseline; Draft is usable and rejected statuses are excluded. Add only later same-year `CONFIRMED` receipt rows and subtract later detailed consumption through that end month. Quarter/semester selection describes an ending-stock cutoff, not only movements within the quarter/semester.
+- HTML and print expose per-facility baseline period/status, adjustment window, included receipt/consumption detail-row counts, and active-facility coverage. A missing baseline means the facility is skipped, not that stock is zero. Zero included source rows differs from a missing baseline.
+- All-facility mode sums item balances across covered facilities. Its negative-item count refers to aggregated rows, which can mask individual facility shortages. Item numbering remains continuous across categories.
+- Excel keeps the item table on `Rincian Persediaan` (headers on row 4, items from row 5) and adds `Sumber dan Cakupan` with the same provenance and coverage. Valid empty exports explain missing baselines, no active facilities, or no resulting items. Invalid filters render HTML validation errors. No authorization or stock mutation is added.
+
 ## Stock Self-Check
 
 - The stock self-check page is LPLPO-only.

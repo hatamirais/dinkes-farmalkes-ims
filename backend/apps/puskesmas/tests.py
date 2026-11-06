@@ -3769,6 +3769,15 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		self.assertEqual(response.context["period_label"], "Semester I")
 		self.assertEqual(len(response.context["report_data"]), 1)
 		self.assertEqual(response.context["report_data"][0]["stock_keseluruhan"], 18)
+		coverage = response.context["report_metadata"]["coverage"]
+		self.assertEqual(len(coverage), 1)
+		self.assertEqual(coverage[0]["baseline_period"], "Maret 2026")
+		self.assertEqual(coverage[0]["adjustment_period"], "April–Juni 2026")
+		self.assertEqual(coverage[0]["receipt_row_count"], 1)
+		self.assertEqual(coverage[0]["consumption_row_count"], 1)
+		self.assertContains(response, "STOK AKHIR DIGITAL")
+		self.assertContains(response, "CONFIRMED setelah bulan baseline")
+		self.assertNotContains(response, "ditambah distribusi")
 
 	def test_persediaan_does_not_use_distribution_fallback_without_lplpo_baseline(self):
 		from datetime import date as dt
@@ -3793,6 +3802,140 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["report_data"], [])
+
+	def test_persediaan_coverage_discloses_draft_and_missing_baselines(self):
+		from apps.lplpo.models import LPLPO
+
+		LPLPO.objects.create(
+			facility=self.facility, bulan=3, tahun=2026,
+			status=LPLPO.Status.DRAFT, created_by=self.admin,
+		)
+		LPLPO.objects.create(
+			facility=self.facility, bulan=6, tahun=2026,
+			status=LPLPO.Status.REJECTED_PUSKESMAS, created_by=self.admin,
+		)
+		LPLPO.objects.create(
+			facility=self.other_facility, bulan=12, tahun=2025,
+			status=LPLPO.Status.CLOSED, created_by=self.admin,
+		)
+		Facility.objects.create(
+			code="INACTIVE", name="Inactive facility", is_active=False,
+			facility_type=Facility.FacilityType.PUSKESMAS,
+		)
+		self.client.force_login(self.admin)
+		response = self.client.get(
+			reverse("puskesmas:report_persediaan"), {"year": 2026, "period": "s1"},
+		)
+		metadata = response.context["report_metadata"]
+		self.assertEqual(metadata["facility_count"], 2)
+		self.assertEqual(metadata["baseline_count"], 1)
+		self.assertEqual(metadata["missing_baseline_count"], 1)
+		by_name = {row["facility_name"]: row for row in metadata["coverage"]}
+		self.assertEqual(by_name[self.facility.name]["baseline_period"], "Maret 2026")
+		self.assertEqual(by_name[self.facility.name]["baseline_status"], "Draft")
+		self.assertEqual(by_name[self.other_facility.name]["baseline_period"], "")
+		self.assertContains(response, "Dilewati: tanpa baseline")
+		self.assertContains(response, "1 fasilitas dilewati")
+		self.assertContains(response, "Baseline LPLPO tersedia, tetapi tidak ada baris barang")
+		self.assertContains(response, "LPLPO Draft dapat menjadi baseline")
+
+	def test_persediaan_metadata_respects_facility_scope_and_period_end(self):
+		from apps.lplpo.models import LPLPO
+
+		LPLPO.objects.create(
+			facility=self.facility, bulan=3, tahun=2026,
+			status=LPLPO.Status.CLOSED, created_by=self.admin,
+		)
+		LPLPO.objects.create(
+			facility=self.facility, bulan=6, tahun=2026,
+			status=LPLPO.Status.CLOSED, created_by=self.admin,
+		)
+		self.client.force_login(self.report_operator)
+		response = self.client.get(reverse("puskesmas:report_persediaan"), {
+			"year": 2026, "period": "q1", "facility": self.other_facility.pk,
+		})
+		metadata = response.context["report_metadata"]
+		self.assertFalse(metadata["is_aggregate"])
+		self.assertEqual(metadata["facility_count"], 1)
+		self.assertEqual(metadata["period_end_label"], "Maret 2026")
+		self.assertEqual(metadata["coverage"][0]["facility_name"], self.facility.name)
+		self.assertEqual(metadata["coverage"][0]["baseline_period"], "Maret 2026")
+		self.assertEqual(metadata["coverage"][0]["receipt_row_count"], 0)
+		self.assertContains(response, "Tidak ada bulan setelah baseline sampai batas laporan")
+		self.assertNotContains(response, self.other_facility.name)
+
+	def test_persediaan_empty_states_and_empty_excel_explain_missing_data(self):
+		from apps.lplpo.models import LPLPO
+
+		self.client.force_login(self.report_operator)
+		url = reverse("puskesmas:report_persediaan")
+		params = {"year": 2026, "period": "q1"}
+		response = self.client.get(url, params)
+		self.assertContains(response, "Belum ada baseline LPLPO")
+		self.assertContains(response, "hasil kosong tidak berarti stok nol")
+		exported = self.client.get(url, {**params, "format": "excel"})
+		workbook = load_workbook(BytesIO(exported.content))
+		self.assertIn("Belum ada baseline LPLPO", workbook.active["A5"].value)
+		self.assertIn("Sumber dan Cakupan", workbook.sheetnames)
+		invalid = self.client.get(url, {"year": "invalid", "period": "q1", "format": "excel"})
+		self.assertContains(invalid, "Periksa dan perbaiki filter tahun/periode")
+		self.assertIsNone(invalid.context["report_metadata"])
+		self.assertNotContains(invalid, "Belum ada baseline LPLPO")
+		LPLPO.objects.create(
+			facility=self.facility, bulan=3, tahun=2026,
+			status=LPLPO.Status.CLOSED, created_by=self.admin,
+		)
+		response = self.client.get(url, params)
+		self.assertContains(response, "Baseline LPLPO tersedia, tetapi tidak ada baris barang")
+		Facility.objects.filter(pk=self.facility.pk).update(is_active=False)
+		response = self.client.get(url, params)
+		self.assertContains(response, "Tidak ada Puskesmas aktif dalam cakupan laporan")
+
+	def test_persediaan_continuous_numbering_summary_and_excel_match(self):
+		from apps.lplpo.models import LPLPO, LPLPOItem
+
+		baseline = LPLPO.objects.create(
+			facility=self.facility, bulan=3, tahun=2026,
+			status=LPLPO.Status.DRAFT, created_by=self.admin,
+		)
+		LPLPOItem.objects.create(lplpo=baseline, item=self.item, stock_awal=0)
+		category = Category.objects.create(code="ALK", name="Alat Kesehatan", sort_order=2)
+		item = Item.objects.create(nama_barang="Kasa", satuan=self.unit, kategori=category)
+		LPLPOItem.objects.create(lplpo=baseline, item=item, stock_awal=1, pemakaian=3)
+		self.client.force_login(self.admin)
+		url = reverse("puskesmas:report_persediaan")
+		params = {"year": 2026, "period": "q1"}
+		response = self.client.get(url, params)
+		metadata = response.context["report_metadata"]
+		self.assertEqual(metadata["item_count"], 2)
+		self.assertEqual(metadata["negative_item_count"], 1)
+		self.assertContains(response, '<td class="text-center">1</td>', count=1, html=True)
+		self.assertContains(response, '<td class="text-center">2</td>', count=1, html=True)
+		self.assertContains(response, "Saldo barang dijumlahkan lintas fasilitas")
+		self.assertNotContains(response, "Belum ada baseline LPLPO")
+		exported = self.client.get(url, {**params, "format": "excel"})
+		workbook = load_workbook(BytesIO(exported.content))
+		sheet = workbook.active
+		self.assertEqual(sheet["E4"].value, "Stok Akhir Digital")
+		self.assertEqual([sheet.cell(row=n, column=1).value for n in (5, 6)], [1, 2])
+		self.assertEqual([sheet.cell(row=n, column=5).value for n in (5, 6)], [0, -2])
+		source = workbook["Sumber dan Cakupan"]
+		self.assertEqual(source["B4"].value, metadata["source_description"])
+		self.assertEqual(source["B3"].value, metadata["period_end_label"])
+		self.assertEqual(source["B10"].value, metadata["missing_baseline_count"])
+		self.assertContains(response, metadata["source_description"])
+
+	def test_persediaan_excel_coverage_neutralizes_formula_prefixed_facility_names(self):
+		self.other_facility.name = "=1+1"
+		self.other_facility.save(update_fields=["name"])
+		self.client.force_login(self.admin)
+		response = self.client.get(reverse("puskesmas:report_persediaan"), {
+			"year": 2026, "period": "q1", "format": "excel",
+		})
+		source = load_workbook(BytesIO(response.content))["Sumber dan Cakupan"]
+		cells = [cell for row in source for cell in row if cell.value == "'=1+1"]
+		self.assertEqual(len(cells), 1)
+		self.assertEqual(cells[0].data_type, "s")
 
 	def test_rekap_persediaan_aggregates_asset_valuation_by_category(self):
 		from apps.lplpo.models import LPLPO, LPLPOItem

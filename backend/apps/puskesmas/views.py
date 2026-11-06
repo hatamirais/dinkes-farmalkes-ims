@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import (
     Case,
+    Count,
     DecimalField,
     ExpressionWrapper,
     F,
@@ -2310,7 +2311,9 @@ def puskesmas_report_persediaan(request):
     own facility; super admin may optionally scope via ?facility=<id>.
     """
     from apps.items.models import Facility as FacilityModel
-    from apps.lplpo.models import LPLPO, LPLPOItem
+    from apps.lplpo.models import (
+        LPLPO, LPLPOItem, format_lplpo_period_label, get_indonesian_month_name,
+    )
 
     from .forms import PuskesmasPersediaanFilterForm
     from .exports import export_puskesmas_persediaan_excel
@@ -2332,6 +2335,7 @@ def puskesmas_report_persediaan(request):
     report_data = []
     selected_facility_name = facility.name if facility else "Semua Fasilitas"
     period_label = ""
+    report_metadata = None
 
     # Statuses that represent a non-rejected, usable LPLPO
     USABLE_STATUSES = [
@@ -2357,7 +2361,8 @@ def puskesmas_report_persediaan(request):
         )
         if facility:
             facilities_to_query = facilities_to_query.filter(pk=facility.pk)
-        facility_ids = list(facilities_to_query.values_list("pk", flat=True))
+        scoped_facilities = list(facilities_to_query.order_by("name", "pk"))
+        facility_ids = [entry.pk for entry in scoped_facilities]
 
         # --- Dynamic stock calculation ---
         # For each facility, find the latest usable LPLPO in or before the requested
@@ -2385,6 +2390,28 @@ def puskesmas_report_persediaan(request):
             lplpo.facility_id: lplpo for lplpo in latest_lplpos
         }
         latest_lplpo_ids = [lplpo.pk for lplpo in latest_lplpo_by_facility.values()]
+        coverage_by_facility = {}
+        for entry in scoped_facilities:
+            baseline = latest_lplpo_by_facility.get(entry.pk)
+            adjustment_period = ""
+            if baseline:
+                if baseline.bulan == end_month:
+                    adjustment_period = "Tidak ada bulan setelah baseline sampai batas laporan"
+                else:
+                    adjustment_period = (
+                        f"{get_indonesian_month_name(baseline.bulan + 1)}–"
+                        f"{get_indonesian_month_name(end_month)} {year}"
+                    )
+            coverage_by_facility[entry.pk] = {
+                "facility_name": entry.name,
+                "baseline_period": (
+                    format_lplpo_period_label(baseline.bulan, year) if baseline else ""
+                ),
+                "baseline_status": baseline.get_status_display() if baseline else "",
+                "adjustment_period": adjustment_period,
+                "receipt_row_count": 0,
+                "consumption_row_count": 0,
+            }
 
         if latest_lplpo_ids:
             lplpo_items = (
@@ -2421,13 +2448,17 @@ def puskesmas_report_persediaan(request):
                     "item__kategori__name",
                     "item__kategori__sort_order",
                 )
-                .annotate(total_received=Coalesce(Sum("quantity"), Value(Decimal("0"))))
+                .annotate(
+                    total_received=Coalesce(Sum("quantity"), Value(Decimal("0"))),
+                    entry_count=Count("pk"),
+                )
                 .order_by()
             )
             for receipt in receipt_rows:
                 facility_id = receipt["sbbk__facility_id"]
                 if receipt["sbbk__received_date__month"] <= latest_lplpo_by_facility[facility_id].bulan:
                     continue
+                coverage_by_facility[facility_id]["receipt_row_count"] += receipt["entry_count"]
                 sort_order = receipt["item__kategori__sort_order"]
                 key = (
                     facility_id,
@@ -2456,13 +2487,17 @@ def puskesmas_report_persediaan(request):
                     "item__kategori__name",
                     "item__kategori__sort_order",
                 )
-                .annotate(total_consumption=Coalesce(Sum("quantity"), Value(0)))
+                .annotate(
+                    total_consumption=Coalesce(Sum("quantity"), Value(0)),
+                    entry_count=Count("pk"),
+                )
                 .order_by()
             )
             for consumption in consumption_rows:
                 facility_id = consumption["consumption__facility_id"]
                 if consumption["consumption__bulan"] <= latest_lplpo_by_facility[facility_id].bulan:
                     continue
+                coverage_by_facility[facility_id]["consumption_row_count"] += consumption["entry_count"]
                 sort_order = consumption["item__kategori__sort_order"]
                 key = (
                     facility_id,
@@ -2506,9 +2541,49 @@ def puskesmas_report_persediaan(request):
                 "stock_keseluruhan": stock_qty,
             })
 
-        if request.GET.get("format") == "excel" and report_data:
+        report_metadata = {
+            "source_description": (
+                "Stok Akhir Digital = stok keseluruhan pada LPLPO terakhir yang dapat dipakai "
+                "dalam tahun terpilih sampai bulan batas laporan + konfirmasi penerimaan "
+                "CONFIRMED setelah bulan baseline − pemakaian rinci setelah bulan baseline. "
+                "Penyesuaian hanya mencakup tahun yang sama sampai bulan batas laporan."
+            ),
+            "baseline_note": (
+                "LPLPO Draft dapat menjadi baseline; LPLPO berstatus ditolak tidak digunakan. "
+                "Periode menunjukkan posisi stok sampai akhir bulan batas, bukan mutasi "
+                "hanya selama triwulan atau semester."
+            ),
+            "period_end_label": format_lplpo_period_label(end_month, year),
+            "item_count": len(report_data),
+            "negative_item_count": sum(row["stock_keseluruhan"] < 0 for row in report_data),
+            "facility_count": len(scoped_facilities),
+            "baseline_count": len(latest_lplpo_by_facility),
+            "missing_baseline_count": len(scoped_facilities) - len(latest_lplpo_by_facility),
+            "coverage": list(coverage_by_facility.values()),
+            "is_aggregate": facility is None,
+        }
+        if not scoped_facilities:
+            report_metadata["empty_message"] = (
+                "Tidak ada Puskesmas aktif dalam cakupan laporan. Periksa filter fasilitas "
+                "dan status aktif fasilitas."
+            )
+        elif not latest_lplpo_by_facility:
+            report_metadata["empty_message"] = (
+                "Belum ada baseline LPLPO yang dapat dipakai sampai bulan batas laporan "
+                "pada tahun terpilih. Periksa periode dan status LPLPO fasilitas. "
+                "Konfirmasi penerimaan dan pemakaian rinci saja tidak membentuk saldo "
+                "tanpa baseline; hasil kosong tidak berarti stok nol."
+            )
+        elif not report_data:
+            report_metadata["empty_message"] = (
+                "Baseline LPLPO tersedia, tetapi tidak ada baris barang untuk ditampilkan. "
+                "Periksa rincian barang LPLPO, konfirmasi penerimaan CONFIRMED, dan "
+                "pemakaian rinci dalam rentang penyesuaian."
+            )
+        if request.GET.get("format") == "excel":
             return export_puskesmas_persediaan_excel(
-                report_data, year, period_label, selected_facility_name
+                report_data, year, period_label, selected_facility_name,
+                report_metadata=report_metadata,
             )
 
     # Facility chooser for super admin
@@ -2528,6 +2603,7 @@ def puskesmas_report_persediaan(request):
             "selected_facility_name": selected_facility_name,
             "all_facilities": all_facilities,
             "period_label": period_label,
+            "report_metadata": report_metadata,
         },
     )
 

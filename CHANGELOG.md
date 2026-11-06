@@ -7,6 +7,16 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Added
+
+- Added baseline LPLPO period/status, adjustment windows, included receipt/consumption detail-row counts, skipped-facility coverage, and item/negative-balance summaries to the Puskesmas Rincian Persediaan report and print output ([#219](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/219)).
+- Added a `Sumber dan Cakupan` Excel worksheet with matching report provenance and coverage; valid empty results now export an explanation of missing baselines, no active facilities, or no resulting item rows.
+
+### Fixed
+
+- Corrected the Puskesmas inventory source explanation to describe the latest usable same-year LPLPO plus later `CONFIRMED` receipt confirmations minus detailed consumption through the selected end month, and renamed the calculated balance `Stok Akhir Digital` in HTML, print, and Excel.
+- Kept inventory report numbering continuous across categories, displayed years without thousands separators, and distinguished missing baselines from zero stock in empty-state guidance. Existing report permissions and facility isolation are unchanged; access/navigation follow-up is tracked in [#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313).
+
 ## [2.0.0] - 2026-11-05
 
 Major presentation release: the Bootstrap CSS → Tailwind implementation is complete across IMS surfaces. Custom templates/styles relying on Bootstrap CSS, Crispy helpers or the removed assets must adopt the project-owned rendering/components. Bootstrap JavaScript and its behavior bridge remain; this version does not introduce a new workflow or schema contract.

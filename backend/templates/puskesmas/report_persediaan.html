@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load number_format %}
+{% load number_format l10n %}
 
 {% block title %}Rincian Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
 {% block page_title %}Rincian Laporan Persediaan Puskesmas{% endblock %}
@@ -123,7 +123,7 @@
     <div class="report-print-meta">
         RINCIAN LAPORAN PERSEDIAAN PUSKESMAS<br>
         FASILITAS: {{ selected_facility_name }}<br>
-        PERIODE: {{ period_label }} {{ form.year.value|default:"-" }}
+        PERIODE: {{ period_label }} {{ form.year.value|unlocalize|default:"-" }}
     </div>
 </div>
 
@@ -132,18 +132,8 @@
     <div class="ims-layout-col-12">
         <div class="ims-panel shadow-sm border-0">
             <div class="ims-panel-body">
-                {% if not all_facilities and facility %}
-                <div class="mb-2 text-muted text-ims-xs">
-                    <i class="bi bi-geo-alt"></i> Fasilitas: <strong>{{ facility.name }}</strong>
-                </div>
-                {% endif %}
-                {% if report_data %}
-                <div class="mb-2 text-muted text-ims-xs">
-                    <i class="bi bi-info-circle"></i>
-                    Stok dihitung dari LPLPO terakhir yang tersedia
-                    sampai dengan <strong>{{ period_label }} {{ form.year.value }}</strong>
-                    ditambah distribusi yang diterima setelahnya.
-                </div>
+                {% if report_metadata %}
+                {% include "puskesmas/partials/persediaan_source.html" %}
                 {% endif %}
                 <div class="table-responsive ims-table-scroll" role="region" aria-label="Tabel laporan" tabindex="0">
                     <table class="table ims-table ims-table--ruled align-middle mb-0">
@@ -152,17 +142,17 @@
                                 <th style="width: 50px;">NO</th>
                                 <th>NAMA BARANG</th>
                                 <th style="width: 90px;">SATUAN</th>
-                                <th style="width: 130px;">STOK TERSEDIA</th>
+                                <th style="width: 130px;">STOK AKHIR DIGITAL</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% if report_data %}
-                                {% regroup report_data by kategori as by_category %}
-                                {% for category in by_category %}
+                                {% for row in report_data %}
+                                {% ifchanged row.kategori %}
                                 <tr class="ims-table-summary">
-                                    <td colspan="4" class="font-bold">{{ category.grouper|default:"Lainnya" }}</td>
+                                    <td colspan="4" class="font-bold">{{ row.kategori|default:"Lainnya" }}</td>
                                 </tr>
-                                {% for row in category.list %}
+                                {% endifchanged %}
                                 <tr>
                                     <td class="text-center">{{ forloop.counter }}</td>
                                     <td>{{ row.nama_barang }}</td>
@@ -172,12 +162,15 @@
                                     </td>
                                 </tr>
                                 {% endfor %}
-                                {% endfor %}
                             {% else %}
                             <tr>
                                 <td colspan="4" class="ims-report-empty text-muted py-4">
                                     <i class="bi bi-inbox block mb-2" style="font-size: 2rem;"></i>
-                                    Tidak ada data persediaan untuk periode ini.
+                                    {% if report_metadata %}
+                                    {{ report_metadata.empty_message }}
+                                    {% else %}
+                                    Periksa dan perbaiki filter tahun/periode untuk menampilkan laporan.
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endif %}
