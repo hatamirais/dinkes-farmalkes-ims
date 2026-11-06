@@ -1231,3 +1231,79 @@ class AllocationMatrixSaveTest(TestCase):
                 self.assertTrue(response.context["form"].non_field_errors())
                 self.assertEqual(original.total_qty_allocated, Decimal("50"))
                 self.assertEqual(allocation.items.count(), 1)
+
+
+@override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
+class AllocationDistributionStaffTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.fixtures = _create_test_fixtures()
+        cls.extra_staff = User.objects.create_user(
+            username="second_preparer", full_name="Second Preparer", role=User.Role.GUDANG,
+        )
+        cls.third_staff = User.objects.create_user(
+            username="third_preparer", full_name="Third Preparer", role=User.Role.GUDANG,
+        )
+
+    def setUp(self):
+        self.client.force_login(self.fixtures["admin"])
+        self.allocation = _create_allocation(self.fixtures)
+        for user in [self.extra_staff, self.third_staff]:
+            AllocationStaffAssignment.objects.create(allocation=self.allocation, user=user)
+        execute_allocation_submission(self.allocation, self.fixtures["admin"])
+        execute_allocation_approval(self.allocation, self.fixtures["kepala"])
+        self.staff_ids = {self.fixtures["operator"].pk, self.extra_staff.pk, self.third_staff.pk}
+
+    def assert_staff_rendered(self, distribution, expected_ids):
+        response = self.client.get(reverse("distribution:distribution_detail", args=[distribution.pk]), secure=True)
+        self.assertEqual(response.status_code, 200)
+        staff = response.context["assigned_staff"]
+        self.assertEqual({user.pk for user in staff}, expected_ids)
+        html = response.content.decode()
+        sbbk = html[html.index('<section class="sbbk-print-sheet'):]
+        signature = sbbk[sbbk.index('Yang Menyerahkan'):]
+        from django.utils.html import escape
+        for user in staff:
+            self.assertIn(escape(str(user)), sbbk)
+            self.assertIn(escape(str(user)), signature)
+        return response
+
+    def test_approval_snapshots_all_staff_on_every_child_and_sbbk(self):
+        self.assertEqual(self.allocation.distributions.count(), 2)
+        for child in self.allocation.distributions.all():
+            self.assertEqual(set(child.staff_assignments.values_list("user_id", flat=True)), self.staff_ids)
+            self.assertEqual(child.created_by, self.fixtures["kepala"])
+            self.assertEqual(child.verified_by, self.fixtures["kepala"])
+            self.assert_staff_rendered(child, self.staff_ids)
+        # Later parent changes must not rewrite a child's approval snapshot.
+        self.allocation.staff_assignments.filter(user=self.extra_staff).delete()
+        for child in self.allocation.distributions.all():
+            self.assert_staff_rendered(child, self.staff_ids)
+
+    def test_historical_empty_children_display_parent_staff_without_writes(self):
+        for child in self.allocation.distributions.all():
+            child.staff_assignments.all().delete()
+            self.assert_staff_rendered(child, self.staff_ids)
+            self.assertFalse(child.staff_assignments.exists())
+
+    def test_step_back_and_reapproval_recopies_staff_without_duplicates(self):
+        old_ids = list(self.allocation.distributions.values_list("pk", flat=True))
+        execute_allocation_step_back_to_submitted(self.allocation, self.fixtures["admin"])
+        self.assertFalse(Distribution.objects.filter(pk__in=old_ids).exists())
+        self.allocation.staff_assignments.filter(user=self.extra_staff).delete()
+        execute_allocation_approval(self.allocation, self.fixtures["kepala"])
+        expected = self.staff_ids - {self.extra_staff.pk}
+        for child in self.allocation.distributions.all():
+            self.assertEqual(child.staff_assignments.count(), 2)
+            self.assert_staff_rendered(child, expected)
+
+    def test_standalone_distribution_keeps_its_own_staff_and_empty_fallback(self):
+        child = self.allocation.distributions.first()
+        child.allocation = None
+        child.save(update_fields=["allocation"])
+        child.staff_assignments.exclude(user=self.extra_staff).delete()
+        self.assert_staff_rendered(child, {self.extra_staff.pk})
+        child.staff_assignments.all().delete()
+        response = self.client.get(reverse("distribution:distribution_detail", args=[child.pk]), secure=True)
+        self.assertEqual(response.context["assigned_staff"], [])
+        self.assertContains(response, "sbbk-sender-empty")

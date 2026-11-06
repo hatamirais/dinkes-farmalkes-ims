@@ -890,6 +890,13 @@ def distribution_detail(request, pk):
     )
     items = dist.items.select_related("item", "item__satuan", "stock")
     assigned_staff = [assignment.user for assignment in dist.staff_assignments.all()]
+    if dist.allocation_id and not assigned_staff:
+        # Historical children predate staff snapshots. Display the current parent
+        # assignments without changing historical records or authorization checks.
+        assigned_staff = [
+            assignment.user
+            for assignment in dist.allocation.staff_assignments.select_related("user")
+        ]
     kepala_instalasi = (
         User.objects.filter(
             role=User.Role.KEPALA,

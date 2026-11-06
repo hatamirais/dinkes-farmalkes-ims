@@ -3,7 +3,11 @@ from django.utils import timezone
 
 from apps.core.models import DocumentNumberRule
 from apps.core.numbering import issue_document_number, void_document_number
-from apps.distribution.models import Distribution, DistributionItem
+from apps.distribution.models import (
+    Distribution,
+    DistributionItem,
+    DistributionStaffAssignment,
+)
 from apps.distribution.services import (
     DistributionWorkflowError,
     apply_distribution_reservations,
@@ -111,6 +115,7 @@ def _generate_distributions(allocation, allocation_items, user):
     from collections import defaultdict
 
     now = timezone.now()
+    staff_ids = list(allocation.staff_assignments.values_list("user_id", flat=True))
 
     # Group facility allocations by facility
     facility_items = defaultdict(list)
@@ -133,6 +138,12 @@ def _generate_distributions(allocation, allocation_items, user):
             notes=f"Dibuat otomatis dari alokasi {allocation.document_number}",
         )
         distribution.save()
+        DistributionStaffAssignment.objects.bulk_create(
+            [
+                DistributionStaffAssignment(distribution=distribution, user_id=user_id)
+                for user_id in staff_ids
+            ]
+        )
         issue_document_number(
             DocumentNumberRule.Key.DISTRIBUTION_SPECIAL_REQUEST,
             business_date=allocation.allocation_date,

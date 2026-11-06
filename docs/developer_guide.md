@@ -361,3 +361,9 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
 ### Allocation matrix validation
 
 Create/edit matrix inputs use `alloc_<form_row_index>_<facility_id>` consistently, including existing items. Validation runs before database writes; each form instance supplies its saved item ID. Run `.\scripts\run-django-test.ps1 -Target apps.allocation.tests.AllocationMatrixSaveTest -KeepDb` to verify create, edit, deletion, index/PK collisions and invalid matrix rollback.
+
+### Allocation-generated distribution staff
+
+Approval snapshots all parent staff into each child in the approval transaction. Detail/SBBK use child assignments, falling back to current parent assignments only for historical empty children; no historical backfill is performed. Every assigned name appears in the handover signature list in full-name/username order. Re-approval regenerates the snapshot. Assigned staff do not replace workflow actors or the parent delegated approval signer.
+
+Run `.\scripts\run-django-test.ps1 -Target apps.allocation.tests.AllocationDistributionStaffTest -KeepDb` for multi-staff approval, rendered detail/SBBK, historical fallback, re-approval and standalone checks. For manual print verification, approve an allocation with three staff and two facilities, open each child, and use Cetak SBBK; confirm all three names appear in Petugas and Yang Menyerahkan. Physical print layout remains a manual check.
