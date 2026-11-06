@@ -160,9 +160,9 @@
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        <div class="fw-semibold">{{ row.actionable }}</div>
+                        <div class="fw-semibold">{{ row.actionable|floatformat:"-2g" }}</div>
                         {% if row.pending_quantity > 0 %}
-                        <small class="text-muted">Dalam dokumen: {{ row.pending_quantity }}</small>
+                        <small class="text-muted">Dalam dokumen: {{ row.pending_quantity|floatformat:"-2g" }}</small>
                         {% endif %}
                     </td>
                     <td>

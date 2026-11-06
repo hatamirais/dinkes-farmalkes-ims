@@ -33,6 +33,16 @@ class ExpiredForm(forms.ModelForm):
             )
 
 
+class QuantityNumberInput(forms.NumberInput):
+    def format_value(self, value):
+        # Trim storage padding on initial values; preserve bound POST text.
+        if isinstance(value, Decimal) and value.is_finite():
+            value = format(value, 'f')
+            if '.' in value:
+                value = value.rstrip('0').rstrip('.')
+        return super().format_value(value)
+
+
 class ExpiredItemForm(forms.ModelForm):
     class Meta:
         model = ExpiredItem
@@ -44,7 +54,7 @@ class ExpiredItemForm(forms.ModelForm):
             'stock': StockByItemSelect(attrs={
                 'class': 'ims-control form-select-sm js-stock-select',
             }),
-            'quantity': forms.NumberInput(attrs={
+            'quantity': QuantityNumberInput(attrs={
                 'class': 'ims-control form-control-sm',
                 'min': '0.01',
                 'step': '0.01',

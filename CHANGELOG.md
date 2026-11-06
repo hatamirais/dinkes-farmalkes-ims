@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Omitted trailing decimal zeros for whole quantities on Expired/Disposal detail and alerts pages and in create/edit quantity inputs, including selected-stock prefill. Read-only quantities retain Indonesian thousands separators, fractional quantities remain exact, and submitted values and stock workflows are unchanged ([#301](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/301)).
 - Fixed the Allocation wizard's first save dropping or misassigning per-facility quantities by consistently mapping matrix inputs through form row indexes to saved items. Invalid quantities or facility selections now return form errors before saving, while entered matrix values are retained for correction ([#295](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/295)).
 - Copied all assigned Allocation Petugas to each generated distribution at approval so detail and SBBK show every assigned name, including under Yang Menyerahkan. Historical children without assignments display the current parent staff; step-back and re-approval regenerate the staff selection ([#296](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/296)).
 - Fixed the stock-card item search's double focus outline so the icon and input share one visible focus indicator for mouse and keyboard users ([#285](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/285)).
