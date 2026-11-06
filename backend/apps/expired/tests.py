@@ -1,4 +1,5 @@
 from decimal import Decimal
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,6 +24,18 @@ from apps.users.access import ensure_default_module_access
 from apps.users.models import ModuleAccess, User
 
 from .admin import ExpiredAdmin, ExpiredItemInline
+
+
+class FormInputParser(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.inputs = {}
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "input" and "name" in attrs:
+            self.inputs[attrs["name"]] = attrs
 
 
 class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
@@ -162,13 +175,15 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
                 "items-MAX_NUM_FORMS": "1000",
                 "items-0-item": self.item.pk,
                 "items-0-stock": self.stock.pk,
-                "items-0-quantity": "0",
+                "items-0-quantity": "0.00",
                 "items-0-notes": "Melewati tanggal ED",
             },
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Jumlah harus lebih dari 0.")
-        self.assertEqual(response.context["formset"].forms[0]["quantity"].value(), "0")
+        self.assertEqual(response.context["formset"].forms[0]["quantity"].value(), "0.00")
+        inputs = FormInputParser(response.content.decode()).inputs
+        self.assertEqual(inputs["items-0-quantity"]["value"], "0.00")
         self.assertEqual(response.context["form"]["notes"].value(), "Pemusnahan terjadwal")
         self.assertFalse(Expired.objects.exists())
 
@@ -638,6 +653,102 @@ class ExpiredWorkflowTest(SecureClientDefaultsMixin, TestCase):
         )
 
     # --- Pending quantity handling ---
+
+    def test_detail_formats_whole_and_fractional_quantities(self):
+        expired_doc = self._create_expired()
+        expired_item = expired_doc.items.get()
+        for quantity, expected in [
+            ("5000.00", "5.000"),
+            ("36300.00", "36.300"),
+            ("2.00", "2"),
+            ("1234.50", "1.234,50"),
+            ("0.01", "0,01"),
+        ]:
+            with self.subTest(quantity=quantity):
+                expired_item.quantity = Decimal(quantity)
+                expired_item.save(update_fields=["quantity"])
+                response = self.client.get(
+                    reverse("expired:expired_detail", args=[expired_doc.pk])
+                )
+                self.assertContains(
+                    response,
+                    f'<td class="text-end fw-semibold">{expected}</td>',
+                    html=True,
+                )
+
+    def test_alerts_format_actionable_and_pending_quantities(self):
+        expired_doc = self._create_expired(status=Expired.Status.SUBMITTED)
+        expired_item = expired_doc.items.get()
+        for actionable, pending, expected_actionable, expected_pending in [
+            ("801.00", "2.00", "801", "2"),
+            ("90300.00", "5000.00", "90.300", "5.000"),
+            ("6.00", "36300.00", "6", "36.300"),
+            ("1234.50", "0.01", "1.234,50", "0,01"),
+        ]:
+            with self.subTest(actionable=actionable):
+                self.stock.reserved = Decimal("3.00")
+                self.stock.quantity = (
+                    Decimal(actionable) + Decimal(pending) + self.stock.reserved
+                )
+                self.stock.save(update_fields=["quantity", "reserved"])
+                expired_item.quantity = Decimal(pending)
+                expired_item.save(update_fields=["quantity"])
+                response = self.client.get(reverse("expired:expired_alerts"))
+                row = response.context["items"].object_list[0]
+                self.assertEqual(row["actionable"], Decimal(actionable))
+                self.assertEqual(row["pending_quantity"], Decimal(pending))
+                self.assertContains(
+                    response,
+                    f'<div class="fw-semibold">{expected_actionable}</div>',
+                    html=True,
+                )
+                self.assertContains(
+                    response,
+                    f'<small class="text-muted">Dalam dokumen: {expected_pending}</small>',
+                    html=True,
+                )
+
+    def test_selected_stock_prefill_renders_and_submits_exact_quantities(self):
+        self._create_expired(status=Expired.Status.SUBMITTED)
+        for quantity, expected in [
+            ("6.00", "6"), ("90300.00", "90300"), ("801.00", "801"),
+            ("1234.50", "1234.5"), ("0.01", "0.01"),
+        ]:
+            with self.subTest(quantity=quantity):
+                self.stock.reserved = Decimal("3.00")
+                self.stock.quantity = (
+                    Decimal(quantity) + Decimal("5.00") + self.stock.reserved
+                )
+                self.stock.save(update_fields=["quantity", "reserved"])
+                response = self.client.get(
+                    reverse("expired:expired_create"), {"stocks": str(self.stock.pk)}
+                )
+                inputs = FormInputParser(response.content.decode()).inputs
+                quantity_input = inputs["items-0-quantity"]
+                self.assertEqual(quantity_input["type"], "number")
+                self.assertEqual(quantity_input["value"], expected)
+                self.assertEqual(quantity_input["step"], "0.01")
+                self.assertEqual(quantity_input["min"], "0.01")
+                data = {
+                    name: attrs.get("value", "")
+                    for name, attrs in inputs.items()
+                    if name.startswith("items-") and attrs.get("type") != "checkbox"
+                }
+                data.update({
+                    "report_date": "2026-03-10",
+                    "items-0-item": str(self.item.pk),
+                    "items-0-stock": str(self.stock.pk),
+                })
+                response = self.client.post(reverse("expired:expired_create"), data)
+                draft = Expired.objects.filter(status=Expired.Status.DRAFT).latest("pk")
+                self.assertRedirects(
+                    response, reverse("expired:expired_detail", args=[draft.pk])
+                )
+                self.assertEqual(draft.items.get().quantity, Decimal(quantity))
+                self.stock.refresh_from_db()
+                self.assertEqual(self.stock.quantity, Decimal(quantity) + Decimal("8"))
+                self.assertEqual(self.stock.reserved, Decimal("3"))
+                self.assertFalse(Transaction.objects.exists())
 
     def test_expired_create_prefills_only_remaining_quantity_after_submitted_docs(self):
         self._create_expired(status=Expired.Status.SUBMITTED)

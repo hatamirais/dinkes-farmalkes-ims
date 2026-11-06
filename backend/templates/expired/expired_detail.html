@@ -133,7 +133,7 @@
                                 <td>{{ ei.stock.batch_lot }}</td>
                                 <td>{{ ei.stock.expiry_date|date:"d/m/Y"|default:"Tanpa kedaluwarsa" }}</td>
                                 <td>{{ ei.stock.location.name }}</td>
-                                <td class="text-end fw-semibold">{{ ei.quantity }}</td>
+                                <td class="text-end fw-semibold">{{ ei.quantity|floatformat:"-2g" }}</td>
                                 <td class="text-muted text-ims-xs">{{ ei.notes|default:"-" }}</td>
                             </tr>
                             {% empty %}
