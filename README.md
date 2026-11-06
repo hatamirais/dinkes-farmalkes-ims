@@ -151,3 +151,7 @@ MIT. Lihat `LICENSE`.
 
 
 
+
+Allocation drafts persist the facility matrix on the first save. Invalid quantities or facility selections return form errors without saving partial changes.
+
+Allocation approval copies all assigned Petugas to every generated distribution. Detail and SBBK display every assigned name, including all names under Yang Menyerahkan. Historical children without assignments display the current parent staff; new children retain the approval-time staff selection. Step-back and re-approval regenerate that selection.

@@ -17,6 +17,8 @@ App-specific guidance for pre-distribution allocation planning.
 
 ## Generated Distributions
 
+Allocation approval snapshots all parent assigned staff into each generated child DistributionStaffAssignment. Child detail and SBBK list every assigned name, including each name under Yang Menyerahkan, ordered by full name then username. Historical children with no assignments display the current parent staff without backfilling historical rows; existing child assignments always take precedence. Step-back deletes child assignments with the children; re-approval snapshots the then-current parent staff. Workflow actors and delegated signers remain separate from assigned staff.
+
 - `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id=<parent>)` is system-generated from allocation approval.
 - Children use the same `DISTRIBUTION_SPECIAL_REQUEST` numbering rule and continuing sequence as standalone Permintaan Khusus; `allocation_id` is the only origin discriminator.
 - Children are included in both the general Permintaan Khusus report and the allocation-origin report.
@@ -38,6 +40,8 @@ App-specific guidance for pre-distribution allocation planning.
 - Django Admin keeps lifecycle fields read-only, locks the Allocation plus all related rows after Draft, and disables parent/bulk deletion. Submission, approval, and deletion must use the application workflow services; deletion rechecks Draft/Rejected status after locking the row.
 
 ## Stock Behavior
+
+The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id>` on create and edit. The server validates quantities and selected facilities before writing and resolves rows through their saved form instances; deleted rows are excluded.
 
 - Stock deduction is deferred to per-distribution delivery confirmation.
 - Allocation approval reserves stock only; it does not consume physical stock.

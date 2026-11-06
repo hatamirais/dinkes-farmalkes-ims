@@ -371,6 +371,10 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 ### 4.7 Allocation
 
+Allocation approval snapshots all parent assigned staff into each generated child DistributionStaffAssignment. Child detail and SBBK list every assigned name, including each name under Yang Menyerahkan, ordered by full name then username. Historical children with no assignments display the current parent staff without backfilling historical rows; existing child assignments always take precedence. Step-back deletes child assignments with the children; re-approval snapshots the then-current parent staff. Workflow actors and delegated signers remain separate from assigned staff.
+
+The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id>` on create and edit. The server validates quantities and selected facilities before writing and resolves rows through their saved form instances; deleted rows are excluded.
+
 - `allocation.Allocation` (`allocations`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIALLY_FULFILLED`, `FULFILLED`, `REJECTED`
   - Fields: `document_number` (`NULL` in draft; issued from the Allocation rule on submit using `allocation_date`), `title`, `allocation_date`, `referensi`, `notes`, `rejection_reason`

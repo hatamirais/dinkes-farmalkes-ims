@@ -38,6 +38,8 @@ App-specific guidance for outbound distribution workflows.
 
 ## Allocation Distributions
 
+Allocation approval snapshots all parent assigned staff into each generated child DistributionStaffAssignment. Child detail and SBBK list every assigned name, including each name under Yang Menyerahkan, ordered by full name then username. Historical children with no assignments display the current parent staff without backfilling historical rows; existing child assignments always take precedence. Step-back deletes child assignments with the children; re-approval snapshots the then-current parent staff. Workflow actors and delegated signers remain separate from assigned staff.
+
 - Allocation approval generates `Distribution(distribution_type=SPECIAL_REQUEST, allocation_id=<parent>)`.
 - Allocation children share the normal Permintaan Khusus number rule and sequence. Use `allocation_id`, never a distinct distribution type, to distinguish their origin.
 - Allocation-generated child distributions remain parent-managed by the Allocation module and do not use generic distribution reset/step-back actions.

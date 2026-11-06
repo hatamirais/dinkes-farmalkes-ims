@@ -1,4 +1,5 @@
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -130,59 +131,73 @@ def sync_allocation_selected_facilities(allocation, facilities):
     )
 
 
-def _save_facility_allocations(allocation, request):
-    """Parse and save the facility allocation matrix from POST data.
+def _validate_facility_allocations(form, formset, data):
+    """Bind matrix cells to submitted form rows before any database writes."""
+    selected_ids = {
+        str(facility.pk) for facility in form.cleaned_data["selected_facilities"]
+    }
+    rows = {str(index): row for index, row in enumerate(formset.forms)}
+    quantity_field = forms.DecimalField(
+        required=False, min_value=0, max_digits=12, decimal_places=2
+    )
+    cells = []
+    try:
+        for key, values in data.lists():
+            if not key.startswith("alloc_"):
+                continue
+            parts = key.split("_")
+            if len(parts) != 3 or len(values) != 1:
+                raise ValidationError("Data matriks alokasi tidak valid.")
+            _, row_index, facility_id = parts
+            row = rows.get(row_index)
+            if row is None:
+                raise ValidationError("Baris matriks alokasi tidak valid.")
+            if row.cleaned_data.get("DELETE"):
+                continue
+            quantity = quantity_field.clean(values[0])
+            if not quantity:
+                continue
+            if not row.cleaned_data.get("item") or facility_id not in selected_ids:
+                raise ValidationError("Fasilitas atau barang matriks alokasi tidak valid.")
+            cells.append((row, int(facility_id), quantity))
+    except ValidationError as exc:
+        form.add_error(None, exc)
+        return False
+    formset.facility_allocation_cells = cells
+    return True
 
-    The matrix data is submitted as hidden inputs with the naming convention:
-    ``alloc_<item_pk>_<facility_pk>`` with the allocated quantity as value.
-    """
-    prefix = "alloc_"
 
-    # Clear existing facility allocations for items in this allocation
+def _save_facility_allocations(allocation, formset):
+    """Use saved form instances, including unchanged existing and new rows."""
     AllocationItemFacility.objects.filter(
         allocation_item__allocation=allocation
     ).delete()
+    AllocationItemFacility.objects.bulk_create(
+        [
+            AllocationItemFacility(
+                allocation_item=row.instance,
+                facility_id=facility_id,
+                qty_allocated=quantity,
+            )
+            for row, facility_id, quantity in formset.facility_allocation_cells
+        ]
+    )
 
-    items_by_pk = {
-        item.pk: item for item in allocation.items.select_related("stock")
+
+def _matrix_initial_values(formset):
+    if formset.is_bound:
+        return {
+            key[len("alloc_"):]: value
+            for key, value in formset.data.items()
+            if key.startswith("alloc_")
+        }
+    return {
+        f"{index}_{cell.facility_id}": float(cell.qty_allocated)
+        for index, row in enumerate(formset.forms)
+        if row.instance.pk
+        for cell in row.instance.facility_allocations.all()
     }
 
-    to_create = []
-    for key, value in request.POST.items():
-        if not key.startswith(prefix):
-            continue
-        parts = key[len(prefix):].split("_")
-        if len(parts) != 2:
-            continue
-        try:
-            item_pk = int(parts[0])
-            facility_pk = int(parts[1])
-            qty = int(value) if value else 0
-        except (TypeError, ValueError):
-            continue
-
-        if qty <= 0:
-            continue
-
-        alloc_item = items_by_pk.get(item_pk)
-        if alloc_item is None:
-            continue
-
-        to_create.append(
-            AllocationItemFacility(
-                allocation_item=alloc_item,
-                facility_id=facility_pk,
-                qty_allocated=qty,
-            )
-        )
-
-    if to_create:
-        AllocationItemFacility.objects.bulk_create(to_create)
-
-
-# ──────────────────────────────────────────────────────────────
-# List
-# ──────────────────────────────────────────────────────────────
 
 @login_required
 @perm_required("allocation.view_allocation")
@@ -316,7 +331,11 @@ def allocation_create(request):
         form = AllocationForm(request.POST)
         formset = AllocationItemFormSet(request.POST, prefix="items")
 
-        if form.is_valid() and formset.is_valid():
+        if (
+            form.is_valid()
+            and formset.is_valid()
+            and _validate_facility_allocations(form, formset, request.POST)
+        ):
             with transaction.atomic():
                 allocation = form.save(commit=False)
                 allocation.created_by = request.user
@@ -334,7 +353,7 @@ def allocation_create(request):
                 formset.save()
 
                 # Save facility allocation matrix
-                _save_facility_allocations(allocation, request)
+                _save_facility_allocations(allocation, formset)
 
             messages.success(
                 request,
@@ -358,6 +377,7 @@ def allocation_create(request):
             "form": form,
             "formset": formset,
             "is_edit": False,
+            "existing_allocations": _matrix_initial_values(formset),
             "facility_picker_meta": facility_picker_meta,
             "staff_picker_meta": staff_picker_meta,
             "stock_catalog": _build_allocation_stock_catalog(),
@@ -387,7 +407,11 @@ def allocation_edit(request, pk):
                 request.POST, instance=allocation, prefix="items"
             )
 
-            if form.is_valid() and formset.is_valid():
+            if (
+                form.is_valid()
+                and formset.is_valid()
+                and _validate_facility_allocations(form, formset, request.POST)
+            ):
                 form.save()
                 sync_allocation_selected_facilities(
                     allocation,
@@ -400,7 +424,7 @@ def allocation_edit(request, pk):
                 formset.save()
 
                 # Save facility allocation matrix
-                _save_facility_allocations(allocation, request)
+                _save_facility_allocations(allocation, formset)
 
                 messages.success(
                     request,
@@ -413,14 +437,6 @@ def allocation_edit(request, pk):
             return redirect("allocation:allocation_detail", pk=allocation.pk)
         form = AllocationForm(instance=allocation)
         formset = AllocationItemFormSet(instance=allocation, prefix="items")
-
-    # Build existing facility allocations as JSON for the matrix
-    existing_allocations = {}
-    for alloc_item in allocation.items.prefetch_related("facility_allocations"):
-        for fa in alloc_item.facility_allocations.all():
-            existing_allocations[f"{alloc_item.pk}_{fa.facility_id}"] = float(
-                fa.qty_allocated
-            )
 
     facility_picker_meta, staff_picker_meta = _build_picker_metadata(form)
 
@@ -437,7 +453,7 @@ def allocation_edit(request, pk):
             "facility_picker_meta": facility_picker_meta,
             "staff_picker_meta": staff_picker_meta,
             "stock_catalog": _build_allocation_stock_catalog(),
-            "existing_allocations": existing_allocations,
+            "existing_allocations": _matrix_initial_values(formset),
         },
     )
 
