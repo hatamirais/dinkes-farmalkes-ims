@@ -1,0 +1,63 @@
+{% load l10n %}
+<section aria-label="Sumber dan cakupan persediaan" class="mb-4">
+    <div class="mb-2">
+        <strong>Fasilitas: {{ selected_facility_name }}</strong><br>
+        Periode: {{ period_label }} {{ form.year.value|unlocalize }} ·
+        Posisi stok sampai akhir <strong>{{ report_metadata.period_end_label }}</strong>
+    </div>
+    <div class="ims-alert ims-alert--info mb-2">
+        <p>{{ report_metadata.source_description }}</p>
+        <p class="text-ims-xs mt-2">{{ report_metadata.baseline_note }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-2" aria-label="Ringkasan persediaan">
+        <span class="ims-badge ims-badge--info">Baris barang: {{ report_metadata.item_count }}</span>
+        <span class="ims-badge {% if report_metadata.negative_item_count %}ims-badge--danger{% else %}ims-badge--info{% endif %}">
+            Baris stok negatif{% if report_metadata.is_aggregate %} (agregat){% endif %}: {{ report_metadata.negative_item_count }}
+        </span>
+        <span class="ims-badge ims-badge--info">Fasilitas dengan baseline: {{ report_metadata.baseline_count }}/{{ report_metadata.facility_count }}</span>
+    </div>
+    {% if report_metadata.is_aggregate %}
+    <p class="text-muted text-ims-xs mb-2">
+        Saldo barang dijumlahkan lintas fasilitas yang memiliki baseline; saldo positif dan negatif antar fasilitas dapat saling menutup.
+    </p>
+    {% endif %}
+    {% if report_metadata.missing_baseline_count %}
+    <p class="ims-alert ims-alert--warning mb-2">
+        {{ report_metadata.missing_baseline_count }} fasilitas dilewati karena tidak memiliki baseline LPLPO yang dapat dipakai dalam tahun/periode terpilih.
+        Fasilitas tersebut ditandai di bawah; hasil ini belum mencakup seluruh fasilitas terpilih.
+    </p>
+    {% endif %}
+    {% if report_metadata.coverage %}
+    <div class="table-responsive ims-table-scroll mb-2" role="region" aria-label="Cakupan baseline per fasilitas" tabindex="0">
+        <table class="table ims-table ims-table--ruled mb-0">
+            <caption class="text-start font-bold mb-2">Baseline dan penyesuaian per fasilitas</caption>
+            <thead class="ims-table-heading">
+                <tr>
+                    <th>Fasilitas</th>
+                    <th>Baseline LPLPO</th>
+                    <th>Status baseline</th>
+                    <th>Rentang penyesuaian</th>
+                    <th>Baris penerimaan CONFIRMED</th>
+                    <th>Baris pemakaian rinci</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for coverage in report_metadata.coverage %}
+                <tr>
+                    <td>{{ coverage.facility_name }}</td>
+                    <td>{{ coverage.baseline_period|default:"Dilewati: tanpa baseline" }}</td>
+                    <td>{{ coverage.baseline_status|default:"—" }}</td>
+                    <td>{{ coverage.adjustment_period|default:"—" }}</td>
+                    <td>{% if coverage.baseline_period %}{{ coverage.receipt_row_count }}{% else %}—{% endif %}</td>
+                    <td>{% if coverage.baseline_period %}{{ coverage.consumption_row_count }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted text-ims-xs">
+        Jumlah baris menunjukkan rincian sumber yang disertakan setelah baseline, bukan jumlah dokumen.
+        Nilai 0 berarti tidak ada baris sumber dalam rentang penyesuaian; — berarti tidak dihitung tanpa baseline.
+    </p>
+    {% endif %}
+</section>
