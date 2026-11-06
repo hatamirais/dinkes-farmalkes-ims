@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Fixed the stock-card item search's double focus outline so the icon and input share one visible focus indicator for mouse and keyboard users ([#285](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/285)).
 - Corrected the Puskesmas inventory source explanation to describe the latest usable same-year LPLPO plus later `CONFIRMED` receipt confirmations minus detailed consumption through the selected end month, and renamed the calculated balance `Stok Akhir Digital` in HTML, print, and Excel.
 - Kept inventory report numbering continuous across categories, displayed years without thousands separators, and distinguished missing baselines from zero stock in empty-state guidance. Existing report permissions and facility isolation are unchanged; access/navigation follow-up is tracked in [#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313).
 
