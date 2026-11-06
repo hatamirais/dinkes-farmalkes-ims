@@ -39,6 +39,8 @@ App-specific guidance for pre-distribution allocation planning.
 
 ## Stock Behavior
 
+The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id>` on create and edit. The server validates quantities and selected facilities before writing and resolves rows through their saved form instances; deleted rows are excluded.
+
 - Stock deduction is deferred to per-distribution delivery confirmation.
 - Allocation approval reserves stock only; it does not consume physical stock.
 - Item batch selection can span all available stock sources.

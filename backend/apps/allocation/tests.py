@@ -978,8 +978,8 @@ class AllocationRouteTest(TestCase):
                     "items-0-stock": str(self.fixtures["stock"].pk),
                     "items-0-total_qty_available": "100",
                     "items-0-notes": "",
-                    f"alloc_{alloc_item.pk}_{self.fixtures['facility1'].pk}": "30",
-                    f"alloc_{alloc_item.pk}_{self.fixtures['facility2'].pk}": "20",
+                    f"alloc_0_{self.fixtures['facility1'].pk}": "30",
+                    f"alloc_0_{self.fixtures['facility2'].pk}": "20",
                 },
                 secure=True,
             )
@@ -1129,3 +1129,105 @@ class AllocationFrontendSecurityTest(TestCase):
 
         self.assertNotIn('container.innerHTML = html;', script)
         self.assertIn('container.replaceChildren();', script)
+
+
+@override_settings(FEATURE_ALLOCATION_UI_ENABLED=True)
+class AllocationMatrixSaveTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.fixtures = _create_test_fixtures()
+        cls.other_stock = Stock.objects.create(
+            item=cls.fixtures["item"], location=cls.fixtures["location"],
+            sumber_dana=cls.fixtures["funding"], batch_lot="BATCH-002",
+            expiry_date="2028-12-31", quantity=100, reserved=0, unit_price=Decimal("5000"),
+        )
+
+    def setUp(self):
+        self.client.force_login(self.fixtures["admin"])
+
+    def payload(self):
+        data = {
+            "allocation_date": "2025-06-01", "title": "Matrix regression",
+            "selected_facilities": [self.fixtures["facility1"].pk, self.fixtures["facility2"].pk],
+            "assigned_staff": [self.fixtures["operator"].pk],
+            "items-TOTAL_FORMS": "2", "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "0", "items-MAX_NUM_FORMS": "1000",
+        }
+        for index, stock in enumerate([self.fixtures["stock"], self.other_stock]):
+            data.update({
+                f"items-{index}-item": stock.item_id,
+                f"items-{index}-stock": stock.pk,
+                f"items-{index}-notes": f"row {index}",
+                f"alloc_{index}_{self.fixtures['facility1'].pk}": str(10 + index),
+                f"alloc_{index}_{self.fixtures['facility2'].pk}": str(20 + index),
+            })
+        return data
+
+    def assert_matrix(self, allocation):
+        for index in range(2):
+            row = allocation.items.get(notes=f"row {index}")
+            self.assertEqual(dict(row.facility_allocations.values_list("facility_id", "qty_allocated")), {
+                self.fixtures["facility1"].pk: Decimal(10 + index),
+                self.fixtures["facility2"].pk: Decimal(20 + index),
+            })
+
+    def test_first_save_maps_two_rows_even_when_index_collides_with_pk(self):
+        # Ensure a saved item PK also occurs as a submitted form index.
+        # PostgreSQL sequence reset has no ORM API; isolate this collision in test DB.
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT setval(pg_get_serial_sequence('allocation_items', 'id'), 1, false)")
+        response = self.client.post(reverse("allocation:allocation_create"), self.payload(), secure=True)
+        self.assertEqual(response.status_code, 302)
+        allocation = Allocation.objects.get()
+        self.assertTrue(allocation.items.filter(pk=1).exists())
+        self.assert_matrix(allocation)
+        detail = self.client.get(response.url, secure=True)
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(
+            {row["item"].notes: row["total_allocated"] for row in detail.context["items_with_allocations"]},
+            {"row 0": Decimal(30), "row 1": Decimal(32)},
+        )
+        self.client.post(reverse("allocation:allocation_submit", args=[allocation.pk]), secure=True)
+        allocation.refresh_from_db()
+        self.assertEqual(allocation.status, Allocation.Status.SUBMITTED)
+
+    def test_edit_maps_existing_new_and_deleted_rows(self):
+        allocation = _create_allocation(self.fixtures)
+        original = allocation.items.get()
+        data = self.payload()
+        data["items-INITIAL_FORMS"] = "1"
+        data["items-0-id"] = original.pk
+        response = self.client.post(reverse("allocation:allocation_edit", args=[allocation.pk]), data, secure=True)
+        self.assertEqual(response.status_code, 302)
+        self.assert_matrix(allocation)
+        new = allocation.items.get(notes="row 1")
+        data.update({"items-INITIAL_FORMS": "2", "items-1-id": new.pk, "items-0-DELETE": "on"})
+        response = self.client.post(reverse("allocation:allocation_edit", args=[allocation.pk]), data, secure=True)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(AllocationItem.objects.filter(pk=original.pk).exists())
+        self.assertEqual(new.facility_allocations.count(), 2)
+        response = self.client.get(reverse("allocation:allocation_edit", args=[allocation.pk]), secure=True)
+        self.assertEqual(response.context["existing_allocations"][f"0_{self.fixtures['facility1'].pk}"], 11)
+
+    def test_invalid_matrix_does_not_create_draft(self):
+        for value in ["NaN", "Infinity", "-1", "abc", "10000000000", "0.001"]:
+            with self.subTest(value=value):
+                data = self.payload()
+                data[f"alloc_0_{self.fixtures['facility1'].pk}"] = value
+                response = self.client.post(reverse("allocation:allocation_create"), data, secure=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context["form"].non_field_errors())
+                self.assertFalse(Allocation.objects.exists())
+
+    def test_invalid_facility_or_row_does_not_replace_existing_matrix(self):
+        allocation = _create_allocation(self.fixtures)
+        original = allocation.items.get()
+        for key in ["alloc_0_999999", "alloc_99_1", "alloc_bad"]:
+            with self.subTest(key=key):
+                data = self.payload()
+                data.update({"items-INITIAL_FORMS": "1", "items-0-id": original.pk, key: "5"})
+                response = self.client.post(reverse("allocation:allocation_edit", args=[allocation.pk]), data, secure=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context["form"].non_field_errors())
+                self.assertEqual(original.total_qty_allocated, Decimal("50"))
+                self.assertEqual(allocation.items.count(), 1)

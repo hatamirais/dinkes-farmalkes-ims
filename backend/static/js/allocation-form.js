@@ -762,7 +762,6 @@ function initAllocationForm() {
     function buildBatchMatrixItem(row) {
         const itemSelect = row.querySelector('.js-item-select');
         const stockSelect = row.querySelector('.js-stock-select');
-        const idField = row.querySelector('[name$="-id"]');
 
         if (!itemSelect || !itemSelect.value) return null;
         if (!stockSelect || !stockSelect.value) return null;
@@ -773,7 +772,7 @@ function initAllocationForm() {
         const available = stockMeta?.availableQty || 0;
 
         return {
-            formIndex: idField?.value || itemSelect.name?.match(/items-(\d+)-/)?.[1] || '',
+            formIndex: itemSelect.name?.match(/items-(\d+)-/)?.[1] || '',
             itemId: itemSelect.value,
             itemName: itemText,
             stockId: stockSelect.value || '',
@@ -865,7 +864,7 @@ function initAllocationForm() {
                 const existingKey = `${item.formIndex}_${f.id}`;
                 if (existingAllocations[existingKey]) {
                     input.value = existingAllocations[existingKey];
-                    totalAllocated += existingAllocations[existingKey];
+                    totalAllocated += Number(existingAllocations[existingKey]);
                 } else {
                     input.value = '';
                 }

@@ -151,3 +151,5 @@ MIT. Lihat `LICENSE`.
 
 
 
+
+Allocation drafts persist the facility matrix on the first save. Invalid quantities or facility selections return form errors without saving partial changes.

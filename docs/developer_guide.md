@@ -357,3 +357,7 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
 
 
 
+
+### Allocation matrix validation
+
+Create/edit matrix inputs use `alloc_<form_row_index>_<facility_id>` consistently, including existing items. Validation runs before database writes; each form instance supplies its saved item ID. Run `.\scripts\run-django-test.ps1 -Target apps.allocation.tests.AllocationMatrixSaveTest -KeepDb` to verify create, edit, deletion, index/PK collisions and invalid matrix rollback.

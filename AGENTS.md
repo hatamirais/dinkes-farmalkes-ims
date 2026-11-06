@@ -102,6 +102,7 @@ Use Graphify selectively to improve codebase understanding while minimizing unne
 
 - `stock.Transaction` is the append-only source of truth for stock movement. Never mutate historical transaction rows or replace stock movement reporting with auditlog entries.
 - Stock changes occur only at explicit workflow checkpoints, inside transactions with appropriate row locks; never mutate stock from arbitrary model saves.
+- Allocation matrix POST keys use form row indexes on create/edit; validate matrix quantities and selected facilities before saving and resolve each row through its saved form instance.
 - Availability is `Stock.available_quantity` (`quantity - reserved`). Dated batch selection is FEFO, with `expiry_date=NULL` last.
 - Puskesmas `Rincian Persediaan` reports a calculated `Stok Akhir Digital`, not warehouse availability. Preserve its baseline/adjustment coverage metadata across HTML, print, and Excel; missing baselines mean excluded facilities, not zero stock. See `backend/apps/puskesmas/AGENTS.md` for the report contract.
 - Stock is layered by item, location, batch, funding source, and `source_document_number`. Do not average prices across source-document layers.

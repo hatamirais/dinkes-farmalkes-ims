@@ -371,6 +371,8 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 ### 4.7 Allocation
 
+The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id>` on create and edit. The server validates quantities and selected facilities before writing and resolves rows through their saved form instances; deleted rows are excluded.
+
 - `allocation.Allocation` (`allocations`):
   - Status: `DRAFT`, `SUBMITTED`, `APPROVED`, `PARTIALLY_FULFILLED`, `FULFILLED`, `REJECTED`
   - Fields: `document_number` (`NULL` in draft; issued from the Allocation rule on submit using `allocation_date`), `title`, `allocation_date`, `referensi`, `notes`, `rejection_reason`
