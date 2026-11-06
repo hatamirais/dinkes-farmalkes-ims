@@ -14,6 +14,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Fixed
 
+- Fixed the Allocation wizard's first save dropping or misassigning per-facility quantities by consistently mapping matrix inputs through form row indexes to saved items. Invalid quantities or facility selections now return form errors before saving, while entered matrix values are retained for correction ([#295](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/295)).
+- Copied all assigned Allocation Petugas to each generated distribution at approval so detail and SBBK show every assigned name, including under Yang Menyerahkan. Historical children without assignments display the current parent staff; step-back and re-approval regenerate the staff selection ([#296](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/296)).
 - Fixed the stock-card item search's double focus outline so the icon and input share one visible focus indicator for mouse and keyboard users ([#285](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/285)).
 - Corrected the Puskesmas inventory source explanation to describe the latest usable same-year LPLPO plus later `CONFIRMED` receipt confirmations minus detailed consumption through the selected end month, and renamed the calculated balance `Stok Akhir Digital` in HTML, print, and Excel.
 - Kept inventory report numbering continuous across categories, displayed years without thousands separators, and distinguished missing baselines from zero stock in empty-state guidance. Existing report permissions and facility isolation are unchanged; access/navigation follow-up is tracked in [#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313).
