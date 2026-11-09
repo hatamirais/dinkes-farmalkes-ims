@@ -69,7 +69,7 @@
                     <div class="ims-layout-col-md-auto">
                         <label for="id_facility" class="ims-label">Fasilitas</label>
                         <select name="facility" id="id_facility" class="ims-control">
-                            <option value="">Semua Fasilitas</option>
+                            {% if can_aggregate_puskesmas_reports %}<option value="">Semua Fasilitas</option>{% endif %}
                             {% for f in all_facilities %}
                             <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>
                                 {{ f.name }}

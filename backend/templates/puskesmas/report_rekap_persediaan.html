@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load number_format %}
+{% load number_format l10n %}
 
 {% block title %}Rekap Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
 {% block page_title %}Rekap Laporan Persediaan Puskesmas{% endblock %}
@@ -68,7 +68,7 @@
                     <div class="ims-layout-col-md-auto">
                         <label for="id_facility" class="ims-label">Fasilitas</label>
                         <select name="facility" id="id_facility" class="ims-control">
-                            <option value="">Semua Fasilitas</option>
+                            {% if can_aggregate_puskesmas_reports %}<option value="">Semua Fasilitas</option>{% endif %}
                             {% for f in all_facilities %}
                             <option value="{{ f.pk }}" {% if facility and facility.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>
                             {% endfor %}
@@ -125,7 +125,7 @@
     <div class="report-print-meta">
         REKAPITULASI LAPORAN PERSEDIAAN PUSKESMAS<br>
         FASILITAS: {{ selected_facility_name }}<br>
-        TAHUN: {{ form.year.value|default:"-" }} — {{ period_label }}
+        TAHUN: {{ form.year.value|unlocalize|default:"-" }} — {{ period_label }}
     </div>
 </div>
 
@@ -137,7 +137,7 @@
             <i class="bi bi-info-circle me-1"></i>
             <strong>Saldo Awal</strong> memakai nilai stok awal LPLPO Januari. <strong>Nilai Terima</strong> dan <strong>Nilai Keluar</strong>
             diakumulasi dari seluruh LPLPO yang tersedia pada
-            <strong>{{ period_label }} {{ form.year.value }}</strong>.
+            <strong>{{ period_label }} {{ form.year.value|unlocalize }}</strong>.
             Rekap ini diringkas per <strong>kategori</strong> menggunakan <strong>harga satuan LPLPO</strong>: Januari diisi manual, bulan berikutnya mengikuti autofill nilai distribusi atau carry-forward bulan sebelumnya.
         </div>
     </div>
@@ -162,10 +162,10 @@
                             <tr>
                                 <th style="width: 50px;">NO</th>
                                 <th>URAIAN</th>
-                                <th style="width: 180px;">SALDO AWAL {{ form.year.value|default:"" }}</th>
-                                <th style="width: 180px;">NILAI TERIMA {{ form.year.value|default:"" }}</th>
-                                <th style="width: 180px;">NILAI KELUAR {{ form.year.value|default:"" }}</th>
-                                <th style="width: 180px;">SALDO AKHIR {{ form.year.value|default:"" }}</th>
+                                <th style="width: 180px;">SALDO AWAL {{ form.year.value|unlocalize|default:"" }}</th>
+                                <th style="width: 180px;">NILAI TERIMA {{ form.year.value|unlocalize|default:"" }}</th>
+                                <th style="width: 180px;">NILAI KELUAR {{ form.year.value|unlocalize|default:"" }}</th>
+                                <th style="width: 180px;">SALDO AKHIR {{ form.year.value|unlocalize|default:"" }}</th>
                             </tr>
                         </thead>
                         <tbody>

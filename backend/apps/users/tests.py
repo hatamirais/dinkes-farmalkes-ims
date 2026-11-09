@@ -1511,3 +1511,79 @@ class UserTailwindPageTests(TestCase):
         self.assertContains(response, 'id="id_module_scope__users_errors"')
         self.assertContains(response, 'aria-describedby="id_module_scope__users_errors"')
         self.assertFalse(User.objects.filter(username="invalid_scope_user").exists())
+
+
+class PuskesmasReportAccessTests(TestCase):
+    def setUp(self):
+        from apps.users.access import puskesmas_report_access
+        self.access = puskesmas_report_access
+        self.facility = Facility.objects.create(
+            code="REPORT-PKM", name="Report test Puskesmas",
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        )
+        self.operator = User.objects.create_user(
+            username="report-policy-operator", role=User.Role.PUSKESMAS,
+            facility=self.facility,
+        )
+        self.select = Permission.objects.get(content_type__app_label="users", codename="select_puskesmas_report_facility")
+        self.aggregate = Permission.objects.get(content_type__app_label="users", codename="aggregate_puskesmas_reports")
+
+    def test_existing_operator_missing_row_uses_default_and_sync_preserves_denial(self):
+        ModuleAccess.objects.filter(user=self.operator, module="puskesmas_reports").delete()
+        self.assertTrue(self.access(self.operator).allowed)
+        ensure_default_module_access(self.operator)
+        self.assertEqual(self.operator.module_accesses.get(module="puskesmas_reports").scope, ModuleAccess.Scope.VIEW)
+        self.operator.module_accesses.filter(module="puskesmas_reports").update(scope=0)
+        ensure_default_module_access(self.operator)
+        self.assertFalse(self.access(self.operator).allowed)
+        self.assertEqual(self.operator.module_accesses.get(module="reports").scope, 0)
+
+    def test_staff_role_matrix_requires_explicit_module_and_each_capability(self):
+        for role in (User.Role.ADMIN, User.Role.KEPALA, User.Role.ADMIN_UMUM, User.Role.GUDANG, User.Role.AUDITOR):
+            with self.subTest(role=role):
+                # Historical non-superuser ADMIN is allowed in the schema.
+                user = User.objects.create_user(username=f"report-{role}", role=User.Role.GUDANG)
+                User.objects.filter(pk=user.pk).update(role=role)
+                user.refresh_from_db()
+                self.assertFalse(self.access(user).allowed)
+                user.user_permissions.add(self.select, self.aggregate)
+                self.assertFalse(self.access(user).allowed)
+                user.module_accesses.filter(module="puskesmas_reports").update(scope=1)
+                user = User.objects.get(pk=user.pk)
+                self.assertTrue(self.access(user).can_aggregate)
+                user.user_permissions.remove(self.select)
+                user = User.objects.get(pk=user.pk)
+                self.assertFalse(self.access(user).allowed)
+                user.user_permissions.add(self.select)
+                user.user_permissions.remove(self.aggregate)
+                user = User.objects.get(pk=user.pk)
+                decision = self.access(user)
+                self.assertTrue(decision.allowed)
+                self.assertTrue(decision.can_select_facility)
+                self.assertFalse(decision.can_aggregate)
+
+    def test_higher_module_scope_and_django_user_management_scope_never_widen_operator(self):
+        self.operator.module_accesses.filter(module="puskesmas_reports").update(scope=4)
+        self.operator.module_accesses.filter(module="users").update(scope=4)
+        self.operator.user_permissions.add(self.select, self.aggregate)
+        decision = self.access(self.operator)
+        self.assertTrue(decision.allowed)
+        self.assertFalse(decision.can_select_facility)
+        self.assertFalse(decision.can_aggregate)
+
+    def test_inactive_and_anonymous_users_are_denied(self):
+        from django.contrib.auth.models import AnonymousUser
+        self.assertFalse(self.access(AnonymousUser()).allowed)
+        self.operator.is_active = False
+        self.assertFalse(self.access(self.operator).allowed)
+
+
+    def test_operator_group_provisioning_does_not_grant_staff_report_capabilities(self):
+        from django.core.management import call_command
+        from io import StringIO
+        call_command("setup_puskesmas_group", stdout=StringIO())
+        user = User.objects.get(pk=self.operator.pk)
+        self.assertFalse(user.has_perm("users.select_puskesmas_report_facility"))
+        self.assertFalse(user.has_perm("users.aggregate_puskesmas_reports"))
+        self.assertFalse(user.has_perm("reports.view_reports"))
+        self.assertTrue(self.access(user).allowed)

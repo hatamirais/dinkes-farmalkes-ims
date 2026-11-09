@@ -3240,20 +3240,20 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
 		self.assertEqual(response.status_code, 403)
 
-	def test_puskesmas_operator_without_reports_scope_cannot_access_penerimaan(self):
+	def test_puskesmas_operator_without_central_reports_scope_can_access_penerimaan(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_penerimaan"))
-		self.assertEqual(response.status_code, 403)
+		self.assertEqual(response.status_code, 200)
 
-	def test_puskesmas_operator_without_reports_scope_cannot_access_pemakaian(self):
+	def test_puskesmas_operator_without_central_reports_scope_can_access_pemakaian(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_pemakaian"))
-		self.assertEqual(response.status_code, 403)
+		self.assertEqual(response.status_code, 200)
 
-	def test_puskesmas_operator_without_reports_scope_cannot_access_persediaan(self):
+	def test_puskesmas_operator_without_central_reports_scope_can_access_persediaan(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:report_persediaan"))
-		self.assertEqual(response.status_code, 403)
+		self.assertEqual(response.status_code, 200)
 
 	def test_report_enabled_puskesmas_operator_can_access_all_four_reports(self):
 		self.client.force_login(self.report_operator)
@@ -3267,11 +3267,11 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 				response = self.client.get(reverse(f"puskesmas:{url_name}"))
 				self.assertEqual(response.status_code, 200)
 
-	def test_puskesmas_report_sidebar_requires_reports_scope(self):
+	def test_puskesmas_report_sidebar_uses_dedicated_access(self):
 		self.client.force_login(self.operator)
 		response = self.client.get(reverse("puskesmas:request_list"))
 		self.assertEqual(response.status_code, 200)
-		self.assertNotContains(response, "Laporan Puskesmas")
+		self.assertContains(response, "Laporan Puskesmas")
 
 		self.client.force_login(self.report_operator)
 		response = self.client.get(reverse("puskesmas:request_list"))
@@ -3353,7 +3353,8 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 				response = self.client.get(reverse(f"puskesmas:{url_name}"))
 				self.assertEqual(response.status_code, 403)
 
-	def test_report_endpoints_deny_excel_exports_without_reports_scope(self):
+	def test_report_endpoints_deny_excel_exports_with_explicit_none(self):
+		ModuleAccess.objects.filter(user=self.operator, module=ModuleAccess.Module.PUSKESMAS_REPORTS).update(scope=ModuleAccess.Scope.NONE)
 		self.client.force_login(self.operator)
 
 		for url_name, query in (
@@ -3365,6 +3366,168 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 			with self.subTest(url_name=url_name):
 				response = self.client.get(reverse(f"puskesmas:{url_name}"), query)
 				self.assertEqual(response.status_code, 403)
+
+
+	REPORT_ROUTES = ("report_penerimaan", "report_pemakaian", "report_persediaan", "report_rekap_persediaan")
+
+	def _grant_report_staff(self, user, *, aggregate=False):
+		from django.contrib.auth.models import Permission
+		ModuleAccess.objects.update_or_create(
+			user=user, module=ModuleAccess.Module.PUSKESMAS_REPORTS,
+			defaults={"scope": ModuleAccess.Scope.VIEW},
+		)
+		codenames = ["select_puskesmas_report_facility"]
+		if aggregate:
+			codenames.append("aggregate_puskesmas_reports")
+		user.user_permissions.add(*Permission.objects.filter(
+			content_type__app_label="users", codename__in=codenames,
+		))
+
+	def test_default_operator_all_reports_and_central_reports_stay_denied(self):
+		self.client.force_login(self.operator)
+		for route in self.REPORT_ROUTES:
+			response = self.client.get(reverse(f"puskesmas:{route}"))
+			self.assertEqual(response.status_code, 200)
+			self.assertEqual(response.context["facility"], self.facility)
+		self.assertEqual(self.client.get(reverse("reports:index")).status_code, 403)
+
+	def test_explicit_dedicated_none_denies_html_and_hides_sidebar(self):
+		ModuleAccess.objects.filter(user=self.report_operator, module=ModuleAccess.Module.PUSKESMAS_REPORTS).update(scope=0)
+		self.client.force_login(self.report_operator)
+		for route in self.REPORT_ROUTES:
+			self.assertEqual(self.client.get(reverse(f"puskesmas:{route}")).status_code, 403)
+		response = self.client.get(reverse("puskesmas:request_list"))
+		self.assertNotContains(response, "Laporan Puskesmas")
+
+	def test_invalid_operator_links_deny_html_and_excel(self):
+		for link in (None, self.facility):
+			if link:
+				Facility.objects.filter(pk=link.pk).update(is_active=False)
+			User.objects.filter(pk=self.operator.pk).update(facility=link)
+			self.client.force_login(self.operator)
+			for route in self.REPORT_ROUTES:
+				for query in ({}, {"format": "excel", "facility": self.other_facility.pk}):
+					self.assertEqual(self.client.get(reverse(f"puskesmas:{route}"), query).status_code, 403)
+		Facility.objects.filter(pk=self.facility.pk).update(is_active=True, facility_type=Facility.FacilityType.RS)
+		for route in self.REPORT_ROUTES:
+			self.assertEqual(self.client.get(reverse(f"puskesmas:{route}")).status_code, 403)
+
+	def test_generic_reports_permission_does_not_authorize_linked_staff(self):
+		self.client.force_login(self.staff_with_facility)
+		for route in self.REPORT_ROUTES:
+			self.assertEqual(self.client.get(reverse(f"puskesmas:{route}")).status_code, 403)
+
+	def test_selection_and_aggregation_require_separate_grants(self):
+		self._grant_report_staff(self.staff_without_facility)
+		self.client.force_login(self.staff_without_facility)
+		for route in self.REPORT_ROUTES:
+			url = reverse(f"puskesmas:{route}")
+			response = self.client.get(url, {"facility": self.other_facility.pk})
+			self.assertEqual(response.status_code, 200)
+			self.assertEqual(response.context["facility"], self.other_facility)
+			self.assertContains(response, "Laporan Puskesmas")
+			self.assertNotContains(response, '<option value="">Semua Fasilitas</option>')
+			response = self.client.get(url)
+			self.assertIsNotNone(response.context["facility"])
+			for bad in ("invalid", "999999999999999999999999999", "0"):
+				self.assertEqual(self.client.get(url, {"facility": bad}).status_code, 403)
+		self._grant_report_staff(self.staff_without_facility, aggregate=True)
+		for route in self.REPORT_ROUTES:
+			response = self.client.get(reverse(f"puskesmas:{route}"))
+			self.assertEqual(response.status_code, 200)
+			self.assertIsNone(response.context["facility"])
+			self.assertContains(response, '<option value="">Semua Fasilitas</option>')
+
+	def test_staff_excel_selection_and_aggregate_use_authorized_scope(self):
+		from datetime import date
+		own = self._make_sbbk(self.facility, received_date=date(2026, 3, 15))
+		other = self._make_sbbk(self.other_facility, received_date=date(2026, 3, 15))
+		PuskesmasSBBKItem.objects.create(sbbk=own, item=self.item, quantity=10, unit_price=1000)
+		PuskesmasSBBKItem.objects.create(sbbk=other, item=self.item, quantity=999, unit_price=9000)
+		self._grant_report_staff(self.staff_without_facility)
+		self.client.force_login(self.staff_without_facility)
+		url = reverse("puskesmas:report_penerimaan")
+		query = {"format": "excel", "start_date": "2026-03-01", "end_date": "2026-03-31"}
+		response = self.client.get(url, {**query, "facility": self.other_facility.pk})
+		self.assertEqual(response.status_code, 200)
+		values = str(list(load_workbook(BytesIO(response.content)).active.values))
+		self.assertIn(other.document_number, values)
+		self.assertNotIn(own.document_number, values)
+		self._grant_report_staff(self.staff_without_facility, aggregate=True)
+		response = self.client.get(url, query)
+		self.assertEqual(response.status_code, 200)
+		values = str(list(load_workbook(BytesIO(response.content)).active.values))
+		self.assertIn(other.document_number, values)
+		self.assertIn(own.document_number, values)
+
+	def test_invalid_explicit_superuser_selection_is_denied_for_html_and_excel(self):
+		self.client.force_login(self.admin)
+		Facility.objects.filter(pk=self.other_facility.pk).update(is_active=False)
+		for route in self.REPORT_ROUTES:
+			for facility in ("invalid", self.other_facility.pk):
+				for fmt in ("", "excel"):
+					self.assertEqual(self.client.get(reverse(f"puskesmas:{route}"), {"facility": facility, "format": fmt}).status_code, 403)
+
+	def test_operator_cannot_use_staff_permissions_to_widen_facility(self):
+		self._grant_report_staff(self.operator, aggregate=True)
+		self.client.force_login(self.operator)
+		for route in self.REPORT_ROUTES:
+			response = self.client.get(reverse(f"puskesmas:{route}"), {"facility": self.other_facility.pk})
+			self.assertEqual(response.context["facility"], self.facility)
+			self.assertFalse(response.context["all_facilities"])
+
+	def test_forged_facility_queries_do_not_change_any_report_excel(self):
+		from datetime import date
+		own = self._make_sbbk(self.facility, received_date=date(2026, 3, 15))
+		other = self._make_sbbk(self.other_facility, received_date=date(2026, 3, 15))
+		PuskesmasSBBKItem.objects.create(sbbk=own, item=self.item, quantity=10, unit_price=1000)
+		PuskesmasSBBKItem.objects.create(sbbk=other, item=self.item, quantity=999, unit_price=9000)
+		from apps.lplpo.models import LPLPO, LPLPOItem
+		for facility, quantity in ((self.facility, 10), (self.other_facility, 999)):
+			lplpo = self._make_lplpo(facility, 3, 2026, LPLPO.Status.CLOSED)
+			LPLPOItem.objects.create(
+				lplpo=lplpo, item=self.item, pemakaian=quantity,
+				stock_awal=quantity * 2, harga_satuan=1000,
+			)
+		self.client.force_login(self.operator)
+		for route in self.REPORT_ROUTES:
+			url = reverse(f"puskesmas:{route}")
+			query = {"format": "excel", "year": 2026, "period": "q1", "start_date": "2026-03-01", "end_date": "2026-03-31"}
+			expected = self.client.get(url, query)
+			self.assertEqual(expected.status_code, 200)
+			self.assertIn("spreadsheetml", expected["Content-Type"], route)
+			workbook = load_workbook(BytesIO(expected.content))
+			expected_cells = {sheet.title: list(sheet.values) for sheet in workbook}
+			for forged in (self.other_facility.pk, "", "invalid"):
+				response = self.client.get(url, {**query, "facility": forged})
+				self.assertEqual(response.status_code, 200)
+				actual = load_workbook(BytesIO(response.content))
+				self.assertEqual({sheet.title: list(sheet.values) for sheet in actual}, expected_cells)
+
+	def test_sidebar_expands_and_marks_exact_report_for_operator_staff_and_superuser(self):
+		from html.parser import HTMLParser
+		class Links(HTMLParser):
+			def __init__(self):
+				super().__init__()
+				self.active = []
+				self.expanded = False
+			def handle_starttag(self, tag, attrs):
+				attrs = dict(attrs)
+				if tag == "a" and "active" in attrs.get("class", "").split():
+					self.active.append(attrs.get("href"))
+				if attrs.get("data-bs-target") == "#sidebar-puskesmas-laporan":
+					self.expanded = attrs.get("aria-expanded") == "true"
+		self._grant_report_staff(self.staff_without_facility)
+		for user in (self.operator, self.staff_without_facility, self.admin):
+			self.client.force_login(user)
+			for route in self.REPORT_ROUTES:
+				url = reverse(f"puskesmas:{route}")
+				response = self.client.get(url)
+				parser = Links()
+				parser.feed(response.content.decode())
+				self.assertTrue(parser.expanded)
+				report_links = set(parser.active) & {reverse(f"puskesmas:{name}") for name in self.REPORT_ROUTES}
+				self.assertEqual(report_links, {url})
 
 	# ────────────── Penerimaan data correctness ──────────────
 
@@ -3888,6 +4051,9 @@ class PuskesmasReportViewTests(SecureClientDefaultsMixin, TestCase):
 		response = self.client.get(url, params)
 		self.assertContains(response, "Baseline LPLPO tersedia, tetapi tidak ada baris barang")
 		Facility.objects.filter(pk=self.facility.pk).update(is_active=False)
+		self.assertEqual(self.client.get(url, params).status_code, 403)
+		self.client.force_login(self.admin)
+		Facility.objects.filter(pk=self.other_facility.pk).update(is_active=False)
 		response = self.client.get(url, params)
 		self.assertContains(response, "Tidak ada Puskesmas aktif dalam cakupan laporan")
 

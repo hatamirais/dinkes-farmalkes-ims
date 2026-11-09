@@ -91,7 +91,7 @@ Module highlights:
   - The operator form, list, and detail omit request-level Program. The list has search and status filters only; `?program=` is ignored. The nullable model field is retained for historical records and downstream distribution behavior. Item-level `[P]` markers remain on detail rows.
   - Create/edit uses the `items` inline formset. The browser Add Row control increments `items-TOTAL_FORMS` and initializes the item typeahead; removing a row marks `items-<index>-DELETE`, disables its editable controls to avoid native validation blocking submission, retains its ID/DELETE inputs, and keeps at least one row visible. Server validation and facility isolation remain authoritative.
   - Superusers may work across facilities, while every non-superuser request is forced to the linked `user.facility` and receives `403` when no facility is linked or the object belongs to another facility.
-  - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` are all-facility only for superusers; every non-superuser request is forced to the request user's linked facility.
+  - Report routes `/puskesmas/laporan/penerimaan/`, `/puskesmas/laporan/pemakaian/`, `/puskesmas/laporan/persediaan/`, and `/puskesmas/laporan/rekap-persediaan/` use dedicated report module scope. Facility-bound readers see only their linked active Puskesmas; eligible staff require explicit Django permissions for facility selection and all-facility aggregation (see Permissions below). Superusers retain full report scope.
 - Puskesmas subunits: `/puskesmas/subunit/`, `/puskesmas/subunit/buat/`, `/puskesmas/subunit/<pk>/edit/`, `/puskesmas/subunit/<pk>/delete/`
   - Stores dynamic room/helper-site columns per facility for the detailed consumption matrix.
   - Only `PUSKESMAS` role users and superusers may mutate subunit rows.
@@ -121,7 +121,7 @@ Permission denials are expected to raise `PermissionDenied` so the centralized 4
 
 `ModuleAccess.module` values:
 
-- `users`, `items`, `stock`, `receiving`, `procurement`, `distribution`, `allocation`, `recall`, `expired`, `stock_opname`, `reports`, `puskesmas`, `lplpo`, `admin_panel`
+- `users`, `items`, `stock`, `receiving`, `procurement`, `distribution`, `allocation`, `recall`, `expired`, `stock_opname`, `reports`, `puskesmas_reports`, `puskesmas`, `lplpo`, `admin_panel`
 
 `ModuleAccess.scope` values:
 
@@ -130,8 +130,8 @@ Permission denials are expected to raise `PermissionDenied` so the centralized 4
 Special rule:
 
 - For `users.*` permissions, non-view actions require `MANAGE` scope.
-- `puskesmas` facility isolation applies to every non-superuser account, with Super Admin users (`is_superuser`) as the only fully cross-facility users. `lplpo` is split: Puskesmas-owned stages remain same-facility for non-superusers, while Instalasi Farmasi roles receive limited cross-facility access based on route/action and `LPLPO.status`.
-- Puskesmas report routes require `reports.view_reports` (or REPORTS module-scope VIEW fallback), and their facility isolation is stricter than the general module access model: superusers may query all facilities, while every non-superuser must have a linked `facility` and is scoped to it.
+- `puskesmas` operational facility isolation applies to every non-superuser account, with Super Admin users (`is_superuser`) as the only fully cross-facility operational users. Reports have the explicit staff capability exception below. `lplpo` is split: Puskesmas-owned stages remain same-facility for non-superusers, while Instalasi Farmasi roles receive limited cross-facility access based on route/action and `LPLPO.status`.
+- Puskesmas reports require dedicated `puskesmas_reports` module scope VIEW or higher. PUSKESMAS defaults to VIEW, other roles to NONE; explicit NONE wins over generic Reports grants. Facility-bound readers require an active Puskesmas link. Internal roles ADMIN, KEPALA, ADMIN_UMUM, GUDANG, and AUDITOR can select active facilities only with `users.select_puskesmas_report_facility`; all-facility aggregation also requires `users.aggregate_puskesmas_reports`. Superusers retain full report scope. These Django permissions cannot widen PUSKESMAS operator scope and do not grant workflow authority. HTML/Excel and sidebar use the same access helper.
 - Puskesmas receipt-confirmation create/edit/delete routes add a role gate on top of module access: only `User.Role.PUSKESMAS` and superusers can manage receipt-confirmation mutations.
 - Puskesmas subunit and detailed-consumption create/edit/delete routes add the same role gate: only `User.Role.PUSKESMAS` and superusers can manage those mutations.
 - `/settings/` and `/settings/numbering/` are explicit role-gated exceptions outside the hybrid `@perm_required` path: only superusers plus `User.Role.ADMIN` and `User.Role.KEPALA` may open or update their respective settings.

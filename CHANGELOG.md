@@ -9,17 +9,20 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ### Added
 
+- Added dedicated `puskesmas_reports` module scope and explicit staff permissions for facility selection (`users.select_puskesmas_report_facility`) and all-facility aggregation (`users.aggregate_puskesmas_reports`). Deployment requires migration; staff access remains opt-in with no automatic permission backfill ([#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313)).
 - Added baseline LPLPO period/status, adjustment windows, included receipt/consumption detail-row counts, skipped-facility coverage, and item/negative-balance summaries to the Puskesmas Rincian Persediaan report and print output ([#219](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/219)).
 - Added a `Sumber dan Cakupan` Excel worksheet with matching report provenance and coverage; valid empty results now export an explanation of missing baselines, no active facilities, or no resulting item rows.
 
 ### Fixed
 
+- Allowed default Puskesmas operators to read all four reports for their linked active Puskesmas without granting central Reports access. Explicit report denials remain effective, and HTML/Excel reject invalid links and prevent query parameters from widening operator scope ([#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313)).
+- Aligned the Laporan Puskesmas sidebar with effective report authorization for operators, authorized staff, auditors, and superusers, including submenu expansion and exact report highlighting. Rekap Persediaan headings and related print labels display years as `2026`, without thousands separators.
 - Omitted trailing decimal zeros for whole quantities on Expired/Disposal detail and alerts pages and in create/edit quantity inputs, including selected-stock prefill. Read-only quantities retain Indonesian thousands separators, fractional quantities remain exact, and submitted values and stock workflows are unchanged ([#301](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/301)).
 - Fixed the Allocation wizard's first save dropping or misassigning per-facility quantities by consistently mapping matrix inputs through form row indexes to saved items. Invalid quantities or facility selections now return form errors before saving, while entered matrix values are retained for correction ([#295](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/295)).
 - Copied all assigned Allocation Petugas to each generated distribution at approval so detail and SBBK show every assigned name, including under Yang Menyerahkan. Historical children without assignments display the current parent staff; step-back and re-approval regenerate the staff selection ([#296](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/296)).
 - Fixed the stock-card item search's double focus outline so the icon and input share one visible focus indicator for mouse and keyboard users ([#285](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/285)).
 - Corrected the Puskesmas inventory source explanation to describe the latest usable same-year LPLPO plus later `CONFIRMED` receipt confirmations minus detailed consumption through the selected end month, and renamed the calculated balance `Stok Akhir Digital` in HTML, print, and Excel.
-- Kept inventory report numbering continuous across categories, displayed years without thousands separators, and distinguished missing baselines from zero stock in empty-state guidance. Existing report permissions and facility isolation are unchanged; access/navigation follow-up is tracked in [#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313).
+- Kept inventory report numbering continuous across categories, displayed years without thousands separators, and distinguished missing baselines from zero stock in empty-state guidance.
 
 ## [2.0.0] - 2026-11-05
 
