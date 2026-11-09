@@ -91,6 +91,8 @@ Use Graphify selectively to improve codebase understanding while minimizing unne
 
 ### Permissions And Errors
 
+- User CSV creation belongs to the main `/users/` application. Its actor-bound, 15-minute previews store hashes only and confirm atomically through per-user saves; see `users/AGENTS.md` and `SYSTEM_MODEL.md`. Deploy its migrations and schedule `cleanup_user_imports` every 15 minutes.
+
 - There are two permission layers: Django permissions through `has_perm` and module-scope fallback through `ModuleAccess` and `@perm_required`.
 - Module scopes are `NONE`, `VIEW`, `OPERATE`, `APPROVE`, and `MANAGE`. Use the terms "Django permissions" and "module scope" consistently.
 - Permission denials must raise `PermissionDenied` so the centralized `handler403` renders the response.

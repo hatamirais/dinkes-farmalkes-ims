@@ -41,6 +41,8 @@ Workflow-specific issuance checkpoints, dates, migration metadata, and delete/vo
 
 ## Configuration Documentation
 
+- CSV upload sampling uses an incremental UTF-8 decoder so a sample ending inside a multibyte character is valid. Owning import parsers must still decode/validate the full file and reject null bytes anywhere.
+
 - Keep `AUTH_USER_MODEL` explicit and `SECRET_KEY` environment-driven.
 - Keep `DJANGO_DEBUG=False` production guidance, WhiteNoise middleware, and `STORAGES["staticfiles"]` documentation aligned with settings.
 - Keep import documentation aligned with django-import-export dry-run/confirm semantics.

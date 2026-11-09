@@ -1,3 +1,4 @@
+import codecs
 import csv
 import io
 import re
@@ -82,7 +83,11 @@ def validate_csv_upload(uploaded_file, *, max_size_bytes):
         uploaded_file.seek(0)
 
     try:
-        decoded = sample.decode("utf-8-sig")
+        # A bounded sample can end inside a valid multibyte UTF-8 character.
+        # Full-file parsers still validate the remaining bytes.
+        decoded = codecs.getincrementaldecoder("utf-8-sig")().decode(
+            sample, final=uploaded_file.size <= 4096,
+        )
     except UnicodeDecodeError as exc:
         raise ValidationError("File CSV harus menggunakan encoding UTF-8.") from exc
 

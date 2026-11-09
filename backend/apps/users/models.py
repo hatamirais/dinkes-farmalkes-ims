@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -88,6 +90,21 @@ class User(AbstractUser):
                 )
 
         return super().save(*args, **kwargs)
+
+
+class UserCreationLock(models.Model):
+    """Singleton mutex shared by account creation through IMS forms/imports."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+
+
+class UserImportBatch(models.Model):
+    """Short-lived, actor-owned preview. Payload contains hashes, never plaintext."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(User, on_delete=models.CASCADE)
+    expires_at = models.DateTimeField(db_index=True)
+    rows = models.JSONField()
 
 
 class ModuleAccess(models.Model):
