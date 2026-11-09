@@ -194,7 +194,10 @@
                     <i class="bi bi-file-earmark-medical"></i><span>LPLPO</span>
                 </a>
                 {% endif %}
-                {% if can_view_puskesmas and can_view_reports and request.user.role == 'PUSKESMAS' %}
+                {% endif %}
+                {% endif %}
+
+                {% if can_view_puskesmas_reports %}
                 <button
                     class="sidebar-link sidebar-dropdown-toggle {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
                     data-label="Laporan Puskesmas" title="Laporan Puskesmas" data-bs-toggle="collapse"
@@ -207,29 +210,26 @@
                 <div class="collapse sidebar-submenu {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}show{% endif %}"
                     id="sidebar-puskesmas-laporan">
                     <a href="{% url 'puskesmas:report_penerimaan' %}"
-                        class="sidebar-link {% if request.resolver_match.url_name == 'report_penerimaan' %}active{% endif %}"
+                        class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name == 'report_penerimaan' %}active{% endif %}"
                         data-label="Riwayat Penerimaan" title="Riwayat Penerimaan">
                         <i class="bi bi-inbox-arrow-down"></i><span>Riwayat Penerimaan</span>
                     </a>
                     <a href="{% url 'puskesmas:report_pemakaian' %}"
-                        class="sidebar-link {% if request.resolver_match.url_name == 'report_pemakaian' %}active{% endif %}"
+                        class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name == 'report_pemakaian' %}active{% endif %}"
                         data-label="Riwayat Pemakaian" title="Riwayat Pemakaian">
                         <i class="bi bi-clipboard-data"></i><span>Riwayat Pemakaian</span>
                     </a>
                     <a href="{% url 'puskesmas:report_persediaan' %}"
-                        class="sidebar-link {% if request.resolver_match.url_name == 'report_persediaan' %}active{% endif %}"
+                        class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name == 'report_persediaan' %}active{% endif %}"
                         data-label="Rincian Laporan Persediaan" title="Rincian Laporan Persediaan">
                         <i class="bi bi-boxes"></i><span>Rincian Laporan Persediaan</span>
                     </a>
                     <a href="{% url 'puskesmas:report_rekap_persediaan' %}"
-                        class="sidebar-link {% if request.resolver_match.url_name == 'report_rekap_persediaan' %}active{% endif %}"
+                        class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name == 'report_rekap_persediaan' %}active{% endif %}"
                         data-label="Rekap Laporan Persediaan" title="Rekap Laporan Persediaan">
                         <i class="bi bi-table"></i><span>Rekap Laporan Persediaan</span>
                     </a>
                 </div>
-                {% endif %}
-                {% endif %}
-
                 {% endif %}
 
                 {% if can_view_reports %}

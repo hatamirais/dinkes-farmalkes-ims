@@ -8,10 +8,11 @@ App-specific guidance for Puskesmas facility workflows.
 
 ## Facility Scope
 
-- All operational and report-facing surfaces require a linked `user.facility` for every non-superuser account and enforce same-facility object access.
+- All operational surfaces require a linked `user.facility` for every non-superuser account and enforce same-facility object access.
 - `OPERATOR PUSKESMAS` users must never read or write another facility's documents.
-- Puskesmas report routes require `reports.view_reports` or REPORTS module-scope `VIEW`.
-- Superusers may query all facilities in reports; non-superusers are forced to their linked `facility` and receive `403` when no facility is linked.
+- Reports use the dedicated `puskesmas_reports` module at VIEW or higher, never generic `reports.view_reports`. PUSKESMAS defaults to VIEW; an explicit NONE denies access. Other roles default to NONE.
+- Facility-bound readers require an active Puskesmas link and ignore query-driven scope widening. Eligible internal roles ADMIN, KEPALA, ADMIN_UMUM, GUDANG, and AUDITOR may select active facilities only with the explicit `users.select_puskesmas_report_facility` Django permission. All-facility mode additionally requires `users.aggregate_puskesmas_reports`. PUSKESMAS cannot use either staff permission. Superusers retain both capabilities.
+- Selection-only staff land on the first active facility when no selection is provided, never on an aggregate. Invalid explicit selections raise PermissionDenied. HTML, print, Excel, facility selectors, and sidebar share this policy. These read-only capabilities grant no workflow authority.
 - Report HTML displays money with two Indonesian decimal digits; this presentation rule does not round stored prices, report calculations, or Excel exports.
 - An active Puskesmas-specific Acting Kepala delegation may satisfy only the request approval/rejection authority check; it does not authorize reset-to-draft. It never bypasses linked-facility or same-facility isolation, which is rechecked between the locked actor and locked request before mutation. Delegated use must be recorded atomically in `AuthorityExercise`.
 
@@ -21,7 +22,7 @@ App-specific guidance for Puskesmas facility workflows.
 - The latest usable same-year LPLPO up to the selected end month is the baseline; Draft is usable and rejected statuses are excluded. Add only later same-year `CONFIRMED` receipt rows and subtract later detailed consumption through that end month. Quarter/semester selection describes an ending-stock cutoff, not only movements within the quarter/semester.
 - HTML and print expose per-facility baseline period/status, adjustment window, included receipt/consumption detail-row counts, and active-facility coverage. A missing baseline means the facility is skipped, not that stock is zero. Zero included source rows differs from a missing baseline.
 - All-facility mode sums item balances across covered facilities. Its negative-item count refers to aggregated rows, which can mask individual facility shortages. Item numbering remains continuous across categories.
-- Excel keeps the item table on `Rincian Persediaan` (headers on row 4, items from row 5) and adds `Sumber dan Cakupan` with the same provenance and coverage. Valid empty exports explain missing baselines, no active facilities, or no resulting items. Invalid filters render HTML validation errors. No authorization or stock mutation is added.
+- Excel keeps the item table on `Rincian Persediaan` (headers on row 4, items from row 5) and adds `Sumber dan Cakupan` with the same provenance and coverage. Valid empty exports explain missing baselines, no active facilities, or no resulting items. Invalid filters render HTML validation errors. Reports never mutate stock.
 
 ## Stock Self-Check
 

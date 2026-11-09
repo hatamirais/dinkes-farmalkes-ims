@@ -42,6 +42,7 @@ ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
         ModuleAccess.Module.RECALL: ModuleAccess.Scope.MANAGE,
         ModuleAccess.Module.EXPIRED: ModuleAccess.Scope.MANAGE,
         ModuleAccess.Module.STOCK_OPNAME: ModuleAccess.Scope.MANAGE,
+        ModuleAccess.Module.PUSKESMAS_REPORTS: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.REPORTS: ModuleAccess.Scope.MANAGE,
         ModuleAccess.Module.ADMIN_PANEL: ModuleAccess.Scope.MANAGE,
         ModuleAccess.Module.PUSKESMAS: ModuleAccess.Scope.MANAGE,
@@ -58,6 +59,7 @@ ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
         ModuleAccess.Module.RECALL: ModuleAccess.Scope.APPROVE,
         ModuleAccess.Module.EXPIRED: ModuleAccess.Scope.APPROVE,
         ModuleAccess.Module.STOCK_OPNAME: ModuleAccess.Scope.APPROVE,
+        ModuleAccess.Module.PUSKESMAS_REPORTS: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.REPORTS: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.ADMIN_PANEL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.PUSKESMAS: ModuleAccess.Scope.APPROVE,
@@ -74,6 +76,7 @@ ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
         ModuleAccess.Module.RECALL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.EXPIRED: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.STOCK_OPNAME: ModuleAccess.Scope.NONE,
+        ModuleAccess.Module.PUSKESMAS_REPORTS: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.REPORTS: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.ADMIN_PANEL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.PUSKESMAS: ModuleAccess.Scope.VIEW,
@@ -90,6 +93,7 @@ ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
         ModuleAccess.Module.RECALL: ModuleAccess.Scope.OPERATE,
         ModuleAccess.Module.EXPIRED: ModuleAccess.Scope.OPERATE,
         ModuleAccess.Module.STOCK_OPNAME: ModuleAccess.Scope.OPERATE,
+        ModuleAccess.Module.PUSKESMAS_REPORTS: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.REPORTS: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.ADMIN_PANEL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.PUSKESMAS: ModuleAccess.Scope.VIEW,
@@ -106,6 +110,7 @@ ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
         ModuleAccess.Module.RECALL: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.EXPIRED: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.STOCK_OPNAME: ModuleAccess.Scope.VIEW,
+        ModuleAccess.Module.PUSKESMAS_REPORTS: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.REPORTS: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.ADMIN_PANEL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.PUSKESMAS: ModuleAccess.Scope.VIEW,
@@ -122,6 +127,7 @@ ROLE_DEFAULT_SCOPES: Dict[str, Dict[str, int]] = {
         ModuleAccess.Module.RECALL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.EXPIRED: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.STOCK_OPNAME: ModuleAccess.Scope.NONE,
+        ModuleAccess.Module.PUSKESMAS_REPORTS: ModuleAccess.Scope.VIEW,
         ModuleAccess.Module.REPORTS: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.ADMIN_PANEL: ModuleAccess.Scope.NONE,
         ModuleAccess.Module.PUSKESMAS: ModuleAccess.Scope.OPERATE,
@@ -494,3 +500,45 @@ def ensure_default_module_access(user: User, overwrite: bool = False) -> int:
             created_or_updated += 1
 
     return created_or_updated
+
+
+PUSKESMAS_REPORT_STAFF_ROLES = {
+    User.Role.ADMIN,
+    User.Role.KEPALA,
+    User.Role.ADMIN_UMUM,
+    User.Role.GUDANG,
+    User.Role.AUDITOR,
+}
+
+
+@dataclass(frozen=True)
+class PuskesmasReportAccess:
+    allowed: bool = False
+    can_select_facility: bool = False
+    can_aggregate: bool = False
+
+
+def puskesmas_report_access(user: User) -> PuskesmasReportAccess:
+    """Report-only capability; generic Reports permissions never widen scope."""
+    if not getattr(user, "is_authenticated", False) or not user.is_active:
+        return PuskesmasReportAccess()
+    if user.is_superuser:
+        return PuskesmasReportAccess(True, True, True)
+    if not has_module_scope(
+        user, ModuleAccess.Module.PUSKESMAS_REPORTS, ModuleAccess.Scope.VIEW
+    ):
+        return PuskesmasReportAccess()
+    if user.role not in PUSKESMAS_REPORT_STAFF_ROLES | {User.Role.PUSKESMAS}:
+        return PuskesmasReportAccess()
+    can_select = user.role in PUSKESMAS_REPORT_STAFF_ROLES and user.has_perm(
+        "users.select_puskesmas_report_facility"
+    )
+    can_aggregate = can_select and user.has_perm("users.aggregate_puskesmas_reports")
+    valid_link = False
+    if not can_select:
+        valid_link = Facility.objects.filter(
+            pk=user.facility_id,
+            is_active=True,
+            facility_type=Facility.FacilityType.PUSKESMAS,
+        ).exists()
+    return PuskesmasReportAccess(bool(can_select or valid_link), can_select, can_aggregate)

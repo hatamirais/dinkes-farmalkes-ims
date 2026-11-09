@@ -367,3 +367,35 @@ Create/edit matrix inputs use `alloc_<form_row_index>_<facility_id>` consistentl
 Approval snapshots all parent staff into each child in the approval transaction. Detail/SBBK use child assignments, falling back to current parent assignments only for historical empty children; no historical backfill is performed. Every assigned name appears in the handover signature list in full-name/username order. Re-approval regenerates the snapshot. Assigned staff do not replace workflow actors or the parent delegated approval signer.
 
 Run `.\scripts\run-django-test.ps1 -Target apps.allocation.tests.AllocationDistributionStaffTest -KeepDb` for multi-staff approval, rendered detail/SBBK, historical fallback, re-approval and standalone checks. For manual print verification, approve an allocation with three staff and two facilities, open each child, and use Cetak SBBK; confirm all three names appear in Petugas and Yang Menyerahkan. Physical print layout remains a manual check.
+
+
+### Puskesmas report authorization (#313)
+
+The read-only `puskesmas_reports` module is independent of central REPORTS.
+PUSKESMAS defaults to VIEW; ADMIN, KEPALA, ADMIN_UMUM, GUDANG, and AUDITOR default
+to NONE. NONE explicitly denies access; higher scopes provide only read access.
+Without staff capabilities, a reader needs an active Puskesmas facility link and
+is forced to it, including for Excel exports and forged facility parameters.
+
+To authorize internal staff, set `Laporan Puskesmas` to VIEW in user module access,
+then explicitly assign `users.select_puskesmas_report_facility` through Django
+Admin user/group permissions. Also assign `users.aggregate_puskesmas_reports`
+only when all-facility aggregation is authorized. Aggregation requires both
+permissions; these capabilities cannot widen role PUSKESMAS access. AUDITOR
+remains read-only and sees the report submenu without operational navigation.
+Selection-only staff default to the first active Puskesmas; invalid selections
+denied with 403 never widen to all facilities. Superusers retain full scope.
+
+Deployment: run `python manage.py migrate` to register both custom permissions
+and the new module choice. No account/group permission backfill is performed.
+Existing accounts without a new module row use role defaults immediately;
+new/save provisioning seeds that row. Existing explicit module rows are preserved.
+Optional `python manage.py sync_module_access` materializes missing rows without
+`--overwrite`; do not reset customized scopes. Existing generic Reports grants
+are retained but do not authorize these facility reports. Review staff grants
+individually; no staff cross-facility grants are automatic.
+
+Validate with `./scripts/run-django-test.ps1 -Target apps.users.tests -KeepDb`
+and `./scripts/run-django-test.ps1 -Target apps.puskesmas.tests.PuskesmasReportViewTests -KeepDb`.
+The report tests exercise all four routes, HTML/Excel isolation, explicit denials,
+staff capabilities, inactive links, superusers, and sidebar expansion/highlighting.

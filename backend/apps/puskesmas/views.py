@@ -37,6 +37,7 @@ from apps.users.access import (
     has_module_permission,
     has_module_scope,
     is_super_admin,
+    puskesmas_report_access,
     record_authority_exercise,
     resolve_approval_authority,
 )
@@ -2059,50 +2060,35 @@ def request_delete(request, pk):
 
 
 def _resolve_report_facility(request, fallback_facility_id=None):
-    """Return the facility to scope a Puskesmas report to.
+    """Authorize report access before resolving a validated facility scope."""
+    access = puskesmas_report_access(request.user)
+    if not access.allowed:
+        raise PermissionDenied("Anda tidak memiliki akses Laporan Puskesmas.")
+    if not access.can_select_facility:
+        return request.user.facility, None
 
-    For PUSKESMAS role: always returns the user's own facility (enforced).
-    For super admin: returns the facility identified by GET param 'facility'
-    if provided; otherwise returns None (meaning all facilities for admin).
-    For any other non-superuser role: always returns the user's linked
-    facility and never allows query-driven widening to all facilities.
-
-    Returns (facility_obj_or_None, error_response_or_None).
-    """
-    if getattr(request.user, "is_superuser", False):
-        from apps.items.models import Facility as FacilityModel
-
-        facility_id = fallback_facility_id or request.GET.get("facility", "")
-        if facility_id:
-            try:
-                facility = FacilityModel.objects.get(
-                    pk=int(facility_id),
-                    facility_type=FacilityModel.FacilityType.PUSKESMAS,
-                    is_active=True,
-                )
-                return facility, None
-            except (FacilityModel.DoesNotExist, ValueError, TypeError):
-                pass
-        return None, None
-
-    if getattr(request.user, "role", None) == "PUSKESMAS":
-        facility = getattr(request.user, "facility", None)
-        if not facility:
-            raise PermissionDenied(
-                "Akun Anda belum terhubung ke fasilitas puskesmas."
-            )
+    facility_id = fallback_facility_id or request.GET.get("facility", "")
+    if not facility_id:
+        if access.can_aggregate:
+            return None, None
+        # Selection-only accounts land on one facility, never an aggregate.
+        facility = Facility.objects.filter(
+            facility_type=Facility.FacilityType.PUSKESMAS, is_active=True,
+        ).order_by("name", "pk").first()
+        if facility is None:
+            raise PermissionDenied("Tidak ada Puskesmas aktif yang dapat dipilih.")
         return facility, None
-
-    facility = getattr(request.user, "facility", None)
-    if not facility:
-        raise PermissionDenied(
-            "Akun Anda belum terhubung ke fasilitas puskesmas."
+    try:
+        facility = Facility.objects.get(
+            pk=int(facility_id), facility_type=Facility.FacilityType.PUSKESMAS,
+            is_active=True,
         )
+    except (Facility.DoesNotExist, ValueError, TypeError, OverflowError):
+        raise PermissionDenied("Fasilitas laporan tidak valid.")
     return facility, None
 
 
 @login_required
-@perm_required("reports.view_reports")
 def puskesmas_report_penerimaan(request):
     """Riwayat Penerimaan — confirmed Puskesmas receipt rows."""
     from apps.items.models import Facility as FacilityModel
@@ -2170,9 +2156,9 @@ def puskesmas_report_penerimaan(request):
                 report_data, start_date, end_date, selected_facility_name
             )
 
-    # Facility chooser for super admin
+    # Facility chooser for explicitly authorized report readers
     all_facilities = []
-    if is_super_admin(request.user):
+    if puskesmas_report_access(request.user).can_select_facility:
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -2194,7 +2180,6 @@ def puskesmas_report_penerimaan(request):
 
 
 @login_required
-@perm_required("reports.view_reports")
 def puskesmas_report_pemakaian(request):
     """Riwayat Pemakaian — consumption data derived from finalized (DISTRIBUTED/CLOSED) LPLPOs.
 
@@ -2275,9 +2260,9 @@ def puskesmas_report_pemakaian(request):
                 report_data, year, month_label, selected_facility_name
             )
 
-    # Facility chooser for super admin
+    # Facility chooser for explicitly authorized report readers
     all_facilities = []
-    if is_super_admin(request.user):
+    if puskesmas_report_access(request.user).can_select_facility:
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -2296,7 +2281,6 @@ def puskesmas_report_pemakaian(request):
 
 
 @login_required
-@perm_required("reports.view_reports")
 def puskesmas_report_persediaan(request):
     """Rincian Laporan Persediaan Puskesmas — LPLPO-based with dynamic stock calculation.
 
@@ -2308,7 +2292,7 @@ def puskesmas_report_persediaan(request):
       requested period.
 
     Facility isolation is strictly enforced: PUSKESMAS users only see their
-    own facility; super admin may optionally scope via ?facility=<id>.
+    own active facility; explicitly authorized staff may select facilities.
     """
     from apps.items.models import Facility as FacilityModel
     from apps.lplpo.models import (
@@ -2586,9 +2570,9 @@ def puskesmas_report_persediaan(request):
                 report_metadata=report_metadata,
             )
 
-    # Facility chooser for super admin
+    # Facility chooser for explicitly authorized report readers
     all_facilities = []
-    if is_super_admin(request.user):
+    if puskesmas_report_access(request.user).can_select_facility:
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")
@@ -2610,7 +2594,6 @@ def puskesmas_report_persediaan(request):
 
 
 @login_required
-@perm_required("reports.view_reports")
 def puskesmas_report_rekap_persediaan(request):
     """Rekap Laporan Persediaan Puskesmas — year-to-date valuation by category.
 
@@ -2815,7 +2798,7 @@ def puskesmas_report_rekap_persediaan(request):
             )
 
     all_facilities = []
-    if is_super_admin(request.user):
+    if puskesmas_report_access(request.user).can_select_facility:
         all_facilities = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS, is_active=True
         ).order_by("name")

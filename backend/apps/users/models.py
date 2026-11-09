@@ -58,6 +58,10 @@ class User(AbstractUser):
         db_table = "users"
         verbose_name = "User"
         verbose_name_plural = "Users"
+        permissions = [
+            ("select_puskesmas_report_facility", "Can select a Puskesmas report facility"),
+            ("aggregate_puskesmas_reports", "Can aggregate all Puskesmas reports"),
+        ]
 
     def __str__(self):
         return self.full_name or self.username
@@ -99,6 +103,7 @@ class ModuleAccess(models.Model):
         EXPIRED = "expired", "Kadaluarsa"
         STOCK_OPNAME = "stock_opname", "Stock Opname"
         REPORTS = "reports", "Laporan"
+        PUSKESMAS_REPORTS = "puskesmas_reports", "Laporan Puskesmas"
         ADMIN_PANEL = "admin_panel", "Admin Panel"
         PUSKESMAS = "puskesmas", "Permintaan Puskesmas"
         LPLPO = "lplpo", "LPLPO"

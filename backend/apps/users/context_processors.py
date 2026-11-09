@@ -5,6 +5,7 @@ from .access import (
     has_module_permission,
     has_module_scope,
     is_super_admin,
+    puskesmas_report_access,
 )
 from .models import ModuleAccess
 
@@ -28,6 +29,8 @@ def access_flags(request):
             "can_view_expired": False,
             "can_view_stock_opname": False,
             "can_view_reports": False,
+            "can_view_puskesmas_reports": False,
+            "can_aggregate_puskesmas_reports": False,
             "can_view_puskesmas": False,
             "can_view_lplpo": False,
             "is_super_admin_user": False,
@@ -40,7 +43,10 @@ def access_flags(request):
         or bool(getattr(user, "facility_id", None))
     )
 
+    report_access = puskesmas_report_access(user)
     return {
+        "can_view_puskesmas_reports": report_access.allowed,
+        "can_aggregate_puskesmas_reports": report_access.can_aggregate,
         "can_view_user_management": has_module_scope(
             user, ModuleAccess.Module.USERS, ModuleAccess.Scope.VIEW
         ),
