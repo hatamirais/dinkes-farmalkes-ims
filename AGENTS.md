@@ -1,164 +1,91 @@
 # AGENTS.md - Healthcare IMS
 
-Onboarding guide for coding agents working in this repository.
+Django healthcare inventory system for internal government-health staff. Engineering language is English-first; product-facing labels are mostly Indonesian.
 
-This project is a Django-based healthcare inventory system used by internal government-health staff. Engineering language is English-first; product-facing labels are mostly Indonesian.
+## Scope And Required Reading
 
-Rules in this file apply repository-wide. Before changing an app, also read `backend/apps/<app_name>/AGENTS.md` when present; the app file owns detailed workflow behavior while this file owns shared contracts.
+- This file applies repository-wide. Before changing an app, read `backend/apps/<app_name>/AGENTS.md`; it owns detailed workflow behavior. For cross-app work, read every affected app's guide.
+- Start with targeted file inspection. Use Graphify only when unfamiliar code relationships, dependencies, call chains, architecture, or refactoring require it, or direct searches are insufficient. Prefer targeted queries, reuse context, and stop once sufficient evidence is available; skip it for simple localized work.
+- Code is authoritative when documentation conflicts; correct affected documentation in the same change. Do not invent production details or claim unverified test results.
 
-## Environment Snapshot
+## Sources Of Truth
 
-| Item | Value |
+| Concern | Source |
 | --- | --- |
-| Python | 3.13+ |
-| Django | 6.0.8 |
-| Database | PostgreSQL 16 |
-| Cache/Broker | Redis when `REDIS_URL` is set; otherwise In-Memory / LocMemCache |
-| UI | Django templates with generated Tailwind CSS for all IMS surfaces; retained Bootstrap JavaScript/state bridge and Bootstrap Icons on desktop; native Django Admin styling; locally vendored Flatpickr 4.6.13 on delegation forms; independent server-rendered mobile/PWA shell |
-| Static serving | WhiteNoise for collected static assets |
-| Auth model | `apps.users.User` |
-| Object audit | django-auditlog |
-| Settings | `backend/config/settings.py` |
-| Root URLs | `backend/config/urls.py` |
+| Schema | `backend/apps/*/models.py` |
+| Routes | `backend/config/urls.py`, `backend/apps/*/urls.py` |
+| Django permissions and module scopes | `backend/apps/core/decorators.py`, `backend/apps/users/access.py` |
+| Runtime and security settings | `backend/config/settings.py` |
+| Dependency versions | `backend/requirements.txt`, `package.json`, lockfiles |
+| App version | `VERSION`, `backend/apps/core/versioning.py` |
+| CSV behavior | Owning app's admin/parser/resource code; `backend/seed/README.md` |
+| Operational commands | `scripts/`; `docs/developer_guide.md` |
 
-## Repository And Sources Of Truth
-
-Root files include `README.md`, `SYSTEM_MODEL.md`, `docker-compose.yml`, `.env.example`, `VERSION`, `backend/`, and `scripts/`. The Django project is under `backend/`.
-
-- Schema: `backend/apps/*/models.py`.
-- Routes: `backend/config/urls.py` and `backend/apps/*/urls.py`.
-- Auth and permission behavior: `backend/apps/core/decorators.py` and `backend/apps/users/access.py`.
-- Security and runtime configuration: `backend/config/settings.py`.
-- App version: `VERSION` and `backend/apps/core/versioning.py`.
-- CSV behavior: the owning app's admin/parser/resource code.
-- Operational scripts: `scripts/`.
-
-Code is authoritative when documentation conflicts with implementation; correct the documentation in the same change.
+The Django project is under `backend/`; auth model is `apps.users.User`. PostgreSQL is the database; Redis is optional with LocMemCache fallback. UI is server-rendered Django, including mobile/PWA; do not claim React production paths or a general-purpose REST API.
 
 ## App Guidance
 
-Detailed rules live beside the owning code:
+Guides live at `backend/apps/<app>/AGENTS.md`:
 
-| Area | Guide |
+| Area | App guides |
 | --- | --- |
-| Shared settings, numbering, errors, throttling | `backend/apps/core/AGENTS.md` |
-| Users, module scopes, Acting Kepala, audit | `backend/apps/users/AGENTS.md` |
-| Item catalog | `backend/apps/items/AGENTS.md` |
-| Stock and opening balance | `backend/apps/stock/AGENTS.md` |
-| Receiving | `backend/apps/receiving/AGENTS.md` |
-| Procurement | `backend/apps/procurement/AGENTS.md` |
-| Distribution | `backend/apps/distribution/AGENTS.md` |
-| Allocation | `backend/apps/allocation/AGENTS.md` |
-| Recall | `backend/apps/recall/AGENTS.md` |
-| Expired/disposal | `backend/apps/expired/AGENTS.md` |
-| Stock opname | `backend/apps/stock_opname/AGENTS.md` |
-| Puskesmas | `backend/apps/puskesmas/AGENTS.md` |
-| LPLPO | `backend/apps/lplpo/AGENTS.md` |
-| Reports | `backend/apps/reports/AGENTS.md` |
-| Mobile/PWA | `backend/apps/mobile/AGENTS.md` |
+| Shared settings, numbering, errors, throttling | `core` |
+| Accounts, module scopes, Acting Kepala, audit | `users` |
+| Catalog, stock, opening balance | `items`, `stock` |
+| Inbound | `procurement`, `receiving` |
+| Outbound | `allocation`, `distribution`, `recall`, `expired` |
+| Physical counting | `stock_opname` |
+| Facility operations and reporting | `puskesmas`, `lplpo`, `reports` |
+| Mobile/PWA | `mobile` |
 
-## Graphify Usage Policy
+## Shared Safety Contracts
 
-Use Graphify selectively to improve codebase understanding while minimizing unnecessary token consumption.
+### Permissions And Audit
 
-**Use Graphify when:**
+- Django permissions (`has_perm`) and module-scope fallback (`ModuleAccess`, `@perm_required`) are separate layers. Scopes: `NONE`, `VIEW`, `OPERATE`, `APPROVE`, `MANAGE`. Use the terms "Django permissions" and "module scope" consistently.
+- Denials raise `PermissionDenied` for centralized `handler403` rendering.
+- Role-gated checkpoints stay role-gated despite elevated module scope. Acting Kepala is the documented workflow-specific exception; consult `users` and the owning app guides.
+- Non-superuser Puskesmas/LPLPO operations are facility-isolated. Puskesmas reports require `puskesmas_reports`; only explicit eligible-staff selection/aggregation capabilities widen report scope. Generic report/approval access grants no facility bypass.
+- Delegate eligibility and optional active Puskesmas links for `ADMIN_UMUM`/`GUDANG` follow `users/AGENTS.md`; role `PUSKESMAS` is never eligible. Targets referenced by `AuthorityExercise` must not be hard-deleted.
 
-- Exploring unfamiliar parts of the codebase.
-- Tracing dependencies, imports, references, or call chains.
-- Understanding relationships between modules, classes, and functions.
-- Planning architectural changes or multi-file refactoring.
-- Locating implementations when direct searches are insufficient.
+### Stock And Workflow Integrity
 
-**Avoid Graphify when:**
+- `stock.Transaction` is the append-only stock ledger. Never mutate historical transactions or substitute auditlog for movement reporting.
+- Change stock only at explicit workflow checkpoints, inside `transaction.atomic()` with appropriate row locks, never arbitrary model saves.
+- Availability is `Stock.available_quantity` (`quantity - reserved`). Dated batches use FEFO; `expiry_date=NULL` sorts last. Blank expiry is valid only when `Item.requires_expiry_date` permits it.
+- Preserve item, location, batch, funding source, and `source_document_number` layers on both `Stock` and `Transaction`. Never average prices across source-document layers. Receiving/opening balance serialize source numbers through `SourceDocumentNumberClaim`.
+- Puskesmas `Stok Akhir Digital` is a calculated report balance. Preserve baseline/adjustment coverage across HTML, print, and Excel; missing baselines exclude facilities rather than representing zero stock. See `puskesmas/AGENTS.md`.
+- Race-prone actions lock with `select_for_update()` inside `transaction.atomic()`, then re-check live status.
+- Official non-Puskesmas numbers use the centralized `core` issue ledger. Issue the number atomically with its consuming checkpoint. Issued values and business-date/scope binding are immutable and never reused, including after VOID; unnumbered drafts stay outside the ledger.
+- Historical duplicate or stepped-back numbered documents retain their number and audit meaning. Never silently renumber history.
+- Use the owning workflow's delete/cancel/void service. Never hard-delete a parent if that erases workflow audit or an issued-number reservation.
+- Cross-app flow and mutation checkpoints are documented in `SYSTEM_MODEL.md`. Allocation matrix validation and child staff/signature rules belong to `allocation/AGENTS.md`; receiving/consumption-to-LPLPO synchronization belongs to the `puskesmas` and `lplpo` guides.
 
-- Making simple, localized edits.
-- The relevant files and functions are already known.
-- Fixing straightforward bugs with clear locations.
-- Answering questions that can be resolved through direct file inspection.
+## Implementation Guardrails
 
-**Efficiency rules:**
+- Keep changes atomic; verify each behavior before expanding scope. Scale tests to risk and blast radius.
+- Prefer Django ORM APIs; document why raw SQL is necessary. Use `select_related`/`prefetch_related` for relationship-heavy reads and transactions/row locks for multi-row writes.
+- Use Python logging and specific exceptions; do not swallow failures.
+- Do not edit already-applied migrations unless explicitly requested and safe for the current branch.
+- Reject numeric NaN/Infinity, null bytes, out-of-range years (outside `1000..9999`), and naive datetimes. Strip, NFC-normalize, and length-check user-facing/comparable strings.
+- Validate foreign keys and choices against allowed querysets/choices. Validate upload MIME, extension, size, and paths; reject traversal and absolute paths.
+- Before adding a constraint existing rows may violate: audit and record the count, add a data-fix migration, then add the constraint in a separate migration.
+- All URL patterns end with `/`. Tests use `reverse()`; templates use `{% url %}`. Run `apps.core.tests.test_url_consistency` for routing changes.
 
-- Prefer targeted Graphify queries over broad exploration.
-- Do not repeatedly read `SKILL.md` unless necessary.
-- Reuse previously discovered codebase context when still valid.
-- Minimize unnecessary tool calls and verbose output.
-- Stop exploring once sufficient context is available.
-- Never sacrifice correctness just to reduce token usage.
+## UI And Verification
 
-**Default strategy:** Start with targeted file inspection. Use Graphify when understanding code relationships would materially improve accuracy or efficiency.
+- Read root `DESIGN.md` for Tailwind migration work. If rendered content, controls, actions, or behavior conflict with the documented contract beyond the planned styling change, ask the user before editing that UI.
+- Use bound Django fields with `tailwind_field`/`tailwind_widget` and project-owned Tailwind components. Preserve JavaScript hooks and the desktop Bootstrap behavior bridge; do not reintroduce Bootstrap CSS or Crispy packages.
+- Desktop uses `base_tailwind.html` (`base.html` is a compatibility alias); mobile uses independent `mobile/base.html` and `mobile.js` without Bootstrap JavaScript. Keep native Django Admin styling isolated. Print rules live in `backend/static_src/css/print.css`.
+- Setup: follow `docs/developer_guide.md#persiapan-lokal`; run migrations before serving. User CSV previews require `cleanup_user_imports` every 15 minutes; see `users/AGENTS.md`.
+- Windows Django tests: `.\scripts\run-django-test.ps1 -Target <test.path>`; add `-KeepDb` when appropriate.
+- CSS: use Bun 1.3.14 and Node.js 24; `bun ci`, `bun run css:build`, then `bun run css:check`. Commit generated `backend/static/css/app.tailwind.css`; entry point is `backend/static_src/css/app.css`. Bun/Node are development and CI tools, not Django production runtime dependencies.
+- Playwright: follow `docs/developer_guide.md#playwright-lokal-untuk-verifikasi-multi-role`. Use existing local accounts from `.env.playwright.local.example`; bootstrap/open profiles and refresh auth after credential/session changes.
+- Presentation details and verification history: `docs/css-refactoring/DESIGN_SYSTEM.md`, `MIGRATION_LEDGER.md`, and `MIGRATION_CLOSEOUT.md` in that directory. Do not copy surface inventories or migration history into root guidance.
 
-## Cross-App Contracts
+## Documentation Maintenance
 
-### Permissions And Errors
-
-- User CSV creation belongs to the main `/users/` application. Its actor-bound, 15-minute previews store hashes only and confirm atomically through per-user saves; see `users/AGENTS.md` and `SYSTEM_MODEL.md`. Deploy its migrations and schedule `cleanup_user_imports` every 15 minutes.
-
-- There are two permission layers: Django permissions through `has_perm` and module-scope fallback through `ModuleAccess` and `@perm_required`.
-- Module scopes are `NONE`, `VIEW`, `OPERATE`, `APPROVE`, and `MANAGE`. Use the terms "Django permissions" and "module scope" consistently.
-- Permission denials must raise `PermissionDenied` so the centralized `handler403` renders the response.
-- Role-gated checkpoints remain role-gated even when a user has an elevated module scope. Acting Kepala authority is the only documented workflow-specific exception; see the owning app and `users/AGENTS.md`.
-- Non-superuser Puskesmas/LPLPO operational access is facility-isolated. Puskesmas reports use dedicated `puskesmas_reports` module scope; only explicit eligible-staff selection/aggregation capabilities may widen report scope (see `puskesmas/AGENTS.md`). Never infer a facility bypass from generic report or approval access.
-- `ADMIN_UMUM` and `GUDANG` may carry an optional active Puskesmas `facility` solely to scope Puskesmas/LPLPO delegation; other facility types are invalid for this link, and this does not make role `PUSKESMAS` eligible for delegation. Workflow targets referenced by `AuthorityExercise` are protected from hard deletion.
-
-### Stock And Ledger
-
-- `stock.Transaction` is the append-only source of truth for stock movement. Never mutate historical transaction rows or replace stock movement reporting with auditlog entries.
-- Stock changes occur only at explicit workflow checkpoints, inside transactions with appropriate row locks; never mutate stock from arbitrary model saves.
-- Allocation approval copies all parent staff to generated distributions; historical children without assignments display the current parent staff on detail/SBBK. All assigned names appear under Yang Menyerahkan.
-- Allocation matrix POST keys use form row indexes on create/edit; validate matrix quantities and selected facilities before saving and resolve each row through its saved form instance.
-- Availability is `Stock.available_quantity` (`quantity - reserved`). Dated batch selection is FEFO, with `expiry_date=NULL` last.
-- Puskesmas `Rincian Persediaan` reports a calculated `Stok Akhir Digital`, not warehouse availability. Preserve its baseline/adjustment coverage metadata across HTML, print, and Excel; missing baselines mean excluded facilities, not zero stock. See `backend/apps/puskesmas/AGENTS.md` for the report contract.
-- Stock is layered by item, location, batch, funding source, and `source_document_number`. Do not average prices across source-document layers.
-- Every stock-changing workflow must preserve the source layer on both `Stock` and `Transaction`. Receiving and opening balance serialize source numbers through `SourceDocumentNumberClaim`.
-- Imports and forms enforce `Item.requires_expiry_date`; blank expiry is valid only for non-expiring catalog items.
-
-### Workflow Concurrency, Numbering, And Deletion
-
-- Race-prone workflow actions use `transaction.atomic()` plus `select_for_update()`, then re-check live status after locking.
-- Official non-Puskesmas document numbers use the centralized `core` issue ledger. Issued values and their business-date/scope binding are immutable and never reused, including after voiding.
-- Number issuance and the workflow checkpoint that consumes it must be atomic. Unnumbered drafts stay outside the issue ledger.
-- Historical duplicate or stepped-back numbered documents retain their number and audit meaning; never silently renumber history.
-- Parent workflow documents must not be hard-deleted when doing so would erase workflow audit or an issued-number reservation. Use the owning workflow's delete/cancel/void service.
-
-### Main Data Flow
-
-- Inbound: approved procurement contract/amendment -> linked planned receiving -> receiving execution/import -> `Stock` plus `Transaction(IN)`.
-- Opening balance: `OpeningBalanceImport` -> source-layered `Stock` plus `Transaction(IN, reference_type=INITIAL_IMPORT)`.
-- Outbound: allocation, LPLPO, or standalone request -> `Distribution` -> reservation at verification -> stock deduction and reservation clearing at final distribution.
-- Facility reporting: delivered distribution -> confirmed Puskesmas receipt -> editable same-month LPLPO receiving/price sync; detailed consumption -> editable same-month LPLPO usage sync.
-
-## Development Guardrails
-
-- Keep changes atomic and verify each behavioral change before expanding scope.
-- Prefer Django ORM APIs. Use raw SQL only when the ORM is insufficient, and document why.
-- Use `select_related` / `prefetch_related` for relationship-heavy reads, `select_for_update()` for race-prone writes, and `transaction.atomic()` for multi-row workflow mutations.
-- Use bound Django fields with `tailwind_field` / `tailwind_widget` and project-owned Tailwind components. Preserve JavaScript hooks and the Bootstrap behavior bridge; do not reintroduce Bootstrap CSS or Crispy packages.
-- For Tailwind migration work, read root `DESIGN.md` before editing UI. It defines the approved visual system for the Tailwind application. If the rendered UI's content, controls, actions, or behavior conflict with the documented contract beyond the planned styling change, ask the user before editing that UI.
-- Scale tests to risk and blast radius. Use Python logging, raise specific exceptions, and do not swallow failures.
-- Do not edit already-applied migrations unless explicitly requested and safe for the current branch state.
-- Do not claim React production paths or a general-purpose REST API; the production mobile surface is server-rendered Django.
-
-## Input Validation
-
-- Reject numeric `NaN` and `Infinity`; `Decimal("NaN")` can construct successfully and fail later.
-- Strip, NFC-normalize, length-check, and reject null bytes in user-facing or comparable strings.
-- Reject years outside `1000..9999`; datetimes must be timezone-aware.
-- Validate foreign keys and choices against allowed querysets/choices; never trust client-supplied IDs alone.
-- Validate upload MIME and extension server-side, enforce maximum size, and reject traversal or absolute paths.
-
-When adding a constraint that existing rows might violate: audit and record the count, add a data-fix migration, then add the constraint in a separate migration.
-
-## Routing, Testing, And Documentation
-
-- Every URL pattern ends with `/`. Tests should use `reverse()`; templates must use `{% url %}`. Run `apps.core.tests.test_url_consistency` for routing changes.
-- Setup/run: `docker compose up -d`, then from `backend/`: `python manage.py migrate`, `python manage.py runserver`, `python manage.py app_version`.
-- Windows tests: `.\scripts\run-django-test.ps1 -Target <test.path>`; add `-KeepDb` when appropriate.
-- Frontend tooling: use Bun 1.3.14 from `package.json` and Node.js 24 for the Tailwind CLI; run `bun ci` to install the locked dependencies. Tailwind source is `backend/static_src/css/app.css` with component layers imported from `workflow.css`, `reports.css`, `items-forms.css`, `users-forms.css`, `core-settings.css`, `puskesmas-subunits.css`, `stock-transfer-form.css`, `procurement-forms.css`, `receiving-forms.css`, `allocation-forms.css`, `distribution-forms.css`, `recall-forms.css`, `expired-forms.css`, `stock-opname-forms.css`, `puskesmas-workflows.css`, `lplpo-forms.css`, `mobile.css`, and `print.css`; commit the generated `backend/static/css/app.tailwind.css` after `bun run css:build`, and verify it with `bun run css:check`. The generated CSS is loaded by `base_tailwind.html` for desktop dashboards, the Item List and Items forms/delete confirmation, Users list and account forms, general and numbering settings, Puskesmas Poli/Pustu list and forms, Puskesmas receiving/consumption/request lists, details, and forms, the desktop stock list/cards/transaction history, Puskesmas stock report and stock self-check, stock transfer list/detail/create, procurement contract/amendment create/edit, receiving lists/details and active forms, allocation list/detail/create/edit, distribution create/edit forms, recall create/edit forms, expired/disposal create/edit form, other Wave 4 workflow lists/details, LPLPO create/edit/review/import forms, central reports, four Puskesmas read-only reports, user detail and delegation list/create/revoke, and authentication; centralized errors load it directly. `base.html` is a compatibility alias to `base_tailwind.html`; Bootstrap CSS and Crispy packages have been removed. Bun and Node are for development and CI verification, not the production Django runtime.
-- Playwright: copy `.env.playwright.local.example` to `.env.playwright.local`, use the existing local accounts for the seven configured profiles (six roles plus GUDANG2), run `bun run playwright:bootstrap`, then `bun run playwright:open`. Refresh profiles with `bun run playwright:refresh-auth` after credential/session changes. The Playwright browser helpers still use a local Node runtime because persistent Chromium launch hung under Bun 1.3.14 on Windows during this migration.
-- Update affected `README.md`, `AGENTS.md`, `SYSTEM_MODEL.md`, `docs/developer_guide.md`, and `backend/seed/README.md` when behavior, setup, schema, routes, permissions, settings, scripts, or import formats change.
-- Before a PR, verify documented routes, model names, environment variables, security behavior, and CSV columns against code.
-- Use Context7 as the primary third-party reference. Known IDs: Django `/django/django`, django-import-export `/websites/django-import-export_readthedocs_io_en`, django-axes `/jazzband/django-axes`, and django-auditlog `/jazzband/django-auditlog`.
-
-Mobile/PWA uses `mobile/base.html` with generated Tailwind CSS and unchanged `mobile.js`, without Bootstrap CSS or JavaScript. Its unused legacy `static/mobile/css/mobile.css` was removed in Wave 9.
-
-Wave 8 standalone print pages load the generated Tailwind stylesheet with scoped rules in `backend/static_src/css/print.css`. Named A4 page rules keep stock cards and expired documents portrait, and wide Stock Opname, expired audit and LPLPO reports landscape. Repeated table headings, row/signature break protection and print-only control hiding are shared. Embedded desktop reports retain their content and report-specific styles while using named A4 page sizes and white paper backgrounds. Django Admin keeps native Admin CSS; only the two import-guide overrides load scoped `admin/css/ims-import.css`, without application Tailwind preflight.
+- Keep root README focused on orientation and links, and root AGENTS under 150 lines with shared instructions. Put app-specific rules in the owning app guide.
+- Update only affected documentation: `SYSTEM_MODEL.md` for schema/routes/permissions/workflow contracts; `docs/application_reference.md` for functional descriptions; `docs/developer_guide.md` for setup/tooling/operations; `backend/seed/README.md` for import formats. Update root entry points when their summaries or links change.
+- Before a PR, verify documented routes, models, environment keys, security behavior, and CSV columns against code. A structural docs move does not establish that every existing behavior claim was reverified.
+- Use Context7 as the primary third-party reference: Django `/django/django`, import-export `/websites/django-import-export_readthedocs_io_en`, Axes `/jazzband/django-axes`, auditlog `/jazzband/django-auditlog`.

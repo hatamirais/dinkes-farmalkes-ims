@@ -346,7 +346,7 @@ Gunakan siklus berikut agar dokumentasi tetap sinkron dengan kode:
    - Critical: skema, workflow, otorisasi, atau perilaku keamanan tidak sesuai
    - Major: command, route, atau environment variable sudah usang
    - Minor: istilah, redaksi, atau format tidak konsisten
-6. Perbarui dokumen kanonis terlebih dahulu: `SYSTEM_MODEL.md`, `AGENTS.md`, `README.md`, lalu `backend/seed/README.md` atau dokumen `docs/` yang relevan.
+6. Perbarui dokumen sesuai tanggung jawabnya: `SYSTEM_MODEL.md` untuk kontrak teknis; `docs/application_reference.md` untuk deskripsi fungsional; `backend/apps/<app>/AGENTS.md` untuk aturan app; panduan ini untuk setup/tooling/operasional; dan `backend/seed/README.md` untuk format import. README root cukup memuat orientasi dan tautan; AGENTS root memuat aturan bersama dan dijaga di bawah 150 baris. Ubah keduanya hanya bila ringkasan, instruksi bersama, atau tautannya terdampak.
 7. Tambahkan metadata verifikasi terakhir dan sumber verifikasinya jika relevan.
 8. Lakukan QA dokumentasi sebelum merge:
    - tidak ada route mismatch
