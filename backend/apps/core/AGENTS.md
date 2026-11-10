@@ -6,6 +6,8 @@ App-specific guidance for shared configuration, permissions, numbering, error ha
 
 `core` owns shared abstractions, the dashboard, system settings, centralized error handlers, maintenance mode, trusted client-IP resolution, rate-limit plumbing, app versioning, and official document numbering.
 
+Navbar LPLPO activity counts delegate to `apps.lplpo.access.pending_lplpo_queryset`; keep role, facility, stage, and legacy-delegation eligibility owned by LPLPO rather than deriving its pending work from module scope alone.
+
 ## Permission And Error Infrastructure
 
 - `@perm_required` allows access when either the required Django permission or sufficient `ModuleAccess` scope grants it.

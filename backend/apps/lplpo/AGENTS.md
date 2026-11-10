@@ -15,6 +15,7 @@ The create, edit, PIC review, and existing-document XLSX import screens use the 
 - `GUDANG` may verify/reject `SUBMITTED` documents and review `PIC_VERIFIED` / `REJECTED_PIC` documents across facilities.
 - A facility-linked `GUDANG` user with an active LPLPO delegation additionally sees own-facility legacy `REVIEWED` rows in the normal queue. Delegation must never expose another facility's `REVIEWED` rows; expired or revoked delegation removes this addition.
 - `KEPALA` uses cross-facility LPLPO access only for the legacy `REVIEWED/finalize` compatibility path plus read-only historical visibility on `APPROVED` / `CLOSED`.
+- Navbar LPLPO activity counts use `lplpo.access.pending_lplpo_queryset`: intersect normal queue and detail boundaries with verification/review or legacy-finalize authority. Non-super-admin counts require `submitted_at`; Kepala receives only actionable legacy `REVIEWED` notifications, and delegated legacy notifications stay within the actor's facility and current delegation/queue access. Read-only history is not pending work.
 - Users with role exactly `ADMIN` (not `ADMIN_UMUM`) may reject active no-distribution LPLPO documents back to Puskesmas from later pre-distribution stages such as `PIC_VERIFIED`.
 
 ## Workflow
@@ -22,6 +23,7 @@ The create, edit, PIC review, and existing-document XLSX import screens use the 
 - Active workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> APPROVED -> CLOSED`.
 - PIC review records the review audit fields and immediately creates the linked draft `Distribution`; there is no active Kepala approval checkpoint in the normal path.
 - Legacy rows may still exist in `REVIEWED` or `REJECTED_PIC`; compatibility finalize/reject actions remain only for those older documents.
+- Successful rejection redirects to detail only when the actor can still read the resulting status; otherwise it returns to the normal LPLPO queue with the success message. Do not widen rejected-stage facility access to make the redirect work.
 - Approved LPLPO documents that already spawned a draft distribution can be explicitly returned to `REJECTED_PUSKESMAS` only by cancelling that generated distribution before any stock distribution completes.
 - `Distribution(distribution_type=LPLPO)` is normally system-generated from PIC review submission in `lplpo_review`.
 - The legacy `lplpo_finalize` route remains only to finish older `REVIEWED` rows and should not be treated as the primary workflow path.

@@ -2230,7 +2230,7 @@ class NavNotificationsContextProcessorTests(TestCase):
             )
         )
 
-    def test_kepala_gets_lplpo_notifications_for_submitted_documents(self):
+    def test_kepala_has_no_lplpo_notification_for_inaccessible_submitted_documents(self):
         kepala_user = User.objects.create_user(
             username="nav-kepala-lplpo",
             password="TestPassword123!",
@@ -2249,6 +2249,7 @@ class NavNotificationsContextProcessorTests(TestCase):
             bulan=4,
             tahun=2026,
             status=LPLPO.Status.SUBMITTED,
+            submitted_at=timezone.now(),
             created_by=kepala_user,
         )
 
@@ -2256,7 +2257,7 @@ class NavNotificationsContextProcessorTests(TestCase):
         request.user = kepala_user
         context = nav_notifications(request)
 
-        self.assertTrue(
+        self.assertFalse(
             any(
                 item["label"] == "LPLPO" and item["count"] == 1
                 for item in context["nav_notification_items"]
