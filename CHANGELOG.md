@@ -7,6 +7,13 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-10
+
+### Fixed
+
+- Aligned LPLPO activity notifications with queue/detail access and workflow authority, including facility scope and active legacy delegation. Kepala notifications now cover actionable legacy `REVIEWED` documents instead of inaccessible submitted-stage work ([#321](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/321)).
+- Returned successful LPLPO rejection to the queue when GUDANG or Kepala loses detail access at the resulting status, preserving the success message and rejected-stage facility restrictions.
+
 ## [2.1.0] - 2026-11-10
 
 Adds user CSV creation and Puskesmas reporting access controls, with inventory-report provenance and workflow corrections. Apply database migrations and schedule `cleanup_user_imports` every 15 minutes when deploying.

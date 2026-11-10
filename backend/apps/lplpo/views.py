@@ -36,6 +36,10 @@ from apps.users.access import (
 )
 from apps.users.models import ModuleAccess, User
 
+from .access import (
+    can_access_lplpo_cross_facility as _can_access_lplpo_cross_facility,
+    scope_lplpo_queue,
+)
 from .forms import (
     LPLPOCreateForm,
     LPLPOImportForm,
@@ -106,68 +110,6 @@ def _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj):
             )
 
     return LPLPO.objects.select_related("facility").get(pk=lplpo_obj.pk)
-
-
-def _can_access_lplpo_cross_facility(user, *, route_kind, status):
-    role = getattr(user, "role", None)
-
-    if role == User.Role.GUDANG:
-        if route_kind == "queue":
-            return True
-        if route_kind in {"detail", "print"}:
-            return status in {
-                LPLPO.Status.SUBMITTED,
-                LPLPO.Status.PIC_VERIFIED,
-                LPLPO.Status.REJECTED_PIC,
-                LPLPO.Status.APPROVED,
-                LPLPO.Status.CLOSED,
-            }
-        if route_kind == "instalasi_verify":
-            return status == LPLPO.Status.SUBMITTED
-        if route_kind == "instalasi_review":
-            return status in {
-                LPLPO.Status.PIC_VERIFIED,
-                LPLPO.Status.REJECTED_PIC,
-            }
-        if route_kind == "instalasi_reject":
-            return status == LPLPO.Status.SUBMITTED
-        return False
-
-    if role == User.Role.KEPALA:
-        if route_kind == "queue":
-            return True
-        if route_kind in {"detail", "print"}:
-            return status in {
-                LPLPO.Status.REVIEWED,
-                LPLPO.Status.APPROVED,
-                LPLPO.Status.CLOSED,
-            }
-        if route_kind == "instalasi_finalize":
-            return status == LPLPO.Status.REVIEWED
-        if route_kind == "instalasi_reject":
-            return status == LPLPO.Status.REVIEWED
-        return False
-
-    return False
-
-
-def _get_cross_facility_queue_statuses(user):
-    role = getattr(user, "role", None)
-    if role == User.Role.GUDANG:
-        return {
-            LPLPO.Status.SUBMITTED,
-            LPLPO.Status.PIC_VERIFIED,
-            LPLPO.Status.REJECTED_PIC,
-            LPLPO.Status.APPROVED,
-            LPLPO.Status.CLOSED,
-        }
-    if role == User.Role.KEPALA:
-        return {
-            LPLPO.Status.REVIEWED,
-            LPLPO.Status.APPROVED,
-            LPLPO.Status.CLOSED,
-        }
-    return set()
 
 
 def _get_required_facility(user):
@@ -468,31 +410,7 @@ def _get_filtered_lplpo_queryset(request, *, submitted_only=True):
     if submitted_year:
         queryset = queryset.filter(submitted_at__year=submitted_year)
 
-    if is_super_admin(request.user):
-        pass
-    elif _can_access_lplpo_cross_facility(
-        request.user,
-        route_kind="queue",
-        status=LPLPO.Status.SUBMITTED,
-    ):
-        allowed_statuses = _get_cross_facility_queue_statuses(request.user)
-        access_filter = Q(status__in=allowed_statuses)
-        if (
-            getattr(request.user, "role", None) == User.Role.GUDANG
-            and request.user.facility_id
-            and get_active_authority_delegation(
-                request.user,
-                ModuleAccess.Module.LPLPO,
-            )
-        ):
-            access_filter |= Q(
-                status=LPLPO.Status.REVIEWED,
-                facility_id=request.user.facility_id,
-            )
-        queryset = queryset.filter(access_filter)
-    else:
-        facility = _get_required_facility(request.user)
-        queryset = queryset.filter(facility=facility)
+    queryset = scope_lplpo_queue(queryset, request.user)
 
     return queryset, {
         "search": q,
@@ -1429,6 +1347,16 @@ def lplpo_reject(request, pk):
             )
 
     messages.success(request, success_message)
+    # Rejection hands the document back to another workflow owner. Its new
+    # stage may no longer be readable by the actor who just rejected it.
+    if not (
+        is_super_admin(actor)
+        or _can_access_lplpo_cross_facility(
+            actor, route_kind="detail", status=lplpo_obj.status
+        )
+        or actor.facility_id == lplpo_obj.facility_id
+    ):
+        return redirect("lplpo:lplpo_list")
     return redirect("lplpo:lplpo_detail", pk=pk)
 
 

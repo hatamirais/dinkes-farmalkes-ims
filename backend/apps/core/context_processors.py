@@ -79,7 +79,6 @@ def nav_notifications(request):
     expired_scope = get_user_module_scope(user, ModuleAccess.Module.EXPIRED)
     stock_opname_scope = get_user_module_scope(user, ModuleAccess.Module.STOCK_OPNAME)
     puskesmas_scope = get_user_module_scope(user, ModuleAccess.Module.PUSKESMAS)
-    lplpo_scope = get_user_module_scope(user, ModuleAccess.Module.LPLPO)
 
     if receiving_scope >= ModuleAccess.Scope.OPERATE:
         from apps.receiving.models import Receiving
@@ -238,28 +237,14 @@ def nav_notifications(request):
             "bi-file-earmark-arrow-up",
         )
 
-    if lplpo_scope >= ModuleAccess.Scope.OPERATE:
-        from apps.lplpo.models import LPLPO
+    from apps.lplpo.access import pending_lplpo_queryset
 
-        lplpo_statuses = [
-            LPLPO.Status.SUBMITTED,
-            LPLPO.Status.PIC_VERIFIED,
-            LPLPO.Status.REJECTED_PIC,
-        ]
-        if lplpo_scope >= ModuleAccess.Scope.APPROVE:
-            lplpo_statuses.append(LPLPO.Status.REVIEWED)
-
-        count = (
-            LPLPO.objects.filter(status__in=lplpo_statuses).count()
-            if lplpo_statuses
-            else 0
-        )
-        add_notification_item(
-            "LPLPO",
-            count,
-            reverse("lplpo:lplpo_list"),
-            "bi-file-earmark-medical",
-        )
+    add_notification_item(
+        "LPLPO",
+        safe_count(lambda: pending_lplpo_queryset(user)),
+        reverse("lplpo:lplpo_list"),
+        "bi-file-earmark-medical",
+    )
 
     total = sum(item["count"] for item in notification_items)
     return {

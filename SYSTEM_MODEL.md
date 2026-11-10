@@ -519,7 +519,9 @@ Puskesmas stock self-check:
   - Timestamps: `submitted_at`, `verified_at`, `reviewed_at`, `approved_at`
   - Constraints/Indexes: `uq_lplpo_facility_period` unique on `(facility, bulan, tahun)`, `idx_lplpo_facility_period` on `(facility, tahun, bulan)`, `idx_lplpo_status` on `(status)`
   - Workflow is `DRAFT -> SUBMITTED -> PIC_VERIFIED -> APPROVED -> CLOSED` for active documents; `REVIEWED` remains as a legacy compatibility status for older rows.
+  - Navbar LPLPO activity counts intersect queue/detail visibility with verification/review or legacy-finalize authority via `lplpo.access.pending_lplpo_queryset`. Non-super-admin documents must have `submitted_at` to be counted, matching the queue. Kepala notifications cover legacy `REVIEWED` work only; active delegates receive legacy work only within their existing facility/queue scope. `APPROVED` / `CLOSED` history is not pending work. This does not introduce a Kepala checkpoint for new documents.
   - The active rejection loop is `SUBMITTED -> REJECTED_PUSKESMAS`. The legacy `REVIEWED -> REJECTED_PIC` loop remains only for older documents. The `ADMIN` role has an override to reject active no-distribution LPLPO documents from later pre-distribution statuses back to `REJECTED_PUSKESMAS`; `ADMIN_UMUM` does not receive this override.
+  - Successful rejection returns to detail only if the actor retains access to the resulting stage, otherwise to the LPLPO queue with a success message. Cross-facility GUDANG rejection to `REJECTED_PUSKESMAS` and Kepala rejection to `REJECTED_PIC` must not redirect into an inaccessible detail page; rejected-stage facility boundaries remain unchanged.
   - While the generated distribution is still pending fulfillment, an approved LPLPO may also be returned to `REJECTED_PUSKESMAS` by cancelling its generated distribution with a required rejection reason
 
 - `lplpo.LPLPOItem` (`lplpo_items`):
