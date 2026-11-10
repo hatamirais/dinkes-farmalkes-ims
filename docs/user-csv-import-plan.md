@@ -113,5 +113,7 @@ Django tests; screenshots were saved outside the repository.
 Pre-PR review found and reproduced an unrelated required-file error on failed
 confirmation. Confirmation errors now render separately from upload validation;
 the regression assertion is included in the existing invalid-preview test.
-Release notes are recorded under CHANGELOG.md Unreleased; VERSION is unchanged
-because this PR does not publish a release.
+Release closeout on 2026-11-10: VERSION advances from 2.0.0 to 2.1.0 and the
+current Unreleased changelog entries move into the dated 2.1.0 section. PR #319
+includes this version bump; the existing release workflow runs when VERSION
+changes on main.
