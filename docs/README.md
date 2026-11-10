@@ -4,13 +4,19 @@ This folder contains implementation notes, developer guidance, ERD references, t
 
 ## Start Here
 
+- [Project Overview](../README.md): purpose, capabilities, and documentation entry points
+- [Application Reference](application_reference.md): detailed functional descriptions moved from the root README
+- [System Model](../SYSTEM_MODEL.md): schema, routes, permissions, and stock mutation contracts
+- [Agent Guidance](../AGENTS.md): shared coding rules; read the owning app's guide before changes
 - [Code Wiki](code-wiki/README.md): orientation map for developers reading the codebase
 - [Developer Guide](developer_guide.md): local setup, testing, versioning, and documentation process
 - [ERD](erd.md): schema visualization reference
-- [Testing Plan](testing_plan.md): test priorities and implementation guidance
+- [Testing Plan](staged-testing-plan/README.md): test priorities and implementation guidance
 - [Infrastructure Plan](infrastructure_plan.md): deployment and infrastructure notes
 
 ## Feature Notes
+
+These specifications and implementation notes provide design context. Verify current behavior against code and the System Model.
 
 - [Allocation Feature Spec](FEATURE_ALOKASI.md)
 - [Allocation Implementation Notes](ALLOCATION_IMPLEMENTATION.md)
@@ -23,6 +29,7 @@ This folder contains implementation notes, developer guidance, ERD references, t
 - [Approved UI Design](../DESIGN.md) and [Concept Review](css-refactoring/CONCEPT_REVIEW.md): target visual direction
 - [Tailwind Design System](css-refactoring/DESIGN_SYSTEM.md): implemented foundation tokens and components
 - [Tailwind Migration Ledger](css-refactoring/MIGRATION_LEDGER.md): current surface status and remaining work
+- [Tailwind Migration Closeout](css-refactoring/MIGRATION_CLOSEOUT.md): verification evidence and outstanding device/PWA acceptance
 - `work-report/`: historical work reports
 
 ## Data Files

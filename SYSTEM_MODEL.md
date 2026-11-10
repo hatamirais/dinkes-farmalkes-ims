@@ -708,7 +708,7 @@ Wave 8 standalone print pages load the generated Tailwind stylesheet with scoped
 If model fields, routes, settings, permission logic, or import behavior change:
 
 1. Update this file first.
-2. Update `README.md` and `AGENTS.md` to keep onboarding and operational docs aligned.
+2. Update `docs/application_reference.md` when functional descriptions change, and the owning app's `AGENTS.md` when workflow guidance changes. Keep root `README.md` focused on orientation and links, and root `AGENTS.md` focused on shared rules (under 150 lines); update them only when their summaries, shared instructions, or links change.
 3. Update `docs/developer_guide.md` when developer workflow, release, or documentation-process guidance changes.
 4. Update `backend/seed/README.md` when CSV import behavior, columns, or ordering changes.
 5. Verify references against Context7 primary IDs:
