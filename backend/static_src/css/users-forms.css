@@ -1,5 +1,13 @@
 /* Wave 5 Users list and account forms. Bootstrap JavaScript still owns dialogs and tabs. */
 @layer components {
+  .ims-user-import .ims-user-panel-body > p { margin: 0 0 12px; }
+  .ims-user-import h2 { margin-block: 20px 12px; font-size: var(--text-ims-section); font-weight: 700; }
+  .ims-user-import summary { cursor: pointer; font-weight: 600; }
+  .ims-user-import .ims-table td { overflow-wrap: anywhere; }
+  .ims-user-import .ims-control[type="file"] { height: auto; padding: 6px; }
+  .ims-user-import .ims-control[type="file"]::file-selector-button { margin-right: 12px; border: 1px solid var(--color-ims-primary); border-radius: 6px; padding: 6px 12px; background: var(--color-ims-surface-muted); color: var(--color-ims-primary); font-weight: 600; cursor: pointer; }
+  .ims-user-import .ims-control[type="file"]:not(:disabled)::file-selector-button:hover { background: var(--color-ims-primary); color: #fff; }
+  .ims-user-import .ims-control[type="file"]:disabled::file-selector-button { opacity: .55; cursor: not-allowed; }
   .ims-user-form-layout { display: flex; align-items: flex-start; gap: 20px; min-width: 0; padding: 12px 0 32px; }
   .ims-user-form-main { order: 1; flex: 1 1 0; min-width: 0; }
   .ims-user-form-main--solo { flex: 0 1 760px; margin-inline: auto; }

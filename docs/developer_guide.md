@@ -4,6 +4,20 @@ Dokumen ini menampung instruksi teknis dan operasional untuk pengembang yang bek
 
 ## Ringkasan
 
+User CSV creation runs in the main application at `/users/import/` (not Admin).
+Apply migrations before serving the new routes. Schedule
+`python manage.py cleanup_user_imports` every 15 minutes; valid previews expire
+after 15 minutes and contain hashes only. Cleanup also runs on import-page access.
+See [the CSV contract](../backend/seed/README.md#user-creation-csv-main-application).
+
+Run focused checks with `./scripts/run-django-test.ps1 -Target apps.users.test_csv_import -KeepDb`,
+then affected users tests, `apps.core.tests.test_auditlog_integration` and
+`apps.core.tests.test_url_consistency`. Concurrency tests require PostgreSQL.
+The shared `UserCreationLock` serializes import and ordinary create-form saves;
+CLI/Admin and account edits do not participate. It does not create a global
+case-insensitive uniqueness guarantee. Password validation in ordinary creation
+now receives the populated user for similarity checks.
+
 Healthcare IMS dibangun dengan Django 6 dan PostgreSQL untuk mendukung proses inventaris kesehatan yang membutuhkan keterlacakan stok, workflow dokumen, dan kontrol akses yang konsisten.
 
 ## Struktur Repositori

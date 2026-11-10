@@ -12,6 +12,7 @@ from .access import (
     default_scope_for_role,
     has_module_scope,
 )
+from .creation import serialized_user_creation
 from .models import (
     APPROVAL_MODULE_CHOICES,
     AuthorityDelegation,
@@ -131,7 +132,9 @@ class UserCreateForm(forms.ModelForm):
             )
 
     def clean_username(self):
-        username = (self.cleaned_data.get("username") or "").strip()
+        username = User.normalize_username(
+            _clean_normalized_text(self.cleaned_data.get("username"), field_label="Username")
+        )
         if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError("Username sudah digunakan.")
         return username
@@ -154,21 +157,34 @@ class UserCreateForm(forms.ModelForm):
         cleaned_data = super().clean()
         password1 = cleaned_data.get("password1")
         password2 = cleaned_data.get("password2")
-        if password1:
-            validate_password(password1)
         if password1 and password2 and password1 != password2:
             self.add_error("password2", "Konfirmasi password tidak sama.")
         return _clean_role_and_facility(self)
+
+    def _post_clean(self):
+        super()._post_clean()
+        password = self.cleaned_data.get("password1")
+        if password:
+            try:
+                validate_password(password, self.instance)
+            except forms.ValidationError as exc:
+                self.add_error("password1", exc)
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password1"])
         if commit:
-            user.save()
-            if self.can_manage_module_scopes:
-                self._save_module_scopes(user)
-            else:
-                _save_role_default_module_scopes(user, user.role)
+            with serialized_user_creation():
+                # Validation before save may predate a competing import/create.
+                if User.objects.filter(username__iexact=user.username).exists():
+                    raise forms.ValidationError("Username sudah digunakan.")
+                if user.email and User.objects.filter(email__iexact=user.email).exists():
+                    raise forms.ValidationError("Email sudah digunakan.")
+                user.save()
+                if self.can_manage_module_scopes:
+                    self._save_module_scopes(user)
+                else:
+                    _save_role_default_module_scopes(user, user.role)
         return user
 
     def _save_module_scopes(self, user):

@@ -8,7 +8,7 @@
 <div class="ims-user-list ims-user-surface">
     <div class="ims-user-list-header">
         <h5><i class="bi bi-people me-2"></i>Manajemen Pengguna</h5>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             {% if total_count %}
             <span class="ims-badge ims-user-count">{{ total_count }} pengguna</span>
             {% endif %}
@@ -16,6 +16,9 @@
                 <i class="bi bi-download me-1"></i>Export
             </a>
             {% if can_add_user %}
+            <a href="{% url 'users:user_import_csv' %}" class="ims-btn ims-btn--neutral ims-btn--sm">
+                <i class="bi bi-upload me-1"></i>Import CSV
+            </a>
             <a href="{% url 'users:user_create' %}" class="ims-btn ims-btn--primary ims-btn--sm" id="createUserBtn">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Pengguna
             </a>

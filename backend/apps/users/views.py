@@ -10,10 +10,13 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.db.models import Q
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_post_parameters
+from django.views.decorators.http import require_http_methods
 
 from apps.core.csv_exports import sanitize_csv_row
 from apps.core.rate_limits import (
@@ -22,6 +25,7 @@ from apps.core.rate_limits import (
     user_mutation_ratelimit,
     user_password_reset_ratelimit,
 )
+from apps.items.models import Facility
 
 from .access import (
     ROLE_DEFAULT_SCOPES,
@@ -35,6 +39,10 @@ from .forms import (
     AuthorityDelegationRevokeForm,
     UserCreateForm,
     UserUpdateForm,
+)
+from .csv_import import (
+    HEADERS, UserCSVUploadForm, cleanup_expired_imports, finish_import,
+    require_import_access, stage_import,
 )
 from .models import AuthorityDelegation, ModuleAccess, User
 
@@ -250,9 +258,15 @@ def user_create(request):
             can_manage_module_scopes=can_manage_user_scopes,
         )
         if form.is_valid():
-            user = form.save()
-            messages.success(request, f"User {user.username} berhasil ditambahkan.")
-            return redirect("users:user_list")
+            try:
+                user = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            except IntegrityError:
+                form.add_error(None, "Username atau email sudah digunakan. Silakan periksa kembali.")
+            else:
+                messages.success(request, f"User {user.username} berhasil ditambahkan.")
+                return redirect("users:user_list")
     else:
         form = UserCreateForm(can_manage_module_scopes=can_manage_user_scopes)
 
@@ -266,6 +280,70 @@ def user_create(request):
             "can_manage_user_scopes": can_manage_user_scopes,
         },
     )
+
+
+@login_required
+@never_cache
+@user_mutation_ratelimit
+@sensitive_post_parameters()
+@require_http_methods(["GET", "POST"])
+def user_import_csv(request):
+    require_import_access(request.user)
+    cleanup_expired_imports()
+    form = UserCSVUploadForm()
+    import_errors = []
+    batch = None
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action in {"confirm", "cancel"}:
+            try:
+                count = finish_import(
+                    request.user, request.POST.get("batch_id", ""), cancel=action == "cancel",
+                )
+            except ValidationError as exc:
+                import_errors.extend(exc.messages)
+            except IntegrityError:
+                import_errors.append("Import dibatalkan: data pengguna berubah. Unggah ulang CSV.")
+            else:
+                messages.success(request, f"{count} pengguna berhasil diimpor." if action == "confirm" else "Import dibatalkan.")
+                return redirect("users:user_list")
+        elif action == "preview":
+            form = UserCSVUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                try:
+                    batch = stage_import(request.user, form.cleaned_data["file"])
+                except ValidationError as exc:
+                    form.add_error("file", exc)
+        else:
+            import_errors.append("Aksi import tidak valid.")
+    preview = []
+    if batch:
+        for row in batch.rows:
+            profile = {key: value for key, value in row.items() if key != "password_hash"}
+            profile["role_label"] = User.Role(row["role"]).label
+            profile["scopes"] = [
+                {"module": label, "scope": ModuleAccess.Scope(ROLE_DEFAULT_SCOPES[row["role"]].get(code, 0)).label}
+                for code, label in ModuleAccess.Module.choices
+            ]
+            preview.append(profile)
+    return render(request, "users/user_import.html", {
+        "form": form, "import_errors": import_errors,
+        "preview": preview, "batch_id": batch.pk if batch else None,
+        "expires_at": batch.expires_at if batch else None,
+        "facilities": Facility.objects.filter(is_active=True, facility_type=Facility.FacilityType.PUSKESMAS).order_by("code"),
+    })
+
+
+@login_required
+@never_cache
+@require_http_methods(["GET"])
+def user_import_csv_template(request):
+    require_import_access(request.user)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="users_import_template.csv"'
+    response.write("\ufeff")
+    csv.writer(response).writerow(HEADERS)
+    return response
 
 
 @login_required

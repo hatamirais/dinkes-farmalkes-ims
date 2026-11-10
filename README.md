@@ -4,6 +4,16 @@ Platform inventaris berbasis web untuk pengelolaan obat dan alat kesehatan di li
 
 ## Gambaran Singkat
 
+Import pengguna tersedia di **Manajemen Pengguna → Import CSV** (`/users/import/`),
+dengan izin tambah pengguna. Unduh template dari halaman tersebut, isi password
+awal tiap pengguna, validasi pratinjau, lalu konfirmasi. Import hanya membuat akun
+baru dengan akses bawaan jabatan; satu baris tidak valid membatalkan seluruh file.
+Maksimal 25 pengguna / 1 MiB; perubahan password saat login pertama tidak wajib.
+Lihat [format dan aturan CSV](backend/seed/README.md#user-creation-csv-main-application).
+Deployment memerlukan `python manage.py migrate` dan penjadwalan
+`python manage.py cleanup_user_imports` setiap 15 menit untuk menghapus pratinjau
+kedaluwarsa beserta hash password-nya.
+
 Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur dokumen yang terstruktur, kontrol akses berbasis peran, dan jejak mutasi stok yang tidak dapat diubah. Platform ini relevan untuk operasional gudang kesehatan yang membutuhkan akurasi batch, keterlacakan sumber dana, dan disiplin administrasi.
 
 ## Teknologi Inti

@@ -7,14 +7,20 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-10
+
+Adds user CSV creation and Puskesmas reporting access controls, with inventory-report provenance and workflow corrections. Apply database migrations and schedule `cleanup_user_imports` every 15 minutes when deploying.
+
 ### Added
 
+- Added create-only user CSV import under Manajemen Pengguna, with template download, password-safe preview, atomic confirmation, role-default access, and a 25-user / 1 MiB limit. Previews expire after 15 minutes; deploy migration 0014 and schedule `cleanup_user_imports` every 15 minutes. Initial passwords do not require a first-login change ([#319](https://github.com/hatamirais/dinkes-farmalkes-ims/pull/319)).
 - Added dedicated `puskesmas_reports` module scope and explicit staff permissions for facility selection (`users.select_puskesmas_report_facility`) and all-facility aggregation (`users.aggregate_puskesmas_reports`). Deployment requires migration; staff access remains opt-in with no automatic permission backfill ([#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313)).
 - Added baseline LPLPO period/status, adjustment windows, included receipt/consumption detail-row counts, skipped-facility coverage, and item/negative-balance summaries to the Puskesmas Rincian Persediaan report and print output ([#219](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/219)).
 - Added a `Sumber dan Cakupan` Excel worksheet with matching report provenance and coverage; valid empty results now export an explanation of missing baselines, no active facilities, or no resulting item rows.
 
 ### Fixed
 
+- Validated new-user passwords with populated user context, serialized ordinary UI creation against CSV confirmation, and allowed valid UTF-8 characters split at the CSV upload sample boundary. Failed confirmation no longer shows an unrelated required-file error ([#319](https://github.com/hatamirais/dinkes-farmalkes-ims/pull/319)).
 - Allowed default Puskesmas operators to read all four reports for their linked active Puskesmas without granting central Reports access. Explicit report denials remain effective, and HTML/Excel reject invalid links and prevent query parameters from widening operator scope ([#313](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/313)).
 - Aligned the Laporan Puskesmas sidebar with effective report authorization for operators, authorized staff, auditors, and superusers, including submenu expansion and exact report highlighting. Rekap Persediaan headings and related print labels display years as `2026`, without thousands separators.
 - Omitted trailing decimal zeros for whole quantities on Expired/Disposal detail and alerts pages and in create/edit quantity inputs, including selected-stock prefill. Read-only quantities retain Indonesian thousands separators, fractional quantities remain exact, and submitted values and stock workflows are unchanged ([#301](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/301)).

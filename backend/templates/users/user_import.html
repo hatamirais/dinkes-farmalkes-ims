@@ -1,0 +1,57 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Import Pengguna CSV - Healthcare IMS{% endblock %}
+{% block page_title %}Import Pengguna CSV{% endblock %}
+
+{% block content %}
+<div class="ims-user-surface ims-user-import">
+    <div class="ims-user-panel">
+        <div class="ims-user-panel-header">Import Pengguna CSV</div>
+        <div class="ims-user-panel-body">
+            <p>Import hanya membuat pengguna baru. Seluruh file dibatalkan jika ada data tidak valid.</p>
+            <p>Maksimal 25 pengguna / 1 MiB. Gunakan UTF-8 dengan pemisah koma atau titik koma.</p>
+            <p>Kolom <em>role</em> pada CSV berarti Jabatan. Isi dengan KEPALA, ADMIN_UMUM, GUDANG, AUDITOR, atau PUSKESMAS. Gunakan true atau false untuk is_active.</p>
+            <p>Setiap pengguna memakai akses bawaan jabatannya. Password awal wajib diisi; pengguna dapat menggantinya sendiri tanpa kewajiban ganti saat login pertama.</p>
+            <p>Kolom <em>facility_code</em> pada CSV diisi dengan kode Puskesmas aktif. Untuk pengguna Instalasi Farmasi/non-Puskesmas, biarkan kolom ini kosong; jangan isi nama Instalasi Farmasi, kode gudang, atau tanda "-".</p>
+            <p>Khusus jabatan PUSKESMAS, <em>facility_code</em> wajib diisi. Untuk ADMIN_UMUM/GUDANG, kolom ini boleh diisi kode Puskesmas aktif hanya jika pengguna memerlukan tautan fasilitas untuk delegasi Puskesmas/LPLPO. Untuk KEPALA/AUDITOR, kolom ini harus kosong.</p>
+            <p>NIP harus disimpan sebagai teks agar nol di depan tidak hilang.</p>
+            <div class="flex flex-wrap gap-2 mt-4">
+                <a href="{% url 'users:user_import_csv_template' %}" class="ims-btn ims-btn--neutral">Unduh Template CSV</a>
+                <a href="{% url 'users:user_list' %}" class="ims-btn ims-btn--neutral">Kembali</a>
+            </div>
+            {% if import_errors %}
+            <div class="ims-alert ims-alert--danger mt-4" role="alert">
+                <ul>{% for error in import_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+            {% if preview %}
+            <h2 class="mt-4">Pratinjau: {{ preview|length }} pengguna</h2>
+            <p>Belum ada akun yang dibuat. Konfirmasi sebelum {{ expires_at|date:"d/m/Y H:i" }}. Password tidak ditampilkan.</p>
+            <div class="ims-table-scroll" tabindex="0" aria-label="Pratinjau pengguna">
+                <table class="ims-table">
+                    <thead><tr><th>Baris</th><th>Username</th><th>Nama Lengkap</th><th>NIP</th><th>Email</th><th>Jabatan (<em>role</em>)</th><th>Kode Puskesmas (<em>facility_code</em>)</th><th>Status</th><th>Akses Bawaan</th></tr></thead>
+                    <tbody>{% for row in preview %}
+                        <tr><td>{{ row.line }}</td><td>{{ row.username }}</td><td>{{ row.full_name|default:"-" }}</td><td>{{ row.nip|default:"-" }}</td><td>{{ row.email|default:"-" }}</td><td>{{ row.role_label }}</td><td>{{ row.facility_code|default:"-" }}</td><td>{{ row.is_active|yesno:"Aktif,Nonaktif" }}</td><td><details><summary>Lihat akses</summary>{% for access in row.scopes %}<p>{{ access.module }}: {{ access.scope }}</p>{% endfor %}</details></td></tr>
+                    {% endfor %}</tbody>
+                </table>
+            </div>
+            <form method="post" class="flex flex-wrap gap-2 mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="batch_id" value="{{ batch_id }}">
+                <button type="submit" name="action" value="confirm" class="ims-btn ims-btn--primary">Konfirmasi Import</button>
+                <button type="submit" name="action" value="cancel" class="ims-btn ims-btn--neutral">Batalkan Import</button>
+            </form>
+            {% else %}
+            <form method="post" enctype="multipart/form-data" class="mt-4">
+                {% csrf_token %}
+                {% include "components/forms/form.html" %}
+                <button type="submit" name="action" value="preview" class="ims-btn ims-btn--primary mt-4">Validasi dan Pratinjau</button>
+            </form>
+            {% endif %}
+            <details class="mt-4"><summary>Referensi Kode Puskesmas Aktif (<em>facility_code</em>)</summary>
+                <ul>{% for facility in facilities %}<li>{{ facility.code }} — {{ facility.name }}</li>{% empty %}<li>Tidak ada Puskesmas aktif.</li>{% endfor %}</ul>
+            </details>
+        </div>
+    </div>
+</div>
+{% endblock %}

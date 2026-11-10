@@ -635,6 +635,41 @@ From `backend/config/settings.py`:
 
 ## 7) CSV Import Contract
 
+### User creation CSV
+
+The main application Users page (`/users/`) exposes Import CSV to callers with
+add-user authorization (superuser, Django `users.add_user`, or USERS module scope
+MANAGE). `/users/import/` handles upload/preview and CSRF-protected confirm/cancel
+POSTs under `USER_MUTATION_RATE_LIMIT`; `/users/import/template/` downloads a blank
+template. This is not a Django Admin import.
+
+Exact headers: `username,full_name,nip,email,role,facility_code,is_active,password`.
+UTF-8 with optional BOM, comma/semicolon separators, up to 1 MiB and 25 rows.
+The shared CSV upload sampler tolerates a UTF-8 character split at the sample
+boundary; the user importer additionally decodes and checks the entire file.
+All headers are required; optional profile values may be blank. `is_active` must
+be `true` or `false`. Roles exclude ADMIN. Facility codes resolve active Puskesmas:
+required for PUSKESMAS, optional for ADMIN_UMUM/GUDANG, forbidden for other roles.
+Initial passwords are required (maximum 1024 characters), validated with user context, and hashed before
+preview storage. Password changes at first login are not mandatory. Role-default
+module scopes and role groups are provisioned; custom privileges cannot be imported.
+Existing usernames/nonblank emails and in-file duplicates are rejected
+case-insensitively; existing users are never updated.
+
+`users.UserImportBatch` stores UUID, actor FK, expiry and JSON rows containing
+password hashes, never plaintext. It is not registered in Admin or auditlog.
+Previews expire after 15 minutes, are bound to their actor, and are deleted on
+successful confirmation/cancellation. Expired rows are purged on import-page
+access/new preview; schedule `python manage.py cleanup_user_imports` at least
+every 15 minutes for cleanup during idle periods. Deploy with `manage.py migrate`.
+
+`users.UserCreationLock` provides a singleton row lock shared by import confirmation
+and ordinary `UserCreateForm.save()` creation. Confirmation reloads actor/module
+access and locks/revalidates facilities, creates each user through save signals
+and consumes the preview in one transaction. Errors roll back users, scopes and
+audit entries. CLI/Admin creation and account edits do not share this lock;
+case-insensitive identity uniqueness is not a global database constraint.
+
 ### Generic admin import
 
 - Uses django-import-export resources in `backend/apps/items/admin.py`

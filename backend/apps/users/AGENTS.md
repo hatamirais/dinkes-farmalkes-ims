@@ -31,6 +31,12 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 
 ## Mutation Throttling And Audit
 
+- CSV creation lives on `/users/import/` in the main application, with template at `/users/import/template/`. Both require add-user authorization. Preview/confirm/cancel POSTs use `user_mutation_ratelimit`.
+- Import accepts only new users and role-default scopes; never import ADMIN, direct permissions, staff/superuser flags or arbitrary module scopes. See SYSTEM_MODEL.md and seed/README.md for the exact CSV contract.
+- `UserImportBatch` is private, actor-bound, single-use staging with a 15-minute expiry and hashed passwords only. Never expose hashes in templates, logs, Admin or auditlog. Schedule `cleanup_user_imports` every 15 minutes; completion/cancellation removes staging immediately.
+- `UserCreationLock` serializes import confirmation and ordinary create-form saves. Keep duplicate revalidation and per-user save/signals inside this transaction. CLI/Admin and account edits do not participate; do not claim global case-insensitive database uniqueness.
+- Password validation runs after ModelForm populates the user, so similarity validators receive user context. Imported initial passwords do not force a first-login change.
+
 - `@user_mutation_ratelimit` covers user create, update, toggle-active, delete, delegation creation, and delegation revocation.
 - Password-reset and password-change flows use their dedicated settings-backed limits.
 - `django-auditlog` records database-backed create/update/delete history for selected critical models; its current UI is the `LogEntry` Django Admin at `/admin/`, not a custom IMS sidebar page.

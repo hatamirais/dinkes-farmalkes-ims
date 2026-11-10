@@ -2,6 +2,37 @@
 
 CSV templates used for bootstrap imports via Django Admin.
 
+## User creation CSV (main application)
+
+Users are imported through `/users/` → **Import CSV**, not Django Admin. Download
+the blank template at `/users/import/template/`. The existing user export is a
+display report and cannot be used directly as an import file.
+
+Exact columns: `username,full_name,nip,email,role,facility_code,is_active,password`.
+All columns must be present. Username, role, is_active and password require values;
+full_name, nip and email may be blank. Preserve NIP as text, including leading zeros.
+UTF-8 (optional BOM), comma or semicolon separator; maximum 1 MiB / 25 data rows.
+Use quoted CSV fields for embedded separators. Unknown/duplicate headers are rejected.
+
+Roles: KEPALA, ADMIN_UMUM, GUDANG, AUDITOR, PUSKESMAS. ADMIN is forbidden.
+`facility_code` references an existing active Puskesmas (codes are listed on the
+upload page): required for PUSKESMAS, optional for ADMIN_UMUM/GUDANG, empty for
+other roles. `is_active` must be `true` or `false`. Initial passwords (maximum
+1024 characters) must pass the
+configured password validators; they are preserved exactly, hidden from previews,
+and stored as hashes. The administrator communicates them separately. Users may
+change them voluntarily; no first-login change is required.
+
+Import requires superuser, Django `users.add_user`, or USERS module scope MANAGE.
+Only role-default scopes/groups are assigned; privilege columns are forbidden.
+Existing usernames/nonblank emails and duplicates within the file are rejected
+case-insensitively. Blank email may repeat; import never updates existing accounts.
+Validation creates no accounts; explicit confirmation creates the whole batch or
+none. Previews belong to their uploader, expire after 15 minutes and are single-use.
+Confirmation rechecks permissions and facility eligibility. Cancellation or success
+deletes staging hashes; expired previews are removed on access or by
+`python manage.py cleanup_user_imports` (schedule every 15 minutes).
+
 Last verified: 2026-07-28
 Verification sources: `backend/seed/*.csv`, `backend/apps/items/admin.py`, `backend/apps/stock/admin.py`, `backend/apps/receiving/admin.py`
 

@@ -8,6 +8,8 @@ urlpatterns = [
     path("", views.user_list, name="user_list"),
     path("create/", views.user_create, name="user_create"),
     path("export/", views.user_export_csv, name="user_export_csv"),
+    path("import/", views.user_import_csv, name="user_import_csv"),
+    path("import/template/", views.user_import_csv_template, name="user_import_csv_template"),
     path("bulk-action/", views.user_bulk_action, name="user_bulk_action"),
     path(
         "acting-authority/",
