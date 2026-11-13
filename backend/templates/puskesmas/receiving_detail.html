@@ -6,6 +6,9 @@
 
 {% block content %}
 <div class="ims-workflow ims-puskesmas ims-puskesmas-detail ims-puskesmas-receiving-detail">
+    {% if receipt_confirmation.inventory_posting_exists %}
+    <div class="ims-alert ims-alert--warning" role="status">Penerimaan ini sudah diposting ke inventaris Puskesmas. Rincian, tanggal dan status dikunci. Koreksi posting belum tersedia.</div>
+    {% endif %}
     {% if locked_lplpo %}
     <div class="ims-alert ims-alert--warning flex items-center gap-2 mb-4">
         <i class="bi bi-lock-fill fs-5"></i>

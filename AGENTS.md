@@ -46,6 +46,7 @@ Guides live at `backend/apps/<app>/AGENTS.md`:
 - Denials raise `PermissionDenied` for centralized `handler403` rendering.
 - Role-gated checkpoints stay role-gated despite elevated module scope. Acting Kepala is the documented workflow-specific exception; consult `users` and the owning app guides.
 - Non-superuser Puskesmas/LPLPO operations are facility-isolated. Puskesmas reports require `puskesmas_reports`; only explicit eligible-staff selection/aggregation capabilities widen report scope. Generic report/approval access grants no facility bypass.
+- Initial Puskesmas opening-stock review/posting is an explicit exception: superusers or `GUDANG` with LPLPO module scope `OPERATE` or higher may verify active facilities; preparer and verifier must differ. This grants no other cross-facility mutations.
 - Delegate eligibility and optional active Puskesmas links for `ADMIN_UMUM`/`GUDANG` follow `users/AGENTS.md`; role `PUSKESMAS` is never eligible. Targets referenced by `AuthorityExercise` must not be hard-deleted.
 
 ### Stock And Workflow Integrity

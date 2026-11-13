@@ -21,6 +21,7 @@ These specifications and implementation notes provide design context. Verify cur
 - [Allocation Feature Spec](FEATURE_ALOKASI.md)
 - [Allocation Implementation Notes](ALLOCATION_IMPLEMENTATION.md)
 - [LPLPO Implementation Notes](LPLPO_IMPLEMENTATION.md)
+- [Puskesmas Opening Inventory Design](puskesmas-opening-inventory-design.md): feature 1 decision record and feature 2 handoff; design discussion, not implemented behavior
 
 ## Working Docs
 

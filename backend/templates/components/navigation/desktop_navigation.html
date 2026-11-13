@@ -1,4 +1,7 @@
             <div class="sidebar-nav">
+                {% if can_view_puskesmas_opening %}
+                <a href="{% url 'puskesmas:opening_list' %}" class="sidebar-link" data-label="Saldo Awal Puskesmas" title="Saldo Awal Puskesmas"><i class="bi bi-journal-check"></i><span>Saldo Awal Puskesmas</span></a>
+                {% endif %}
                 {% if not is_auditor_user %}
                 <div class="sidebar-section-title">Menu Utama</div>
                 <a href="{% url 'dashboard' %}"

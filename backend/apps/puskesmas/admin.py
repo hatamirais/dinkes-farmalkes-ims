@@ -1,4 +1,9 @@
 from django.contrib import admin
+from .inventory_models import (
+    PuskesmasInventoryAccount, PuskesmasOpeningVerification,
+    PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
+    PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement,
+)
 from .models import (
     PuskesmasConsumption,
     PuskesmasConsumptionEntry,
@@ -12,6 +17,28 @@ class PuskesmasRequestItemInline(admin.TabularInline):
     model = PuskesmasRequestItem
     extra = 1
     readonly_fields = ["created_at"]
+
+
+@admin.register(PuskesmasInventoryAccount, PuskesmasOpeningVerification,
+                PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
+                PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement)
+class InventoryReadOnlyAdmin(admin.ModelAdmin):
+    actions = None
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class PuskesmasConsumptionEntryInline(admin.TabularInline):

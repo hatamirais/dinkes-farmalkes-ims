@@ -16,6 +16,12 @@ from apps.core.decimal_validation import (
     multiply_decimals,
 )
 from apps.core.models import TimeStampedModel
+from .inventory_locking import ReceiptQuerySet, assert_receipt_mutable
+from .inventory_models import (
+    PuskesmasInventoryAccount, PuskesmasOpeningVerification,
+    PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
+    PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement,
+)
 
 
 def _safe_decimal(value, default="0"):
@@ -44,6 +50,15 @@ def get_distribution_item_source_quantity(distribution_item):
 
 class PuskesmasReceiptConfirmation(TimeStampedModel):
     """Receiver-side confirmation for one delivered distribution event."""
+    objects = ReceiptQuerySet.as_manager()
+
+    def inventory_posting_exists(self):
+        return PuskesmasInventoryPosting.objects.filter(receipt_id=self.pk).exists()
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            assert_receipt_mutable(self.pk)
+            return super().delete(*args, **kwargs)
 
     class ReceiptStatus(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -145,6 +160,10 @@ class PuskesmasReceiptConfirmation(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.notes = _normalize_text_value(self.notes)
+        if self.pk:
+            with transaction.atomic():
+                assert_receipt_mutable(self.pk, new_facility_id=self.facility_id, new_date=self.received_date)
+                return super().save(*args, **kwargs)
         if self.distribution_id and not self.received_date:
             self.received_date = self.distribution.distributed_date or timezone.localdate()
         if self.pk or self.document_number:
@@ -202,6 +221,12 @@ class PuskesmasReceiptConfirmation(TimeStampedModel):
 
 class PuskesmasReceiptConfirmationItem(models.Model):
     """Receiver-side confirmation row; duplicates preserve batch or price splits."""
+    objects = ReceiptQuerySet.as_manager()
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            assert_receipt_mutable(self.sbbk_id)
+            return super().delete(*args, **kwargs)
 
     sbbk = models.ForeignKey(
         PuskesmasReceiptConfirmation,
@@ -321,7 +346,13 @@ class PuskesmasReceiptConfirmationItem(models.Model):
     def save(self, *args, **kwargs):
         self.batch_lot = _normalize_text_value(self.batch_lot)
         self.notes = _normalize_text_value(self.notes)
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            if self.pk:
+                old_parent = type(self).objects.filter(pk=self.pk).values_list("sbbk_id", flat=True).first()
+                if old_parent:
+                    assert_receipt_mutable(old_parent)
+            assert_receipt_mutable(self.sbbk_id)
+            super().save(*args, **kwargs)
 
 
 # Temporary compatibility aliases while the surrounding forms/views/tests are updated.

@@ -1,0 +1,11 @@
+{% extends "base_tailwind.html" %}
+{% block title %}Saldo Awal Puskesmas{% endblock %}
+{% block page_title %}Saldo Awal Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-alert ims-alert--warning" role="status">Fondasi inventaris belum mencakup pemakaian. Saldo awal dan penerimaan bukan stok terkini yang tersedia. LPLPO dan laporan persediaan tetap menggunakan perhitungan yang berlaku.</div>
+{% if can_prepare %}<div class="my-4"><a class="ims-btn ims-btn--primary" href="{% url 'puskesmas:opening_create' %}">Siapkan Saldo Awal Pertama</a></div>{% endif %}
+<div class="ims-panel"><div class="table-responsive"><table class="ims-table"><thead><tr><th>Puskesmas</th><th>Tahun</th><th>Referensi</th><th>Status</th><th>Penyiap</th></tr></thead><tbody>
+{% for opening in openings %}<tr><td>{{ opening.facility.name }}</td><td>{{ opening.year }}</td><td><a href="{% url 'puskesmas:opening_detail' opening.pk %}">{{ opening.reference }}</a></td><td>{{ opening.get_status_display }}</td><td>{{ opening.created_by }}</td></tr>{% empty %}<tr><td colspan="5">Belum ada dokumen saldo awal dalam cakupan akses Anda.</td></tr>{% endfor %}
+</tbody></table></div></div>
+<p>Menampilkan paling banyak 100 pengajuan terbaru. Rekonsiliasi tahunan dan koreksi posting belum tersedia.</p>
+{% endblock %}

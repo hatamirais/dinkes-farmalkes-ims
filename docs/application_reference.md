@@ -141,3 +141,32 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 Allocation drafts persist the facility matrix on the first save. Invalid quantities or facility selections return form errors without saving partial changes.
 
 Allocation approval copies all assigned Petugas to every generated distribution. Detail and SBBK display every assigned name, including all names under Yang Menyerahkan. Historical children without assignments display the current parent staff; new children retain the approval-time staff selection. Step-back and re-approval regenerate that selection.
+## Puskesmas opening inventory foundation
+
+`/puskesmas/saldo-awal/` provides a separate first-January opening workflow:
+facility operator uploads and previews original-price stock layers, submits, and
+an independent superuser or GUDANG with LPLPO module scope OPERATE or higher
+verifies/posts. Scope includes warehouse, treatment rooms and Pustu. Unknown
+optional provenance is explicit; missing original cost or required expiry blocks
+posting. Only verified data becomes inventory.
+
+Initialized facilities post confirmed linked receipts exactly once using issued
+distribution snapshots. Posted receipts cannot be directly changed/deleted.
+The new journal/projection does not yet include consumption: it is not current
+available stock, and January LPLPO/rincian/rekap calculations are unchanged.
+Annual reconciliation posting and correction screens remain deferred.
+The template download uses the selected facility/year for historical issued
+item/batch/expiry/price metadata, then adds warehouse identities not already
+offered (including warehouse rows with zero quantity). All quantities stay blank.
+Warehouse references are candidates, not evidence of delivery or facility ownership.
+Operators fill verified
+remaining quantities; unused blank-quantity rows are skipped and empty submissions
+are rejected. Names/units are reference columns. The zero-stock checkbox has been
+removed; source-linked rows are checked against their protected distribution or
+warehouse identity reference before posting. Manual additions remain supported.
+Opening posting never deducts warehouse stock. The downloaded CSV omits source
+document numbers, which are resolved internally for linked rows. Operator notes
+start blank; factual missing-source/candidate notes are added internally at import
+when no operator note is supplied. Manual rows require a note for unknown provenance.
+See the [decision record](puskesmas-opening-inventory-design.md) and
+[CSV contract](../backend/seed/README.md#puskesmas-initial-opening-csv-feature-1).

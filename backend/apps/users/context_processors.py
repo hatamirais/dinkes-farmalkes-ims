@@ -32,6 +32,7 @@ def access_flags(request):
             "can_view_puskesmas_reports": False,
             "can_aggregate_puskesmas_reports": False,
             "can_view_puskesmas": False,
+            "can_view_puskesmas_opening": False,
             "can_view_lplpo": False,
             "is_super_admin_user": False,
             "is_auditor_user": False,
@@ -44,7 +45,9 @@ def access_flags(request):
     )
 
     report_access = puskesmas_report_access(user)
+    from apps.puskesmas.inventory import can_prepare, can_verify
     return {
+        "can_view_puskesmas_opening": can_prepare(user) or can_verify(user) or report_access.allowed,
         "can_view_puskesmas_reports": report_access.allowed,
         "can_aggregate_puskesmas_reports": report_access.can_aggregate,
         "can_view_user_management": has_module_scope(

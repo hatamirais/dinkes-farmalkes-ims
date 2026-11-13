@@ -1,0 +1,29 @@
+{% extends "base_tailwind.html" %}
+{% load number_format %}
+{% block title %}{{ opening.reference }} — Saldo Awal{% endblock %}
+{% block page_title %}Tinjauan Saldo Awal Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-alert ims-alert--warning" role="status">Fondasi belum mencakup pemakaian. Nilai di halaman ini adalah saldo awal terverifikasi dan penerimaan, bukan saldo akhir atau stok terkini yang dapat digunakan.</div>
+<div class="ims-panel"><div class="ims-panel-body">
+<p><strong>{{ opening.facility.name }}</strong> — sebelum mutasi 1 Januari {{ opening.year }} — {{ opening.reference }}</p>
+<p>Status: {{ opening.get_status_display }}. Penyiap: {{ opening.created_by }}. {% if opening.reviewed_by %}Pemeriksa: {{ opening.reviewed_by }} — {{ opening.reviewed_at }}.{% endif %}</p>
+<p>{{ opening.notes }}</p>
+{% if opening.status == 'DRAFT' %}<p>Pratinjau berlaku hingga {{ opening.expires_at }}. Unggah ulang sebagai pratinjau baru jika perlu memperbaiki data.</p>{% endif %}
+{% if opening.rejection_reason %}<div class="ims-alert ims-alert--danger">{{ opening.rejection_reason }}</div>{% endif %}
+{% if opening.zero_stock %}<p>Pernyataan: seluruh stok fasilitas nihil.</p>{% endif %}
+{% if has_holds %}<div class="ims-alert ims-alert--danger">Posting ditahan: lengkapi bukti harga/kedaluwarsa atau data aktif pada baris di bawah. Pengajuan dapat ditolak dan diunggah ulang setelah bukti lengkap.</div>{% endif %}
+</div></div>
+<div class="table-responsive"><table class="ims-table"><thead><tr><th>Baris / Barang</th><th>Jumlah</th><th>Harga asli</th><th>Nilai</th><th>Batch / Kedaluwarsa</th><th>Dana / Dokumen sumber</th><th>Bukti / Validasi</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.line.line_key }} / {{ row.line.item }}</td><td>{{ row.line.quantity }}</td><td>{% if row.line.unit_price is not None %}{{ row.line.unit_price|id_price_exact }}{% else %}Belum diketahui{% endif %}</td><td>{{ row.value|default_if_none:'Belum dinilai' }}</td><td>{{ row.line.batch_lot|default:'Batch tidak diketahui' }} / {% if row.line.expiry_date %}{{ row.line.expiry_date|date:'d/m/Y' }}{% elif row.line.item.requires_expiry_date %}Kedaluwarsa belum diketahui{% else %}Tanpa kedaluwarsa{% endif %}</td><td>{{ row.line.sumber_dana|default:'Dana tidak diketahui' }} / {{ row.line.source_document_number|default:'Dokumen tidak diketahui' }}</td><td>{{ row.line.provenance_note }}{% for error in row.errors %}<p class="ims-error">{{ error }}</p>{% endfor %}</td></tr>{% endfor %}
+</tbody></table></div>
+<p>Total nilai baris dengan harga diketahui: {{ total }}. Baris tanpa harga tidak dianggap bernilai nol.</p>
+{% if can_submit %}<form method="post">{% csrf_token %}<input type="hidden" name="digest" value="{{ opening.digest }}"><button class="ims-btn ims-btn--primary" name="action" value="submit">Ajukan untuk Verifikasi</button></form>{% endif %}
+{% if can_review %}<form method="post" class="ims-form-stack">{% csrf_token %}<input type="hidden" name="digest" value="{{ opening.digest }}">
+<label class="ims-label"><input type="checkbox" name="verified" value="yes"> Saya telah memeriksa bukti, harga asli, cakupan seluruh fasilitas dan tidak ada penerimaan sejak 1 Januari yang dihitung dua kali.</label>
+<button class="ims-btn ims-btn--primary" name="action" value="post"{% if has_holds %} disabled{% endif %}>Verifikasi dan Posting</button>
+<label class="ims-label" for="reason">Alasan penolakan</label><textarea class="ims-control" id="reason" name="reason" maxlength="1000"></textarea><button class="ims-btn ims-btn--neutral" name="action" value="reject">Tolak Pengajuan</button>
+</form>{% endif %}
+{% if receipt_postings %}<div class="ims-panel"><div class="ims-panel-body"><h2>Penerimaan yang diposting sejak saldo awal</h2>{% for posting in receipt_postings %}<p>{{ posting.receipt.document_number }} — {{ posting.effective_date }} — diposting {{ posting.recorded_at }}</p>{% endfor %}</div></div>{% endif %}
+<p><a class="ims-btn ims-btn--neutral" href="{% url 'puskesmas:opening_list' %}">Kembali ke Daftar</a></p>
+{% endblock %}
+
