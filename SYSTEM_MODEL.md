@@ -87,6 +87,11 @@ and validate the supplied number against linked sources. Blank-quantity rows are
 skipped, but at least one positive quantity is required. Zero-stock checkbox/new
 zero-stock posting is removed; historical flags/digests are preserved.
 
+Numeric-looking worksheet item/batch/funding codes are apostrophe-prefixed for
+spreadsheet text preservation. Import restores the prefix against linked source
+values. Source identity mismatch errors include the differing field and both
+submitted/source values. Decimal-comma price parsing remains supported.
+
 Last verified: 2026-09-15
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/apps/users/context_processors.py`, `backend/apps/mobile/views.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
 

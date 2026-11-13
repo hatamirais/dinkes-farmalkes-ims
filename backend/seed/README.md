@@ -333,6 +333,14 @@ With neither matching history nor warehouse candidates, the downloaded worksheet
 contains headers only, ready for manual rows. Formula-leading source text is escaped safely in the download
 and restored only against a validated linked source snapshot on import.
 
+Numeric-looking item codes, batches and funding codes are prefixed with an
+apostrophe on download to preserve leading zeros and punctuation. Keep identifier
+columns as Text when opening CSV in Excel/LibreOffice, including manually added
+batches. Source-linked imports accept the protected text and restore the exact
+recorded identifier. A spreadsheet-converted batch such as `60125,01` cannot match
+the recorded `060125.01`. Validation identifies the field and both values so the
+operator can restore the source text. Prices still accept decimal commas.
+
 UTF-8 (optional BOM), comma/semicolon delimiter, maximum 5 MiB and 10,000 data rows.
 Use positive whole base-unit quantities and nonnegative original prices (up to
 10 decimals). Decimal comma is accepted with correct CSV quoting; omit thousands

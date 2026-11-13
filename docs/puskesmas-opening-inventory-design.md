@@ -731,3 +731,20 @@ of references, legacy document-column validation, required manual provenance,
 formula-safe source recovery and unchanged posting behavior. Manual check: download
 a fresh template, confirm ten columns and empty notes, enter a positive quantity,
 then confirm the preview recovers the source document and factual provenance.
+
+An attached operator CSV reproduced a spreadsheet-converted batch on row 393,
+changing recorded `060125.01` to `60125,01`. Restoring that field in memory allowed
+333 selected rows to parse against local source records. The manually added row 13
+had blank quantity and was skipped under the agreed rule. To submit it, the
+operator must supply quantity, a unique manual line_key and a provenance note.
+
+Numeric-looking item/batch/funding codes now receive an apostrophe text prefix in
+downloads. Import restores protected text by matching the linked source. Exact
+batch comparisons and decimal-comma price support are covered together by a
+regression test. Source mismatches report the specific field and both values.
+All 26 inventory tests passed on PostgreSQL, including an end-to-end manual-layer
+addition through independent posting. A real LibreOffice headless CSV-to-ODS-to-CSV
+check using Indonesian import language and special-number detection preserved
+the protected batch `060125.01`. The resulting CSV passed the application parser
+with quantity 340 and the recorded exact price. Temporary verification files remain
+outside the repository. Excel round-trip behavior has not been verified.

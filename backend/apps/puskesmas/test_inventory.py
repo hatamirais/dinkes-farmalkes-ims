@@ -361,6 +361,68 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(parsed[0]["batch_lot"], stock.batch_lot)
         self.assertEqual(parsed[0]["source_document_number"], stock.source_document_number)
 
+    def test_numeric_identifiers_preserve_leading_zero_and_decimal_batch_text(self):
+        from apps.items.models import FundingSource
+        funding = FundingSource.objects.create(code="001", name="Numeric code funding")
+        self.item.kode_barang = "000012"
+        self.item.save()
+        stock = self.warehouse_stock(batch_lot="060125.01", sumber_dana=funding)
+        for origin in ("STOCK", "DIST"):
+            with self.subTest(origin=origin):
+                if origin == "DIST":
+                    _, _, source = self.receipt(price=stock.unit_price, received_date=date(2025, 12, 31))
+                    source.stock = stock
+                    source.issued_batch_lot = stock.batch_lot
+                    source.issued_expiry_date = stock.expiry_date
+                    source.issued_sumber_dana = funding
+                    source.save()
+                rows = self.download_worksheet()
+                self.assertEqual(len(rows), 1)
+                self.assertTrue(rows[0]["line_key"].startswith(origin))
+                self.assertEqual(rows[0]["item_code"], "'000012")
+                self.assertEqual(rows[0]["batch_lot"], "'060125.01")
+                self.assertEqual(rows[0]["sumber_dana_code"], "'001")
+                rows[0]["quantity"] = "340"
+                parsed = parse_csv(self.worksheet_text(rows), facility_id=self.facility.pk, year=2026)
+                self.assertEqual(parsed[0]["item"], self.item)
+                self.assertEqual(parsed[0]["batch_lot"], "060125.01")
+                self.assertEqual(parsed[0]["sumber_dana"], funding)
+                changed = [dict(rows[0], batch_lot="60125,01")]
+                with self.assertRaises(ValidationError) as error:
+                    parse_csv(self.worksheet_text(changed), facility_id=self.facility.pk, year=2026)
+                self.assertIn("Baris 2", str(error.exception))
+                self.assertIn("batch_lot", str(error.exception))
+                self.assertIn("060125.01", str(error.exception))
+                self.assertIn("60125,01", str(error.exception))
+                # Decimal commas remain supported in monetary fields.
+                rows[0]["unit_price"] = rows[0]["unit_price"].replace(".", ",")
+                self.assertEqual(parse_csv(self.worksheet_text(rows), facility_id=self.facility.pk, year=2026)[0]["unit_price"], stock.unit_price)
+
+    def test_manual_added_stock_requires_quantity_reference_and_provenance(self):
+        stock = self.warehouse_stock()
+        row = self.download_worksheet()[0]
+        manual = dict(row, line_key="", quantity="", batch_lot="WQPITU", unit_price="404,56", sumber_dana_code="")
+        row["quantity"] = "1"
+        parsed = parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
+        self.assertEqual(len(parsed), 1)
+        manual["quantity"] = "10"
+        with self.assertRaisesMessage(ValidationError, "line_key wajib diisi"):
+            parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
+        manual["line_key"] = "MANUAL-13"
+        with self.assertRaisesMessage(ValidationError, "Provenance yang tidak diketahui"):
+            parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
+        manual["provenance_note"] = "Bukti stok akhir tahun lalu; sumber dana dan dokumen asal tidak diketahui."
+        parsed = parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
+        opening = self.opening(parsed)
+        self.post(opening)
+        manual_line = opening.lines.get(line_key="MANUAL-13")
+        self.assertIsNone(manual_line.source_stock_id)
+        self.assertIsNone(manual_line.source_distribution_item_id)
+        self.assertEqual(manual_line.batch_lot, "WQPITU")
+        self.assertEqual(manual_line.unit_price, Decimal("404.56"))
+        stock.refresh_from_db()
+        self.assertEqual(stock.quantity, 0)
+
     def test_template_prefills_only_facility_pre_cutover_layers_without_quantities(self):
         receipt, _, first = self.receipt(received_date=date(2025, 12, 30))
         second = DistributionItem.objects.create(distribution=first.distribution, item=self.item,

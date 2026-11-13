@@ -4,6 +4,7 @@ import hashlib
 import io
 import logging
 import json
+import re
 import unicodedata
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
@@ -131,26 +132,47 @@ def identity(snapshot):
             snapshot["source_document_number"])
 
 
+def worksheet_identifier(value):
+    """Keep numeric-looking identifiers as text when spreadsheets open the CSV."""
+    if re.fullmatch(r"[0-9][0-9.,eE+/\-: ]*", value):
+        return f"'{value}"
+    return escape_csv_formula(value)
+
+
+def validate_identity_snapshot(line, snapshot):
+    fields = ("item_id", "unit_price", "batch_lot", "expiry_date", "sumber_dana_id", "source_document_number")
+    errors = []
+    for field, expected in zip(fields, identity(snapshot)):
+        actual = getattr(line, field)
+        if actual != expected:
+            errors.append(
+                f"{field} pada {line.line_key} berbeda (pengajuan {str(actual)!r}, sumber {str(expected)!r}). "
+                "Periksa nilai sumber atau unduh ulang template. Buka kolom kode dan batch sebagai Teks."
+            )
+    if errors:
+        raise ValidationError(errors)
+
+
 def worksheet_rows(*, facility_id, year):
     seen = set()
     for source in candidate_sources(facility_id=facility_id, year=year).iterator(chunk_size=500):
         snapshot = source_snapshot(source)
         seen.add(identity(snapshot))
-        yield [f"DIST-{source.pk}", source.item.kode_barang, source.item.nama_barang,
+        yield [f"DIST-{source.pk}", worksheet_identifier(source.item.kode_barang), source.item.nama_barang,
                source.item.satuan.name if source.item.satuan_id else "", "",
                str(source.issued_unit_price) if source.issued_unit_price is not None else "",
-               source.issued_batch_lot or "", source.issued_expiry_date.isoformat() if source.issued_expiry_date else "",
-               source.issued_sumber_dana.code if source.issued_sumber_dana_id else "",
+               worksheet_identifier(source.issued_batch_lot or ""), source.issued_expiry_date.isoformat() if source.issued_expiry_date else "",
+               worksheet_identifier(source.issued_sumber_dana.code) if source.issued_sumber_dana_id else "",
                ""]
     for source in warehouse_candidates().iterator(chunk_size=500):
         snapshot = warehouse_snapshot(source)
         if identity(snapshot) in seen:
             continue
         seen.add(identity(snapshot))
-        yield [f"STOCK-{source.pk}", source.item.kode_barang, source.item.nama_barang,
+        yield [f"STOCK-{source.pk}", worksheet_identifier(source.item.kode_barang), source.item.nama_barang,
                source.item.satuan.name if source.item.satuan_id else "", "", str(source.unit_price),
-               source.batch_lot, source.expiry_date.isoformat() if source.expiry_date else "",
-               source.sumber_dana.code, ""]
+               worksheet_identifier(source.batch_lot), source.expiry_date.isoformat() if source.expiry_date else "",
+               worksheet_identifier(source.sumber_dana.code), ""]
 
 
 def validate_source_line(line, *, facility_id, year, lock=False):
@@ -163,10 +185,7 @@ def validate_source_line(line, *, facility_id, year, lock=False):
         source = qs.filter(pk=line.source_stock_id).first()
         if source is None or line.line_key != f"STOCK-{source.pk}":
             raise ValidationError("Referensi identitas Instalasi Farmasi tidak valid.")
-        actual = (line.item_id, line.unit_price, line.batch_lot, line.expiry_date,
-                  line.sumber_dana_id, line.source_document_number)
-        if actual != identity(warehouse_snapshot(source)):
-            raise ValidationError("Identitas Instalasi Farmasi berubah. Unduh ulang template; jangan ubah metadata baris STOCK-.")
+        validate_identity_snapshot(line, warehouse_snapshot(source))
         return
     if line.line_key.startswith("STOCK-"):
         raise ValidationError("Penanda STOCK- hanya untuk identitas Instalasi Farmasi dari template.")
@@ -180,12 +199,7 @@ def validate_source_line(line, *, facility_id, year, lock=False):
     source = qs.filter(pk=line.source_distribution_item_id).first()
     if source is None or line.line_key != f"DIST-{source.pk}":
         raise ValidationError("Baris sumber tidak sesuai Puskesmas/tahun saldo awal.")
-    snapshot = source_snapshot(source)
-    expected = (source.item_id, snapshot["unit_price"], snapshot["batch_lot"], snapshot["expiry_date"],
-                source.issued_sumber_dana_id, snapshot["source_document_number"])
-    actual = (line.item_id, line.unit_price, line.batch_lot, line.expiry_date, line.sumber_dana_id, line.source_document_number)
-    if actual != expected:
-        raise ValidationError("Data lapisan sumber berubah. Unduh ulang template; jangan ubah harga/batch/kedaluwarsa baris DIST-.")
+    validate_identity_snapshot(line, source_snapshot(source))
 
 
 def parse_csv(decoded, *, facility_id=None, year=None):
@@ -232,7 +246,7 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                     if not includes_source_document:
                         row["source_document_number"] = originals["source_document_number"]
                     for field, original in originals.items():
-                        if row[field] == escape_csv_formula(original):
+                        if row[field] in (escape_csv_formula(original), worksheet_identifier(original)):
                             row[field] = original
                 elif key.startswith("STOCK-"):
                     if facility_id is None or year is None or not key[6:].isascii() or not key[6:].isdigit():
@@ -246,7 +260,7 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                     if not includes_source_document:
                         row["source_document_number"] = originals["source_document_number"]
                     for field, original in originals.items():
-                        if row[field] == escape_csv_formula(original):
+                        if row[field] in (escape_csv_formula(original), worksheet_identifier(original)):
                             row[field] = original
                 for field, limit in (("item_code", 50), ("batch_lot", 100), ("sumber_dana_code", 20), ("source_document_number", 100)):
                     text_value(row[field], limit)
