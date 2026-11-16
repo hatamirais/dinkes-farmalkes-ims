@@ -316,8 +316,9 @@ quantity are skipped; header-only/all-blank-quantity files cannot be submitted.
 Keep all ten headers in order. Legacy eleven-column worksheets with
 source_document_number and the original nine-column format without item_name/unit
 remain accepted; supplied source numbers must still match linked sources.
-Add verified stock missing from
-history using new line keys outside DIST- and STOCK-; unknown provenance must be explicit.
+Add verified stock missing from history with line_key blank. Import generates a
+unique MANUAL- reference for each selected manual row. Existing manually supplied
+keys outside DIST- and STOCK- are accepted if unique; unknown provenance must be explicit.
 Additional STOCK-<id> rows offer recorded Instalasi Farmasi Stock identities for
 active items/funding, including zero-quantity warehouse rows. Item code/name/unit,
 recorded layer price, batch, expiry and funding are prefilled; source document
@@ -333,19 +334,22 @@ With neither matching history nor warehouse candidates, the downloaded worksheet
 contains headers only, ready for manual rows. Formula-leading source text is escaped safely in the download
 and restored only against a validated linked source snapshot on import.
 
-Numeric-looking item codes, batches and funding codes are prefixed with an
-apostrophe on download to preserve leading zeros and punctuation. Keep identifier
-columns as Text when opening CSV in Excel/LibreOffice, including manually added
-batches. Source-linked imports accept the protected text and restore the exact
+Numeric-looking item codes, batches, funding codes and known unit prices are prefixed
+with an apostrophe on download to preserve leading zeros, punctuation and exact
+decimal prices. Keep identifier and price columns as Text when opening CSV in
+Excel/LibreOffice, including manually added batches. Source-linked imports accept the protected text and restore the exact
 recorded identifier. A spreadsheet-converted batch such as `60125,01` cannot match
 the recorded `060125.01`. Validation identifies the field and both values so the
-operator can restore the source text. Prices still accept decimal commas.
+operator can restore the source text. Prices accept decimal commas and an optional
+leading apostrophe. Finite value, precision and original source-price checks apply
+after removing the price text prefix.
 
 UTF-8 (optional BOM), comma/semicolon delimiter, maximum 5 MiB and 10,000 data rows.
 Use positive whole base-unit quantities and nonnegative original prices (up to
 10 decimals). Decimal comma is accepted with correct CSV quoting; omit thousands
-separators. Expiry uses ISO YYYY-MM-DD, years 1000..9999. line_key is required and
-unique within the file; it is a technical row key, not an invented batch number.
+separators. Expiry uses ISO YYYY-MM-DD, years 1000..9999. Keep the line_key header.
+Leave its value blank for new manual rows to generate a reference at import.
+Preserve prefilled references; supplied references must be unique within the file.
 Keep distinct original-price/acquisition rows separate, even for the same batch.
 
 All headers are required. Blank price or required expiry may be staged but blocks

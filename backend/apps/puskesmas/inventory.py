@@ -8,6 +8,7 @@ import re
 import unicodedata
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
@@ -48,7 +49,10 @@ def text_value(value, limit):
 
 def decimal_value(value, *, price=False):
     try:
-        result = Decimal(str(value).strip().replace(",", "."))
+        number = str(value).strip()
+        if price:
+            number = number.removeprefix("'")
+        result = Decimal(number.replace(",", "."))
     except (InvalidOperation, ValueError, TypeError) as exc:
         raise ValidationError("Angka tidak valid.") from exc
     if not result.is_finite():
@@ -132,8 +136,8 @@ def identity(snapshot):
             snapshot["source_document_number"])
 
 
-def worksheet_identifier(value):
-    """Keep numeric-looking identifiers as text when spreadsheets open the CSV."""
+def worksheet_text(value):
+    """Preserve source codes and exact prices when spreadsheets open the CSV."""
     if re.fullmatch(r"[0-9][0-9.,eE+/\-: ]*", value):
         return f"'{value}"
     return escape_csv_formula(value)
@@ -158,21 +162,21 @@ def worksheet_rows(*, facility_id, year):
     for source in candidate_sources(facility_id=facility_id, year=year).iterator(chunk_size=500):
         snapshot = source_snapshot(source)
         seen.add(identity(snapshot))
-        yield [f"DIST-{source.pk}", worksheet_identifier(source.item.kode_barang), source.item.nama_barang,
+        yield [f"DIST-{source.pk}", worksheet_text(source.item.kode_barang), source.item.nama_barang,
                source.item.satuan.name if source.item.satuan_id else "", "",
-               str(source.issued_unit_price) if source.issued_unit_price is not None else "",
-               worksheet_identifier(source.issued_batch_lot or ""), source.issued_expiry_date.isoformat() if source.issued_expiry_date else "",
-               worksheet_identifier(source.issued_sumber_dana.code) if source.issued_sumber_dana_id else "",
+               worksheet_text(str(source.issued_unit_price)) if source.issued_unit_price is not None else "",
+               worksheet_text(source.issued_batch_lot or ""), source.issued_expiry_date.isoformat() if source.issued_expiry_date else "",
+               worksheet_text(source.issued_sumber_dana.code) if source.issued_sumber_dana_id else "",
                ""]
     for source in warehouse_candidates().iterator(chunk_size=500):
         snapshot = warehouse_snapshot(source)
         if identity(snapshot) in seen:
             continue
         seen.add(identity(snapshot))
-        yield [f"STOCK-{source.pk}", worksheet_identifier(source.item.kode_barang), source.item.nama_barang,
-               source.item.satuan.name if source.item.satuan_id else "", "", str(source.unit_price),
-               worksheet_identifier(source.batch_lot), source.expiry_date.isoformat() if source.expiry_date else "",
-               worksheet_identifier(source.sumber_dana.code), ""]
+        yield [f"STOCK-{source.pk}", worksheet_text(source.item.kode_barang), source.item.nama_barang,
+               source.item.satuan.name if source.item.satuan_id else "", "", worksheet_text(str(source.unit_price)),
+               worksheet_text(source.batch_lot), source.expiry_date.isoformat() if source.expiry_date else "",
+               worksheet_text(source.sumber_dana.code), ""]
 
 
 def validate_source_line(line, *, facility_id, year, lock=False):
@@ -228,9 +232,9 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                 row.setdefault("source_document_number", "")
                 if not row["quantity"]:
                     continue
-                key = row["line_key"]
-                if not key or key in keys:
-                    raise ValidationError("line_key wajib diisi dan tidak boleh duplikat.")
+                key = row["line_key"] or f"MANUAL-{uuid4().hex}"
+                if key in keys:
+                    raise ValidationError("line_key tidak boleh duplikat.")
                 keys.add(key)
                 source = None
                 stock_source = None
@@ -246,7 +250,7 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                     if not includes_source_document:
                         row["source_document_number"] = originals["source_document_number"]
                     for field, original in originals.items():
-                        if row[field] in (escape_csv_formula(original), worksheet_identifier(original)):
+                        if row[field] in (escape_csv_formula(original), worksheet_text(original)):
                             row[field] = original
                 elif key.startswith("STOCK-"):
                     if facility_id is None or year is None or not key[6:].isascii() or not key[6:].isdigit():
@@ -260,7 +264,7 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                     if not includes_source_document:
                         row["source_document_number"] = originals["source_document_number"]
                     for field, original in originals.items():
-                        if row[field] in (escape_csv_formula(original), worksheet_identifier(original)):
+                        if row[field] in (escape_csv_formula(original), worksheet_text(original)):
                             row[field] = original
                 for field, limit in (("item_code", 50), ("batch_lot", 100), ("sumber_dana_code", 20), ("source_document_number", 100)):
                     text_value(row[field], limit)

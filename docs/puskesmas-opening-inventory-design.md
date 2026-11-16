@@ -748,3 +748,36 @@ check using Indonesian import language and special-number detection preserved
 the protected batch `060125.01`. The resulting CSV passed the application parser
 with quantity 340 and the recorded exact price. Temporary verification files remain
 outside the repository. Excel round-trip behavior has not been verified.
+
+The updated operator file at `.dev/note/new-seeding/SALDO-AWAL-LPLPO-PUSKESMAS.csv`
+also reproduced four source-price conversions, removing decimal separators from
+992.249, 3741.111, 1705.404 and 4370.649. Known prices are now exported as protected
+text with an apostrophe, and price parsing accepts that prefix before validating
+finite values, precision and exact source prices. This includes manual price input.
+The local CSV was corrected at those four source prices and the converted batch
+using verified database values. Its added manual row received key MANUAL-13.
+The corrected file passes parser validation with 334 rows, including its supplied
+manual quantity 60, unit price 404.56, batch WQPITU and operator provenance note.
+
+All 27 inventory tests passed. A LibreOffice CSV-to-ODS-to-CSV check with Indonesian
+import language preserved all five affected source rows and their exact original
+prices/batches. The resulting file passed the application parser. This validation
+did not post the operator file to facility inventory.
+
+## 16. Automatic manual-row references (2026-11-16)
+
+Operators may leave line_key blank for manually added stock. Parsing generates a
+MANUAL- reference using UUID4 for each selected blank-key row. The generated key is
+saved in the preview and retained through submission/posting. Blank-quantity rows
+are skipped as before. Existing supplied manual keys remain supported, with
+duplicate detection and the reserved DIST-/STOCK- source-validation rules.
+Manual rows still need quantity and provenance evidence. This supersedes earlier
+instructions requiring operators to invent manual line keys. Existing previews
+and posted documents retain their references. The upload guide and CSV contract
+describe the automatic behavior.
+
+Validation passed on PostgreSQL with 28 inventory tests. A focused upload-form
+check verified that generated references are saved in the draft preview alongside
+an explicit legacy manual key. Revalidating the operator CSV in memory with its
+WQPITU row key cleared accepted all 334 rows and generated a manual reference for
+quantity 60. The source file and facility inventory were not changed by that check.

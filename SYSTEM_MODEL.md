@@ -77,7 +77,9 @@ Warehouse candidates with the same economic identity already offered are omitted
 Selected warehouse metadata is rechecked under a Stock row lock during preparation
 and posting. Posting copies its snapshot without mutating warehouse quantities or
 transactions; later warehouse price changes cannot reprice posted facility layers.
-Manual rows use keys outside both reserved prefixes. Ten worksheet columns include item_name/unit as informational fields;
+Manual rows with blank line_key receive unique MANUAL- references (UUID4) at import,
+stored in the preview and used through posting. Explicit manual keys outside both
+reserved prefixes remain supported and must be unique. Ten worksheet columns include item_name/unit as informational fields;
 source_document_number is omitted from downloads and resolved internally from the
 linked source at import. provenance_note is blank in downloads; when the operator
 leaves it blank, factual missing-source/candidate information is recorded internally
@@ -87,10 +89,11 @@ and validate the supplied number against linked sources. Blank-quantity rows are
 skipped, but at least one positive quantity is required. Zero-stock checkbox/new
 zero-stock posting is removed; historical flags/digests are preserved.
 
-Numeric-looking worksheet item/batch/funding codes are apostrophe-prefixed for
-spreadsheet text preservation. Import restores the prefix against linked source
+Numeric-looking worksheet item/batch/funding codes and known prices are apostrophe-prefixed for
+spreadsheet text preservation. Import restores code prefixes against linked source
 values. Source identity mismatch errors include the differing field and both
-submitted/source values. Decimal-comma price parsing remains supported.
+submitted/source values. Prices accept an optional leading apostrophe and decimal
+commas, followed by existing finite-value, precision and source-price validation.
 
 Last verified: 2026-09-15
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/apps/users/context_processors.py`, `backend/apps/mobile/views.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`

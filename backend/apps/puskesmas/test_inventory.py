@@ -271,7 +271,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(rows[0]["line_key"], f"STOCK-{stock.pk}")
         self.assertEqual(rows[0]["quantity"], "")
         for field, expected in {"item_code": self.item.kode_barang, "item_name": self.item.nama_barang,
-            "unit": self.item.satuan.name, "unit_price": "321.1234567890", "batch_lot": "WH-BATCH",
+            "unit": self.item.satuan.name, "unit_price": "'321.1234567890", "batch_lot": "WH-BATCH",
             "expiry_date": "2027-04-30", "sumber_dana_code": "INV-FUND"}.items():
             self.assertEqual(rows[0][field], expected)
         self.assertNotIn("source_document_number", rows[0])
@@ -398,7 +398,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
                 rows[0]["unit_price"] = rows[0]["unit_price"].replace(".", ",")
                 self.assertEqual(parse_csv(self.worksheet_text(rows), facility_id=self.facility.pk, year=2026)[0]["unit_price"], stock.unit_price)
 
-    def test_manual_added_stock_requires_quantity_reference_and_provenance(self):
+    def test_manual_added_stock_generates_reference_and_requires_quantity_and_provenance(self):
         stock = self.warehouse_stock()
         row = self.download_worksheet()[0]
         manual = dict(row, line_key="", quantity="", batch_lot="WQPITU", unit_price="404,56", sumber_dana_code="")
@@ -406,22 +406,60 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         parsed = parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
         self.assertEqual(len(parsed), 1)
         manual["quantity"] = "10"
-        with self.assertRaisesMessage(ValidationError, "line_key wajib diisi"):
-            parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
-        manual["line_key"] = "MANUAL-13"
         with self.assertRaisesMessage(ValidationError, "Provenance yang tidak diketahui"):
             parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
         manual["provenance_note"] = "Bukti stok akhir tahun lalu; sumber dana dan dokumen asal tidak diketahui."
         parsed = parse_csv(self.worksheet_text([row, manual]), facility_id=self.facility.pk, year=2026)
+        manual_key = parsed[1]["line_key"]
+        self.assertTrue(manual_key.startswith("MANUAL-"))
         opening = self.opening(parsed)
         self.post(opening)
-        manual_line = opening.lines.get(line_key="MANUAL-13")
+        manual_line = opening.lines.get(line_key=manual_key)
         self.assertIsNone(manual_line.source_stock_id)
         self.assertIsNone(manual_line.source_distribution_item_id)
         self.assertEqual(manual_line.batch_lot, "WQPITU")
         self.assertEqual(manual_line.unit_price, Decimal("404.56"))
         stock.refresh_from_db()
         self.assertEqual(stock.quantity, 0)
+
+    def test_generated_manual_keys_are_unique_and_explicit_keys_remain_supported(self):
+        self.warehouse_stock()
+        manual = dict(self.download_worksheet()[0], line_key="", quantity="2",
+                      provenance_note="Stok akhir tahun lalu; dokumen asal tidak diketahui.")
+        explicit = dict(manual, line_key="MANUAL-13")
+        rows = parse_csv(self.worksheet_text([manual, manual, explicit]),
+                         facility_id=self.facility.pk, year=2026)
+        self.assertEqual(len({row["line_key"] for row in rows}), 3)
+        self.assertTrue(all(row["line_key"].startswith("MANUAL-") for row in rows))
+        self.assertEqual(rows[2]["line_key"], "MANUAL-13")
+        self.assertTrue(all(row["source_stock"] is None and row["source_distribution_item"] is None for row in rows))
+        with self.assertRaisesMessage(ValidationError, "line_key tidak boleh duplikat"):
+            parse_csv(self.worksheet_text([explicit, explicit]), facility_id=self.facility.pk, year=2026)
+        upload = SimpleUploadedFile("manual-opening.csv", self.worksheet_text([manual, manual, explicit]).encode("utf-8"), content_type="text/csv")
+        response = self.client.post(reverse("puskesmas:opening_create"), {
+            "year": 2026, "reference": "Bukti manual", "boundary_attested": "on", "csv_file": upload})
+        self.assertEqual(response.status_code, 302)
+        opening = PuskesmasOpeningVerification.objects.get()
+        saved_keys = list(opening.lines.values_list("line_key", flat=True))
+        self.assertEqual(len(set(saved_keys)), 3)
+        self.assertIn("MANUAL-13", saved_keys)
+
+    def test_prefilled_prices_with_three_decimal_places_remain_exact_text(self):
+        stock = self.warehouse_stock()
+        for original in ("992.249", "3741.111", "1705.404", "4370.649"):
+            with self.subTest(price=original):
+                stock.unit_price = Decimal(original)
+                stock.save()
+                row = self.download_worksheet()[0]
+                self.assertEqual(row["unit_price"], "'" + format(Decimal(original), ".10f"))
+                row["quantity"] = "1"
+                for value in (row["unit_price"], row["unit_price"].replace(".", ","), original):
+                    parsed = parse_csv(self.worksheet_text([dict(row, unit_price=value)]),
+                                       facility_id=self.facility.pk, year=2026)
+                    self.assertEqual(parsed[0]["unit_price"], Decimal(original))
+                with self.assertRaisesMessage(ValidationError, "unit_price"):
+                    parse_csv(self.worksheet_text([dict(row, unit_price=original.replace(".", ""))]),
+                              facility_id=self.facility.pk, year=2026)
 
     def test_template_prefills_only_facility_pre_cutover_layers_without_quantities(self):
         receipt, _, first = self.receipt(received_date=date(2025, 12, 30))
@@ -444,7 +482,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(rows[0]["item_code"], self.item.kode_barang)
         self.assertEqual(rows[0]["item_name"], self.item.nama_barang)
         self.assertEqual(rows[0]["unit"], self.item.satuan.name)
-        self.assertEqual(rows[1]["unit_price"], "2000.1234567890")
+        self.assertEqual(rows[1]["unit_price"], "'2000.1234567890")
         self.assertEqual(rows[0]["batch_lot"], "Batch-R")
 
     def test_worksheet_roundtrip_skips_blank_quantities_and_retains_protected_source(self):
@@ -511,7 +549,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(rows[0]["batch_lot"], "'=1+1")
         self.assertNotIn("source_document_number", rows[0])
         self.assertEqual(rows[0]["provenance_note"], "")
-        self.assertEqual(rows[0]["unit_price"], "1250.9876543210")
+        self.assertEqual(rows[0]["unit_price"], "'1250.9876543210")
         rows[0]["quantity"] = "2"
         parsed = parse_csv(self.worksheet_text(rows), facility_id=self.facility.pk, year=2026)
         self.assertEqual(parsed[0]["batch_lot"], "=1+1")
