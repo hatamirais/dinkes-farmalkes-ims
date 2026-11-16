@@ -382,6 +382,29 @@ def submit_opening(*, user, opening_id, digest):
     return opening
 
 
+@transaction.atomic
+def cancel_opening(*, user, opening_id, digest):
+    user = locked_actor(user)
+    facility_id = PuskesmasOpeningVerification.objects.values_list("facility_id", flat=True).get(pk=opening_id)
+    facility = lock_facility(facility_id)
+    assert_preparer(user, facility)
+    opening = PuskesmasOpeningVerification.objects.select_for_update().get(pk=opening_id)
+    if opening.created_by_id != user.pk:
+        raise PermissionDenied("Hanya penyiap pratinjau yang dapat membatalkannya.")
+    if digest != opening.digest or opening_digest(opening) != digest:
+        raise ValidationError("Isi pratinjau berubah. Muat ulang halaman sebelum membatalkan.")
+    if opening.status == "CANCELLED":
+        return opening
+    if opening.status != "DRAFT":
+        raise ValidationError("Hanya pratinjau yang belum diajukan dapat dibatalkan.")
+    opening.status = "CANCELLED"
+    opening.cancelled_at = timezone.now()
+    opening.cancelled_by = user
+    opening.save(update_fields=["status", "cancelled_at", "cancelled_by"])
+    logger.info("puskesmas_opening_cancelled", extra={"opening_id": opening.pk, "facility_id": facility.pk, "actor_id": user.pk})
+    return opening
+
+
 def _append_layer(posting, *, line, receipt=False, funding=None, source=""):
     layer = PuskesmasInventoryLayer(
         posting=posting, receipt_line=line if receipt else None,

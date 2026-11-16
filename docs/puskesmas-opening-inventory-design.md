@@ -781,3 +781,22 @@ check verified that generated references are saved in the draft preview alongsid
 an explicit legacy manual key. Revalidating the operator CSV in memory with its
 WQPITU row key cleared accepted all 334 rows and generated a manual reference for
 quantity 60. The source file and facility inventory were not changed by that check.
+
+## 17. Draft preview cancellation (2026-11-16)
+
+The active preparer can cancel their own DRAFT preview, including an expired
+preview, with Batalkan Pratinjau on the existing detail route. A confirmation
+precedes CSRF POST action=cancel with the current digest. The service locks the
+actor/module, facility and document in the existing order, rechecks authority,
+digest and live status, then records CANCELLED, cancelled_by and cancelled_at.
+The header and uploaded lines remain available as history. A repeat request is
+idempotent and success returns to the list. Submitted/rejected/posted documents
+cannot use this draft action. Posted correction/reversal work remains deferred.
+
+Migration 0015 adds the status choice and nullable protected cancellation actor
+and timestamp. It was applied locally. All 32 inventory tests passed, including
+creator/facility enforcement, stale digest, expired draft cancellation, retained
+rows, idempotency, submitted/posted blocking and a PostgreSQL cancellation versus
+submission race. Browser checks with the existing operator preview verified the
+button, confirmation dismissal, desktop/mobile layout and navigation. The live
+preview remained DRAFT during browser verification.

@@ -417,8 +417,12 @@ staff capabilities, inactive links, superusers, and sidebar expansion/highlighti
 
 Apply `python backend/manage.py migrate` before serving `/puskesmas/saldo-awal/`.
 This includes `0013_opening_source_distribution` and `0014_opening_warehouse_candidate`
-for protected worksheet source links. Downloads use selected facility/year,
-original distribution snapshots, additional warehouse identity candidates and
+for protected worksheet source links.
+Apply `0015_opening_cancellation` as well for the CANCELLED choice and cancellation
+actor/time. The detail route accepts CSRF POST action=cancel from the active draft
+creator, with the existing digest. Cancellation retains preview history, serializes
+against submission and returns to the list. It also accepts expired drafts.
+Downloads use selected facility/year, original distribution snapshots, additional warehouse identity candidates and
 blank quantities. Warehouse candidates include zero-quantity rows and are
 deduplicated by item/price/batch/expiry/funding/source document, independent of
 location. STOCK- references do not prove facility ownership or historical price;

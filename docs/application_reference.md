@@ -155,6 +155,16 @@ distribution snapshots. Posted receipts cannot be directly changed/deleted.
 The new journal/projection does not yet include consumption: it is not current
 available stock, and January LPLPO/rincian/rekap calculations are unchanged.
 Annual reconciliation posting and correction screens remain deferred.
+The creator may use `Batalkan Pratinjau` on a draft, including an expired preview.
+After confirmation the application retains the rows with status `Dibatalkan` and
+records the cancellation actor/time. The operator can upload a fresh CSV. This
+action is available only while the document remains a draft.
+The opening detail explains its total as quantity multiplied by unit price and
+shows Rupiah values with two decimal display places. Where prices are missing,
+the value is labelled as a subtotal and identifies the excluded row count.
+Opening years display as calendar years without thousands grouping. The warning
+explains that consumption recording is incomplete and directs operators to the
+existing LPLPO and inventory reports.
 The template download uses the selected facility/year for historical issued
 item/batch/expiry/price metadata, then adds warehouse identities not already
 offered (including warehouse rows with zero quantity). All quantities stay blank.

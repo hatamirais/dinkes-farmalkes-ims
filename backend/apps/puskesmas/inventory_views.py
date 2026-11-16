@@ -17,7 +17,7 @@ from apps.core.decimal_validation import multiply_decimals, sum_decimals
 from apps.items.models import Facility
 from .inventory import (
     WORKSHEET_HEADERS, MAX_BYTES, MAX_ROWS, can_prepare, can_verify, parse_csv, prepare_opening,
-    submit_opening, review_opening, line_errors,
+    submit_opening, cancel_opening, review_opening, line_errors,
     worksheet_rows,
 )
 from .models import PuskesmasOpeningVerification, PuskesmasInventoryPosting
@@ -69,7 +69,7 @@ class OpeningForm(OpeningScopeForm):
 
 def scoped_openings(request):
     user = request.user
-    qs = PuskesmasOpeningVerification.objects.select_related("facility", "created_by", "reviewed_by")
+    qs = PuskesmasOpeningVerification.objects.select_related("facility", "created_by", "reviewed_by", "cancelled_by")
     if can_verify(user):
         if user.is_superuser:
             return qs
@@ -152,6 +152,8 @@ def opening_detail(request, pk):
             action = request.POST.get("action")
             if action == "submit":
                 submit_opening(user=request.user, opening_id=pk, digest=request.POST.get("digest", ""))
+            elif action == "cancel":
+                cancel_opening(user=request.user, opening_id=pk, digest=request.POST.get("digest", ""))
             elif action in {"post", "reject"}:
                 if action == "post" and request.POST.get("verified") != "yes":
                     raise ValidationError("Konfirmasi pemeriksaan bukti dan batas saldo awal wajib diisi.")
@@ -163,6 +165,9 @@ def opening_detail(request, pk):
             for error in exc.messages:
                 messages.error(request, error)
         else:
+            if action == "cancel":
+                messages.success(request, "Pratinjau saldo awal dibatalkan.")
+                return redirect("puskesmas:opening_list")
             messages.success(request, "Tindakan saldo awal berhasil disimpan.")
         return redirect("puskesmas:opening_detail", pk=pk)
     lines = list(opening.lines.select_related("item", "sumber_dana"))
@@ -173,6 +178,7 @@ def opening_detail(request, pk):
     return render(request, "puskesmas/inventory_detail.html", {
         "opening": opening, "rows": rows, "total": sum_decimals(row["value"] for row in rows if row["value"] is not None),
         "has_holds": any(row["errors"] for row in rows),
+        "unpriced_count": sum(row["value"] is None for row in rows),
         "can_submit": can_prepare(request.user) and opening.created_by_id == request.user.pk and opening.status == "DRAFT",
         "can_review": can_verify(request.user) and opening.created_by_id != request.user.pk and opening.status == "SUBMITTED",
         "receipt_postings": receipt_postings if opening.status == "POSTED" else [],

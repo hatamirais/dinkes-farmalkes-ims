@@ -53,6 +53,7 @@ class PuskesmasOpeningVerification(models.Model):
         SUBMITTED = "SUBMITTED", "Menunggu verifikasi"
         REJECTED = "REJECTED", "Ditolak"
         POSTED = "POSTED", "Diposting"
+        CANCELLED = "CANCELLED", "Dibatalkan"
 
     facility = models.ForeignKey("items.Facility", on_delete=models.PROTECT)
     year = models.PositiveIntegerField()
@@ -65,6 +66,11 @@ class PuskesmasOpeningVerification(models.Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     expires_at = models.DateTimeField()
     submitted_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="inventory_openings_cancelled",
+    )
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="inventory_openings_reviewed")
     reviewed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.CharField(max_length=1000, blank=True)

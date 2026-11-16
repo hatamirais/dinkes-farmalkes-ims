@@ -16,7 +16,7 @@ from apps.core.tests.mixins import SecureClientDefaultsMixin
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, Item, Unit
 from apps.users.models import ModuleAccess, User
-from .inventory import HEADERS, LEGACY_WORKSHEET_HEADERS, WORKSHEET_HEADERS, parse_csv, prepare_opening, submit_opening, review_opening, post_receipt
+from .inventory import HEADERS, LEGACY_WORKSHEET_HEADERS, WORKSHEET_HEADERS, parse_csv, prepare_opening, submit_opening, cancel_opening, review_opening, post_receipt
 from .models import (
     PuskesmasOpeningVerification, PuskesmasInventoryAccount, PuskesmasInventoryPosting,
     PuskesmasInventoryLayer, PuskesmasInventoryMovement, PuskesmasInventoryBalance,
@@ -70,6 +70,80 @@ class InventoryFixture:
 
 @override_settings(RATELIMIT_ENABLE=False)
 class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
+    def test_creator_cancels_expired_preview_preserving_rows_and_idempotent_history(self):
+        opening = self.opening(submit=False)
+        line_ids = list(opening.lines.values_list("pk", flat=True))
+        self.client.force_login(self.operator)
+        url = reverse("puskesmas:opening_detail", args=[opening.pk])
+        self.assertContains(self.client.get(url), "Batalkan Pratinjau")
+        response = self.client.post(url, {"action": "cancel", "digest": "stale"})
+        self.assertRedirects(response, url)
+        opening.refresh_from_db()
+        self.assertEqual(opening.status, "DRAFT")
+        opening.expires_at = timezone.now() - timedelta(hours=1)
+        opening.save(update_fields=["expires_at"])
+        response = self.client.post(url, {"action": "cancel", "digest": opening.digest})
+        self.assertRedirects(response, reverse("puskesmas:opening_list"))
+        opening.refresh_from_db()
+        self.assertEqual(opening.status, "CANCELLED")
+        self.assertEqual(opening.cancelled_by, self.operator)
+        self.assertIsNotNone(opening.cancelled_at)
+        cancelled_at = opening.cancelled_at
+        self.assertEqual(list(opening.lines.values_list("pk", flat=True)), line_ids)
+        self.assertFalse(PuskesmasInventoryPosting.objects.exists())
+        self.assertFalse(PuskesmasInventoryAccount.objects.exists())
+        self.assertFalse(PuskesmasInventoryMovement.objects.exists())
+        self.assertNotContains(self.client.get(url), "Batalkan Pratinjau")
+        self.assertNotContains(self.client.get(url), "Ajukan untuk Verifikasi")
+        self.client.post(url, {"action": "cancel", "digest": opening.digest})
+        opening.refresh_from_db()
+        self.assertEqual(opening.cancelled_at, cancelled_at)
+        with self.assertRaises(ValidationError):
+            submit_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+        with self.assertRaises(ValidationError):
+            opening.delete()
+
+    def test_cancel_rechecks_creator_facility_authority_and_live_workflow_status(self):
+        opening = self.opening(submit=False)
+        same_facility = User.objects.create_user(username="inventory-colleague", role="PUSKESMAS", facility=self.facility)
+        other_facility = User.objects.create_user(username="inventory-other", role="PUSKESMAS", facility=self.other)
+        for actor in [same_facility, other_facility, self.verifier, self.admin]:
+            with self.subTest(actor=actor.username), self.assertRaises(PermissionDenied):
+                cancel_opening(user=actor, opening_id=opening.pk, digest=opening.digest)
+        self.client.force_login(same_facility)
+        response = self.client.post(reverse("puskesmas:opening_detail", args=[opening.pk]),
+                                    {"action": "cancel", "digest": opening.digest})
+        self.assertEqual(response.status_code, 404)
+        self.operator.is_active = False
+        self.operator.save(update_fields=["is_active"])
+        with self.assertRaises(PermissionDenied):
+            cancel_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+        self.operator.is_active = True
+        self.operator.save(update_fields=["is_active"])
+        submit_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+        with self.assertRaises(ValidationError):
+            cancel_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+        self.post(opening)
+        with self.assertRaises(ValidationError):
+            cancel_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+
+    def test_detail_formats_year_and_money_and_explains_unpriced_subtotal(self):
+        opening = self.opening(rows=[self.row(key="priced", price="10.1234567890", quantity="2"),
+                                    self.row(key="zero", price="0"), self.row(key="unknown", price=None)], submit=False)
+        self.client.force_login(self.operator)
+        with override_settings(USE_THOUSAND_SEPARATOR=True):
+            response = self.client.get(reverse("puskesmas:opening_detail", args=[opening.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1 Januari 2026")
+        self.assertNotContains(response, "1 Januari 2.026")
+        self.assertNotContains(response, "Fondasi belum mencakup")
+        self.assertContains(response, "Subtotal saldo awal yang dapat dihitung: Rp 20,25")
+        self.assertContains(response, "1 baris belum memiliki harga dan belum masuk subtotal")
+        self.assertContains(response, "Belum dapat dihitung")
+        self.assertEqual(response.context["total"], Decimal("20.2469135780"))
+        self.assertEqual(response.context["unpriced_count"], 1)
+        self.assertEqual(opening.lines.get(line_key="priced").unit_price, Decimal("10.1234567890"))
+
     def test_distinct_layers_exact_values_and_idempotent_post(self):
         opening = self.opening([self.row(), self.row("b", "2000.9876543210")])
         self.assertFalse(PuskesmasInventoryAccount.objects.exists())
@@ -228,7 +302,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         opening = PuskesmasOpeningVerification.objects.get()
         self.assertEqual(opening.facility_id, self.facility.pk)
         detail_url = reverse("puskesmas:opening_detail", args=[opening.pk])
-        self.assertContains(self.client.get(detail_url), "bukan saldo akhir")
+        self.assertContains(self.client.get(detail_url), "Pengurangan stok karena pemakaian belum dihitung")
         self.client.post(detail_url, {"action": "submit", "digest": opening.digest})
         self.client.force_login(self.verifier)
         self.assertContains(self.client.get(detail_url), "Verifikasi dan Posting")
@@ -559,6 +633,30 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
 
 
 class InventoryConcurrencyTests(InventoryFixture, TransactionTestCase):
+    def test_cancel_and_submit_serialize_to_one_terminal_draft_transition(self):
+        opening = self.opening(submit=False)
+        def execute(action):
+            close_old_connections()
+            try:
+                actor = User.objects.get(pk=self.operator.pk)
+                service = cancel_opening if action == "cancel" else submit_opening
+                try:
+                    return service(user=actor, opening_id=opening.pk, digest=opening.digest).status
+                except ValidationError:
+                    return "rejected"
+            finally:
+                close_old_connections()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(execute, ["cancel", "submit"]))
+        opening.refresh_from_db()
+        self.assertEqual(results.count("rejected"), 1)
+        self.assertIn(opening.status, ["CANCELLED", "SUBMITTED"])
+        self.assertIn(opening.status, results)
+        self.assertEqual(opening.cancelled_at is not None, opening.status == "CANCELLED")
+        self.assertEqual(opening.submitted_at is not None, opening.status == "SUBMITTED")
+        self.assertFalse(PuskesmasInventoryPosting.objects.exists())
+        self.assertFalse(PuskesmasInventoryAccount.objects.exists())
+
     def test_concurrent_opening_post_is_one_event(self):
         if connection.vendor != "postgresql":
             self.skipTest("PostgreSQL row locks required")

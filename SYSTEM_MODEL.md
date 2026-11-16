@@ -10,7 +10,8 @@ the existing LPLPO-derived reports. New model definitions live in
 
 - `PuskesmasOpeningVerification`: facility/year/reference, retained legacy zero-stock flag,
   digest, preparer, 24-hour preview submission expiry, status
-  DRAFT/SUBMITTED/REJECTED/POSTED, submission and reviewer timestamps/reason.
+  DRAFT/SUBMITTED/REJECTED/POSTED/CANCELLED, submission and reviewer timestamps/reason,
+  nullable protected cancelled_by and cancelled_at (migration 0015).
   Only one POSTED initial opening per facility. Submitted versions are frozen.
 - `PuskesmasOpeningVerificationLine`: protected opening/item/funding links and
   nullable protected `source_distribution_item` (migration 0013) or `source_stock`
@@ -31,7 +32,7 @@ the existing LPLPO-derived reports. New model definitions live in
 
 Routes (all in the Puskesmas namespace): `/puskesmas/saldo-awal/` list,
 `template/` facility/year-specific CSV download, `buat/` preparation/preview, `<pk>/` detail and POST-only
-submit/reject/verify-and-post actions. Sidebar visibility follows preparation,
+submit/cancel-preview/reject/verify-and-post actions. Sidebar visibility follows preparation,
 verification or dedicated Puskesmas report access. Staff report readers retain
 their explicit facility-selection/aggregation boundaries.
 
@@ -40,6 +41,14 @@ or PUSKESMAS OPERATE module scope, bounded to own active facility. Verification
 requires superuser or GUDANG with LPLPO OPERATE or higher, and a different actor
 from the preparer. The GUDANG cross-facility permission is specific to this
 checkpoint. Mutations use CSRF POST and a shared 10/minute opening rate bucket.
+
+The active preparer may cancel their own DRAFT preview, including after preview
+expiry, through action=cancel on the existing detail route. The atomic service
+locks actor/module, facility and opening, checks live authority/status and digest,
+then retains the document/rows with cancellation actor/time and status CANCELLED.
+Repeat cancellation is idempotent. Submitted/rejected/posted documents cannot
+be cancelled through this action. The browser asks for confirmation and success
+redirects to the list. Cancelled previews emit no inventory posting or movement.
 
 Posting takes actor/module then facility/source locks, revalidates source digest,
 catalog policy and independent authority, and creates account, layers, projections
