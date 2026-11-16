@@ -174,6 +174,8 @@ remaining quantities; unused blank-quantity rows are skipped and empty submissio
 are rejected. Names/units are reference columns. The zero-stock checkbox has been
 removed; source-linked rows are checked against their protected distribution or
 warehouse identity reference before posting. Manual additions remain supported.
+Whole-facility and January 1 cutoff guidance appears as plain text on the upload
+form, with no additional operator confirmation checkbox.
 Opening posting never deducts warehouse stock. The downloaded CSV omits source
 document numbers, which are resolved internally for linked rows. Operator notes
 start blank; factual missing-source/candidate notes are added internally at import

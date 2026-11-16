@@ -50,8 +50,7 @@ class OpeningScopeForm(forms.Form):
 class OpeningForm(OpeningScopeForm):
     reference = forms.CharField(label="Referensi bukti verifikasi", max_length=100)
     notes = forms.CharField(label="Catatan", max_length=1000, required=False, widget=forms.Textarea(attrs={"rows": 3}))
-    csv_file = forms.FileField(label="CSV saldo awal")
-    boundary_attested = forms.BooleanField(label="Saldo mencakup gudang, ruang tindakan dan Pustu sebelum mutasi 1 Januari; penerimaan sejak tanggal itu tidak dimasukkan kembali.")
+    csv_file = forms.FileField(label="CSV saldo awal", widget=forms.ClearableFileInput(attrs={"class": "ims-opening-upload"}))
 
     def clean(self):
         data = super().clean()

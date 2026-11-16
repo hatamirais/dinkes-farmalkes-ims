@@ -44,6 +44,7 @@
         <summary class="ims-form-panel-header cursor-pointer">2. Impor Data Saldo Awal</summary>
         <div class="ims-form-panel-body">
             <p class="mb-4">Unggah file yang sudah diisi untuk validasi dan pratinjau. Stok baru masuk inventaris setelah pengajuan diverifikasi dan diposting oleh pemeriksa yang berwenang. Harga atau kedaluwarsa wajib yang belum diketahui akan menahan posting.</p>
+            <p class="mb-4">Catat seluruh stok di gudang, ruang tindakan dan Pustu sebelum mutasi 1 Januari. Penerimaan sejak tanggal tersebut dicatat melalui konfirmasi penerimaan dan tidak dimasukkan kembali ke saldo awal.</p>
             <form method="post" enctype="multipart/form-data" class="ims-form-stack" novalidate>
                 {% csrf_token %}
                 {% if form.non_field_errors %}<div class="ims-alert ims-alert--danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}

@@ -297,7 +297,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(template.status_code, 200)
         upload = SimpleUploadedFile("opening.csv", (",".join(HEADERS) + "\na,INV-ITEM,10,1000,,,,,Verified unknown provenance\n").encode(), content_type="text/csv")
         response = self.client.post(reverse("puskesmas:opening_create"), {
-            "facility": self.other.pk, "year": 2026, "reference": "Bukti", "boundary_attested": "on", "csv_file": upload})
+            "facility": self.other.pk, "year": 2026, "reference": "Bukti", "csv_file": upload})
         self.assertEqual(response.status_code, 302)
         opening = PuskesmasOpeningVerification.objects.get()
         self.assertEqual(opening.facility_id, self.facility.pk)
@@ -511,7 +511,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
             parse_csv(self.worksheet_text([explicit, explicit]), facility_id=self.facility.pk, year=2026)
         upload = SimpleUploadedFile("manual-opening.csv", self.worksheet_text([manual, manual, explicit]).encode("utf-8"), content_type="text/csv")
         response = self.client.post(reverse("puskesmas:opening_create"), {
-            "year": 2026, "reference": "Bukti manual", "boundary_attested": "on", "csv_file": upload})
+            "year": 2026, "reference": "Bukti manual", "csv_file": upload})
         self.assertEqual(response.status_code, 302)
         opening = PuskesmasOpeningVerification.objects.get()
         saved_keys = list(opening.lines.values_list("line_key", flat=True))
@@ -601,6 +601,8 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(rows[0]["quantity"], "")
         response = self.client.get(reverse("puskesmas:opening_create"))
         self.assertNotContains(response, 'name="zero_stock"')
+        self.assertNotContains(response, 'name="boundary_attested"')
+        self.assertContains(response, "Catat seluruh stok di gudang, ruang tindakan dan Pustu")
         self.assertContains(response, 'id="template_year"')
         self.assertEqual(self.client.get(reverse("puskesmas:opening_template"), {"year": 999}).status_code, 400)
         self.client.force_login(self.admin)

@@ -97,6 +97,9 @@ Legacy nine/eleven-column formats with the source document column remain accepte
 and validate the supplied number against linked sources. Blank-quantity rows are
 skipped, but at least one positive quantity is required. Zero-stock checkbox/new
 zero-stock posting is removed; historical flags/digests are preserved.
+The upload form shows whole-facility/cutoff instructions as plain text and accepts
+valid CSVs without the former boundary_attested checkbox. Independent review and
+its posting confirmation remain part of the posting checkpoint.
 
 Numeric-looking worksheet item/batch/funding codes and known prices are apostrophe-prefixed for
 spreadsheet text preservation. Import restores code prefixes against linked source

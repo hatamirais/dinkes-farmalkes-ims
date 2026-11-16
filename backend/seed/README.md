@@ -362,8 +362,9 @@ To record a manual source number in its dedicated field, the legacy CSV formats
 with source_document_number remain supported. Never infer a source link for a
 manually entered row.
 Do not create fake codes, source numbers, expiry dates or zero prices. A genuine
-zero price is explicit `0`. Empty/zero-stock submissions are not supported. Confirm
-the whole-facility/cutover declaration; no zero-stock checkbox is displayed.
+zero price is explicit `0`. Empty/zero-stock submissions are not supported.
+Whole-facility and January 1 cutoff instructions appear as guidance on the upload
+form. The form has no coverage or zero-stock checkbox.
 
 Upload validates and stores an actor-bound preview; it changes no inventory.
 Submit within 24 hours, then an independent superuser or GUDANG with LPLPO module

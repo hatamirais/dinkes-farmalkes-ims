@@ -800,3 +800,16 @@ rows, idempotency, submitted/posted blocking and a PostgreSQL cancellation versu
 submission race. Browser checks with the existing operator preview verified the
 button, confirmation dismissal, desktop/mobile layout and navigation. The live
 preview remained DRAFT during browser verification.
+
+## 18. Upload confirmation removed (2026-11-16)
+
+At the user's request, the upload form no longer includes boundary_attested.
+Whole-facility and January 1 cutoff guidance is displayed as plain text beside
+the upload form. A valid CSV can proceed directly to preview. This supersedes
+earlier references to a required operator coverage confirmation. The independent
+reviewer's posting confirmation continues to apply at its existing checkpoint.
+No stored inventory fields or calculations depend on the removed form field.
+
+All 32 inventory tests passed, including upload-to-preview tests omitting the
+field. Browser verification confirmed zero checkboxes in the import section,
+visible cutoff guidance, preserved file-picker spacing and no mobile overflow.
