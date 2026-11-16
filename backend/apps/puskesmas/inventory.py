@@ -8,6 +8,7 @@ import re
 import unicodedata
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from itertools import islice
 from uuid import uuid4
 
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -206,6 +207,43 @@ def validate_source_line(line, *, facility_id, year, lock=False):
     validate_identity_snapshot(line, source_snapshot(source))
 
 
+def csv_reference_maps(raw_rows, *, facility_id, year):
+    """Load selected-row references once per parse, with the usual scope filters."""
+    source_ids = {"DIST": set(), "STOCK": set()}
+    item_codes, funding_codes = set(), set()
+    for raw in raw_rows:
+        if None in raw or any(value is None for value in raw.values()) or not raw["quantity"].strip():
+            continue
+        try:
+            key = text_value(raw["line_key"], 100)
+            item_codes.add(text_value(raw["item_code"], 51))
+            funding_codes.add(text_value(raw["sumber_dana_code"], 21))
+        except ValidationError:
+            # The normal row-validation pass reports malformed values with row numbers.
+            continue
+        prefix, _, raw_id = key.partition("-")
+        if prefix in source_ids and raw_id.isascii() and raw_id.isdigit() and len(raw_id) <= 19:
+            source_id = int(raw_id)
+            if 0 < source_id <= 9223372036854775807:
+                source_ids[prefix].add(source_id)
+    distributions = {}
+    if facility_id is not None and year is not None:
+        distributions = candidate_sources(facility_id=facility_id, year=year).in_bulk(source_ids["DIST"])
+    stocks = warehouse_candidates().in_bulk(source_ids["STOCK"])
+    # Protected CSV text may differ from the original catalog code. Include the
+    # actual linked source codes so the row pass can restore and resolve them.
+    for source in distributions.values():
+        item_codes.add(source.item.kode_barang)
+        if source.issued_sumber_dana_id:
+            funding_codes.add(source.issued_sumber_dana.code)
+    for source in stocks.values():
+        item_codes.add(source.item.kode_barang)
+        funding_codes.add(source.sumber_dana.code)
+    items = Item.objects.filter(is_active=True).in_bulk(item_codes, field_name="kode_barang")
+    funding = FundingSource.objects.filter(is_active=True).in_bulk(funding_codes - {""}, field_name="code")
+    return distributions, stocks, items, funding
+
+
 def parse_csv(decoded, *, facility_id=None, year=None):
     if "\x00" in decoded:
         raise ValidationError("CSV mengandung null byte.")
@@ -218,11 +256,16 @@ def parse_csv(decoded, *, facility_id=None, year=None):
     if fieldnames not in (list(HEADERS), list(LEGACY_WORKSHEET_HEADERS), list(WORKSHEET_HEADERS)):
         raise ValidationError("Header CSV harus sesuai template dan urutannya.")
     includes_source_document = "source_document_number" in fieldnames
+    try:
+        raw_rows = list(islice(reader, MAX_ROWS + 1))
+    except csv.Error as exc:
+        raise ValidationError("CSV tidak valid.") from exc
+    if len(raw_rows) > MAX_ROWS:
+        raise ValidationError(f"Maksimal {MAX_ROWS} baris.")
+    distributions, stocks, items, funding_sources = csv_reference_maps(raw_rows, facility_id=facility_id, year=year)
     rows, keys, errors = [], set(), []
     try:
-        for number, row in enumerate(reader, start=2):
-            if number > MAX_ROWS + 1:
-                raise ValidationError(f"Maksimal {MAX_ROWS} baris.")
+        for number, row in enumerate(raw_rows, start=2):
             try:
                 if None in row or any(v is None for v in row.values()):
                     raise ValidationError("Jumlah kolom tidak sesuai.")
@@ -241,8 +284,8 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                 if key.startswith("DIST-"):
                     if facility_id is None or year is None or not key[5:].isascii() or not key[5:].isdigit():
                         raise ValidationError("Baris DIST- memerlukan Puskesmas dan tahun yang sesuai.")
-                    source = candidate_sources(facility_id=facility_id, year=year).filter(pk=int(key[5:])).first()
-                    if source is None:
+                    source = distributions.get(int(key[5:]))
+                    if source is None or key != f"DIST-{source.pk}":
                         raise ValidationError("Baris sumber tidak sesuai Puskesmas/tahun saldo awal.")
                     originals = {"item_code": source.item.kode_barang, "batch_lot": source.issued_batch_lot or "",
                         "sumber_dana_code": source.issued_sumber_dana.code if source.issued_sumber_dana_id else "",
@@ -255,8 +298,8 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                 elif key.startswith("STOCK-"):
                     if facility_id is None or year is None or not key[6:].isascii() or not key[6:].isdigit():
                         raise ValidationError("Baris STOCK- memerlukan Puskesmas dan tahun saldo awal.")
-                    stock_source = warehouse_candidates().filter(pk=int(key[6:])).first()
-                    if stock_source is None:
+                    stock_source = stocks.get(int(key[6:]))
+                    if stock_source is None or key != f"STOCK-{stock_source.pk}":
                         raise ValidationError("Identitas Instalasi Farmasi tidak ditemukan atau tidak aktif.")
                     originals = {"item_code": stock_source.item.kode_barang, "batch_lot": stock_source.batch_lot,
                         "sumber_dana_code": stock_source.sumber_dana.code,
@@ -268,8 +311,12 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                             row[field] = original
                 for field, limit in (("item_code", 50), ("batch_lot", 100), ("sumber_dana_code", 20), ("source_document_number", 100)):
                     text_value(row[field], limit)
-                item = Item.objects.get(kode_barang=row["item_code"], is_active=True)
-                funding = FundingSource.objects.get(code=row["sumber_dana_code"], is_active=True) if row["sumber_dana_code"] else None
+                item = items.get(row["item_code"])
+                if item is None:
+                    raise Item.DoesNotExist
+                funding = funding_sources.get(row["sumber_dana_code"]) if row["sumber_dana_code"] else None
+                if row["sumber_dana_code"] and funding is None:
+                    raise FundingSource.DoesNotExist
                 expiry = date.fromisoformat(row["expiry_date"]) if row["expiry_date"] else None
                 if expiry and not 1000 <= expiry.year <= 9999:
                     raise ValidationError("Tahun kedaluwarsa tidak valid.")
@@ -289,7 +336,11 @@ def parse_csv(decoded, *, facility_id=None, year=None):
                     batch_lot=row["batch_lot"], expiry_date=expiry, sumber_dana=funding,
                     source_document_number=row["source_document_number"], provenance_note=row["provenance_note"],
                     source_distribution_item=source, source_stock=stock_source)
-                validate_source_line(PuskesmasOpeningVerificationLine(**values), facility_id=facility_id, year=year)
+                line = PuskesmasOpeningVerificationLine(**values)
+                if source:
+                    validate_identity_snapshot(line, source_snapshot(source))
+                elif stock_source:
+                    validate_identity_snapshot(line, warehouse_snapshot(stock_source))
                 rows.append(values)
             except (ValidationError, Item.DoesNotExist, FundingSource.DoesNotExist, ValueError) as exc:
                 message = "; ".join(exc.messages) if isinstance(exc, ValidationError) else "Barang/sumber dana/tanggal tidak valid."

@@ -443,6 +443,13 @@ their reviewed workflow before real operational rollout.
 
 Focused PostgreSQL checks:
 
+Opening-import performance baselines, parser query-count checks and measured
+phase timings are recorded in [the performance notes](puskesmas-opening-import-performance.md).
+Parsing batches selected source/catalog references per request. Use the inventory
+tests below to check bounded query counts alongside input validation and the live
+locked preparation/posting checks. Benchmark staging/demo after deploying changes
+before reporting environment-specific speed improvements.
+
 ```powershell
 .\scripts\run-django-test.ps1 -Target apps.puskesmas.test_inventory -KeepDb
 .\scripts\run-django-test.ps1 -Target apps.puskesmas.tests.PuskesmasSBBKViewTests -KeepDb

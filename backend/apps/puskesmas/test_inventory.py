@@ -337,6 +337,62 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         values.update(overrides)
         return Stock.objects.create(**values)
 
+    def test_parser_batches_mixed_references_without_queries_per_selected_row(self):
+        stock = self.warehouse_stock()
+        _, _, source = self.receipt(received_date=date(2025, 12, 31))
+        source.stock = stock
+        source.issued_sumber_dana = stock.sumber_dana
+        source.save()
+        small = self.download_worksheet()
+        for row in small:
+            row["quantity"] = "2"
+        manual = dict(small[0], line_key="MANUAL-extra", provenance_note="Verified historical stock; source document unknown.")
+        small.append(manual)
+        with self.assertNumQueries(4):
+            parsed_small = parse_csv(self.worksheet_text(small), facility_id=self.facility.pk, year=2026)
+        self.assertEqual(len(parsed_small), 3)
+        for number in range(30):
+            self.warehouse_stock(batch_lot=f"BATCH-{number}", source_document_number=f"SOURCE-{number}")
+        large = self.download_worksheet()
+        for row in large:
+            row["quantity"] = "2"
+        large.append(manual)
+        with self.assertNumQueries(4):
+            parsed_large = parse_csv(self.worksheet_text(large), facility_id=self.facility.pk, year=2026)
+        self.assertEqual(len(parsed_large), 33)
+        self.assertEqual(sum(row["quantity"] for row in parsed_large), Decimal("66"))
+
+    def test_batch_lookup_keeps_row_errors_and_rejects_oversized_files_before_queries(self):
+        self.warehouse_stock()
+        row = dict(self.download_worksheet()[0], quantity="1")
+        invalid = dict(row, line_key="MANUAL-invalid", item_code="UNKNOWN")
+        huge_id = dict(row, line_key="STOCK-" + "9" * 90)
+        with self.assertRaises(ValidationError) as error:
+            parse_csv(self.worksheet_text([row, invalid, huge_id]), facility_id=self.facility.pk, year=2026)
+        self.assertIn("Baris 3:", str(error.exception))
+        self.assertIn("Baris 4:", str(error.exception))
+        malformed = self.worksheet_text([]) + "missing,columns\n"
+        with self.assertNumQueries(0), self.assertRaisesMessage(ValidationError, "Baris 2:"):
+            parse_csv(malformed, facility_id=self.facility.pk, year=2026)
+        oversized = self.worksheet_text([dict(row, quantity="")] * 10001)
+        with self.assertNumQueries(0), self.assertRaisesMessage(ValidationError, "Maksimal 10000 baris"):
+            parse_csv(oversized, facility_id=self.facility.pk, year=2026)
+
+    def test_batch_lookup_does_not_reuse_source_snapshots_between_uploads(self):
+        stock = self.warehouse_stock()
+        rows = self.download_worksheet()
+        rows[0]["quantity"] = "1"
+        content = self.worksheet_text(rows)
+        parsed = parse_csv(content, facility_id=self.facility.pk, year=2026)
+        self.assertEqual(parsed[0]["unit_price"], stock.unit_price)
+        stock.unit_price = Decimal("999")
+        stock.save()
+        with self.assertRaisesMessage(ValidationError, "unit_price"):
+            parse_csv(content, facility_id=self.facility.pk, year=2026)
+        with self.assertRaises(ValidationError):
+            self.opening(parsed, submit=False)
+        self.assertFalse(PuskesmasOpeningVerification.objects.exists())
+
     def test_warehouse_candidates_without_facility_history_post_only_facility_inventory(self):
         from apps.stock.models import Transaction
         stock = self.warehouse_stock()
