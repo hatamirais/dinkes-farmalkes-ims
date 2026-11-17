@@ -7,6 +7,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-17
+
 ### Added
 
 - Added Puskesmas initial January opening-stock CSV preparation, preview, submission, independent verification/posting, and retained draft cancellation. Prefilled Instalasi Farmasi identities preserve original prices and provenance while operators supply facility quantities or add manual layers.
