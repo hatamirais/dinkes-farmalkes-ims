@@ -16,6 +16,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 ### Changed
 
 - Batched CSV source/catalog lookups while retaining live source validation and posting locks. Posted receipts are immutable, and receipt mutations serialize with editable LPLPO periods.
+- Preserved receipt creation/editing for legacy non-superuser ADMIN accounts, including inventory posting and selected-facility serialization, without granting initial-opening verification authority.
 - Opening-inventory balances remain incomplete until consumption is integrated. FEFO consumption, annual reconciliation, corrections, and integration of opening stock into LPLPO/report calculations are deferred; existing January LPLPO and report calculations remain unchanged.
 
 ## [2.1.1] - 2026-11-10

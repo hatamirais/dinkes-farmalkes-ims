@@ -437,6 +437,61 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertContains(detail, "Koreksi posting belum tersedia")
         self.assertNotContains(detail, 'id="edit-btn"')
 
+    def test_non_superuser_admin_can_save_and_confirm_receipts_without_opening_authority(self):
+        # Legacy ADMIN rows remain supported although new ADMIN creation is restricted.
+        administrator = User.objects.create_superuser(username="receipt-admin")
+        User.objects.filter(pk=administrator.pk).update(is_superuser=False, is_staff=False)
+        administrator.refresh_from_db()
+        self.assertFalse(administrator.is_superuser)
+        self.assertIsNone(administrator.facility_id)
+        self.client.force_login(administrator)
+        opening = self.opening()
+        with self.assertRaises(PermissionDenied):
+            review_opening(user=administrator, opening_id=opening.pk, digest=opening.digest)
+        for initialized in [False, True]:
+            with self.subTest(initialized=initialized):
+                if initialized:
+                    self.post(opening)
+                seed, _, source = self.receipt(status="DRAFT")
+                distribution_id = seed.distribution_id
+                seed.delete()
+                payload = {"action": "draft", "facility": self.facility.pk, "distribution": distribution_id,
+                    "document_number": f"ADMIN-RCV-{int(initialized)}",
+                    "received_date": "2026-02-01", "items-TOTAL_FORMS": "1", "items-INITIAL_FORMS": "1",
+                    "items-MIN_NUM_FORMS": "1", "items-MAX_NUM_FORMS": "1000",
+                    "items-0-distribution_item": source.pk, "items-0-confirmed": "on"}
+                response = self.client.post(reverse("puskesmas:receiving_create"), payload)
+                self.assertEqual(response.status_code, 302, (
+                    response.context["form"].errors if response.context else None,
+                    response.context["checklist_formset"].errors if response.context else None,
+                    response.context["checklist_formset"].non_form_errors() if response.context else None,
+                ))
+                receipt = PuskesmasReceiptConfirmation.objects.get(distribution_id=distribution_id)
+                self.assertEqual(receipt.status, "DRAFT")
+                self.assertFalse(receipt.inventory_posting_exists())
+                edit_url = reverse("puskesmas:receiving_edit", args=[receipt.pk])
+                payload["notes"] = "Administrator verifies receipt evidence"
+                self.assertEqual(self.client.post(edit_url, payload).status_code, 302)
+                receipt.refresh_from_db()
+                self.assertEqual(receipt.notes, payload["notes"])
+                payload["action"] = "confirm"
+                self.assertEqual(self.client.post(edit_url, payload).status_code, 302)
+                receipt.refresh_from_db()
+                self.assertEqual(receipt.status, "CONFIRMED")
+                self.assertEqual(receipt.inventory_posting_exists(), initialized)
+                if initialized:
+                    posting = PuskesmasInventoryPosting.objects.get(receipt=receipt)
+                    self.assertEqual(posting.actor_id, administrator.pk)
+                    self.assertEqual(posting.layers.get().unit_price, source.issued_unit_price)
+                    self.assertEqual(post_receipt(receipt=receipt, user=administrator), posting)
+                    self.assertEqual(PuskesmasInventoryPosting.objects.filter(receipt=receipt).count(), 1)
+        ModuleAccess.objects.update_or_create(user=administrator, module="puskesmas",
+                                             defaults={"scope": ModuleAccess.Scope.NONE})
+        self.assertEqual(self.client.post(reverse("puskesmas:receiving_create"), payload).status_code, 403)
+        User.objects.filter(pk=administrator.pk).update(is_active=False)
+        with self.assertRaises(PermissionDenied):
+            post_receipt(receipt=receipt, user=administrator)
+
     def test_csv_validation_and_precision(self):
         def csv_text(quantity="10", price="8893,31985", expiry=""):
             output = io.StringIO()

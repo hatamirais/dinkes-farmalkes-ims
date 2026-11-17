@@ -78,6 +78,11 @@ Receipt mutations and LPLPO create/edit/import/submit share the facility mutex
 before form binding/status checks. Initial/receipt event uniqueness provides
 idempotency. New records are read-only in Admin and application mutation guards
 protect journal history; direct database SQL is not covered by those guards.
+Receipt administration also retains the pre-existing active legacy ADMIN role
+authorization without requiring is_superuser. These accounts use the selected
+facility mutex and may post confirmed receipts through the receipt checkpoint;
+this grants no initial-opening preparation/verification authority. Existing view
+permissions and posted-receipt immutability still apply.
 
 All-facility stock (warehouse, rooms and Pustu) is included in verified opening.
 The new projections exclude consumption and must not be presented as reliable

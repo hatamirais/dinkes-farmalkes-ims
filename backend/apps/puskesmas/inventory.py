@@ -21,7 +21,7 @@ from apps.core.decimal_validation import (
 from apps.core.csv_exports import escape_csv_formula
 from django.db.models import Q
 from apps.items.models import Facility, FundingSource, Item
-from apps.users.access import has_module_scope
+from apps.users.access import has_module_scope, is_super_admin
 from apps.users.models import ModuleAccess, User
 from .models import (
     PuskesmasInventoryAccount, PuskesmasInventoryPosting,
@@ -561,7 +561,9 @@ def review_opening(*, user, opening_id, digest, reject_reason=None):
 def post_receipt(*, receipt, user):
     """Called only after checklist confirmation; also used by initial opening catch-up."""
     user = locked_actor(user)
-    if not user.is_active or not (can_verify(user) or (
+    # Receipt administrators retain their existing authority; this does not grant
+    # the separate, narrower initial-opening verification checkpoint.
+    if not user.is_active or not (is_super_admin(user) or can_verify(user) or (
             user.role == User.Role.PUSKESMAS and user.facility_id == receipt.facility_id and
             (has_module_scope(user, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.OPERATE) or
              user.has_perm("puskesmas.change_puskesmasreceiptconfirmation") or

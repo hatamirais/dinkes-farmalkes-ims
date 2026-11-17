@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
 from django.contrib import messages
 from django.shortcuts import redirect
+from apps.users.access import is_super_admin
 
 
 def serialize_facility_document(model_label):
@@ -17,7 +18,7 @@ def serialize_facility_document(model_label):
             pk = kwargs.get("pk")
             facility_id = model.objects.filter(pk=pk).values_list("facility_id", flat=True).first() if pk else None
             if not facility_id and request.method == "POST":
-                facility_id = request.POST.get("facility") if request.user.is_superuser else request.user.facility_id
+                facility_id = request.POST.get("facility") if is_super_admin(request.user) else request.user.facility_id
             try:
                 facility_id = int(facility_id) if facility_id else None
             except (ValueError, TypeError):
