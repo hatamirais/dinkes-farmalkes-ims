@@ -2,13 +2,10 @@
 
 ## Tracking
 
-Milestone title: **Puskesmas opening import performance**. No due date.
+Milestone: [Puskesmas opening import performance](https://github.com/hatamirais/dinkes-farmalkes-ims/milestone/1). No due date.
 
 [Tracking issue #323](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/323)
-records the work. GitHub milestone creation/assignment is pending authenticated
-milestone access. The CLI returned HTTP 401, and computer use stopped because it
-could not verify the browser's current URL. The connector supports issues but has
-no milestone-creation action.
+records the work and is assigned to that milestone (verified 2026-11-17).
 
 Planned actionable work:
 

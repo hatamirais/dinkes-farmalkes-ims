@@ -7,6 +7,17 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+### Added
+
+- Added Puskesmas initial January opening-stock CSV preparation, preview, submission, independent verification/posting, and retained draft cancellation. Prefilled Instalasi Farmasi identities preserve original prices and provenance while operators supply facility quantities or add manual layers.
+- Added facility inventory accounts, original-price layers, balance projections, and an append-only movement journal; confirmed linked receipts post once from issued distribution snapshots. Apply Puskesmas migrations 0012–0015 when deploying.
+- Added read-only Kepala oversight with informational opening-stock notifications, reviewer alerts for eligible Gudang/superusers, and the Saldo Awal Puskesmas menu under Administrasi for authorized staff and facility operators.
+
+### Changed
+
+- Batched CSV source/catalog lookups while retaining live source validation and posting locks. Posted receipts are immutable, and receipt mutations serialize with editable LPLPO periods.
+- Opening-inventory balances remain incomplete until consumption is integrated. FEFO consumption, annual reconciliation, corrections, and integration of opening stock into LPLPO/report calculations are deferred; existing January LPLPO and report calculations remain unchanged.
+
 ## [2.1.1] - 2026-11-10
 
 ### Fixed

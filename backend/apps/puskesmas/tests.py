@@ -646,25 +646,29 @@ class PuskesmasReceiptConfirmationStatusMigrationTests(TransactionTestCase):
 	def setUp(self):
 		super().setUp()
 		self.executor = MigrationExecutor(connection)
+		self.addCleanup(self._restore_latest_schema)
 		self.executor.migrate([self.migrate_from])
 
-		old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+		# Other apps stay at their applied migrations during this Puskesmas rollback.
+		self.executor = MigrationExecutor(connection)
+		old_apps = self.executor.loader.project_state(list(self.executor.loader.applied_migrations)).apps
 		ReceiptConfirmationModel = old_apps.get_model(
 			"puskesmas",
 			"PuskesmasReceiptConfirmation",
 		)
+		FacilityModel = old_apps.get_model("items", "Facility")
+		UserModel = old_apps.get_model("users", "User")
 
-		facility = Facility.objects.create(
+		facility = FacilityModel.objects.create(
 			code="MIG-PKM",
 			name="Puskesmas Migrasi",
 			facility_type="PUSKESMAS",
 			is_active=True,
 		)
-		user = User.objects.create_user(
+		user = UserModel.objects.create(
 			username="migration-operator",
-			password="TestPassword123!",
-			role=User.Role.PUSKESMAS,
-			facility=facility,
+			password="!",
+			role="PUSKESMAS",
 		)
 		self.receipt_pk = ReceiptConfirmationModel.objects.create(
 			document_number="RCVCONF-202602-00001",
@@ -678,10 +682,9 @@ class PuskesmasReceiptConfirmationStatusMigrationTests(TransactionTestCase):
 		self.executor.migrate([self.migrate_to])
 		self.apps = self.executor.loader.project_state([self.migrate_to]).apps
 
-	def tearDown(self):
+	def _restore_latest_schema(self):
 		executor = MigrationExecutor(connection)
 		executor.migrate(executor.loader.graph.leaf_nodes())
-		super().tearDown()
 
 	def test_existing_receipts_are_backfilled_to_confirmed(self):
 		ReceiptConfirmationModel = self.apps.get_model(
