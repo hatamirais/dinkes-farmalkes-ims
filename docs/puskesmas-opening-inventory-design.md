@@ -13,6 +13,14 @@ production deployment or real-data onboarding is claimed.
 
 ## 1. Agreed requirements and scope
 
+Kepala oversight uses the existing LPLPO VIEW threshold (including higher scopes)
+for active KEPALA accounts. It exposes submitted, rejected and posted openings
+across active Puskesmas, without private drafts/cancelled previews. The bell
+includes informational submitted-opening notices linked to the read-only list;
+these are status-based counts, without acknowledgement tracking. It grants no preparation/review/posting authority, report access
+or other facility operations. Backend action checks enforce the read-only boundary;
+no new ModuleAccess scope or approval stage is needed.
+
 Confirmed by the user in this discussion:
 
 - Prepare and verify opening stock every January at the start of the year.

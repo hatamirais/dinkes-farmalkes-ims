@@ -33,7 +33,7 @@ the existing LPLPO-derived reports. New model definitions live in
 Routes (all in the Puskesmas namespace): `/puskesmas/saldo-awal/` list,
 `template/` facility/year-specific CSV download, `buat/` preparation/preview, `<pk>/` detail and POST-only
 submit/cancel-preview/reject/verify-and-post actions. Sidebar visibility follows preparation,
-verification or dedicated Puskesmas report access. Staff report readers retain
+verification, Kepala opening oversight or dedicated Puskesmas report access. Staff report readers retain
 their explicit facility-selection/aggregation boundaries.
 
 Preparation requires superuser or role PUSKESMAS with add-opening Django permission
@@ -41,6 +41,19 @@ or PUSKESMAS OPERATE module scope, bounded to own active facility. Verification
 requires superuser or GUDANG with LPLPO OPERATE or higher, and a different actor
 from the preparer. The GUDANG cross-facility permission is specific to this
 checkpoint. Mutations use CSRF POST and a shared 10/minute opening rate bucket.
+Navbar opening-stock notifications use inventory.opening_notification_queryset
+and link to `/puskesmas/saldo-awal/?status=SUBMITTED`. Reviewers receive only
+independently reviewable SUBMITTED documents for active Puskesmas through
+pending_openings, including the different-preparer rule. Kepala has no opening review authority from role or elevated scope alone.
+Active KEPALA with LPLPO VIEW or higher may inspect SUBMITTED/REJECTED/POSTED
+openings across active Puskesmas without a facility link or separate report grant.
+This read-only oversight excludes DRAFT/CANCELLED and grants no other facility or
+report access. It exposes no preparation/review controls; detail POSTs are denied
+server-side, including with MANAGE scope. No new module scope or approval stage is
+introduced. The bell includes informational Saldo Awal Menunggu Verifikasi
+notices for eligible Kepala covering SUBMITTED openings across active Puskesmas.
+The submitted filter opens that read-only inspection scope. Counts clear when
+documents leave SUBMITTED; no acknowledgement/read-tracking state is stored.
 
 The active preparer may cancel their own DRAFT preview, including after preview
 expiry, through action=cancel on the existing detail route. The atomic service

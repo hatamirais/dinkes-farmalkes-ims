@@ -1,7 +1,4 @@
             <div class="sidebar-nav">
-                {% if can_view_puskesmas_opening %}
-                <a href="{% url 'puskesmas:opening_list' %}" class="sidebar-link" data-label="Saldo Awal Puskesmas" title="Saldo Awal Puskesmas"><i class="bi bi-journal-check"></i><span>Saldo Awal Puskesmas</span></a>
-                {% endif %}
                 {% if not is_auditor_user %}
                 <div class="sidebar-section-title">Menu Utama</div>
                 <a href="{% url 'dashboard' %}"
@@ -286,8 +283,15 @@
                 {% endif %}
 
                 {% if not is_auditor_user %}
-                {% if can_view_user_management or can_manage_authority_delegations or can_open_admin_panel %}
+                {% if can_view_user_management or can_manage_authority_delegations or can_open_admin_panel or can_view_puskesmas_opening %}
                 <div class="sidebar-section-title">Administrasi</div>
+                {% if can_view_puskesmas_opening %}
+                <a href="{% url 'puskesmas:opening_list' %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':8' == 'opening_' %}active{% endif %}"
+                    data-label="Saldo Awal Puskesmas" title="Saldo Awal Puskesmas">
+                    <i class="bi bi-journal-check"></i><span>Saldo Awal Puskesmas</span>
+                </a>
+                {% endif %}
                 {% if can_view_user_management %}
                 <a href="{% url 'users:user_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'users' and request.resolver_match.url_name|slice:':20' != 'authority_delegation' %}active{% endif %}"

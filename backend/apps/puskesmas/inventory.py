@@ -78,6 +78,35 @@ def can_prepare(user):
             has_module_scope(user, ModuleAccess.Module.PUSKESMAS, ModuleAccess.Scope.OPERATE)))))
 
 
+def can_inspect_openings(user):
+    """Kepala oversight grants reads only, independently of posting authority."""
+    return bool(user.is_active and user.role == User.Role.KEPALA and has_module_scope(
+        user, ModuleAccess.Module.LPLPO, ModuleAccess.Scope.VIEW))
+
+
+def pending_openings(user):
+    """Only submitted openings this actor may independently review."""
+    qs = PuskesmasOpeningVerification.objects.all()
+    if not can_verify(user):
+        return qs.none()
+    return qs.filter(
+        status=PuskesmasOpeningVerification.Status.SUBMITTED,
+        facility__is_active=True,
+        facility__facility_type=Facility.FacilityType.PUSKESMAS,
+    ).exclude(created_by=user)
+
+
+def opening_notification_queryset(user):
+    """Reviewers get actionable work; Kepala gets read-only submitted notices."""
+    if can_verify(user):
+        return pending_openings(user)
+    qs = PuskesmasOpeningVerification.objects.all()
+    if can_inspect_openings(user):
+        return qs.filter(status=PuskesmasOpeningVerification.Status.SUBMITTED,
+                         facility__is_active=True, facility__facility_type=Facility.FacilityType.PUSKESMAS)
+    return qs.none()
+
+
 def locked_actor(user):
     actor = User.objects.select_for_update().get(pk=user.pk)
     list(ModuleAccess.objects.select_for_update().filter(user=actor).order_by("pk"))

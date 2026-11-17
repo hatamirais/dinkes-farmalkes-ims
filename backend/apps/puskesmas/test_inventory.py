@@ -8,11 +8,12 @@ from decimal import Decimal
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connection
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.test import RequestFactory, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.tests.mixins import SecureClientDefaultsMixin
+from apps.core.context_processors import nav_notifications
 from apps.distribution.models import Distribution, DistributionItem
 from apps.items.models import Category, Facility, Item, Unit
 from apps.users.models import ModuleAccess, User
@@ -70,6 +71,166 @@ class InventoryFixture:
 
 @override_settings(RATELIMIT_ENABLE=False)
 class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
+    def opening_notifications(self, user):
+        request = RequestFactory().get("/")
+        request.user = user
+        return [entry for entry in nav_notifications(request)["nav_notification_items"]
+                if entry["label"] in {"Saldo Awal Puskesmas", "Saldo Awal Menunggu Verifikasi"}]
+
+    def test_opening_notifications_follow_submission_review_and_active_facility(self):
+        opening = self.opening(submit=False)
+        self.assertEqual(self.opening_notifications(self.verifier), [])
+        submit_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+        expected = [{"label": "Saldo Awal Puskesmas", "count": 1,
+                     "url": reverse("puskesmas:opening_list") + "?status=SUBMITTED",
+                     "icon": "bi-journal-check"}]
+        for user in [self.verifier, self.admin]:
+            with self.subTest(user=user.username):
+                self.assertEqual(self.opening_notifications(user), expected)
+                self.client.force_login(user)
+                response = self.client.get(expected[0]["url"])
+                self.assertEqual(list(response.context["openings"]), [opening])
+                self.assertContains(response, 'data-label="Saldo Awal Puskesmas"')
+                self.assertContains(self.client.get(reverse("puskesmas:opening_detail", args=[opening.pk])),
+                                    "Verifikasi dan Posting")
+        self.facility.is_active = False
+        self.facility.save(update_fields=["is_active"])
+        self.assertEqual(self.opening_notifications(self.verifier), [])
+        self.facility.is_active = True
+        self.facility.save(update_fields=["is_active"])
+        review_opening(user=self.verifier, opening_id=opening.pk, digest=opening.digest,
+                       reject_reason="Periksa ulang jumlah")
+        self.assertEqual(self.opening_notifications(self.verifier), [])
+        posted = self.opening()
+        self.assertEqual(self.opening_notifications(self.verifier), expected)
+        self.post(posted)
+        self.assertEqual(self.opening_notifications(self.verifier), [])
+
+    def test_opening_notifications_keep_role_scope_and_independent_review_boundaries(self):
+        self.opening()
+        kepala = User.objects.create_user(username="inventory-kepala", role="KEPALA")
+        self.assertEqual(self.opening_notifications(kepala)[0]["count"], 1)
+        self.assertEqual(self.opening_notifications(self.operator), [])
+        self.client.force_login(kepala)
+        self.assertEqual(self.client.get(reverse("puskesmas:opening_list")).status_code, 200)
+        ModuleAccess.objects.filter(user=self.verifier, module="lplpo").update(scope=ModuleAccess.Scope.VIEW)
+        self.assertEqual(self.opening_notifications(self.verifier), [])
+        self.client.force_login(self.verifier)
+        self.assertEqual(self.client.get(reverse("puskesmas:opening_list")).status_code, 403)
+        own = prepare_opening(user=self.admin, facility_id=self.other.pk, year=2026,
+                              reference="Admin prepares", notes="", rows=[self.row("own")])
+        submit_opening(user=self.admin, opening_id=own.pk, digest=own.digest)
+        self.admin.role = User.Role.KEPALA
+        self.admin.save(update_fields=["role"])
+        self.assertEqual(self.opening_notifications(self.admin)[0]["count"], 1)
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("puskesmas:opening_list") + "?status=SUBMITTED")
+        self.assertNotIn(own, response.context["openings"])
+        self.admin.is_active = False
+        self.assertEqual(self.opening_notifications(self.admin), [])
+
+    def test_kepala_oversight_reads_only_eligible_statuses_across_active_facilities(self):
+        draft = self.opening(submit=False)
+        cancelled = self.opening(submit=False)
+        cancel_opening(user=self.operator, opening_id=cancelled.pk, digest=cancelled.digest)
+        rejected = self.opening()
+        review_opening(user=self.verifier, opening_id=rejected.pk, digest=rejected.digest,
+                       reject_reason="Periksa bukti")
+        submitted = self.opening()
+        posted = self.opening()
+        self.post(posted)
+        other = prepare_opening(user=self.admin, facility_id=self.other.pk, year=2026,
+                                reference="Other facility", notes="", rows=[self.row()])
+        submit_opening(user=self.admin, opening_id=other.pk, digest=other.digest)
+        kepala = User.objects.create_user(username="oversight-kepala", role="KEPALA")
+        self.client.force_login(kepala)
+        url = reverse("puskesmas:opening_list")
+        for scope in [ModuleAccess.Scope.VIEW, ModuleAccess.Scope.OPERATE,
+                      ModuleAccess.Scope.APPROVE, ModuleAccess.Scope.MANAGE]:
+            with self.subTest(scope=scope):
+                ModuleAccess.objects.update_or_create(user=kepala, module="lplpo", defaults={"scope": scope})
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual({obj.pk for obj in response.context["openings"]},
+                                 {submitted.pk, rejected.pk, posted.pk, other.pk})
+                self.assertContains(response, 'data-label="Saldo Awal Puskesmas"')
+                self.assertNotContains(response, "Siapkan Saldo Awal Pertama")
+                for obj in [submitted, rejected, posted, other]:
+                    detail = self.client.get(reverse("puskesmas:opening_detail", args=[obj.pk]))
+                    self.assertEqual(detail.status_code, 200)
+                    for action in ["Verifikasi dan Posting", "Ajukan untuk Verifikasi", "Batalkan Pratinjau",
+                                   'name="action" value="reject"']:
+                        self.assertNotContains(detail, action)
+                self.assertEqual(self.opening_notifications(kepala)[0]["count"], 2)
+        response = self.client.get(url, {"status": "SUBMITTED"})
+        self.assertEqual({obj.pk for obj in response.context["openings"]}, {submitted.pk, other.pk})
+        for obj in [draft, cancelled]:
+            self.assertEqual(self.client.get(reverse("puskesmas:opening_detail", args=[obj.pk])).status_code, 404)
+        self.other.is_active = False
+        self.other.save(update_fields=["is_active"])
+        self.assertEqual(self.client.get(reverse("puskesmas:opening_detail", args=[other.pk])).status_code, 404)
+        self.assertNotIn(other, self.client.get(url).context["openings"])
+        ModuleAccess.objects.filter(user=kepala, module="lplpo").update(scope=ModuleAccess.Scope.NONE)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, 'data-label="Saldo Awal Puskesmas"', status_code=403)
+        self.assertEqual(self.client.get(reverse("puskesmas:opening_detail", args=[submitted.pk])).status_code, 403)
+
+    def test_kepala_oversight_denies_mutations_even_with_manage_scope(self):
+        submitted = self.opening()
+        kepala = User.objects.create_user(username="oversight-no-post", role="KEPALA")
+        ModuleAccess.objects.update_or_create(user=kepala, module="lplpo", defaults={"scope": ModuleAccess.Scope.MANAGE})
+        self.client.force_login(kepala)
+        detail_url = reverse("puskesmas:opening_detail", args=[submitted.pk])
+        for action in ["post", "reject", "submit", "cancel"]:
+            with self.subTest(action=action):
+                response = self.client.post(detail_url, {"action": action, "digest": submitted.digest,
+                                                        "verified": "yes", "reason": "Forged action"})
+                self.assertEqual(response.status_code, 403)
+        for route in ["puskesmas:opening_create", "puskesmas:opening_template"]:
+            self.assertEqual(self.client.get(reverse(route)).status_code, 403)
+        self.assertEqual(self.client.post(reverse("puskesmas:opening_create"), {}).status_code, 403)
+        with self.assertRaises(PermissionDenied):
+            review_opening(user=kepala, opening_id=submitted.pk, digest=submitted.digest)
+        submitted.refresh_from_db()
+        self.assertEqual(submitted.status, "SUBMITTED")
+        self.assertFalse(PuskesmasInventoryPosting.objects.exists())
+
+    def test_kepala_bell_notice_is_read_only_scoped_and_clears_after_review(self):
+        kepala = User.objects.create_user(username="notice-kepala", role="KEPALA")
+        ModuleAccess.objects.update_or_create(user=kepala, module="lplpo", defaults={"scope": ModuleAccess.Scope.VIEW})
+        opening = self.opening(submit=False)
+        self.assertEqual(self.opening_notifications(kepala), [])
+        submit_opening(user=self.operator, opening_id=opening.pk, digest=opening.digest)
+        notice = self.opening_notifications(kepala)
+        self.assertEqual(notice, [{"label": "Saldo Awal Menunggu Verifikasi", "count": 1,
+                                  "url": reverse("puskesmas:opening_list") + "?status=SUBMITTED",
+                                  "icon": "bi-journal-check"}])
+        self.client.force_login(kepala)
+        response = self.client.get(notice[0]["url"])
+        self.assertEqual(list(response.context["openings"]), [opening])
+        self.assertContains(response, "Saldo Awal Menunggu Verifikasi")
+        self.assertNotContains(self.client.get(reverse("puskesmas:opening_detail", args=[opening.pk])),
+                               "Verifikasi dan Posting")
+        self.facility.is_active = False
+        self.facility.save(update_fields=["is_active"])
+        self.assertEqual(self.opening_notifications(kepala), [])
+        self.facility.is_active = True
+        self.facility.save(update_fields=["is_active"])
+        ModuleAccess.objects.filter(user=kepala, module="lplpo").update(scope=ModuleAccess.Scope.NONE)
+        self.assertEqual(self.opening_notifications(kepala), [])
+        ModuleAccess.objects.filter(user=kepala, module="lplpo").update(scope=ModuleAccess.Scope.VIEW)
+        kepala.is_active = False
+        self.assertEqual(self.opening_notifications(kepala), [])
+        kepala.is_active = True
+        review_opening(user=self.verifier, opening_id=opening.pk, digest=opening.digest,
+                       reject_reason="Periksa bukti")
+        self.assertEqual(self.opening_notifications(kepala), [])
+        posted = self.opening()
+        self.assertEqual(self.opening_notifications(kepala)[0]["count"], 1)
+        self.post(posted)
+        self.assertEqual(self.opening_notifications(kepala), [])
+
     def test_creator_cancels_expired_preview_preserving_rows_and_idempotent_history(self):
         opening = self.opening(submit=False)
         line_ids = list(opening.lines.values_list("pk", flat=True))

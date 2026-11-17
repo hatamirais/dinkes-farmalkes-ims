@@ -73,6 +73,12 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 Notifikasi aktivitas LPLPO hanya menghitung dokumen yang dapat dibuka melalui antrean dan detail serta dapat diproses sesuai wewenang pengguna. Kepala menerima notifikasi tahap legacy `REVIEWED`, bukan pengajuan baru yang diproses PIC. Notifikasi legacy untuk delegat mengikuti fasilitas sendiri dan delegasi yang masih aktif; dokumen historis `APPROVED` / `CLOSED` tidak dihitung sebagai aktivitas tertunda.
 
+Notifikasi `Saldo Awal Puskesmas` menghitung pengajuan menunggu verifikasi dari Puskesmas aktif untuk superuser atau petugas GUDANG dengan akses modul LPLPO OPERATE atau lebih tinggi. Pengajuan yang disiapkan sendiri tidak dihitung. Tautan membuka antrean pengajuan yang dapat diperiksa; Kepala tidak mendapat kewenangan pemeriksaan saldo awal hanya dari jabatannya.
+
+Menu Saldo Awal Puskesmas berada di kelompok Administrasi pada sidebar desktop, termasuk untuk operator Puskesmas. Kelompok ini juga ditampilkan bila saldo awal merupakan satu-satunya menu administrasi yang diizinkan.
+
+Kepala dengan akses modul LPLPO VIEW atau lebih tinggi dapat membuka menu Saldo Awal Puskesmas untuk membaca pengajuan berstatus Menunggu verifikasi, Ditolak, dan Diposting di seluruh Puskesmas aktif. Pratinjau pribadi dan pengajuan Dibatalkan tidak ditampilkan. Akses pengawasan ini tidak mengizinkan unggah, unduh template, pengajuan, pembatalan, penolakan, atau posting, dan tetap bersifat baca saja. Lonceng Kepala menampilkan informasi Saldo Awal Menunggu Verifikasi untuk pengajuan SUBMITTED dari Puskesmas aktif; tautannya membuka daftar baca saja dan hilang dari hitungan setelah pengajuan ditolak atau diposting.
+
 Setelah penolakan LPLPO berhasil, pengguna kembali ke detail bila masih berhak membacanya pada status baru; jika tidak, pengguna kembali ke daftar LPLPO dengan pesan berhasil. Penolakan tidak membuka akses lintas fasilitas pada tahap perbaikan Puskesmas.
 
 - Receiving terencana manual legacy: `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`; receiving plan procurement baru mengikuti approval kontrak/amandemen SPJ lalu dieksekusi pada status `APPROVED -> PARTIAL/RECEIVED -> CLOSED` tanpa approval receiving terpisah, dan penutupan sisa untuk dokumen SPJ dilakukan melalui amandemen pengadaan.

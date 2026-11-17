@@ -18,7 +18,7 @@ from apps.items.models import Facility
 from .inventory import (
     WORKSHEET_HEADERS, MAX_BYTES, MAX_ROWS, can_prepare, can_verify, parse_csv, prepare_opening,
     submit_opening, cancel_opening, review_opening, line_errors,
-    worksheet_rows,
+    worksheet_rows, pending_openings, can_inspect_openings,
 )
 from .models import PuskesmasOpeningVerification, PuskesmasInventoryPosting
 
@@ -75,6 +75,9 @@ def scoped_openings(request):
         return qs.filter(status__in=["SUBMITTED", "POSTED", "REJECTED"])
     if can_prepare(user):
         return qs.filter(facility_id=user.facility_id).filter(~Q(status="DRAFT") | Q(created_by=user))
+    if can_inspect_openings(user):
+        return qs.filter(status__in=["SUBMITTED", "REJECTED", "POSTED"],
+                         facility__is_active=True, facility__facility_type="PUSKESMAS")
     from .views import _resolve_report_facility
     from apps.users.access import puskesmas_report_access
     if not puskesmas_report_access(user).allowed:
@@ -88,8 +91,14 @@ def scoped_openings(request):
 
 @login_required
 def opening_list(request):
+    openings = scoped_openings(request)
+    if request.GET.get("status") == "SUBMITTED":
+        if can_inspect_openings(request.user) and not can_verify(request.user):
+            openings = openings.filter(status="SUBMITTED")
+        else:
+            openings = openings.filter(pk__in=pending_openings(request.user).values("pk"))
     return render(request, "puskesmas/inventory_list.html", {
-        "openings": scoped_openings(request)[:100], "can_prepare": can_prepare(request.user)})
+        "openings": openings[:100], "can_prepare": can_prepare(request.user)})
 
 
 @login_required
@@ -147,6 +156,8 @@ def opening_create(request):
 def opening_detail(request, pk):
     opening = get_object_or_404(scoped_openings(request), pk=pk)
     if request.method == "POST":
+        if not (can_prepare(request.user) or can_verify(request.user)):
+            raise PermissionDenied
         try:
             action = request.POST.get("action")
             if action == "submit":

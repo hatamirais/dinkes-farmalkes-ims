@@ -7,6 +7,7 @@ App-specific guidance for shared configuration, permissions, numbering, error ha
 `core` owns shared abstractions, the dashboard, system settings, centralized error handlers, maintenance mode, trusted client-IP resolution, rate-limit plumbing, app versioning, and official document numbering.
 
 Navbar LPLPO activity counts delegate to `apps.lplpo.access.pending_lplpo_queryset`; keep role, facility, stage, and legacy-delegation eligibility owned by LPLPO rather than deriving its pending work from module scope alone.
+Navbar opening-stock counts delegate to `apps.puskesmas.inventory.opening_notification_queryset`: reviewers receive independently reviewable SUBMITTED work through pending_openings; eligible Kepala receives informational SUBMITTED notices across active Puskesmas. Both link to the scoped submitted list. Notifications never grant mutation authority.
 
 ## Permission And Error Infrastructure
 
