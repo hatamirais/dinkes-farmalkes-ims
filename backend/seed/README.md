@@ -285,3 +285,95 @@ Optional `python manage.py sync_module_access` materializes missing rows without
 `--overwrite`; do not reset customized scopes. Existing generic Reports grants
 are retained but do not authorize these facility reports. Review staff grants
 individually; no staff cross-facility grants are automatic.
+## Puskesmas initial opening CSV (feature 1)
+
+Use `/puskesmas/saldo-awal/buat/`, not warehouse Stock Admin/receiving import.
+Download the template from `/puskesmas/saldo-awal/template/`. Apply migration
+`puskesmas.0012_inventory_foundation` and `0013_opening_source_distribution` before serving these routes.
+
+Exact headers, in order:
+
+```csv
+line_key,item_code,item_name,unit,quantity,unit_price,batch_lot,expiry_date,sumber_dana_code,provenance_note
+```
+
+One file belongs to the selected facility and January 1 year in the form. It
+represents all stock held across warehouse, rooms and Pustu before that day's
+movements. Do not include receipts dated on/after January 1 again. Item/funding
+codes resolve existing active master data; this import does not create master rows.
+
+Select facility/year in the download form. Prefilled rows are candidate acquisition
+layers from that facility's completed distributions before January 1, excluding
+receipts known to arrive on/after cutover. Item name/unit are reference columns;
+issued prices/batches/expiry/funding are copied; known source numbers are retained internally,
+never current warehouse prices or quantities for distribution rows. Quantity is always blank. Every
+DIST-<id> key stays separate and must not be changed; selecting a row validates
+its source, scope, cutoff and snapshot again before posting. Known metadata must
+match the source. Unknown snapshot prices remain blank and hold posting.
+
+Fill positive whole quantities only for verified remaining stock. Rows with blank
+quantity are skipped; header-only/all-blank-quantity files cannot be submitted.
+Keep all ten headers in order. Legacy eleven-column worksheets with
+source_document_number and the original nine-column format without item_name/unit
+remain accepted; supplied source numbers must still match linked sources.
+Add verified stock missing from history with line_key blank. Import generates a
+unique MANUAL- reference for each selected manual row. Existing manually supplied
+keys outside DIST- and STOCK- are accepted if unique; unknown provenance must be explicit.
+Additional STOCK-<id> rows offer recorded Instalasi Farmasi Stock identities for
+active items/funding, including zero-quantity warehouse rows. Item code/name/unit,
+recorded layer price, batch, expiry and funding are prefilled; source document
+numbers are recovered internally through line_key, not included in the download.
+Quantity and provenance_note are blank. These references do not prove delivery, facility ownership or
+historical opening-date price. Operators select only matching verified stock, and
+independent review remains mandatory. Metadata must remain unchanged; source changes
+before posting require a fresh worksheet. Posted facility prices stay frozen, and
+warehouse quantities/transactions are never changed by this import. Identical
+warehouse candidates across locations or already present in distribution candidates
+are offered once; distinct distribution acquisitions remain separate.
+With neither matching history nor warehouse candidates, the downloaded worksheet
+contains headers only, ready for manual rows. Formula-leading source text is escaped safely in the download
+and restored only against a validated linked source snapshot on import.
+
+Numeric-looking item codes, batches, funding codes and known unit prices are prefixed
+with an apostrophe on download to preserve leading zeros, punctuation and exact
+decimal prices. Keep identifier and price columns as Text when opening CSV in
+Excel/LibreOffice, including manually added batches. Source-linked imports accept the protected text and restore the exact
+recorded identifier. A spreadsheet-converted batch such as `60125,01` cannot match
+the recorded `060125.01`. Validation identifies the field and both values so the
+operator can restore the source text. Prices accept decimal commas and an optional
+leading apostrophe. Finite value, precision and original source-price checks apply
+after removing the price text prefix.
+
+UTF-8 (optional BOM), comma/semicolon delimiter, maximum 5 MiB and 10,000 data rows.
+Use positive whole base-unit quantities and nonnegative original prices (up to
+10 decimals). Decimal comma is accepted with correct CSV quoting; omit thousands
+separators. Expiry uses ISO YYYY-MM-DD, years 1000..9999. Keep the line_key header.
+Leave its value blank for new manual rows to generate a reference at import.
+Preserve prefilled references; supplied references must be unique within the file.
+Keep distinct original-price/acquisition rows separate, even for the same batch.
+
+All headers are required. Blank price or required expiry may be staged but blocks
+posting. Blank batch/funding/source means unknown and requires provenance_note;
+for linked rows with no operator note, the importer records factual missing-source
+information and the warehouse-candidate caution internally. Operators may leave
+their note blank on linked rows. New manual rows have no source-document link:
+provide their provenance_note, mentioning the actual source document if known.
+To record a manual source number in its dedicated field, the legacy CSV formats
+with source_document_number remain supported. Never infer a source link for a
+manually entered row.
+Do not create fake codes, source numbers, expiry dates or zero prices. A genuine
+zero price is explicit `0`. Empty/zero-stock submissions are not supported.
+Whole-facility and January 1 cutoff instructions appear as guidance on the upload
+form. The form has no coverage or zero-stock checkbox.
+
+Upload validates and stores an actor-bound preview; it changes no inventory.
+Submit within 24 hours, then an independent superuser or GUDANG with LPLPO module
+scope OPERATE or higher verifies/posts. Submitted rows are frozen. Fix rejected
+or held records with a new upload. Posting revalidates live data and is atomic:
+an unsupported confirmed receipt since cutover also blocks the whole opening.
+Repeated confirmation never duplicates layers/movements.
+
+One initial opening per facility; no cumulative reimport or annual-reset import.
+Annual reconciliation posting and correction UI are deferred. Posted records are
+immutable. The projected balance omits consumption and is not reliable current
+stock; existing LPLPO and reports keep their calculations.

@@ -1,0 +1,38 @@
+{% extends "base_tailwind.html" %}
+{% load number_format l10n %}
+{% block title %}{{ opening.reference }} — Saldo Awal{% endblock %}
+{% block page_title %}Tinjauan Saldo Awal Puskesmas{% endblock %}
+{% block content %}
+<div class="min-w-0 space-y-4">
+<div class="ims-alert ims-alert--warning" role="status">Rincian ini digunakan untuk memeriksa saldo awal per 1 Januari. Pengurangan stok karena pemakaian belum dihitung pada inventaris ini. Untuk memantau persediaan, gunakan LPLPO dan laporan persediaan.</div>
+<div class="ims-panel"><div class="ims-panel-body">
+<p id="opening-context"><strong>{{ opening.facility.name }}</strong> — sebelum mutasi 1 Januari {{ opening.year|unlocalize }} — {{ opening.reference }}</p>
+<p>Status: {{ opening.get_status_display }}. Penyiap: {{ opening.created_by }}. {% if opening.reviewed_by %}Pemeriksa: {{ opening.reviewed_by }} — {{ opening.reviewed_at }}.{% endif %}</p>
+<p>{{ opening.notes }}</p>
+{% if opening.status == 'DRAFT' %}<p>Pengajuan dari pratinjau ini dapat dikirim hingga {{ opening.expires_at }}. Jika data perlu diperbaiki, unggah ulang CSV melalui formulir saldo awal.</p>{% endif %}
+{% if opening.rejection_reason %}<div class="ims-alert ims-alert--danger">{{ opening.rejection_reason }}</div>{% endif %}
+{% if opening.status == 'CANCELLED' %}<p>Pratinjau dibatalkan oleh {{ opening.cancelled_by }} pada {{ opening.cancelled_at }}. Untuk menyiapkan saldo awal baru, unggah CSV melalui formulir saldo awal.</p>{% endif %}
+{% if opening.zero_stock %}<p>Pernyataan: seluruh stok fasilitas nihil.</p>{% endif %}
+{% if has_holds %}<div class="ims-alert ims-alert--danger">Posting ditahan: lengkapi bukti harga/kedaluwarsa atau data aktif pada baris di bawah. Pengajuan dapat ditolak dan diunggah ulang setelah bukti lengkap.</div>{% endif %}
+</div></div>
+<div class="ims-table-scroll" tabindex="0" aria-label="Rincian barang saldo awal"><table class="ims-table min-w-[960px]"><thead><tr><th>Baris / Barang</th><th>Jumlah</th><th>Harga asli</th><th>Nilai (Rp)</th><th>Batch / Kedaluwarsa</th><th>Dana / Dokumen sumber</th><th>Bukti / Validasi</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.line.line_key }} / {{ row.line.item }}</td><td>{{ row.line.quantity|id_decimal:0 }}</td><td>{% if row.line.unit_price is not None %}{{ row.line.unit_price|id_price_exact }}{% else %}Belum diketahui{% endif %}</td><td>{% if row.value is not None %}{{ row.value|id_decimal:2 }}{% else %}Belum dapat dihitung{% endif %}</td><td>{{ row.line.batch_lot|default:'Batch tidak diketahui' }} / {% if row.line.expiry_date %}{{ row.line.expiry_date|date:'d/m/Y' }}{% elif row.line.item.requires_expiry_date %}Kedaluwarsa belum diketahui{% else %}Tanpa kedaluwarsa{% endif %}</td><td>{{ row.line.sumber_dana|default:'Dana tidak diketahui' }} / {{ row.line.source_document_number|default:'Dokumen tidak diketahui' }}</td><td>{{ row.line.provenance_note }}{% for error in row.errors %}<p class="ims-error">{{ error }}</p>{% endfor %}</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="ims-panel" id="opening-valuation"><div class="ims-panel-body space-y-2">
+<p><strong>{% if unpriced_count %}Subtotal saldo awal yang dapat dihitung{% else %}Total nilai saldo awal{% endif %}: Rp {{ total|id_decimal:2 }}</strong></p>
+<p>Nilai setiap baris dihitung dari jumlah stok × harga satuan.</p>
+{% if unpriced_count %}<p>{{ unpriced_count }} baris belum memiliki harga dan belum masuk subtotal. Lengkapi bukti harganya sebelum pengajuan dapat diposting.</p>{% endif %}
+</div></div>
+{% if can_review %}<form method="post" class="ims-form-stack">{% csrf_token %}<input type="hidden" name="digest" value="{{ opening.digest }}">
+<label class="ims-label"><input type="checkbox" name="verified" value="yes"> Saya telah memeriksa bukti, harga asli, cakupan seluruh fasilitas dan tidak ada penerimaan sejak 1 Januari yang dihitung dua kali.</label>
+<button class="ims-btn ims-btn--primary" name="action" value="post"{% if has_holds %} disabled{% endif %}>Verifikasi dan Posting</button>
+<label class="ims-label" for="reason">Alasan penolakan</label><textarea class="ims-control" id="reason" name="reason" maxlength="1000"></textarea><button class="ims-btn ims-btn--neutral" name="action" value="reject">Tolak Pengajuan</button>
+</form>{% endif %}
+{% if receipt_postings %}<div class="ims-panel"><div class="ims-panel-body"><h2>Penerimaan yang diposting sejak saldo awal</h2>{% for posting in receipt_postings %}<p>{{ posting.receipt.document_number }} — {{ posting.effective_date }} — diposting {{ posting.recorded_at }}</p>{% endfor %}</div></div>{% endif %}
+<div class="ims-form-actions">
+{% if can_submit %}<form method="post">{% csrf_token %}<input type="hidden" name="digest" value="{{ opening.digest }}"><button class="ims-btn ims-btn--primary" name="action" value="submit">Ajukan untuk Verifikasi</button></form>{% endif %}
+{% if can_submit %}<form method="post" data-confirm-submit="Batalkan pratinjau saldo awal ini? Anda dapat mengunggah CSV kembali untuk membuat pratinjau baru.">{% csrf_token %}<input type="hidden" name="digest" value="{{ opening.digest }}"><button class="ims-btn ims-btn--danger" name="action" value="cancel">Batalkan Pratinjau</button></form>{% endif %}
+<a class="ims-btn ims-btn--neutral" href="{% url 'puskesmas:opening_list' %}">Kembali ke Daftar</a>
+</div>
+</div>
+{% endblock %}

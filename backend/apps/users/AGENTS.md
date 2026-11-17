@@ -4,6 +4,9 @@ App-specific guidance for accounts, roles, module scopes, Acting Kepala authorit
 
 ## Permissions And Roles
 
+- Puskesmas initial-opening review/posting allows superusers or role `GUDANG` with LPLPO module scope `OPERATE` or higher, across active facilities and with a different preparer/verifier. This explicit checkpoint exception grants no other Puskesmas mutations. Other roles cannot gain it from scope, report permissions or delegation alone.
+- Active `KEPALA` users with LPLPO scope `VIEW` or higher may inspect SUBMITTED/REJECTED/POSTED opening documents across active Puskesmas through can_inspect_openings. This is read-only oversight, with no draft/cancelled access, mutation authority or general report/facility bypass. The bell includes informational submitted-opening notices without granting review actions. Existing scope values/defaults are unchanged.
+
 - `apps.users.User` is the configured auth model.
 - `ModuleAccess` supplements Django permissions. Scopes are `NONE`, `VIEW`, `OPERATE`, `APPROVE`, and `MANAGE`; default role scopes live in `apps.users.access`.
 - Elevated module scope alone does not turn a user into an approver where the owning workflow also requires role `ADMIN` / `KEPALA`.

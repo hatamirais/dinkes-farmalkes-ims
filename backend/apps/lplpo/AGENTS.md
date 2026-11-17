@@ -42,6 +42,9 @@ The create, edit, PIC review, and existing-document XLSX import screens use the 
 
 ## Receiving And Price Autofill
 
+- Create/edit/XLSX-import/submit serialize on the facility mutex shared with Puskesmas receipt checkpoints. This closes the receipt-versus-submission race; monthly quantities, weighted prices and January opening rules remain unchanged.
+- LPLPO module scope `OPERATE` or higher plus role `GUDANG` authorizes only the new Puskesmas initial-opening verification checkpoint across active facilities. It does not widen ordinary Puskesmas draft access. See `puskesmas/AGENTS.md`.
+
 - January `stock_awal` stays manual.
 - January `penerimaan` may be auto-suggested from same-facility/month confirmed `PuskesmasReceiptConfirmationItem` totals and remains editable by the operator.
 - February onward, `penerimaan` autofill is sourced from same-facility/month confirmed receipt-confirmation rows.

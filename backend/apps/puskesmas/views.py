@@ -75,6 +75,8 @@ from .services import (
     sync_consumption_month,
     sync_receiving_month,
 )
+from .inventory import post_receipt
+from .inventory_locking import serialize_facility_document
 
 
 logger = logging.getLogger(__name__)
@@ -1208,6 +1210,7 @@ def receiving_list(request):
     "puskesmas.add_puskesmassbbk",
 )
 @puskesmas_receipt_confirmation_mutation_ratelimit
+@serialize_facility_document("puskesmas.PuskesmasReceiptConfirmation")
 def receiving_create(request):
     _check_puskesmas_receiving_creator_access(request)
     selected_distribution = _get_selected_distribution(request)
@@ -1247,6 +1250,7 @@ def receiving_create(request):
                         receipt_confirmation,
                         checklist_formset,
                     )
+                    post_receipt(receipt=receipt_confirmation, user=request.user)
                     sync_receiving_month(
                         facility=receipt_confirmation.facility,
                         received_date=receipt_confirmation.received_date,
@@ -1327,7 +1331,7 @@ def receiving_detail(request, pk):
         "item__program",
         "distribution_item",
     )
-    can_manage = is_super_admin(request.user) or request.user.role == User.Role.PUSKESMAS
+    can_manage = (is_super_admin(request.user) or request.user.role == User.Role.PUSKESMAS) and not receipt_confirmation.inventory_posting_exists()
 
     locked_lplpo = LPLPO.objects.filter(
         facility=receipt_confirmation.facility,
@@ -1353,6 +1357,7 @@ def receiving_detail(request, pk):
     "puskesmas.change_puskesmassbbk",
 )
 @puskesmas_receipt_confirmation_mutation_ratelimit
+@serialize_facility_document("puskesmas.PuskesmasReceiptConfirmation")
 def receiving_edit(request, pk):
     _check_puskesmas_receiving_creator_access(request)
 
@@ -1411,6 +1416,7 @@ def receiving_edit(request, pk):
                             updated_receipt,
                             checklist_formset,
                         )
+                        post_receipt(receipt=updated_receipt, user=request.user)
                         sync_receiving_month(
                             facility=original_facility,
                             received_date=original_date,
@@ -1471,6 +1477,7 @@ def receiving_edit(request, pk):
                         )
                         updated_receipt.save()
                         formset.save()
+                        post_receipt(receipt=updated_receipt, user=request.user)
                         sync_receiving_month(
                             facility=original_facility,
                             received_date=original_date,
@@ -1563,6 +1570,7 @@ def receiving_edit(request, pk):
     "puskesmas.delete_puskesmassbbk",
 )
 @puskesmas_receipt_confirmation_mutation_ratelimit
+@serialize_facility_document("puskesmas.PuskesmasReceiptConfirmation")
 def receiving_delete(request, pk):
     _check_puskesmas_receiving_creator_access(request)
 

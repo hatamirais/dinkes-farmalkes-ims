@@ -1,5 +1,6 @@
 /* Wave 6 Puskesmas receiving, detailed consumption, and request screens. */
 @layer components {
+  .ims-opening-upload::file-selector-button { margin-right: 12px; padding: 6px 12px; border: 1px solid var(--color-ims-border); border-radius: 6px; background: var(--color-ims-surface-muted); color: var(--color-ims-ink); cursor: pointer; }
   .ims-puskesmas { min-width: 0; padding: 16px 0 32px; }
   .ims-puskesmas .ims-panel { min-width: 0; border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-surface); background: #fff; box-shadow: var(--shadow-ims-surface); }
   .ims-puskesmas .ims-panel-header { background: var(--color-ims-surface-muted); }

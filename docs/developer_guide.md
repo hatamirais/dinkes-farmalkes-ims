@@ -413,3 +413,56 @@ Validate with `./scripts/run-django-test.ps1 -Target apps.users.tests -KeepDb`
 and `./scripts/run-django-test.ps1 -Target apps.puskesmas.tests.PuskesmasReportViewTests -KeepDb`.
 The report tests exercise all four routes, HTML/Excel isolation, explicit denials,
 staff capabilities, inactive links, superusers, and sidebar expansion/highlighting.
+## Puskesmas inventory foundation verification
+
+Apply `python backend/manage.py migrate` before serving `/puskesmas/saldo-awal/`.
+This includes `0013_opening_source_distribution` and `0014_opening_warehouse_candidate`
+for protected worksheet source links.
+Apply `0015_opening_cancellation` as well for the CANCELLED choice and cancellation
+actor/time. The detail route accepts CSRF POST action=cancel from the active draft
+creator, with the existing digest. Cancellation retains preview history, serializes
+against submission and returns to the list. It also accepts expired drafts.
+Downloads use selected facility/year, original distribution snapshots, additional warehouse identity candidates and
+blank quantities. Warehouse candidates include zero-quantity rows and are
+deduplicated by item/price/batch/expiry/funding/source document, independent of
+location. STOCK- references do not prove facility ownership or historical price;
+independent review must verify both. The ten-column worksheet accepts reference names/units and
+skips unused blank-quantity rows; at least one positive row is required. New empty
+or zero-stock submissions are disabled; legacy flags/digests remain historical.
+source_document_number is not downloaded; linked rows recover it from their source
+reference at import. provenance_note starts blank; factual unknown-source/candidate
+notes are generated internally when needed for linked rows. Manual unknown provenance
+still requires an operator note. Legacy nine/eleven-column formats remain supported.
+No historical layers are automatically fabricated by the schema migration. The
+first approved opening posts existing confirmed, fully linked receipts since
+January 1 in the same transaction; unresolved source snapshots block that posting.
+There is no standalone catch-up command or annual reconciliation command in this
+increment. No preview cleanup scheduler is required: 24-hour expiry prevents draft
+submission, while documents are retained. Corrections remain disabled; complete
+their reviewed workflow before real operational rollout.
+
+Focused PostgreSQL checks:
+
+Opening-import performance baselines, parser query-count checks and measured
+phase timings are recorded in [the performance notes](puskesmas-opening-import-performance.md).
+Parsing batches selected source/catalog references per request. Use the inventory
+tests below to check bounded query counts alongside input validation and the live
+locked preparation/posting checks. Benchmark staging/demo after deploying changes
+before reporting environment-specific speed improvements.
+
+```powershell
+.\scripts\run-django-test.ps1 -Target apps.puskesmas.test_inventory -KeepDb
+.\scripts\run-django-test.ps1 -Target apps.puskesmas.tests.PuskesmasSBBKViewTests -KeepDb
+.\scripts\run-django-test.ps1 -Target apps.lplpo.tests.LPLPOWorkflowTests -KeepDb
+.\scripts\run-django-test.ps1 -Target apps.puskesmas.tests.PuskesmasReportViewTests -KeepDb
+.\scripts\run-django-test.ps1 -Target apps.core.tests.test_url_consistency
+```
+
+Manual checks with the existing local Playwright role profiles: operator previews
+valid/invalid input, submits without changing inventory, verifier (GUDANG OPERATE
+or superuser) independently posts/rejects, repeats posting in a stale tab, verifies
+held price/expiry prevents all posting, and confirms receipts post once with exact
+issued prices. Confirm posted edit/delete is unavailable, another facility's
+operator is denied, and January LPLPO/rincian/rekap retain existing values. Never
+use the new incomplete projection for availability/shortage decisions. No direct
+database reset or manual stock/ledger writes are part of this workflow.

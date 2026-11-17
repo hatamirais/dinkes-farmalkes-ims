@@ -238,6 +238,14 @@ def nav_notifications(request):
         )
 
     from apps.lplpo.access import pending_lplpo_queryset
+    from apps.puskesmas.inventory import can_inspect_openings, can_verify, opening_notification_queryset
+
+    add_notification_item(
+        "Saldo Awal Menunggu Verifikasi" if can_inspect_openings(user) and not can_verify(user) else "Saldo Awal Puskesmas",
+        safe_count(lambda: opening_notification_queryset(user)),
+        f"{reverse('puskesmas:opening_list')}?status=SUBMITTED",
+        "bi-journal-check",
+    )
 
     add_notification_item(
         "LPLPO",

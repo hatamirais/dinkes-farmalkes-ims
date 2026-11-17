@@ -2,12 +2,135 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
+## Puskesmas inventory foundation (2026-11-11)
+
+The first-opening foundation is separate from warehouse Stock/Transaction and from
+the existing LPLPO-derived reports. New model definitions live in
+`backend/apps/puskesmas/inventory_models.py`, re-exported from `models.py`:
+
+- `PuskesmasOpeningVerification`: facility/year/reference, retained legacy zero-stock flag,
+  digest, preparer, 24-hour preview submission expiry, status
+  DRAFT/SUBMITTED/REJECTED/POSTED/CANCELLED, submission and reviewer timestamps/reason,
+  nullable protected cancelled_by and cancelled_at (migration 0015).
+  Only one POSTED initial opening per facility. Submitted versions are frozen.
+- `PuskesmasOpeningVerificationLine`: protected opening/item/funding links and
+  nullable protected `source_distribution_item` (migration 0013) or `source_stock`
+  (migration 0014; warehouse identity reference, never evidence of delivery),
+  unique opening/line_key, positive whole-unit quantity, nullable original price,
+  batch, expiry, source-document number and provenance note. Missing price or
+  catalog-required expiry remains unposted; unknown optional provenance is explicit.
+- `PuskesmasInventoryAccount`: unique protected facility, January 1 coverage date,
+  recorded creation time; readiness is always FOUNDATION_INCOMPLETE in feature 1.
+- `PuskesmasInventoryPosting`: protected facility/actor and exactly one protected
+  unique opening or receipt source; effective date, recorded timestamp and digest.
+- `PuskesmasInventoryLayer`: protected posting/item/funding and exactly one unique
+  opening-line or receipt-line origin, original price/batch/expiry/source snapshots.
+- `PuskesmasInventoryBalance`: one protected layer projection and nonnegative
+  quantity. `PuskesmasInventoryMovement`: protected posting/layer, nonzero signed
+  delta and price snapshot; unique posting/layer. Feature 1 emits initial positive
+  opening and receipt movements only. No consumption/reversal/annual posting UI.
+
+Routes (all in the Puskesmas namespace): `/puskesmas/saldo-awal/` list,
+`template/` facility/year-specific CSV download, `buat/` preparation/preview, `<pk>/` detail and POST-only
+submit/cancel-preview/reject/verify-and-post actions. Sidebar visibility follows preparation,
+verification, Kepala opening oversight or dedicated Puskesmas report access. Staff report readers retain
+their explicit facility-selection/aggregation boundaries.
+
+Preparation requires superuser or role PUSKESMAS with add-opening Django permission
+or PUSKESMAS OPERATE module scope, bounded to own active facility. Verification
+requires superuser or GUDANG with LPLPO OPERATE or higher, and a different actor
+from the preparer. The GUDANG cross-facility permission is specific to this
+checkpoint. Mutations use CSRF POST and a shared 10/minute opening rate bucket.
+Navbar opening-stock notifications use inventory.opening_notification_queryset
+and link to `/puskesmas/saldo-awal/?status=SUBMITTED`. Reviewers receive only
+independently reviewable SUBMITTED documents for active Puskesmas through
+pending_openings, including the different-preparer rule. Kepala has no opening review authority from role or elevated scope alone.
+Active KEPALA with LPLPO VIEW or higher may inspect SUBMITTED/REJECTED/POSTED
+openings across active Puskesmas without a facility link or separate report grant.
+This read-only oversight excludes DRAFT/CANCELLED and grants no other facility or
+report access. It exposes no preparation/review controls; detail POSTs are denied
+server-side, including with MANAGE scope. No new module scope or approval stage is
+introduced. The bell includes informational Saldo Awal Menunggu Verifikasi
+notices for eligible Kepala covering SUBMITTED openings across active Puskesmas.
+The submitted filter opens that read-only inspection scope. Counts clear when
+documents leave SUBMITTED; no acknowledgement/read-tracking state is stored.
+
+The active preparer may cancel their own DRAFT preview, including after preview
+expiry, through action=cancel on the existing detail route. The atomic service
+locks actor/module, facility and opening, checks live authority/status and digest,
+then retains the document/rows with cancellation actor/time and status CANCELLED.
+Repeat cancellation is idempotent. Submitted/rejected/posted documents cannot
+be cancelled through this action. The browser asks for confirmation and success
+redirects to the list. Cancelled previews emit no inventory posting or movement.
+
+Posting takes actor/module then facility/source locks, revalidates source digest,
+catalog policy and independent authority, and creates account, layers, projections
+and journal atomically. Every confirmed linked receipt dated on/after January 1
+is posted once (including existing source rows during opening); earlier receipts
+are not additional stock. Receipt confirmation uses issued distribution price,
+batch, expiry and funding, plus source number from its protected warehouse stock
+link when present. Missing issued price is rejected, never substituted with zero.
+Drafts/uninitialized receipts retain their existing workflow. Once posted, receipt
+headers/rows cannot be edited, deleted or recreated. Facility/date changes cannot
+move existing receipts across the opening boundary after initialization.
+
+Receipt mutations and LPLPO create/edit/import/submit share the facility mutex
+before form binding/status checks. Initial/receipt event uniqueness provides
+idempotency. New records are read-only in Admin and application mutation guards
+protect journal history; direct database SQL is not covered by those guards.
+Receipt administration also retains the pre-existing active legacy ADMIN role
+authorization without requiring is_superuser. These accounts use the selected
+facility mutex and may post confirmed receipts through the receipt checkpoint;
+this grants no initial-opening preparation/verification authority. Existing view
+permissions and posted-receipt immutability still apply.
+
+All-facility stock (warehouse, rooms and Pustu) is included in verified opening.
+The new projections exclude consumption and must not be presented as reliable
+current stock. Existing January LPLPO behavior, weighted receipt prices and
+rincian/rekap calculations are unchanged. Annual differences require complete
+prior-year coverage and are deferred with correction UI/FEFO consumption.
+See `docs/puskesmas-opening-inventory-design.md` and `backend/seed/README.md`.
+
+The template first prefills each historical DISTRIBUTED row for the selected facility
+strictly before January 1, excluding receipts confirmed on/after cutover. It uses
+issued prices/batches/expiry/funding, master item code/name/unit, and known source
+numbers; quantity stays blank. `DIST-<id>` keys resolve protected source rows and
+are validated against scope/date/snapshot at import and posting. It then adds active
+item/funding warehouse Stock identities, including zero-quantity rows, with STOCK-<id>
+keys and their recorded price/batch/expiry/funding/source number. These are candidates
+for independent ownership, historical price and cutoff verification, not deliveries.
+Warehouse candidates with the same economic identity already offered are omitted
+(including copies across locations); historical distribution rows remain distinct.
+Selected warehouse metadata is rechecked under a Stock row lock during preparation
+and posting. Posting copies its snapshot without mutating warehouse quantities or
+transactions; later warehouse price changes cannot reprice posted facility layers.
+Manual rows with blank line_key receive unique MANUAL- references (UUID4) at import,
+stored in the preview and used through posting. Explicit manual keys outside both
+reserved prefixes remain supported and must be unique. Ten worksheet columns include item_name/unit as informational fields;
+source_document_number is omitted from downloads and resolved internally from the
+linked source at import. provenance_note is blank in downloads; when the operator
+leaves it blank, factual missing-source/candidate information is recorded internally
+for linked rows. Manual rows still require a note for incomplete provenance.
+Legacy nine/eleven-column formats with the source document column remain accepted
+and validate the supplied number against linked sources. Blank-quantity rows are
+skipped, but at least one positive quantity is required. Zero-stock checkbox/new
+zero-stock posting is removed; historical flags/digests are preserved.
+The upload form shows whole-facility/cutoff instructions as plain text and accepts
+valid CSVs without the former boundary_attested checkbox. Independent review and
+its posting confirmation remain part of the posting checkpoint.
+
+Numeric-looking worksheet item/batch/funding codes and known prices are apostrophe-prefixed for
+spreadsheet text preservation. Import restores code prefixes against linked source
+values. Source identity mismatch errors include the differing field and both
+submitted/source values. Prices accept an optional leading apostrophe and decimal
+commas, followed by existing finite-value, precision and source-price validation.
+
 Last verified: 2026-09-15
 Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `backend/apps/*/urls.py`, `backend/apps/core/decorators.py`, `backend/apps/users/access.py`, `backend/apps/users/context_processors.py`, `backend/apps/mobile/views.py`, `backend/config/settings.py`, `backend/apps/receiving/admin.py`, `backend/apps/distribution/services.py`, `backend/apps/allocation/services.py`, `backend/apps/stock/views.py`, `backend/apps/lplpo/models.py`, `backend/apps/core/rate_limits.py`, `backend/apps/users/views.py`, `backend/apps/core/tests/test_auditlog_integration.py`
 
 ## 1) Domain Overview
 
-Healthcare IMS is a Django monolith with server-rendered templates. Inventory is tracked at batch/location granularity and all movement is recorded in immutable `Transaction` rows.
+Healthcare IMS is a Django monolith with server-rendered templates. Warehouse inventory is tracked at batch/location granularity with append-only `stock.Transaction` movements. The separate Puskesmas foundation tracks facility-owned opening/receipt layers and movements; it does not yet post consumption or replace LPLPO-derived reports.
 
 Core domains:
 

@@ -24,6 +24,7 @@ from apps.core.rate_limits import lplpo_import_ratelimit
 from apps.distribution.models import Distribution, DistributionItem
 from apps.distribution.services import assign_default_distribution_staff
 from apps.items.models import Facility, Item
+from apps.puskesmas.inventory_locking import serialize_facility_document
 from apps.stock.models import Stock
 from apps.users.access import (
     get_active_authority_delegation,
@@ -499,6 +500,7 @@ def lplpo_my_list(request):
 
 @login_required
 @perm_required("lplpo.add_lplpo")
+@serialize_facility_document("lplpo.LPLPO")
 def lplpo_create(request):
     """Create a new LPLPO for a given period. Auto-generates all item lines."""
     _check_puskesmas_creator_access(request)
@@ -771,6 +773,7 @@ def lplpo_detail(request, pk):
 @login_required
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
+@serialize_facility_document("lplpo.LPLPO")
 def lplpo_edit(request, pk):
     """Puskesmas fills their columns — only DRAFT or PIC-rejected status."""
     _check_puskesmas_draft_action_access(request)
@@ -979,6 +982,7 @@ def lplpo_export_xlsx(request, pk):
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
 @lplpo_import_ratelimit
+@serialize_facility_document("lplpo.LPLPO")
 def lplpo_import_xlsx(request, pk):
     _check_puskesmas_draft_action_access(request)
 
@@ -1105,6 +1109,7 @@ def lplpo_import_xlsx(request, pk):
 @login_required
 @perm_required("lplpo.change_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
+@serialize_facility_document("lplpo.LPLPO")
 def lplpo_submit(request, pk):
     """Transition DRAFT/PIC rejection → SUBMITTED."""
     _check_puskesmas_draft_action_access(request)

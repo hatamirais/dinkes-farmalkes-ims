@@ -1,9 +1,14 @@
 from django.urls import path
 from . import views
+from . import inventory_views
 
 app_name = "puskesmas"
 
 urlpatterns = [
+    path("saldo-awal/", inventory_views.opening_list, name="opening_list"),
+    path("saldo-awal/template/", inventory_views.opening_template, name="opening_template"),
+    path("saldo-awal/buat/", inventory_views.opening_create, name="opening_create"),
+    path("saldo-awal/<int:pk>/", inventory_views.opening_detail, name="opening_detail"),
     # Stok Puskesmas
     path("stok/", views.stock_current, name="stock_current"),
     # Subunit Puskesmas

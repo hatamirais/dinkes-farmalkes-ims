@@ -73,6 +73,12 @@ Solusi ini membantu proses inventaris berjalan lebih konsisten melalui alur doku
 
 Notifikasi aktivitas LPLPO hanya menghitung dokumen yang dapat dibuka melalui antrean dan detail serta dapat diproses sesuai wewenang pengguna. Kepala menerima notifikasi tahap legacy `REVIEWED`, bukan pengajuan baru yang diproses PIC. Notifikasi legacy untuk delegat mengikuti fasilitas sendiri dan delegasi yang masih aktif; dokumen historis `APPROVED` / `CLOSED` tidak dihitung sebagai aktivitas tertunda.
 
+Notifikasi `Saldo Awal Puskesmas` menghitung pengajuan menunggu verifikasi dari Puskesmas aktif untuk superuser atau petugas GUDANG dengan akses modul LPLPO OPERATE atau lebih tinggi. Pengajuan yang disiapkan sendiri tidak dihitung. Tautan membuka antrean pengajuan yang dapat diperiksa; Kepala tidak mendapat kewenangan pemeriksaan saldo awal hanya dari jabatannya.
+
+Menu Saldo Awal Puskesmas berada di kelompok Administrasi pada sidebar desktop, termasuk untuk operator Puskesmas. Kelompok ini juga ditampilkan bila saldo awal merupakan satu-satunya menu administrasi yang diizinkan.
+
+Kepala dengan akses modul LPLPO VIEW atau lebih tinggi dapat membuka menu Saldo Awal Puskesmas untuk membaca pengajuan berstatus Menunggu verifikasi, Ditolak, dan Diposting di seluruh Puskesmas aktif. Pratinjau pribadi dan pengajuan Dibatalkan tidak ditampilkan. Akses pengawasan ini tidak mengizinkan unggah, unduh template, pengajuan, pembatalan, penolakan, atau posting, dan tetap bersifat baca saja. Lonceng Kepala menampilkan informasi Saldo Awal Menunggu Verifikasi untuk pengajuan SUBMITTED dari Puskesmas aktif; tautannya membuka daftar baca saja dan hilang dari hitungan setelah pengajuan ditolak atau diposting.
+
 Setelah penolakan LPLPO berhasil, pengguna kembali ke detail bila masih berhak membacanya pada status baru; jika tidak, pengguna kembali ke daftar LPLPO dengan pesan berhasil. Penolakan tidak membuka akses lintas fasilitas pada tahap perbaikan Puskesmas.
 
 - Receiving terencana manual legacy: `DRAFT -> SUBMITTED -> APPROVED -> PARTIAL/RECEIVED -> CLOSED`; receiving plan procurement baru mengikuti approval kontrak/amandemen SPJ lalu dieksekusi pada status `APPROVED -> PARTIAL/RECEIVED -> CLOSED` tanpa approval receiving terpisah, dan penutupan sisa untuk dokumen SPJ dilakukan melalui amandemen pengadaan.
@@ -141,3 +147,44 @@ Rincian skema kanonis tersedia di `SYSTEM_MODEL.md`.
 Allocation drafts persist the facility matrix on the first save. Invalid quantities or facility selections return form errors without saving partial changes.
 
 Allocation approval copies all assigned Petugas to every generated distribution. Detail and SBBK display every assigned name, including all names under Yang Menyerahkan. Historical children without assignments display the current parent staff; new children retain the approval-time staff selection. Step-back and re-approval regenerate that selection.
+## Puskesmas opening inventory foundation
+
+`/puskesmas/saldo-awal/` provides a separate first-January opening workflow:
+facility operator uploads and previews original-price stock layers, submits, and
+an independent superuser or GUDANG with LPLPO module scope OPERATE or higher
+verifies/posts. Scope includes warehouse, treatment rooms and Pustu. Unknown
+optional provenance is explicit; missing original cost or required expiry blocks
+posting. Only verified data becomes inventory.
+
+Initialized facilities post confirmed linked receipts exactly once using issued
+distribution snapshots. Posted receipts cannot be directly changed/deleted.
+The new journal/projection does not yet include consumption: it is not current
+available stock, and January LPLPO/rincian/rekap calculations are unchanged.
+Annual reconciliation posting and correction screens remain deferred.
+The creator may use `Batalkan Pratinjau` on a draft, including an expired preview.
+After confirmation the application retains the rows with status `Dibatalkan` and
+records the cancellation actor/time. The operator can upload a fresh CSV. This
+action is available only while the document remains a draft.
+The opening detail explains its total as quantity multiplied by unit price and
+shows Rupiah values with two decimal display places. Where prices are missing,
+the value is labelled as a subtotal and identifies the excluded row count.
+Opening years display as calendar years without thousands grouping. The warning
+explains that consumption recording is incomplete and directs operators to the
+existing LPLPO and inventory reports.
+The template download uses the selected facility/year for historical issued
+item/batch/expiry/price metadata, then adds warehouse identities not already
+offered (including warehouse rows with zero quantity). All quantities stay blank.
+Warehouse references are candidates, not evidence of delivery or facility ownership.
+Operators fill verified
+remaining quantities; unused blank-quantity rows are skipped and empty submissions
+are rejected. Names/units are reference columns. The zero-stock checkbox has been
+removed; source-linked rows are checked against their protected distribution or
+warehouse identity reference before posting. Manual additions remain supported.
+Whole-facility and January 1 cutoff guidance appears as plain text on the upload
+form, with no additional operator confirmation checkbox.
+Opening posting never deducts warehouse stock. The downloaded CSV omits source
+document numbers, which are resolved internally for linked rows. Operator notes
+start blank; factual missing-source/candidate notes are added internally at import
+when no operator note is supplied. Manual rows require a note for unknown provenance.
+See the [decision record](puskesmas-opening-inventory-design.md) and
+[CSV contract](../backend/seed/README.md#puskesmas-initial-opening-csv-feature-1).
