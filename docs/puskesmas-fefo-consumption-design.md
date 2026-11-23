@@ -1,7 +1,7 @@
 # Feature 2: Puskesmas FEFO consumption and inventory reporting
 
 Status: staged implementation completed locally; operational activation awaits verified expiry integration.
-Updated: 2026-11-18. Branch: `design/puskesmas-fefo-consumption`.
+Updated: 2026-11-23. Branch: `design/puskesmas-fefo-consumption`.
 Code baseline: `03df29523686d1b55128cdce475cd1103011414c`.
 
 ## Scope at a glance
@@ -1135,8 +1135,8 @@ quantities, unrelated operator inputs survive, and the single price column is
 hidden while historical fields/schema remain compatible. Legacy documents retain
 their original behavior. The inventory report provides item summaries, expandable
 layers, interval/coverage warnings, category totals, pagination, full print and
-exact-value XLSX. Scoped legacy rincian/rekap redirect when adoption would otherwise
-mix valuation bases.
+exact-value XLSX. The initial conditional redirects were replaced by the shared
+reporting rework in section 19.
 
 **Operational gate remains closed.** Public finalization and bound LPLPO submission
 call the hard-closed expiry readiness service. There is no deployment setting to
@@ -1164,3 +1164,33 @@ layer expansion, pagination, XLSX download and full print output, without consol
 errors or document overflow. Browser UI did not mutate real adoption/stock data;
 those mutations were exercised in the isolated ORM tests. Expiry activation,
 production data completeness and other browser engines were not validated.
+
+## 19. Shared inventory/reporting rework (approved 2026-11-23)
+
+The user approved one accounting source with distinct page purposes: Persediaan
+explores stock/layers, Rincian is the formal item-quantity report and Rekap is the
+category/value report. Each URL retains its layout; adoption-based redirects are
+removed. `stock_reports.stock_report_snapshot` selects one source per facility/
+interval: verified opening journal when coverage reaches the interval start,
+otherwise labelled historical LPLPO quantity and per-document price semantics.
+No LPLPO or adoption is required for journal reports. Mixed scopes label sources,
+never double-count a facility and exclude facilities missing both sources.
+Historical values retain their reconciliation limitations; no original-price
+layers are invented. Reports never adopt or mutate documents.
+
+Preset/custom month filters share links preserving facility and interval. Opening
+reference, source, cutoff and missing finalizations appear in HTML/print/Excel.
+Zero posted consumption differs explicitly from finalized zero use. The mandatory
+expiry activation gate, Feature 3 scope and historical LPLPO records are unchanged.
+
+Rework validation passed locally: 52 existing report tests and 32 focused
+consumption/inventory tests (including 10 reporting rework cases). Four affected
+legacy quantity/valuation/export cases were repeated after final refinements.
+Django system/migration-drift checks, CSS build/check and diff whitespace checks
+passed. Playwright on 127.0.0.1:8001 verified PUSKESMAS and ADMIN across all three
+routes at 1440×960 and 390×844: source/opening/coverage display, distinct page
+identity, interval-preserving links/filter changes, Excel downloads and source
+visibility under print media. No console errors or document overflow were seen;
+mobile initial-load screenshots were also checked. No real stock/adoption writes
+were performed. Browser plugin was unavailable; regular Playwright was used.
+Other browser engines and physical-printer output remain unverified.

@@ -13,10 +13,11 @@ from apps.core.decorators import perm_required, module_scope_required
 from apps.core.rate_limits import puskesmas_consumption_mutation_ratelimit
 from apps.lplpo.models import LPLPO
 from apps.users.models import ModuleAccess
-from .consumption_inventory import finalize_consumption, month_end, snapshot, snapshot_digest
+from .consumption_inventory import finalize_consumption, month_end
 from .inventory_locking import serialize_facility_document
-from .inventory_reporting import adoption_digest, adopt_opening, period_rows, category_totals
+from .inventory_reporting import adoption_digest, adopt_opening, period_rows
 from .models import PuskesmasConsumption
+from .stock_reports import stock_report_snapshot, report_links, report_category_totals
 
 
 @login_required
@@ -101,20 +102,21 @@ def inventory_report(request):
         if facility:
             form.initial["facility"] = facility.pk
     rows, accounts, end = [], [], None
+    metadata, links = None, {}
     facilities = Facility.objects.filter(facility_type="PUSKESMAS", is_active=True)
     if facility:
         facilities = facilities.filter(pk=facility.pk)
     if form.is_valid():
         year, month = form.cleaned_data["year"], form.cleaned_data["month"]
         end = month_end(year, month)
-        rows, accounts = period_rows(list(facilities.values_list("pk", flat=True)), year, month,
-                                    form.cleaned_data.get("start_month"))
-        names = {account.facility_id: account.facility.name for account in accounts}
-        for row in rows:
-            row["facility_name"] = names[row["facility_id"]]
+        start_month = form.cleaned_data.get("start_month") or month
+        snapshot = stock_report_snapshot(facilities.order_by("name", "pk"), year, start_month, month,
+                                         is_aggregate=facility is None)
+        rows, accounts, metadata = snapshot["rows"], snapshot["accounts"], snapshot["metadata"]
+        links = report_links(year, start_month, month, facility.pk if facility else None)
         if request.GET.get("format") == "excel":
-            return inventory_workbook(rows, accounts, end, facilities.count() - len(accounts),
-                                      start=date(year, form.cleaned_data.get("start_month") or month, 1))
+            return inventory_workbook(rows, accounts, end, metadata["missing_baseline_count"],
+                                      start=date(year, start_month, 1), report_metadata=metadata)
     params = values.copy()
     params.pop("page", None)
     params.pop("format", None)
@@ -122,12 +124,14 @@ def inventory_report(request):
     print_mode = request.GET.get("format") == "print"
     return render(request, "puskesmas/inventory_report.html", {"form": form, "rows": rows if print_mode else page,
         "accounts": accounts, "cutoff": end, "facility": facility,
+        "report_metadata": metadata, "selected_facility_name": facility.name if facility else "Semua Fasilitas",
+        "period_label": "Rentang bulan", **links,
         "page_obj": page, "pagination_query": params.urlencode(), "print_mode": print_mode,
-        "category_totals": category_totals(rows), "can_select_facility": access.can_select_facility,
-        "excluded_count": facilities.count() - len(accounts)})
+        "category_totals": report_category_totals(rows), "can_select_facility": access.can_select_facility,
+        "excluded_count": metadata["missing_baseline_count"] if metadata else 0})
 
 
-def inventory_workbook(rows, accounts, end, excluded_count, *, start=None):
+def inventory_workbook(rows, accounts, end, excluded_count, *, start=None, report_metadata=None):
     from openpyxl import Workbook
     from django.http import HttpResponse
     from apps.core.xlsx_exports import escape_xlsx_formula
@@ -135,12 +139,12 @@ def inventory_workbook(rows, accounts, end, excluded_count, *, start=None):
     ws = wb.active
     ws.title = "Persediaan Puskesmas"
     ws.append(["Batas laporan", str(end), "BELUM LENGKAP — integrasi kedaluwarsa belum aktif"])
-    ws.append(["Fasilitas tanpa saldo awal", excluded_count, "Awal interval", str(start or "")])
+    ws.append(["Fasilitas tanpa sumber saldo", excluded_count, "Awal interval", str(start or "")])
     ws.append(["Fasilitas", "Kode", "Barang", "Awal qty", "Awal nilai", "Terima qty", "Terima nilai",
                "Pakai qty", "Pakai nilai", "Akhir qty", "Akhir nilai"])
     for row in rows:
         ws.append([escape_xlsx_formula(row["facility_name"]), escape_xlsx_formula(row["item"].kode_barang),
-            escape_xlsx_formula(row["item"].nama_barang)] + [format(row[f"{kind}_{unit}"], "f")
+            escape_xlsx_formula(row["item"].nama_barang)] + [format(row[f"{kind}_{unit}"], "f") if row[f"{kind}_{unit}"] is not None else "—"
             for kind in ("opening", "receipts", "consumption", "closing") for unit in ("quantity", "value")])
     detail = wb.create_sheet("Lapisan Harga Asli")
     detail.append(["Fasilitas", "Barang", "Lapisan", "Batch", "Kedaluwarsa", "Sumber", "Qty", "Harga asli", "Nilai"])
@@ -155,9 +159,12 @@ def inventory_workbook(rows, accounts, end, excluded_count, *, start=None):
     detail.freeze_panes = "D2"
     recap = wb.create_sheet("Rekap Nilai")
     recap.append(["Kategori", "Saldo awal", "Penerimaan", "Pemakaian", "Saldo akhir"])
-    for entry in category_totals(rows):
+    for entry in report_category_totals(rows):
         recap.append([escape_xlsx_formula(entry["name"])] + [format(entry[f"{kind}_value"], "f")
             for kind in ("opening", "receipts", "consumption", "closing")])
+    if report_metadata:
+        from .exports import add_persediaan_source_sheet
+        add_persediaan_source_sheet(wb, report_metadata, "Persediaan Puskesmas", end.year, "Rentang bulan")
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = 'attachment; filename="persediaan-puskesmas.xlsx"'
     wb.save(response)

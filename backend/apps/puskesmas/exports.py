@@ -274,9 +274,8 @@ def export_puskesmas_persediaan_excel(
 ):
     """Export Rincian Laporan Persediaan Puskesmas report to Excel.
 
-    Stock is the latest usable same-year LPLPO balance plus later CONFIRMED
-    receipt confirmations minus later detailed consumption, through the selected
-    end month. The source/coverage sheet uses the same metadata as HTML/print.
+    Stock uses the shared per-facility journal/historical snapshot. The
+    source/coverage sheet uses the same metadata as HTML/print.
     Batch/lot, expiry, funding source, and unit price are excluded from this report.
 
     Args:
@@ -348,69 +347,16 @@ def export_puskesmas_persediaan_excel(
         ws.cell(row=5, column=1).alignment = Alignment(wrap_text=True, vertical="top")
         ws.row_dimensions[5].height = 65
 
-    source_sheet = wb.create_sheet("Sumber dan Cakupan")
-    metadata_rows = [
-        ("Fasilitas", facility_name),
-        ("Periode", f"{period_label} {year}"),
-        ("Posisi stok sampai akhir", report_metadata["period_end_label"]),
-        ("Sumber perhitungan", report_metadata["source_description"]),
-        ("Pemilihan baseline", report_metadata["baseline_note"]),
-        ("Jumlah baris barang", report_metadata["item_count"]),
-        ("Baris stok negatif", report_metadata["negative_item_count"]),
-        ("Jumlah fasilitas aktif", report_metadata["facility_count"]),
-        ("Fasilitas dengan baseline", report_metadata["baseline_count"]),
-        ("Fasilitas dilewati tanpa baseline", report_metadata["missing_baseline_count"]),
-        (
-            "Rincian sumber",
-            "Jumlah baris menunjukkan rincian sumber yang disertakan setelah baseline, bukan "
-            "jumlah dokumen. Nilai 0 berarti tidak ada baris sumber dalam rentang penyesuaian; "
-            "— berarti tidak dihitung tanpa baseline.",
-        ),
-    ]
-    if report_metadata["is_aggregate"]:
-        metadata_rows.append((
-            "Agregasi",
-            "Saldo barang dijumlahkan lintas fasilitas yang memiliki baseline; "
-            "saldo positif dan negatif antar fasilitas dapat saling menutup.",
-        ))
-    if report_metadata.get("empty_message"):
-        metadata_rows.append(("Hasil kosong", report_metadata["empty_message"]))
-    for row_index, (label, value) in enumerate(metadata_rows, 1):
-        source_sheet.cell(row=row_index, column=1, value=_cell_value(label)).font = HEADER_FONT
-        source_sheet.merge_cells(start_row=row_index, start_column=2, end_row=row_index, end_column=6)
-        source_sheet.cell(row=row_index, column=2, value=_cell_value(value)).alignment = Alignment(
-            wrap_text=True, vertical="top",
-        )
-        source_sheet.row_dimensions[row_index].height = 60 if isinstance(value, str) else 20
-    coverage_header_row = len(metadata_rows) + 2
-    _apply_header_row(source_sheet, coverage_header_row, [
-        "Fasilitas", "Baseline LPLPO", "Status baseline", "Rentang penyesuaian",
-        "Baris penerimaan CONFIRMED", "Baris pemakaian rinci",
-    ], [40, 28, 24, 55, 28, 28])
-    for row_index, coverage in enumerate(report_metadata["coverage"], coverage_header_row + 1):
-        has_baseline = bool(coverage["baseline_period"])
-        values = [
-            coverage["facility_name"], coverage["baseline_period"] or "Dilewati: tanpa baseline",
-            coverage["baseline_status"] or "—", coverage["adjustment_period"] or "—",
-            coverage["receipt_row_count"] if has_baseline else "—",
-            coverage["consumption_row_count"] if has_baseline else "—",
-        ]
-        for column, value in enumerate(values, 1):
-            source_sheet.cell(row=row_index, column=column, value=_cell_value(value)).alignment = Alignment(
-                wrap_text=True, vertical="top",
-            )
-        _apply_border(source_sheet, row_index, 6)
-        source_sheet.row_dimensions[row_index].height = 40
-    source_sheet.freeze_panes = f"A{coverage_header_row + 1}"
+    add_persediaan_source_sheet(wb, report_metadata, facility_name, year, period_label)
 
     filename = f"Rincian_Laporan_Persediaan_{facility_name}_{year}_{period_label}.xlsx"
     return _make_response(wb, filename)
 
 
-def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_label, facility_name):
+def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_label, facility_name, *, report_metadata=None):
     """Export Rekap Laporan Persediaan Puskesmas to Excel.
 
-    Year-to-date summary per category using LPLPO-derived valuation data.
+    Interval category summary using shared journal/historical valuation data.
 
     Args:
         rekap_data: list of dicts with keys:
@@ -492,6 +438,70 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
         _set_decimal_text(c, totals.get(key, 0), decimal_places=12)
         c.font = Font(bold=True)
 
+    if report_metadata:
+        add_persediaan_source_sheet(wb, report_metadata, facility_name, year, period_label)
+
     filename = f"Rekap_Persediaan_{facility_name}_{year}_{period_label}.xlsx"
     return _make_response(wb, filename)
+
+
+
+def add_persediaan_source_sheet(wb, report_metadata, facility_name, year, period_label):
+    source_sheet = wb.create_sheet("Sumber dan Cakupan")
+    metadata_rows = [
+        ("Fasilitas", facility_name),
+        ("Periode", f"{period_label} {year}"),
+        ("Posisi stok sampai akhir", report_metadata["period_end_label"]),
+        ("Sumber perhitungan", report_metadata["source_description"]),
+        ("Pemilihan baseline", report_metadata["baseline_note"]),
+        ("Jumlah baris barang", report_metadata["item_count"]),
+        ("Baris stok negatif", report_metadata["negative_item_count"]),
+        ("Jumlah fasilitas aktif", report_metadata["facility_count"]),
+        ("Fasilitas dengan baseline", report_metadata["baseline_count"]),
+        ("Fasilitas dilewati tanpa baseline", report_metadata["missing_baseline_count"]),
+        (
+            "Rincian sumber",
+            "Jumlah baris menunjukkan rincian sumber yang disertakan setelah baseline, bukan "
+            "jumlah dokumen. Nilai 0 berarti tidak ada baris sumber dalam rentang penyesuaian; "
+            "— berarti tidak dihitung tanpa baseline.",
+        ),
+    ]
+    if report_metadata["is_aggregate"]:
+        metadata_rows.append((
+            "Agregasi",
+            "Saldo barang dijumlahkan lintas fasilitas yang memiliki baseline; "
+            "saldo positif dan negatif antar fasilitas dapat saling menutup.",
+        ))
+    if report_metadata.get("empty_message"):
+        metadata_rows.append(("Hasil kosong", report_metadata["empty_message"]))
+    for row_index, (label, value) in enumerate(metadata_rows, 1):
+        source_sheet.cell(row=row_index, column=1, value=_cell_value(label)).font = HEADER_FONT
+        source_sheet.merge_cells(start_row=row_index, start_column=2, end_row=row_index, end_column=6)
+        source_sheet.cell(row=row_index, column=2, value=_cell_value(value)).alignment = Alignment(
+            wrap_text=True, vertical="top",
+        )
+        source_sheet.row_dimensions[row_index].height = 60 if isinstance(value, str) else 20
+    coverage_header_row = len(metadata_rows) + 2
+    _apply_header_row(source_sheet, coverage_header_row, [
+        "Fasilitas", "Baseline saldo", "Status baseline", "Rentang penyesuaian",
+        "Baris penerimaan CONFIRMED (historis)", "Baris pemakaian rinci (historis)",
+        "Sumber saldo", "Dokumen saldo awal", "Cakupan pemakaian",
+    ], [40, 40, 24, 55, 28, 28, 40, 24, 70])
+    for row_index, coverage in enumerate(report_metadata["coverage"], coverage_header_row + 1):
+        has_baseline = bool(coverage["baseline_period"])
+        values = [
+            coverage["facility_name"], coverage["baseline_period"] or "Dilewati: tanpa baseline",
+            coverage["baseline_status"] or "—", coverage["adjustment_period"] or "—",
+            coverage["receipt_row_count"] if has_baseline else "—",
+            coverage["consumption_row_count"] if has_baseline else "—",
+            coverage.get("source_label", "LPLPO historis"), coverage.get("opening_id") or "—",
+            coverage.get("consumption_coverage", ""),
+        ]
+        for column, value in enumerate(values, 1):
+            source_sheet.cell(row=row_index, column=column, value=_cell_value(value if value is not None else "—")).alignment = Alignment(
+                wrap_text=True, vertical="top",
+            )
+        _apply_border(source_sheet, row_index, 9)
+        source_sheet.row_dimensions[row_index].height = 40
+    source_sheet.freeze_panes = f"A{coverage_header_row + 1}"
 

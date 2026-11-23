@@ -1017,7 +1017,7 @@ class PuskesmasPemakaianFilterForm(forms.Form):
 
 
 class PuskesmasPersediaanFilterForm(forms.Form):
-    """Filter form for persediaan reports using yearly/quarterly/semester periods."""
+    """Inventory reports: preset periods or a validated custom month interval."""
 
     PERIOD_YEARLY = "yearly"
     PERIOD_Q1 = "q1"
@@ -1026,6 +1026,7 @@ class PuskesmasPersediaanFilterForm(forms.Form):
     PERIOD_Q4 = "q4"
     PERIOD_S1 = "s1"
     PERIOD_S2 = "s2"
+    PERIOD_CUSTOM = "custom"
 
     PERIOD_CHOICES = [
         (PERIOD_YEARLY, "Tahunan"),
@@ -1035,6 +1036,7 @@ class PuskesmasPersediaanFilterForm(forms.Form):
         (PERIOD_Q4, "Triwulan IV (Oktober - Desember)"),
         (PERIOD_S1, "Semester I (Januari - Juni)"),
         (PERIOD_S2, "Semester II (Juli - Desember)"),
+        (PERIOD_CUSTOM, "Rentang bulan"),
     ]
 
     PERIOD_BOUNDS = {
@@ -1049,8 +1051,8 @@ class PuskesmasPersediaanFilterForm(forms.Form):
 
     year = forms.IntegerField(
         label="Tahun",
-        min_value=2000,
-        max_value=2099,
+        min_value=1000,
+        max_value=9999,
         widget=forms.NumberInput(
             attrs={"class": "ims-control", "placeholder": "Contoh: 2026"}
         ),
@@ -1065,6 +1067,27 @@ class PuskesmasPersediaanFilterForm(forms.Form):
     @classmethod
     def get_period_bounds(cls, period_code):
         return cls.PERIOD_BOUNDS[period_code]
+
+    start_month = forms.IntegerField(label="Bulan awal (rentang bulan)", min_value=1, max_value=12,
+        required=False, widget=forms.NumberInput(attrs={"class": "ims-control"}))
+    end_month = forms.IntegerField(label="Bulan akhir (rentang bulan)", min_value=1, max_value=12,
+        required=False, widget=forms.NumberInput(attrs={"class": "ims-control"}))
+
+    def clean(self):
+        data = super().clean()
+        if data.get("period") == self.PERIOD_CUSTOM:
+            for name in ("start_month", "end_month"):
+                if not data.get(name):
+                    self.add_error(name, "Wajib diisi untuk rentang bulan.")
+            if data.get("start_month") and data.get("end_month") and data["start_month"] > data["end_month"]:
+                self.add_error("end_month", "Bulan akhir harus setelah atau sama dengan bulan awal.")
+        return data
+
+    def selected_bounds(self):
+        if self.cleaned_data["period"] == self.PERIOD_CUSTOM:
+            start, end = self.cleaned_data["start_month"], self.cleaned_data["end_month"]
+            return start, end, f"Bulan {start}–{end}"
+        return self.get_period_bounds(self.cleaned_data["period"])
 
     @classmethod
     def get_default_initial(cls):

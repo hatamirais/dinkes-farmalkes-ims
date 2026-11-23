@@ -440,6 +440,15 @@ Playwright role profiles; do not post real adoption or stock movements just to
 exercise a UI. New report totals remain labelled incomplete until dependent
 movement coverage is evidenced. See the Feature 2 design's implementation record.
 
+The 2026-11-23 reporting rework shares `stock_reports.stock_report_snapshot` across
+Persediaan/Rincian/Rekap and removes adoption-dependent redirects. Verify an
+opening-only facility with no LPLPO, conflicting unadopted LPLPO, pre-coverage
+historical periods and mixed aggregate sources. Preset/custom interval links,
+missing versus finalized-zero use and source-sheet exports must agree. The
+`InventoryReportReworkTests` class in the focused target above exercises these
+cases; rerun `apps.puskesmas.tests.PuskesmasReportViewTests` for legacy/access
+regressions. The rework adds no schema or operational activation switch.
+
 Apply `python backend/manage.py migrate` before serving `/puskesmas/saldo-awal/`.
 This includes `0013_opening_source_distribution` and `0014_opening_warehouse_candidate`
 for protected worksheet source links.
@@ -488,6 +497,8 @@ valid/invalid input, submits without changing inventory, verifier (GUDANG OPERAT
 or superuser) independently posts/rejects, repeats posting in a stale tab, verifies
 held price/expiry prevents all posting, and confirms receipts post once with exact
 issued prices. Confirm posted edit/delete is unavailable, another facility's
-operator is denied, and January LPLPO/rincian/rekap retain existing values. Never
+operator is denied, and existing LPLPO is not silently adopted. Rincian/Rekap
+must use posted opening journal coverage even without LPLPO; outside coverage,
+historical calculations remain available and labelled. Never
 use the new incomplete projection for availability/shortage decisions. No direct
 database reset or manual stock/ledger writes are part of this workflow.

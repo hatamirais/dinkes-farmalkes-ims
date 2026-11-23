@@ -43,7 +43,9 @@ App-specific guidance for Puskesmas facility workflows.
 
 ## Rincian Persediaan Report
 
-- The baseline rules below apply to legacy cohorts. If the scoped facilities include an inventory-bound LPLPO through the cutoff, rincian/rekap redirect to `/puskesmas/persediaan/` with the selected interval/export, rather than blend legacy single-price valuation with original layers.
+- Persediaan, Rincian and Rekap share `stock_reports.stock_report_snapshot`. Source selection is per facility/interval: journal when verified opening covers the interval start, otherwise labelled historical LPLPO fallback. It does not require LPLPO adoption. Each route retains its own exploration/item-report/category-report format; no conditional redirects. Historical rules below apply only outside journal coverage.
+- Preset and validated custom-month filters share links preserving facility and interval. Mixed scopes label each facility's basis, exclude missing baselines, and never count both sources for a facility. Historical values retain per-document LPLPO prices and their reconciliation limitations; they do not represent original-price layer accounting.
+- HTML/print/XLSX show opening reference, source, cutoff and missing monthly finalizations (including prior months required for closing). Explicit finalized zero use differs from missing finalization. Journal balances retain the expiry/completeness warning. Report GET never adopts or rewrites LPLPO history.
 
 - `/puskesmas/laporan/persediaan/` labels its calculated balance `Stok Akhir Digital`, distinct from warehouse availability.
 - The latest usable same-year LPLPO up to the selected end month is the baseline; Draft is usable and rejected statuses are excluded. Add only later same-year `CONFIRMED` receipt rows and subtract later detailed consumption through that end month. Quarter/semester selection describes an ending-stock cutoff, not only movements within the quarter/semester.
@@ -107,7 +109,7 @@ App-specific guidance for Puskesmas facility workflows.
 
 ## Inventory reporting and LPLPO adoption
 
-- `inventory_reporting.py` shares exact journal quantities/values across bound LPLPO, `/puskesmas/persediaan/`, print and XLSX. January opening at the boundary counts as opening, not receipts. Missing accounts are excluded, never zero-filled. Completeness remains explicitly incomplete.
+- `inventory_reporting.py` shares exact journal quantities/values across bound LPLPO and the shared report snapshot. January boundary opening counts as opening, not receipts. Reports use labelled historical fallback outside account coverage; facilities missing both sources are excluded, never zero-filled. Completeness remains explicitly incomplete.
 - Persediaan Puskesmas uses existing dedicated report scope and selection/aggregation policy. HTML paginates 25 item/facility summaries with expandable source layers; print includes all rows and layers. XLSX includes item, layer and category sheets; exact Decimal amounts are text to preserve precision. The interval is year/start_month/month.
 - `/puskesmas/lplpo/<pk>/adopsi/` previews an existing editable January LPLPO against its posted opening and requires digest-bound confirmation. The immutable binding retains previous values and actor/time. New January documents with a posted opening bind automatically; later months inherit the binding. Submitted history is never adopted silently.
 - Bound LPLPO locks opening/receipts/use to journal quantities, preserves requests and historical price data, hides the single-price column, and rejects offline overrides of locked source fields. Bound documents cannot be deleted. Legacy documents retain their compatibility paths. Physical opname/loss adjustments, expiry, returns/transfers and annual reconciliation remain separate work.

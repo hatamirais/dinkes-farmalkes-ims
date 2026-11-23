@@ -208,8 +208,14 @@ Persediaan Puskesmas (`/puskesmas/persediaan/`) shows interval item quantities a
 values, expandable original-price layers and category totals under the existing
 dedicated report/facility policy. Print and Excel use the same journal accounting;
 Excel exact amounts are text to preserve precision. Facilities without a verified
-opening are excluded with an explanation. Rincian/rekap redirect to this report
-when the scoped cohort contains adopted inventory, avoiding mixed valuation bases.
+opening use labelled historical LPLPO fallback where available; facilities without
+either source are excluded with an explanation. Persediaan explores item/layer
+details, Rincian is the formal quantity report and Rekap is the category/value
+report. All share per-facility source selection and retain their own URLs. Journal
+coverage takes precedence without requiring LPLPO or adoption. Shared links
+preserve year/month interval/facility. Source/opening reference, cutoff and missing
+finalizations appear in HTML/print/Excel; finalized zero use differs from missing
+finalization. Historical values retain per-document LPLPO price semantics.
 
 Operational finalization and submission of inventory-bound LPLPO are intentionally
 closed until the separate Puskesmas expiry module is integrated and verified.

@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load number_format l10n %}
+{% load number_format l10n tailwind_forms %}
 
 {% block title %}Rincian Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
 {% block page_title %}Rincian Laporan Persediaan Puskesmas{% endblock %}
@@ -60,6 +60,8 @@
                         {{ form.period.label_tag }}
                         {{ form.period }}
                     </div>
+                    <div class="ims-layout-col-md-auto">{% tailwind_field form.start_month %}</div>
+                    <div class="ims-layout-col-md-auto">{% tailwind_field form.end_month %}</div>
                     {% if all_facilities %}
                     <div class="ims-layout-col-md-auto">
                         <label for="id_facility" class="ims-label">Fasilitas</label>
@@ -97,6 +99,11 @@
     </div>
 </div>
 
+{% if inventory_url %}<div class="flex flex-wrap gap-2 mb-4 d-print-none">
+    <a class="ims-btn ims-btn--neutral" href="{{ inventory_url }}">Lihat persediaan dan lapisan</a>
+    <a class="ims-btn ims-btn--neutral" href="{{ rincian_url }}">Rincian</a>
+    <a class="ims-btn ims-btn--neutral" href="{{ rekap_url }}">Rekap</a>
+</div>{% endif %}
 <!-- Print Header -->
 <div class="d-none d-print-block report-print-sheet">
     <div class="report-print-header">

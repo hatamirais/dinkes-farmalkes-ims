@@ -52,9 +52,15 @@ binding. Existing January drafts require adoption; submitted history is retained
 Bound quantities and values use the shared journal report service, preserve
 unrelated inputs, hide the single unit-price column and reject locked source
 overrides through forms/XLSX. Historical price data and unbound legacy behavior
-remain. Bound documents cannot be deleted. Rincian/rekap scoped cohorts with a
-bound document through cutoff redirect to the layered interval report, avoiding
-mixed valuation bases. The separate IF-facing stock snapshot remains a legacy
+remain. Bound documents cannot be deleted. Persediaan/Rincian/Rekap share
+`stock_reports.stock_report_snapshot`, selecting journal per facility when verified
+opening covers the interval start, otherwise labelled historical LPLPO fallback.
+Selection does not require adoption; each URL retains its format without redirects.
+Custom-month filters and cross-links preserve intervals. HTML/print/XLSX share
+source/opening reference/cutoff and missing-finalization coverage; zero posted
+outflow is not proof of zero use. Mixed scopes never double-count sources.
+Historical values retain per-document LPLPO prices and their disclosed
+reconciliation limitations. The separate IF-facing stock snapshot remains a legacy
 LPLPO-based planning view, not complete journal availability.
 
 Physical opname/reconciliation (Feature 3), expiry (#325), returns/transfers
@@ -633,10 +639,10 @@ The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id
 
 - `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. Report HTML displays monetary amounts to two Indonesian decimal digits while Decimal calculations and Excel exports retain their existing precision. Numbering history reads the immutable `DocumentNumberIssue` ledger, including complete VOID reason/actor/time metadata with explicit unknown fallbacks, rather than inferring issuance from current workflow tables. The procurement receiving report includes `Receiving.contract.document_number` so realized receipts can be traced back to SPJ contracts. The combined outbound recap remains available on `/reports/pengeluaran/`; the distribution module exposes route-based variants for all distributions, `SPECIAL_REQUEST`, allocation origin (`allocation_id IS NOT NULL`), and `LPLPO` under `/distribution/report/*`. Reporting aggregates data from other apps. `reports.ReportPermission` is an unmanaged permission marker used to provision the `reports.view_reports` Django permission.
 - `stock` also exposes an Instalasi Farmasi-facing read-only `/stock/puskesmas-stock/` page that computes current Puskesmas stock from the latest usable yearly LPLPO baseline plus later same-year `CONFIRMED` receipt confirmations minus later same-year detailed consumption. The page is intentionally non-CRUD and hidden from `PUSKESMAS` role users.
-  The Puskesmas-side `Rincian Persediaan` report uses the same source model within the selected period: latest usable LPLPO up to the period end month, plus later same-year `CONFIRMED` receipt confirmations up to the period end month, minus later same-year detailed consumption up to the period end month. Facilities without a usable LPLPO baseline are skipped rather than using distribution-only fallback stock.
+  Outside verified inventory coverage, Puskesmas-side `Rincian Persediaan` retains this historical source model. Within coverage, Persediaan/Rincian/Rekap share original-layer journal accounting as described in the Feature 2 section; an LPLPO is not required.
   `Rincian Persediaan` labels the calculated balance `Stok Akhir Digital`. HTML/print and the Excel `Sumber dan Cakupan` sheet expose the selected facility, period-end month, each active scoped facility's baseline month/status and adjustment window, included receipt/consumption detail-row counts, and skipped-baseline coverage. Draft LPLPO is usable; rejected statuses are excluded. Quarter/semester filters select the ending-stock cutoff, not a movement-only start/end range. All-facility item balances are summed, so negative-row counts describe aggregated balances and can mask individual facility shortages. Numbering is continuous across categories. Valid empty Excel exports retain an explanation distinguishing missing baselines, no active facilities, or no resulting item rows; invalid filters remain HTML errors. Authorization, stock calculations, routes, and import formats are unchanged.
-  The Puskesmas-side rekap persediaan view now also aggregates valuation data from `lplpo.LPLPOItem.harga_satuan` into category-level summary rows.
-  The Puskesmas-side rincian/rekap persediaan filters use yearly, quarterly (`Triwulan I-IV`), and semester (`Semester I-II`) period selectors.
+  Historical Rekap fallback retains per-document `lplpo.LPLPOItem.harga_satuan` valuation; journal coverage uses original prices. Both aggregate categories through the shared snapshot.
+  Puskesmas-side Rincian/Rekap filters offer yearly, quarterly (`Triwulan I-IV`), semester (`Semester I-II`) and validated custom-month intervals with matching links to Persediaan.
 
 ### 4.12 Puskesmas
 

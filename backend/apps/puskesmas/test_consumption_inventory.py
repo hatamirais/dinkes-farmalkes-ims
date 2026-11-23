@@ -272,8 +272,9 @@ class ConsumptionInventoryTests(ConsumptionFixture, SecureClientDefaultsMixin, T
         params = PuskesmasPersediaanFilterForm.get_default_initial()
         params["year"] = 2026
         response = self.client.get(reverse("puskesmas:report_rekap_persediaan"), params)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("puskesmas:inventory_report"), response.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "puskesmas/report_rekap_persediaan.html")
+        self.assertEqual(response.context["totals"]["saldo_akhir"], Decimal("1600"))
         rows, _ = period_rows([self.facility.pk], 2026, 2, start_month=1)
         self.assertEqual(rows[0]["closing_value"], Decimal("1600"))
 
@@ -285,6 +286,136 @@ class ConsumptionInventoryTests(ConsumptionFixture, SecureClientDefaultsMixin, T
         lplpo = LPLPO.objects.get(facility=self.facility, tahun=2026, bulan=1)
         self.assertTrue(lplpo.inventory_backed)
         self.assertEqual(lplpo.items.get(item=self.item).stock_awal, 20)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class InventoryReportReworkTests(ConsumptionFixture, SecureClientDefaultsMixin, TestCase):
+    params = {"year": 2026, "period": "custom", "start_month": 1, "end_month": 1}
+
+    def report(self, name, **extra):
+        return self.client.get(reverse(f"puskesmas:{name}"), {**self.params, **extra})
+
+    def test_posted_opening_without_lplpo_populates_all_three_views_without_redirect(self):
+        self.client.force_login(self.operator)
+        self.assertFalse(LPLPO.objects.filter(facility=self.facility).exists())
+        rincian = self.report("report_persediaan")
+        recap = self.report("report_rekap_persediaan")
+        inventory = self.report("inventory_report", month=1)
+        for response in (rincian, recap, inventory):
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Jurnal saldo awal terverifikasi")
+            self.assertContains(response, "Belum difinalisasi: 1 bulan")
+            self.assertContains(response, "bukan bukti pemakaian nihil")
+        self.assertEqual(rincian.context["report_data"][0]["stock_keseluruhan"], 20)
+        self.assertEqual(recap.context["totals"]["saldo_akhir"], Decimal("3001.2345678900"))
+        self.assertEqual(inventory.context["category_totals"][0]["closing_value"], recap.context["totals"]["saldo_akhir"])
+
+    def test_inventory_coverage_wins_over_conflicting_unadopted_lplpo(self):
+        lplpo = LPLPO.objects.create(facility=self.facility, tahun=2026, bulan=1, created_by=self.operator)
+        LPLPOItem.objects.create(lplpo=lplpo, item=self.item, stock_awal=999, harga_satuan=999)
+        self.client.force_login(self.operator)
+        self.assertFalse(lplpo.inventory_backed)
+        self.assertEqual(self.report("report_persediaan").context["report_data"][0]["stock_keseluruhan"], 20)
+        self.assertEqual(self.report("report_rekap_persediaan").context["totals"]["saldo_akhir"], Decimal("3001.2345678900"))
+        lplpo.items.get().refresh_from_db()
+        self.assertEqual(lplpo.items.get().stock_awal, 999)  # Report GET never adopts/rewrites history.
+
+    def test_mixed_facilities_use_each_source_once_and_disclose_missing(self):
+        from apps.items.models import Facility
+        missing = Facility.objects.create(code="NO-SOURCE", name="No source", facility_type="PUSKESMAS")
+        legacy = LPLPO.objects.create(facility=self.other, tahun=2026, bulan=1, created_by=self.admin)
+        LPLPOItem.objects.create(lplpo=legacy, item=self.item, stock_awal=50, pemakaian=2, harga_satuan=7)
+        self.client.force_login(self.admin)
+        response = self.report("report_persediaan")
+        metadata = response.context["report_metadata"]
+        self.assertEqual((metadata["inventory_count"], metadata["legacy_count"], metadata["missing_baseline_count"]), (1, 1, 1))
+        self.assertEqual(response.context["report_data"][0]["stock_keseluruhan"], 68)
+        expected = Decimal("3001.2345678900") + Decimal(336)
+        self.assertEqual(self.report("report_rekap_persediaan").context["totals"]["saldo_akhir"], expected)
+        inventory = self.report("inventory_report", month=1)
+        self.assertEqual(inventory.context["category_totals"][0]["closing_value"], expected)
+        self.assertEqual({row["facility_id"] for row in inventory.context["rows"]}, {self.facility.pk, self.other.pk})
+        self.assertContains(inventory, "LPLPO historis")
+        self.assertContains(inventory, missing.name)
+
+    def test_period_before_inventory_coverage_preserves_legacy(self):
+        lplpo = LPLPO.objects.create(facility=self.facility, tahun=2025, bulan=1, created_by=self.operator)
+        LPLPOItem.objects.create(lplpo=lplpo, item=self.item, stock_awal=9, harga_satuan=3)
+        self.client.force_login(self.operator)
+        response = self.report("report_persediaan", year=2025)
+        self.assertEqual(response.context["report_data"][0]["stock_keseluruhan"], 9)
+        self.assertEqual(response.context["report_metadata"]["inventory_count"], 0)
+        self.assertEqual(self.report("report_rekap_persediaan", year=2025).context["totals"]["saldo_akhir"], 27)
+
+    def test_legacy_quantity_outside_valuation_interval_is_not_zero_cost(self):
+        legacy = LPLPO.objects.create(facility=self.other, tahun=2026, bulan=1, created_by=self.admin)
+        LPLPOItem.objects.create(lplpo=legacy, item=self.item, stock_awal=9, harga_satuan=7)
+        from .stock_reports import stock_report_snapshot
+        snapshot = stock_report_snapshot([self.other], 2026, 4, 6)
+        self.assertEqual(snapshot["report_data"][0]["stock_keseluruhan"], 9)
+        self.assertFalse(snapshot["rows"][0]["has_valuation"])
+        self.assertIsNone(snapshot["rows"][0]["closing_value"])
+        self.assertEqual(snapshot["categories"], [])
+
+    def test_explicit_finalized_zero_differs_from_missing_month(self):
+        self.consumption.entries.all().delete()
+        self.engine()
+        self.client.force_login(self.operator)
+        response = self.report("report_persediaan")
+        self.assertEqual(response.context["report_metadata"]["missing_finalization_count"], 0)
+        self.assertContains(response, "Semua bulan tercakup telah difinalisasi")
+        feb = self.report("report_persediaan", end_month=2)
+        self.assertEqual(feb.context["report_metadata"]["missing_finalization_count"], 1)
+        self.assertContains(feb, "Februari 2026")
+
+    def test_posted_consumption_print_excel_and_reports_reconcile_exactly(self):
+        import io
+        from openpyxl import load_workbook
+        self.engine()
+        self.client.force_login(self.operator)
+        for name in ("report_persediaan", "report_rekap_persediaan", "inventory_report"):
+            extra = {"month": 1} if name == "inventory_report" else {}
+            printed = self.report(name, format="print", **extra)
+            self.assertEqual(printed.status_code, 200)
+            self.assertContains(printed, "Semua bulan tercakup telah difinalisasi")
+            exported = self.report(name, format="excel", **extra)
+            workbook = load_workbook(io.BytesIO(exported.content))
+            self.assertIn("Sumber dan Cakupan", workbook.sheetnames)
+            self.assertIn("Jurnal saldo awal terverifikasi", str(list(workbook["Sumber dan Cakupan"].values)))
+            if name == "report_persediaan":
+                self.assertEqual(workbook.active["E5"].value, 8)
+            elif name == "report_rekap_persediaan":
+                self.assertEqual(Decimal(workbook.active["F5"].value), Decimal("1600"))
+            else:
+                self.assertEqual(Decimal(workbook.active["K4"].value), Decimal("1600"))
+
+    def test_links_preserve_custom_interval_and_facility_scope(self):
+        from urllib.parse import urlsplit, parse_qs
+        self.client.force_login(self.operator)
+        response = self.report("inventory_report", month=2)
+        query = parse_qs(urlsplit(response.context["rincian_url"]).query)
+        self.assertEqual(query["start_month"], ["1"])
+        self.assertEqual(query["end_month"], ["2"])
+        self.assertEqual(query["facility"], [str(self.facility.pk)])
+        self.assertEqual(self.client.get(response.context["rincian_url"]).status_code, 200)
+        for name in ("report_persediaan", "report_rekap_persediaan", "inventory_report"):
+            response = self.report(name, facility=self.other.pk, month=1)
+            self.assertEqual({row["facility_id"] for row in response.context["report_metadata"]["coverage"]}, {self.facility.pk})
+
+    def test_invalid_custom_range_stays_html_without_export(self):
+        self.client.force_login(self.operator)
+        for name in ("report_persediaan", "report_rekap_persediaan"):
+            response = self.report(name, start_month=3, end_month=1, format="excel")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("text/html", response["Content-Type"])
+            self.assertTrue(response.context["form"].errors)
+            self.assertIsNone(response.context["report_metadata"])
+
+    def test_maximum_year_cutoff_does_not_overflow_coverage_calendar(self):
+        from .stock_reports import stock_report_snapshot
+        snapshot = stock_report_snapshot([self.facility], 9999, 12, 12)
+        self.assertEqual(snapshot["report_data"][0]["stock_keseluruhan"], 20)
+        self.assertGreater(snapshot["metadata"]["missing_finalization_count"], 12)
 
 
 class ConsumptionConcurrencyTests(ConsumptionFixture, TransactionTestCase):
