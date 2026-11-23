@@ -226,6 +226,10 @@ def export_lplpo_workbook(lplpo_obj):
                 cell.alignment = Alignment(horizontal="right")
 
     column_widths = [18, 34, 10, 20, 12, 12, 14, 12, 12, 16, 14, 16, 14, 12, 16, 36]
+    if lplpo_obj.inventory_backed:
+        # Preserve the versioned round-trip schema, but do not display/edit prices.
+        worksheet.column_dimensions["G"].hidden = True
+        worksheet.cell(row=9, column=1, value="Saldo awal, penerimaan dan pemakaian berasal dari jurnal inventaris; jangan diubah.")
     for column_index, width in enumerate(column_widths, start=1):
         worksheet.column_dimensions[get_column_letter(column_index)].width = width
 
@@ -317,12 +321,13 @@ def apply_lplpo_workbook_import(*, uploaded_file, lplpo_obj):
             raise ValidationError(
                 f"Baris {row_num}: item_code '{item_code}' tidak cocok dengan dokumen ini."
             )
-        if not line.item.is_active:
+        if not line.item.is_active and not lplpo_obj.inventory_backed:
             workbook.close()
             raise ValidationError(
                 f"Baris {row_num}: item '{item_code}' sudah tidak aktif."
             )
 
+        inventory_original = (line.stock_awal, line.penerimaan, line.harga_satuan)
         imported_stock_awal = _parse_integer_from_cell(
             row_cells[4].value,
             field_label=f"Baris {row_num} stock_awal",
@@ -356,6 +361,10 @@ def apply_lplpo_workbook_import(*, uploaded_file, lplpo_obj):
             workbook.close()
             raise
         line.harga_satuan = harga_satuan.quantize(PRICE_QUANT)
+        if lplpo_obj.inventory_backed and inventory_original != (
+                line.stock_awal, line.penerimaan, line.harga_satuan):
+            workbook.close()
+            raise ValidationError(f"Baris {row_num}: saldo awal, penerimaan dan harga berasal dari inventaris dan terkunci.")
         line.stock_gudang_puskesmas = _parse_integer_from_cell(
             row_cells[12].value,
             field_label=f"Baris {row_num} stock_gudang_puskesmas",

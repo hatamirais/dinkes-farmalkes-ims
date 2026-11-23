@@ -136,6 +136,8 @@ class PuskesmasInventoryPosting(ImmutableRecord):
     facility = models.ForeignKey("items.Facility", on_delete=models.PROTECT)
     opening = models.OneToOneField(PuskesmasOpeningVerification, on_delete=models.PROTECT, null=True, blank=True, related_name="posting")
     receipt = models.OneToOneField("puskesmas.PuskesmasReceiptConfirmation", on_delete=models.PROTECT, null=True, blank=True, related_name="inventory_posting")
+    consumption_revision = models.OneToOneField("puskesmas.PuskesmasConsumptionRevision", on_delete=models.PROTECT, null=True, blank=True, related_name="posting")
+    reversal_of = models.OneToOneField("self", on_delete=models.PROTECT, null=True, blank=True, related_name="reversal")
     effective_date = models.DateField()
     recorded_at = models.DateTimeField(default=timezone.now, editable=False)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -143,7 +145,12 @@ class PuskesmasInventoryPosting(ImmutableRecord):
 
     class Meta:
         constraints = [models.CheckConstraint(
-            condition=(models.Q(opening__isnull=False, receipt__isnull=True) | models.Q(opening__isnull=True, receipt__isnull=False)),
+            condition=(
+                models.Q(opening__isnull=False, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=False, consumption_revision__isnull=True, reversal_of__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=False, reversal_of__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=False)
+            ),
             name="pkinvposting_one_source",
         )]
 
@@ -189,3 +196,62 @@ class PuskesmasInventoryMovement(ImmutableRecord):
             models.CheckConstraint(condition=models.Q(unit_price__gte=0), name="pkinvmovement_price"),
             models.UniqueConstraint(fields=["posting", "layer"], name="pkinvmovement_event_layer"),
         ]
+
+
+class PuskesmasConsumptionRevision(ImmutableRecord):
+    """Retained input snapshot; replacement never edits the previous revision."""
+    consumption = models.ForeignKey("puskesmas.PuskesmasConsumption", on_delete=models.PROTECT, related_name="inventory_revisions")
+    number = models.PositiveIntegerField()
+    effective_date = models.DateField()
+    digest = models.CharField(max_length=64)
+    snapshot = models.JSONField()
+    reason = models.CharField(max_length=1000, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    recorded_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["number"]
+        constraints = [
+            models.UniqueConstraint(fields=["consumption", "number"], name="pkconsrevision_number"),
+            models.CheckConstraint(condition=models.Q(number__gte=1), name="pkconsrevision_positive"),
+        ]
+
+
+class PuskesmasConsumptionAllocation(ImmutableRecord):
+    revision = models.ForeignKey(PuskesmasConsumptionRevision, on_delete=models.PROTECT, related_name="allocations")
+    layer = models.ForeignKey(PuskesmasInventoryLayer, on_delete=models.PROTECT, related_name="consumption_allocations")
+    subunit = models.ForeignKey("puskesmas.PuskesmasSubunit", on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=PRICE_MAX_DIGITS, decimal_places=PRICE_DECIMAL_PLACES)
+
+    @property
+    def cost(self):
+        from apps.core.decimal_validation import multiply_decimals
+        return multiply_decimals(self.quantity, self.unit_price)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["revision", "layer", "subunit"], name="pkconsallocation_source"),
+            models.CheckConstraint(condition=models.Q(quantity__gt=0), name="pkconsallocation_positive"),
+            models.CheckConstraint(condition=models.Q(unit_price__gte=0), name="pkconsallocation_price"),
+        ]
+
+
+class PuskesmasConsumptionAudit(ImmutableRecord):
+    """Durable before/after trail, including drafts; independent of signal logging."""
+    facility = models.ForeignKey("items.Facility", on_delete=models.PROTECT)
+    consumption_id_snapshot = models.PositiveBigIntegerField()
+    event = models.CharField(max_length=24)
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    recorded_at = models.DateTimeField(default=timezone.now, editable=False)
+
+
+class PuskesmasLPLPOInventoryBinding(ImmutableRecord):
+    """Explicit opt-in, retaining the manual document values being replaced."""
+    lplpo = models.OneToOneField("lplpo.LPLPO", on_delete=models.PROTECT, related_name="inventory_binding")
+    opening = models.ForeignKey(PuskesmasOpeningVerification, on_delete=models.PROTECT)
+    previous_values = models.JSONField()
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    recorded_at = models.DateTimeField(default=timezone.now, editable=False)

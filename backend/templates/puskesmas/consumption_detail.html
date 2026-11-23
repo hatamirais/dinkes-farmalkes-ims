@@ -12,15 +12,21 @@
         </div>
         <div class="flex gap-2">
             {% if can_manage %}
+            <form method="post" action="{% url 'puskesmas:consumption_finalize' consumption.pk %}">
+                {% csrf_token %}<input type="hidden" name="digest" value="{{ inventory_digest }}">
+                <button type="submit" class="ims-btn ims-btn--primary">Finalisasi</button>
+            </form>
             <a href="{% url 'puskesmas:consumption_edit' consumption.pk %}" class="ims-btn ims-btn--primary">Ubah</a>
-            <form method="post" action="{% url 'puskesmas:consumption_delete' consumption.pk %}">
+            {% if not inventory_revision %}<form method="post" action="{% url 'puskesmas:consumption_delete' consumption.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="ims-btn ims-btn--danger-outline">Hapus</button>
-            </form>
+            </form>{% endif %}
             {% endif %}
         </div>
     </div>
 
+    <div class="ims-alert ims-alert--warning mb-4">{{ inventory_gate_message }}</div>
+    <p>Status inventaris: {% if inventory_revision %}Diposting · revisi {{ inventory_revision.number }}{% else %}Draf / belum diposting{% endif %}</p>
     <div class="ims-panel mb-4">
         <div class="ims-panel-body">
             <div class="ims-layout-row ims-layout-g-3">
@@ -88,5 +94,11 @@
             </div>
         </div>
     </div>
+    <details class="mt-4"><summary>Riwayat pemakaian</summary>
+        {% for entry in inventory_audits %}<p>{{ entry.recorded_at }} · {{ entry.actor }} · {{ entry.event }}<br>
+            {% if entry.after.reason %}{{ entry.after.reason }}{% endif %}</p>
+            <details><summary>Nilai sebelum / sesudah</summary><pre>{{ entry.before }}</pre><pre>{{ entry.after }}</pre></details>
+        {% empty %}<p>Belum ada riwayat inventaris. Dokumen lama tidak dibuatkan riwayat fiktif.</p>{% endfor %}
+    </details>
 </div>
 {% endblock %}

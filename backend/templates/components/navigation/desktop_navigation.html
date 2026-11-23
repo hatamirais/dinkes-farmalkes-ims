@@ -198,6 +198,11 @@
                 {% endif %}
 
                 {% if can_view_puskesmas_reports %}
+                <a href="{% url 'puskesmas:inventory_report' %}"
+                    class="sidebar-link {% if request.resolver_match.url_name == 'inventory_report' and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
+                    data-label="Persediaan Puskesmas" title="Persediaan Puskesmas">
+                    <i class="bi bi-boxes"></i><span>Persediaan Puskesmas</span>
+                </a>
                 <button
                     class="sidebar-link sidebar-dropdown-toggle {% if 'report_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
                     data-label="Laporan Puskesmas" title="Laporan Puskesmas" data-bs-toggle="collapse"

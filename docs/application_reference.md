@@ -158,9 +158,9 @@ posting. Only verified data becomes inventory.
 
 Initialized facilities post confirmed linked receipts exactly once using issued
 distribution snapshots. Posted receipts cannot be directly changed/deleted.
-The new journal/projection does not yet include consumption: it is not current
-available stock, and January LPLPO/rincian/rekap calculations are unchanged.
-Annual reconciliation posting and correction screens remain deferred.
+Feature 2 adds the staged consumption/LPLPO integration described below. The
+journal is still incomplete and must not be treated as current available stock.
+Annual reconciliation posting remains deferred.
 The creator may use `Batalkan Pratinjau` on a draft, including an expired preview.
 After confirmation the application retains the rows with status `Dibatalkan` and
 records the cancellation actor/time. The operator can upload a fresh CSV. This
@@ -188,3 +188,31 @@ start blank; factual missing-source/candidate notes are added internally at impo
 when no operator note is supplied. Manual rows require a note for unknown provenance.
 See the [decision record](puskesmas-opening-inventory-design.md) and
 [CSV contract](../backend/seed/README.md#puskesmas-initial-opening-csv-feature-1).
+
+## Puskesmas monthly consumption and inventory (staged)
+
+Pemakaian Rinci retains editable monthly Poli/Pustu drafts and an audit trail.
+The new posting engine allocates actual monthly use at month end using FEFO and
+original layer costs. Corrections retain prior revisions and exact reversal/
+replacement movements. Shortage holds the whole finalization; submitted LPLPO
+and later finalized months prevent unsupported historical correction.
+
+New January LPLPO uses a posted verified opening automatically. Existing editable
+January LPLPO offers a difference preview and explicit adoption, retaining prior
+values and requests. Bound later months carry journal balances; derived quantities
+cannot be manually/offline overridden. The single harga_satuan column is hidden
+for bound documents, with historical prices retained. Legacy documents keep their
+existing behavior.
+
+Persediaan Puskesmas (`/puskesmas/persediaan/`) shows interval item quantities and
+values, expandable original-price layers and category totals under the existing
+dedicated report/facility policy. Print and Excel use the same journal accounting;
+Excel exact amounts are text to preserve precision. Facilities without a verified
+opening are excluded with an explanation. Rincian/rekap redirect to this report
+when the scoped cohort contains adopted inventory, avoiding mixed valuation bases.
+
+Operational finalization and submission of inventory-bound LPLPO are intentionally
+closed until the separate Puskesmas expiry module is integrated and verified.
+There is no configuration bypass. The report explicitly remains incomplete;
+physical stock opname, discrepancy adjustments and expiry/return movements are
+separate upcoming work. See the [Feature 2 record](puskesmas-fefo-consumption-design.md).

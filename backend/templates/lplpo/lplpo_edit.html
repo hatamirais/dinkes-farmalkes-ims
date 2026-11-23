@@ -23,7 +23,7 @@
     <form method="post" id="lplpo-edit-form" novalidate>
         {% csrf_token %}
 
-        {% if is_january_bootstrap %}
+        {% if is_january_bootstrap and not lplpo.inventory_backed %}
         <div class="ims-alert ims-alert--info" role="alert">
             <div class="fw-semibold mb-1">Dokumen Bootstrap Januari</div>
             <div class="text-ims-xs mb-1">
@@ -71,7 +71,7 @@
                                 <th rowspan="2" class="text-center" style="width:50px">Satuan</th>
                                 <th class="text-center" style="width:90px">Stock Awal</th>
                                 <th class="text-center" style="width:90px">Penerimaan</th>
-                                <th class="text-center" style="width:120px">Harga Satuan</th>
+                                {% if not lplpo.inventory_backed %}<th class="text-center" style="width:120px">Harga Satuan</th>{% endif %}
                                 <th class="text-center computed-cell" style="width:90px">Persediaan</th>
                                 <th class="text-center" style="width:90px">Pemakaian</th>
                                 <th class="text-center computed-cell" style="width:90px">Sisa Stok</th>
@@ -119,7 +119,7 @@
                                     <small class="text-warning"><i class="bi bi-lightning-fill" title="Auto-filled"></i></small>
                                     {% endif %}
                                 </td>
-                                <td>{{ f.harga_satuan }}</td>
+                                {% if not lplpo.inventory_backed %}<td>{{ f.harga_satuan }}</td>{% endif %}
                                 <td class="text-end computed-cell js-persediaan">{{ li.persediaan|floatformat:"0" }}</td>
                                 <td>
                                     {{ f.pemakaian }}

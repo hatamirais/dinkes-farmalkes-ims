@@ -6,6 +6,12 @@
 
 {% block content %}
 <div class="ims-workflow ims-lplpo ims-lplpo-detail container-fluid">
+    {% if lplpo.inventory_backed %}
+    <div class="ims-alert ims-alert--warning mb-4">LPLPO memakai jurnal inventaris. Finalisasi operasional menunggu integrasi kedaluwarsa.
+        Harga asli dan nilai lapisan tersedia di <a href="{% url 'puskesmas:inventory_report' %}?facility={{ lplpo.facility_id }}&amp;year={{ lplpo.tahun }}&amp;month={{ lplpo.bulan }}">Persediaan Puskesmas</a>.</div>
+    {% elif lplpo.bulan == 1 and can_manage_draft %}
+    <a class="ims-btn ims-btn--neutral mb-4" href="{% url 'puskesmas:opening_adoption' lplpo.pk %}">Bandingkan / Adopsi Saldo Awal Terverifikasi</a>
+    {% endif %}
 
     <!-- Status Banner -->
     <div class="ims-alert
@@ -156,7 +162,7 @@
                                 <th class="text-end">Satuan</th>
                                 <th class="text-end">Stock Awal</th>
                                 <th class="text-end">Penerimaan</th>
-                                <th class="text-end">Harga Satuan</th>
+                                {% if not lplpo.inventory_backed %}<th class="text-end">Harga Satuan</th>{% endif %}
                                 <th class="text-end">Persediaan</th>
                                 <th class="text-end">Pemakaian</th>
                                 <th class="text-end">Sisa Stok</th>
@@ -182,7 +188,7 @@
                                         <i class="bi bi-lightning-fill text-warning" title="Auto-filled"></i>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end">Rp {{ li.harga_satuan|id_price_exact }}</td>
+                                    {% if not lplpo.inventory_backed %}<td class="text-end">Rp {{ li.harga_satuan|id_price_exact }}</td>{% endif %}
                                     <td class="text-end text-info fw-semibold">{{ li.persediaan|floatformat:"0" }}</td>
                                     <td class="text-end">{{ li.pemakaian|floatformat:"0" }}</td>
                                     <td class="text-end fw-semibold">{{ li.stock_keseluruhan|floatformat:"0" }}</td>

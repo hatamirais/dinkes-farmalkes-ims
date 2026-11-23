@@ -38,8 +38,11 @@ def serialize_facility_document(model_label):
                     if model_label == "puskesmas.PuskesmasReceiptConfirmation":
                         action = "delete" if "delete" in view.__name__ else "change" if pk else "add"
                         perms = [f"puskesmas.{action}_puskesmasreceiptconfirmation", f"puskesmas.{action}_puskesmassbbk"]
+                    elif model_label == "puskesmas.PuskesmasConsumption":
+                        action = "delete" if "delete" in view.__name__ else "change" if pk else "add"
+                        perms = [f"puskesmas.{action}_puskesmasconsumption"]
                     else:
-                        action = "add" if not pk else "change"
+                        action = "delete" if "delete" in view.__name__ else "add" if not pk else "change"
                         perms = [f"lplpo.{action}_lplpo"]
                     if not any(request.user.has_perm(perm) or has_module_permission(request.user, perm) for perm in perms):
                         raise PermissionDenied

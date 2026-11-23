@@ -244,6 +244,9 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["stock_awal"].required = False
+        if self.instance.pk and self.instance.lplpo.inventory_backed:
+            for name in ("stock_awal", "penerimaan", "harga_satuan"):
+                self.fields[name].disabled = True
         self.fields["pemakaian"].disabled = True
         self.fields["pemakaian"].help_text = (
             "Pemakaian dihitung dari modul Pemakaian Rinci Puskesmas."

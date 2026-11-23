@@ -744,6 +744,8 @@ class PuskesmasSubunitForm(forms.ModelForm):
 
 class PuskesmasConsumptionMatrixForm(forms.ModelForm):
     """Monthly consumption form with dynamic per-subunit quantity cells."""
+    correction_reason = forms.CharField(label="Alasan koreksi", max_length=1000, required=False)
+    inventory_digest = forms.CharField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = PuskesmasConsumption
@@ -775,7 +777,10 @@ class PuskesmasConsumptionMatrixForm(forms.ModelForm):
         self.existing_entries = existing_entries or {}
         self.lock_period = lock_period
         super().__init__(*args, **kwargs)
-
+        if self.instance.pk and self.instance.inventory_revisions.exists():
+            from .consumption_inventory import snapshot, snapshot_digest
+            self.fields["correction_reason"].required = True
+            self.initial["inventory_digest"] = snapshot_digest(self.instance, snapshot(self.instance))
 
         self.fields["facility"].label = "Puskesmas"
         self.fields["facility"].widget.attrs["title"] = (

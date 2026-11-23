@@ -9,7 +9,7 @@ App-specific guidance for physical stock counting.
 - `GUDANG` or operate-scope users may complete only when every refreshed current-stock quantity matches the physical count.
 - Any remaining discrepancy requires stock-opname approve scope (`KEPALA`, Admin, or superuser by default).
 - The completion endpoint uses delegation fallback only to let a `VIEW`-scope delegate reach the dynamic discrepancy check. After locking and refreshing stock, matching counts still require normal `OPERATE` access, while discrepancies may use delegated approval and must re-resolve/lock that delegation before completion.
-- Completion adjustments are explicit stock workflow actions and append ledger entries; historical transactions remain immutable.
+- Completion records the physical-count comparison, frozen completion stock quantities, and completion authority. The current `opname_complete` code does not adjust `Stock.quantity` or append adjustment ledger entries. Do not treat a completed opname as a posted stock correction; historical transactions remain immutable.
 
 ## Concurrency, Dates, And Admin
 

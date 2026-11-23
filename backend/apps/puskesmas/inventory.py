@@ -579,6 +579,10 @@ def post_receipt(*, receipt, user):
     existing = PuskesmasInventoryPosting.objects.filter(receipt=receipt).first()
     if existing:
         return existing
+    from .inventory_models import PuskesmasConsumptionRevision
+    if PuskesmasConsumptionRevision.objects.filter(consumption__facility=facility,
+            effective_date__gte=receipt.received_date).exists():
+        raise ValidationError("Tanggal penerimaan memengaruhi pemakaian yang sudah difinalisasi; perlu rekonsiliasi/pembukaan ulang.")
     if receipt.received_date > timezone.localdate() or not receipt.distribution_id:
         raise ValidationError("Penerimaan inventaris memerlukan tanggal aktual dan distribusi sumber.")
     from apps.distribution.models import Distribution, DistributionItem

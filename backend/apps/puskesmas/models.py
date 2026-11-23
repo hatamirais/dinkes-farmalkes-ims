@@ -17,10 +17,13 @@ from apps.core.decimal_validation import (
 )
 from apps.core.models import TimeStampedModel
 from .inventory_locking import ReceiptQuerySet, assert_receipt_mutable
+from .consumption_locking import ConsumptionQuerySet, assert_draft_write
 from .inventory_models import (
     PuskesmasInventoryAccount, PuskesmasOpeningVerification,
     PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
     PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement,
+    PuskesmasConsumptionRevision, PuskesmasConsumptionAllocation,
+    PuskesmasConsumptionAudit, PuskesmasLPLPOInventoryBinding,
 )
 
 
@@ -435,6 +438,7 @@ class PuskesmasSubunit(TimeStampedModel):
 
 class PuskesmasConsumption(TimeStampedModel):
     """Monthly detailed consumption header for one Puskesmas."""
+    objects = ConsumptionQuerySet.as_manager()
 
     facility = models.ForeignKey(
         "items.Facility",
@@ -499,8 +503,15 @@ class PuskesmasConsumption(TimeStampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        self.notes = _normalize_text_value(self.notes)
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            assert_draft_write(self.pk)
+            self.notes = _normalize_text_value(self.notes)
+            super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            assert_draft_write(self.pk)
+            return super().delete(*args, **kwargs)
 
     @property
     def total_consumption(self):
@@ -512,6 +523,20 @@ class PuskesmasConsumption(TimeStampedModel):
 
 class PuskesmasConsumptionEntry(models.Model):
     """Normalized item-by-subunit monthly consumption row."""
+    objects = ConsumptionQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            if self.pk:
+                old_parent = type(self).objects.filter(pk=self.pk).values_list("consumption_id", flat=True).first()
+                assert_draft_write(old_parent)
+            assert_draft_write(self.consumption_id)
+            return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            assert_draft_write(self.consumption_id)
+            return super().delete(*args, **kwargs)
 
     consumption = models.ForeignKey(
         PuskesmasConsumption,

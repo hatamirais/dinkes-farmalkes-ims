@@ -415,6 +415,31 @@ The report tests exercise all four routes, HTML/Excel isolation, explicit denial
 staff capabilities, inactive links, superusers, and sidebar expansion/highlighting.
 ## Puskesmas inventory foundation verification
 
+Feature 2 staging now adds migration `puskesmas.0016_consumption_inventory`.
+Run migrations before serving. Public finalization and inventory-bound LPLPO
+submission are deliberately held by `require_expiry_integration()`; do not bypass
+it with configuration or direct private-service calls. Activation depends on
+verified #325 expiry integration. Legacy LPLPO remains compatible; adopting a
+January draft makes it inventory-bound and therefore subject to this submission
+gate. Review that consequence before enrolling operational documents.
+
+Validate the real-ORM allocation, adoption, rollback, audit, source freshness,
+offline guards and PostgreSQL concurrency cases with:
+
+```powershell
+.\scripts\run-django-test.ps1 -Target apps.puskesmas.test_consumption_inventory -KeepDb
+```
+
+Also run existing inventory, consumption/report, LPLPO workflow/offline and URL
+consistency targets when their paths change. Run test targets sequentially against
+the shared local test database. `manage.py check` and `makemigrations --check
+--dry-run` verify system checks and schema drift; they do not certify historical
+stock completeness. Browser QA should cover PUSKESMAS and ADMIN report filters,
+layer expansion, pagination, print/XLSX and narrow-screen overflow. Use existing
+Playwright role profiles; do not post real adoption or stock movements just to
+exercise a UI. New report totals remain labelled incomplete until dependent
+movement coverage is evidenced. See the Feature 2 design's implementation record.
+
 Apply `python backend/manage.py migrate` before serving `/puskesmas/saldo-awal/`.
 This includes `0013_opening_source_distribution` and `0014_opening_warehouse_candidate`
 for protected worksheet source links.

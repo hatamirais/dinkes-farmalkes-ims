@@ -2,6 +2,65 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
+## Puskesmas Feature 2 staging (2026-11-18)
+
+This section supersedes the feature-1-only restrictions below. Operational
+consumption finalization and inventory-backed LPLPO submission remain closed:
+`puskesmas.consumption_inventory.expiry_integration_ready()` returns false until
+the separate Puskesmas expiry module (#325) is integrated and verified. There is
+no configuration bypass. Account readiness remains `FOUNDATION_INCOMPLETE`;
+monthly accounting does not prove physical stock or actual batch-use dates.
+
+Migration `puskesmas.0016_consumption_inventory` adds protected, immutable records:
+`PuskesmasConsumptionRevision` (document/revision number, digest, month-end date,
+snapshot, reason, actor/time), `PuskesmasConsumptionAllocation` (revision/layer/
+subunit, positive quantity and original price), `PuskesmasConsumptionAudit`
+(facility, retained consumption ID, event, before/after, actor/time), and
+`PuskesmasLPLPOInventoryBinding` (unique LPLPO, verified opening, previous values,
+actor/time). Posting now has exactly one source among opening, receipt,
+consumption revision or reversal-of-posting. Journal history remains append-only;
+only the locked service updates balance projections.
+
+The private consumption engine allocates at month end using expiry ascending,
+NULL last, acquisition date, posting ID and layer ID. It requires consecutive
+finalized months, including explicit zero-use revisions, supported posted
+receipts and journal/projection agreement. Shortage or unresolved expired-by-
+cutoff candidates hold the entire operation. Corrections append exact reversal
+and replacement at original costs with a mandatory reason and expected digest;
+old revisions/allocations survive. Submitted LPLPO or later finalized months block
+correction; new receipts dated at/before a finalized cutoff are held. Shared lock
+order is actor/module, facility, document/source then balances. Public mutation
+authority is active own-facility PUSKESMAS with permission/module scope or the
+existing Super Admin helper (including legacy ADMIN, never ADMIN_UMUM alone).
+Draft writes retain audit snapshots/logs; ordinary ORM edits/deletes/reparenting
+of finalized documents are rejected and Consumption Admin is read-only.
+
+New routes (Puskesmas namespace, trailing slash):
+
+- `/puskesmas/pemakaian/<pk>/finalisasi/`: CSRF POST, existing consumption rate
+  limit, permission/period/digest checks and expiry activation gate.
+- `/puskesmas/lplpo/<pk>/adopsi/`: editable January difference preview and explicit
+  digest-bound adoption of posted opening, preserving previous values and requests.
+- `/puskesmas/persediaan/`: read-only year/start_month/month interval report under
+  dedicated `puskesmas_reports` facility selection/aggregation rules; 25-row HTML
+  summaries with original-layer details, full print and three-sheet XLSX. Exact
+  Decimal export amounts are text. Missing accounts are excluded with coverage
+  warnings. January boundary opening is opening, not receipts.
+
+New January LPLPO auto-binds if a posted opening exists; later months inherit the
+binding. Existing January drafts require adoption; submitted history is retained.
+Bound quantities and values use the shared journal report service, preserve
+unrelated inputs, hide the single unit-price column and reject locked source
+overrides through forms/XLSX. Historical price data and unbound legacy behavior
+remain. Bound documents cannot be deleted. Rincian/rekap scoped cohorts with a
+bound document through cutoff redirect to the layered interval report, avoiding
+mixed valuation bases. The separate IF-facing stock snapshot remains a legacy
+LPLPO-based planning view, not complete journal availability.
+
+Physical opname/reconciliation (Feature 3), expiry (#325), returns/transfers
+(#326), purchases/donations and annual opening differences remain deferred.
+See `docs/puskesmas-fefo-consumption-design.md` and the owning app guides.
+
 ## Puskesmas inventory foundation (2026-11-11)
 
 The first-opening foundation is separate from warehouse Stock/Transaction and from
@@ -130,7 +189,7 @@ Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `bac
 
 ## 1) Domain Overview
 
-Healthcare IMS is a Django monolith with server-rendered templates. Warehouse inventory is tracked at batch/location granularity with append-only `stock.Transaction` movements. The separate Puskesmas foundation tracks facility-owned opening/receipt layers and movements; it does not yet post consumption or replace LPLPO-derived reports.
+Healthcare IMS is a Django monolith with server-rendered templates. Warehouse inventory is tracked at batch/location granularity with append-only `stock.Transaction` movements. Separate Puskesmas layers support opening/receipts and the staged Feature 2 consumption engine and bound reports described above; operational finalization remains gated by expiry integration.
 
 Core domains:
 

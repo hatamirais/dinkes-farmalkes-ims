@@ -38,10 +38,12 @@ App-specific guidance for Puskesmas facility workflows.
 - Confirmed linked receipts post once only after initialization; use issued distribution snapshots, never current warehouse prices. Missing issued price is an error, not zero. Inventory sources use protected FKs. Posted receipts and their rows are immutable through instance/queryset operations; no delete/recreate of posted rows. Pre-cutover dates cannot be moved across the opening boundary.
 - Receipt mutations and LPLPO create/edit/import/submit share actor/module then facility locks before binding forms/checking periods. Row locks and unique constraints protect concurrent opening/receipt posting. Warehouse stock is not deducted again.
 - Receipt administration retains the existing is_super_admin policy, including active legacy role ADMIN accounts without is_superuser. Their create/edit saves may invoke post_receipt and use the selected facility mutex, subject to the existing view permissions. This does not grant legacy ADMIN initial-opening preparation/verification authority; can_prepare/can_verify remain unchanged.
-- Accounts always report `FOUNDATION_INCOMPLETE`: consumption does not post yet. Never use the new projection for current availability, shortage validation, LPLPO opening, or existing rincian/rekap. Journal and layer/balance mutations are application-guarded; direct database SQL is outside those guards.
+- Accounts remain `FOUNDATION_INCOMPLETE`. Feature 2 supports journal-derived LPLPO/reporting below, but public consumption finalization is gated pending verified expiry integration. Never present the projection as reliable current physical availability. Journal and layer/balance mutations are application-guarded; direct database SQL is outside those guards.
 - Initial CSV contract: `backend/seed/README.md`; decision record and feature-2 boundary: `docs/puskesmas-opening-inventory-design.md`. Focused tests: `apps.puskesmas.test_inventory`.
 
 ## Rincian Persediaan Report
+
+- The baseline rules below apply to legacy cohorts. If the scoped facilities include an inventory-bound LPLPO through the cutoff, rincian/rekap redirect to `/puskesmas/persediaan/` with the selected interval/export, rather than blend legacy single-price valuation with original layers.
 
 - `/puskesmas/laporan/persediaan/` labels its calculated balance `Stok Akhir Digital`, distinct from warehouse availability.
 - The latest usable same-year LPLPO up to the selected end month is the baseline; Draft is usable and rejected statuses are excluded. Add only later same-year `CONFIRMED` receipt rows and subtract later detailed consumption through that end month. Quarter/semester selection describes an ending-stock cutoff, not only movements within the quarter/semester.
@@ -85,17 +87,30 @@ App-specific guidance for Puskesmas facility workflows.
 
 ## Detailed Consumption
 
+- Feature 2 services live in `consumption_inventory.py` and `consumption_locking.py`. Draft mutations retain before/after snapshots in `PuskesmasConsumptionAudit` and structured logs. Admin is read-only; posted documents/entries reject ordinary instance/queryset writes, reparenting and deletion.
+- POST `/puskesmas/pemakaian/<pk>/finalisasi/` uses actor/module, facility and document locks, active own-facility PUSKESMAS or existing Super Admin helper authority, digest freshness and live period checks. `expiry_integration_ready()` deliberately returns false: no settings bypass. Finalization and inventory-backed LPLPO submission must remain closed until #325 integration is verified.
+- The private posting engine requires an atomic caller with those locks. Effective date is month end; posting is allowed from that date onward. Prior covered months require finalized revisions, including explicit zero-use documents. Submitted LPLPO or any later finalized month blocks correction. New backdated receipts at/before a finalized cutoff are held.
+- Allocation uses expiry ascending (NULL last), acquisition date, posting ID and layer ID. Exact original prices, protected subunit/layer allocations, immutable revision snapshots and one movement per posting/layer are retained. Shortage, missing source coverage, projection mismatch or an expired-by-cutoff candidate abort the whole operation. The expiry hold is conservative pending the agreed integration policy, not automatic write-off or proof of actual use dates.
+- Corrections require a reason and expected digest, append an exact reversal of the preceding revision and a replacement, and synchronize editable bound LPLPO within the same transaction. They never edit old journal rows. Focused tests: `apps.puskesmas.test_consumption_inventory`.
+
 - The detailed-consumption list, detail, and shared create/edit form use the Tailwind desktop base. The form keeps facility/month fields, dynamic subunit matrix cells, server-bound errors, and the superuser `load_matrix` POST action. The matrix retains horizontal scrolling and two sticky identifier columns. The create/edit matrix groups all item rows under visible Kategori separators; this changes presentation only and keeps each item's quantity field and save behavior.
 - The create/edit matrix shows `Stok LPLPO Terakhir` immediately after Satuan, sourced from `stock_keseluruhan` on the latest non-rejected LPLPO for the selected facility across years. The heading displays that LPLPO's period and status. A missing item or missing LPLPO displays `—`, while an actual zero or negative balance is shown as stored. This is a digital snapshot, not live physical stock or a validation limit for the quantity fields.
 - The matrix Total cell displays the sum of that item's visible subunit quantities, including saved values on edit, and updates while the operator types. Blank cells count as zero; invalid values show `—` until corrected. The display does not submit a separate field or replace server validation and LPLPO synchronization.
 
 - Detailed consumption is sourced from `PuskesmasConsumption` and `PuskesmasConsumptionEntry`.
 - Consumption is stored separately per facility/month and per facility-defined subunit.
-- The sum of `PuskesmasConsumptionEntry.quantity` per item is the editable-period source of truth for `LPLPOItem.pemakaian`.
+- For legacy LPLPO, the sum of `PuskesmasConsumptionEntry.quantity` per item remains the editable-period source of truth for `LPLPOItem.pemakaian`. Inventory-bound LPLPO instead uses posted journal quantities; saving a draft does not deduct inventory.
 - Saving, editing, or deleting detailed consumption atomically re-syncs only same-month editable LPLPO rows in `DRAFT` or `REJECTED_PUSKESMAS`.
 - Opening or re-saving an editable LPLPO refreshes same-month `pemakaian` values when a detailed-consumption document already exists.
 - Once a facility-month LPLPO is `SUBMITTED` or beyond, detailed consumption mutation for that period is blocked.
 - Mutation saves are POST-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
+
+## Inventory reporting and LPLPO adoption
+
+- `inventory_reporting.py` shares exact journal quantities/values across bound LPLPO, `/puskesmas/persediaan/`, print and XLSX. January opening at the boundary counts as opening, not receipts. Missing accounts are excluded, never zero-filled. Completeness remains explicitly incomplete.
+- Persediaan Puskesmas uses existing dedicated report scope and selection/aggregation policy. HTML paginates 25 item/facility summaries with expandable source layers; print includes all rows and layers. XLSX includes item, layer and category sheets; exact Decimal amounts are text to preserve precision. The interval is year/start_month/month.
+- `/puskesmas/lplpo/<pk>/adopsi/` previews an existing editable January LPLPO against its posted opening and requires digest-bound confirmation. The immutable binding retains previous values and actor/time. New January documents with a posted opening bind automatically; later months inherit the binding. Submitted history is never adopted silently.
+- Bound LPLPO locks opening/receipts/use to journal quantities, preserves requests and historical price data, hides the single-price column, and rejects offline overrides of locked source fields. Bound documents cannot be deleted. Legacy documents retain their compatibility paths. Physical opname/loss adjustments, expiry, returns/transfers and annual reconciliation remain separate work.
 
 ## Request Screens
 

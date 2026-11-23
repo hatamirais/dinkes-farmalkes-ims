@@ -82,6 +82,25 @@ from .inventory_locking import serialize_facility_document
 logger = logging.getLogger(__name__)
 
 
+def _redirect_inventory_accounting(request, facility, year, start_month, end_month):
+    """Never value enrolled inventory through the legacy single-price report."""
+    from urllib.parse import urlencode
+    from apps.lplpo.models import LPLPO
+    from django.urls import reverse
+    enrolled = LPLPO.objects.filter(inventory_binding__isnull=False, tahun=year,
+        bulan__lte=end_month, facility__is_active=True)
+    if facility:
+        enrolled = enrolled.filter(facility=facility)
+    if not enrolled.exists():
+        return None
+    params = {"year": year, "month": end_month, "start_month": start_month}
+    if facility:
+        params["facility"] = facility.pk
+    if request.GET.get("format") == "excel":
+        params["format"] = "excel"
+    return redirect(reverse("puskesmas:inventory_report") + "?" + urlencode(params))
+
+
 def _get_required_facility(user):
     if is_super_admin(user):
         return None
@@ -857,6 +876,7 @@ def consumption_list(request):
 @login_required
 @perm_required("puskesmas.add_puskesmasconsumption")
 @puskesmas_consumption_mutation_ratelimit
+@serialize_facility_document("puskesmas.PuskesmasConsumption")
 def consumption_create(request):
     _check_puskesmas_consumption_creator_access(request)
 
@@ -925,6 +945,8 @@ def consumption_create(request):
                         PuskesmasConsumptionEntry.objects.bulk_create(
                             form.build_entries(consumption)
                         )
+                        from .consumption_inventory import audit, snapshot
+                        audit(consumption, request.user, "CREATE_DRAFT", {}, snapshot(consumption))
                         sync_consumption_month(
                             facility=consumption.facility,
                             bulan=consumption.bulan,
@@ -1001,6 +1023,10 @@ def consumption_detail(request, pk):
         subunits=subunits,
     )
 
+    from .consumption_inventory import latest_revision, snapshot, snapshot_digest, EXPIRY_GATE_MESSAGE
+    from .inventory_models import PuskesmasConsumptionAudit
+    inventory_revision = latest_revision(consumption)
+
     return render(
         request,
         "puskesmas/consumption_detail.html",
@@ -1009,6 +1035,12 @@ def consumption_detail(request, pk):
             "subunits": subunits,
             "matrix_rows": matrix_rows,
             "grand_total": grand_total,
+            "inventory_revision": inventory_revision,
+            "inventory_digest": snapshot_digest(consumption, snapshot(consumption)),
+            "inventory_gate_message": EXPIRY_GATE_MESSAGE,
+            "inventory_audits": PuskesmasConsumptionAudit.objects.filter(
+                facility_id=consumption.facility_id, consumption_id_snapshot=consumption.pk
+            ).select_related("actor").order_by("-pk"),
             "can_manage": is_super_admin(request.user)
             or request.user.role == User.Role.PUSKESMAS,
         },
@@ -1018,6 +1050,7 @@ def consumption_detail(request, pk):
 @login_required
 @perm_required("puskesmas.change_puskesmasconsumption")
 @puskesmas_consumption_mutation_ratelimit
+@serialize_facility_document("puskesmas.PuskesmasConsumption")
 def consumption_edit(request, pk):
     _check_puskesmas_consumption_creator_access(request)
 
@@ -1059,6 +1092,17 @@ def consumption_edit(request, pk):
                         consumption = PuskesmasConsumption.objects.select_for_update().get(
                             pk=consumption.pk
                         )
+                        from .consumption_inventory import latest_revision, snapshot, audit, finalize_consumption
+                        before = snapshot(consumption)
+                        if latest_revision(consumption):
+                            revision_data = {"notes": form.cleaned_data["notes"], "entries": [
+                                {"item_id": row.item_id, "subunit_id": row.subunit_id, "quantity": row.quantity}
+                                for row in form.build_entries(consumption)]}
+                            finalize_consumption(user=request.user, consumption_id=consumption.pk,
+                                digest=request.POST.get("inventory_digest", ""), data=revision_data,
+                                reason=request.POST.get("correction_reason", ""))
+                            messages.success(request, "Koreksi pemakaian dan LPLPO disimpan dengan jejak revisi.")
+                            return redirect("puskesmas:consumption_detail", pk=consumption.pk)
                         consumption.notes = form.cleaned_data["notes"]
                         consumption.updated_by = request.user
                         consumption.save(update_fields=["notes", "updated_by", "updated_at"])
@@ -1066,6 +1110,7 @@ def consumption_edit(request, pk):
                         PuskesmasConsumptionEntry.objects.bulk_create(
                             form.build_entries(consumption)
                         )
+                        audit(consumption, request.user, "UPDATE_DRAFT", before, snapshot(consumption))
                         sync_consumption_month(
                             facility=consumption.facility,
                             bulan=consumption.bulan,
@@ -1097,6 +1142,7 @@ def consumption_edit(request, pk):
     latest_lplpo, lplpo_stock_by_item = _get_latest_lplpo_stock_for_consumption(
         consumption.facility if subunits else None
     )
+    from .consumption_inventory import latest_revision, snapshot, snapshot_digest
     return render(
         request,
         "puskesmas/consumption_form.html",
@@ -1105,6 +1151,8 @@ def consumption_edit(request, pk):
             "title": f"Ubah Pemakaian {consumption.facility.name} {consumption.bulan:02d}/{consumption.tahun}",
             "is_edit": True,
             "consumption": consumption,
+            "inventory_revision": latest_revision(consumption),
+            "inventory_digest": snapshot_digest(consumption, snapshot(consumption)),
             "subunits": subunits,
             "items": items,
             "matrix_rows": _build_consumption_form_rows(
@@ -1122,6 +1170,7 @@ def consumption_edit(request, pk):
 @login_required
 @perm_required("puskesmas.delete_puskesmasconsumption")
 @puskesmas_consumption_mutation_ratelimit
+@serialize_facility_document("puskesmas.PuskesmasConsumption")
 def consumption_delete(request, pk):
     _check_puskesmas_consumption_creator_access(request)
 
@@ -1143,6 +1192,8 @@ def consumption_delete(request, pk):
             bulan = consumption.bulan
             tahun = consumption.tahun
             consumption_id = consumption.pk
+            from .consumption_inventory import audit, snapshot
+            audit(consumption, request.user, "DELETE_DRAFT", snapshot(consumption), {})
             consumption.delete()
             sync_consumption_month(
                 facility=facility,
@@ -2346,6 +2397,9 @@ def puskesmas_report_persediaan(request):
         _start_month, end_month, period_label = (
             PuskesmasPersediaanFilterForm.get_period_bounds(period)
         )
+        inventory_redirect = _redirect_inventory_accounting(request, facility, year, end_month, end_month)
+        if inventory_redirect:
+            return inventory_redirect
 
         # Resolve which facilities to query
         facilities_to_query = FacilityModel.objects.filter(
@@ -2657,6 +2711,9 @@ def puskesmas_report_rekap_persediaan(request):
         start_month, end_month, period_label = (
             PuskesmasPersediaanFilterForm.get_period_bounds(period)
         )
+        inventory_redirect = _redirect_inventory_accounting(request, facility, year, start_month, end_month)
+        if inventory_redirect:
+            return inventory_redirect
 
         facilities_to_query = FacilityModel.objects.filter(
             facility_type=FacilityModel.FacilityType.PUSKESMAS,

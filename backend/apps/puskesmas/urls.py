@@ -1,10 +1,14 @@
 from django.urls import path
 from . import views
 from . import inventory_views
+from . import consumption_views
 
 app_name = "puskesmas"
 
 urlpatterns = [
+    path("persediaan/", consumption_views.inventory_report, name="inventory_report"),
+    path("lplpo/<int:pk>/adopsi/", consumption_views.opening_adoption, name="opening_adoption"),
+    path("pemakaian/<int:pk>/finalisasi/", consumption_views.consumption_finalize, name="consumption_finalize"),
     path("saldo-awal/", inventory_views.opening_list, name="opening_list"),
     path("saldo-awal/template/", inventory_views.opening_template, name="opening_template"),
     path("saldo-awal/buat/", inventory_views.opening_create, name="opening_create"),

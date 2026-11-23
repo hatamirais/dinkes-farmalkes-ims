@@ -91,6 +91,10 @@ def is_january_bootstrap_period(bulan, tahun, *, server_date=None):
 class LPLPO(TimeStampedModel):
     """Header document for monthly Puskesmas stock report and request."""
 
+    @property
+    def inventory_backed(self):
+        return hasattr(self, "inventory_binding")
+
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         SUBMITTED = "SUBMITTED", "Diajukan"
@@ -357,21 +361,36 @@ class LPLPOItem(models.Model):
 
     @property
     def nilai_stok_awal(self):
+        if self.lplpo.inventory_backed:
+            return self._inventory_value("opening")
         return Decimal(self.stock_awal or 0) * (self.harga_satuan or Decimal("0"))
 
     @property
     def nilai_penerimaan(self):
+        if self.lplpo.inventory_backed:
+            return self._inventory_value("receipts")
         return Decimal(self.penerimaan or 0) * (self.harga_satuan or Decimal("0"))
 
     @property
     def nilai_pemakaian(self):
+        if self.lplpo.inventory_backed:
+            return self._inventory_value("consumption")
         return Decimal(self.pemakaian or 0) * (self.harga_satuan or Decimal("0"))
 
     @property
     def nilai_stock_keseluruhan(self):
+        if self.lplpo.inventory_backed:
+            return self._inventory_value("closing")
         return Decimal(self.stock_keseluruhan or 0) * (
             self.harga_satuan or Decimal("0")
         )
+
+    def _inventory_value(self, kind):
+        from apps.puskesmas.inventory_reporting import period_rows
+        if not hasattr(self.lplpo, "_inventory_value_rows"):
+            rows, _ = period_rows([self.lplpo.facility_id], self.lplpo.tahun, self.lplpo.bulan)
+            self.lplpo._inventory_value_rows = {row["item"].pk: row for row in rows}
+        return self.lplpo._inventory_value_rows.get(self.item_id, {}).get(f"{kind}_value", Decimal(0))
 
     def save(self, *args, **kwargs):
         self.compute_fields()
@@ -458,6 +477,11 @@ def sync_receiving_to_editable_lplpo(*, facility, bulan, tahun):
     )
     if not lplpo:
         return None
+
+    if hasattr(lplpo, "inventory_binding"):
+        from apps.puskesmas.inventory_reporting import sync_inventory_lplpo
+        sync_inventory_lplpo(lplpo)
+        return lplpo
 
     penerimaan_data = get_penerimaan_for_facility_period(facility, bulan, tahun)
     harga_satuan_data = get_penerimaan_unit_prices_for_facility_period(
