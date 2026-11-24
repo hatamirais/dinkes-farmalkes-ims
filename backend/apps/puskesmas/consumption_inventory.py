@@ -257,10 +257,9 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
         consumption.refresh_from_db()
     audit(consumption, user, "CORRECT" if previous else "FINALIZE", before,
           {**data, "revision": revision.number, "digest": digest, "reason": reason})
-    from .inventory_reporting import sync_inventory_lplpo
-    for lplpo in LPLPO.objects.filter(facility_id=consumption.facility_id,
-            inventory_binding__isnull=False, tahun=consumption.tahun, bulan=consumption.bulan):
-        sync_inventory_lplpo(lplpo)
+    from .services import sync_consumption_to_editable_lplpo
+    sync_consumption_to_editable_lplpo(facility=consumption.facility,
+        tahun=consumption.tahun, bulan=consumption.bulan)
     return revision
 
 

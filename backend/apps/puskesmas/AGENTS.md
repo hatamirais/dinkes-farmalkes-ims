@@ -105,6 +105,7 @@ App-specific guidance for Puskesmas facility workflows.
 - Saving, editing, or deleting detailed consumption atomically re-syncs only same-month editable LPLPO rows in `DRAFT` or `REJECTED_PUSKESMAS`.
 - Opening or re-saving an editable LPLPO refreshes same-month `pemakaian` values when a detailed-consumption document already exists.
 - Once a facility-month LPLPO is `SUBMITTED` or beyond, detailed consumption mutation for that period is blocked.
+- Finalized consumption posting/correction uses `sync_consumption_to_editable_lplpo` inside its transaction for either bound journal quantities or unbound detailed-consumption totals. Historical report rows retain unknown expiry quantity as `None`, exported as `—`; unknown withdrawal quantities must never be zero-filled.
 - Mutation saves are POST-limited by `PUSKESMAS_CONSUMPTION_MUTATION_RATE_LIMIT`.
 
 ## Inventory reporting and LPLPO adoption

@@ -110,6 +110,36 @@ class ConsumptionInventoryTests(ConsumptionFixture, SecureClientDefaultsMixin, T
             with self.subTest(action=action), self.assertRaises(ValidationError):
                 action()
 
+    def test_http_finalized_correction_synchronizes_unbound_editable_lplpo_before_submit(self):
+        lplpo = LPLPO.objects.create(facility=self.facility, tahun=2026, bulan=1, created_by=self.operator)
+        line = LPLPOItem.objects.create(lplpo=lplpo, item=self.item, stock_awal=20,
+            harga_satuan=7, pemakaian=12, permintaan_jumlah=17, permintaan_alasan="Pelayanan")
+        self.engine()
+        self.client.force_login(self.operator)
+        for status, quantity in [(LPLPO.Status.DRAFT, 8), (LPLPO.Status.REJECTED_PUSKESMAS, 6)]:
+            with self.subTest(status=status):
+                lplpo.status = status
+                lplpo.save(update_fields=["status"])
+                response = self.client.post(reverse("puskesmas:consumption_edit", args=[self.consumption.pk]), {
+                    "facility": self.facility.pk, "bulan": 1, "tahun": 2026, "notes": "",
+                    f"qty_{self.item.pk}_{self.subunit.pk}": quantity,
+                    "inventory_digest": snapshot_digest(self.consumption, snapshot(self.consumption)),
+                    "correction_reason": "Koreksi catatan poli",
+                })
+                self.assertEqual(response.status_code, 302)
+                line.refresh_from_db()
+                self.assertEqual((line.pemakaian, line.stock_keseluruhan), (quantity, 20 - quantity))
+                self.assertEqual(line.stock_optimum, Decimal(quantity) * Decimal("1.2"))
+                self.assertEqual((line.permintaan_jumlah, line.permintaan_alasan, line.harga_satuan),
+                                 (17, "Pelayanan", Decimal(7)))
+                self.assertFalse(lplpo.inventory_backed)
+        submitted = self.client.post(reverse("lplpo:lplpo_submit", args=[lplpo.pk]))
+        self.assertEqual(submitted.status_code, 302)
+        lplpo.refresh_from_db()
+        line.refresh_from_db()
+        self.assertEqual(lplpo.status, LPLPO.Status.SUBMITTED)
+        self.assertEqual((line.pemakaian, line.stock_keseluruhan), (6, 14))
+
     def test_public_finalization_and_http_are_idempotent_after_expiry_integration(self):
         digest = snapshot_digest(self.consumption, snapshot(self.consumption))
         revision = finalize_consumption(user=self.operator, consumption_id=self.consumption.pk, digest=digest)
@@ -293,6 +323,27 @@ class InventoryReportReworkTests(ConsumptionFixture, SecureClientDefaultsMixin, 
 
     def report(self, name, **extra):
         return self.client.get(reverse(f"puskesmas:{name}"), {**self.params, **extra})
+
+    def test_historical_and_mixed_inventory_excel_keep_expiry_unknown(self):
+        import io
+        from openpyxl import load_workbook
+        for facility, year in [(self.facility, 2025), (self.other, 2026)]:
+            legacy = LPLPO.objects.create(facility=facility, tahun=year, bulan=1, created_by=self.admin)
+            LPLPOItem.objects.create(lplpo=legacy, item=self.item, stock_awal=9, harga_satuan=7)
+        for user, year, mixed in [(self.operator, 2025, False), (self.admin, 2026, True)]:
+            with self.subTest(year=year):
+                self.client.force_login(user)
+                response = self.report("inventory_report", year=year, month=1, format="excel")
+                self.assertEqual(response.status_code, 200)
+                workbook = load_workbook(io.BytesIO(response.content))
+                rows = list(workbook.active.iter_rows(min_row=4, values_only=True))
+                historical = next(row for row in rows if row[0] == (self.other.name if mixed else self.facility.name))
+                self.assertEqual(Decimal(historical[9]), Decimal(9))
+                self.assertEqual(historical[11], "—")
+                if mixed:
+                    journal = next(row for row in rows if row[0] == self.facility.name)
+                    self.assertEqual(tuple(Decimal(value) for value in journal[11:13]), (0, 0))
+                workbook.close()
 
     def test_posted_opening_without_lplpo_populates_all_three_views_without_redirect(self):
         self.client.force_login(self.operator)

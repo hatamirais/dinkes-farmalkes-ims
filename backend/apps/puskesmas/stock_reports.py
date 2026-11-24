@@ -281,11 +281,12 @@ def stock_report_snapshot(facilities, year, start_month, end_month, *, is_aggreg
         facility_id, item_id = key[:2]
         legacy_by_key[(facility_id, item_id)] = dict(facility_id=facility_id, item=items[item_id],
             layers=[], closing_quantity=Decimal(quantity),
-            opening_quantity=None, receipts_quantity=None, consumption_quantity=None,
+            opening_quantity=None, receipts_quantity=None, consumption_quantity=None, expiry_quantity=None,
             **{f"{kind}_value": None for kind in KINDS})
     for key, values in legacy_values.items():
         row = legacy_by_key.setdefault(key, dict(facility_id=key[0], item=items[key[1]], layers=[],
-            closing_quantity=None, opening_quantity=None, receipts_quantity=None, consumption_quantity=None))
+            closing_quantity=None, opening_quantity=None, receipts_quantity=None, consumption_quantity=None,
+            expiry_quantity=None))
         row.update(values)
     rows.extend(legacy_by_key.values())
     for row in rows:

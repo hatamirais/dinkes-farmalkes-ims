@@ -25,6 +25,11 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Apply Puskesmas migrations 0016–0017 and LPLPO migrations 0018–0019 before serving. Physical Stock Opname/reconciliation (Feature 3), returns/transfers, and annual reconciliation remain deferred; calculated inventory does not certify physical stock completeness.
 
+### Fixed
+
+- Synchronized finalized consumption corrections into editable legacy LPLPO that have not adopted inventory binding, so usage, closing stock and calculated needs cannot remain stale on submission.
+- Kept historical expiry quantities explicitly unknown in inventory Excel exports, preventing errors for historical-only and mixed journal/historical reports without displaying unsupported zero quantities.
+
 ## [2.2.0] - 2026-11-17
 
 ### Added
