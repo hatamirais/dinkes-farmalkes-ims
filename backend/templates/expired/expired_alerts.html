@@ -92,9 +92,7 @@
                 {% endfor %}
             </select>
             <select name="level" class="ims-control ims-control">
-                <option value="all" {% if selected_level == 'all' %}selected{% endif %}>Semua Level</option>
-                <option value="expired" {% if selected_level == 'expired' %}selected{% endif %}>Sudah Kedaluwarsa</option>
-                <option value="near" {% if selected_level == 'near' %}selected{% endif %}>Mendekati Kedaluwarsa (<= 90 hari)</option>
+                {% for code, label in expiry_levels %}<option value="{{ code }}" {% if selected_level == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
 
             <input type="hidden" name="sort" value="{{ selected_sort }}">
@@ -153,11 +151,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if row.days_to_expiry < 0 %}
-                        <span class="ims-badge bg-danger-subtle text-danger">{{ row.days_to_expiry|add:"0" }} hari</span>
-                        {% else %}
-                        <span class="ims-badge bg-warning-subtle text-warning">{{ row.days_to_expiry }} hari</span>
-                        {% endif %}
+                        {% include "components/expiry/status.html" %}
                     </td>
                     <td class="text-end">
                         <div class="fw-semibold">{{ row.actionable|floatformat:"-2g" }}</div>

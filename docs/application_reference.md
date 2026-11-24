@@ -217,8 +217,32 @@ preserve year/month interval/facility. Source/opening reference, cutoff and miss
 finalizations appear in HTML/print/Excel; finalized zero use differs from missing
 finalization. Historical values retain per-document LPLPO price semantics.
 
-Operational finalization and submission of inventory-bound LPLPO are intentionally
-closed until the separate Puskesmas expiry module is integrated and verified.
-There is no configuration bypass. The report explicitly remains incomplete;
-physical stock opname, discrepancy adjustments and expiry/return movements are
-separate upcoming work. See the [Feature 2 record](puskesmas-fefo-consumption-design.md).
+Operational consumption finalization and bound submission now integrate the
+Puskesmas expiry module below. Reports remain incomplete for physical counts and
+unsupported adjustments/returns. See the [Feature 2 record](puskesmas-fefo-consumption-design.md).
+
+## Kedaluwarsa Puskesmas
+
+`/puskesmas/kedaluwarsa/` monitors dated facility stock using a selectable window
+(default 30 days). Alerts never deduct stock. Authorized own-facility operators
+and Super Admin explicitly select original-price layers, whole quantities and
+actual withdrawal date, give a reason and confirm posting without a reviewer.
+This removes stock from use as a separate expiry outflow; it does not certify
+physical disposal or return. Detail retains all revisions, costs, actors/times.
+
+The monitor reuses Instalasi Farmasi expiry labels and adds search, category,
+status, ordering and page-size controls. ED day is labelled `Hari ED` in the
+critical range (0–30 days); this label does not change monthly closing rules.
+Withdrawal entry uses the same searchable item-first batch selector as Instalasi
+Farmasi, including added rows. Batch choices show source, funding and exact
+original price. Puskesmas keeps its own facility journal and has no IF approval
+route; the shared controls do not share stock deductions.
+
+Reasoned correction/VOID preserves the original date and appends reversal and
+replacement. Same-month finalized consumption is recalculated and editable bound
+LPLPO/carries follow atomically. Submitted affected LPLPO, later finalized months,
+shortage or unresolved expiry holds the entire change. Remaining expired-by-cutoff
+journal quantities must be withdrawn explicitly before finalization, even zero
+use; no automatic write-off or expired allocation. Persediaan/Rekap/Excel separate
+expiry from medical use; bound LPLPO exposes readonly `kedaluwarsa` and subtracts
+it from closing. Physical discrepancies remain separate Stock Opname work.

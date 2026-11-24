@@ -2328,13 +2328,14 @@ def _stock_report(request, *, recap):
     context = dict(form=form, facility=facility, selected_facility_name=name,
         all_facilities=facilities if puskesmas_report_access(request.user).can_select_facility else [],
         period_label="", report_metadata=None, report_data=[], rekap_data=[],
-        totals={key: Decimal(0) for key in ("saldo_awal", "nilai_terima", "nilai_keluar", "saldo_akhir")})
+        totals={key: Decimal(0) for key in ("saldo_awal", "nilai_terima", "nilai_keluar", "nilai_kedaluwarsa", "saldo_akhir")})
     if form.is_valid():
         year = form.cleaned_data["year"]
         start, end, label = form.selected_bounds()
         snapshot = stock_report_snapshot(scoped, year, start, end, is_aggregate=facility is None)
         rekap_data = [dict(kategori=row["name"], saldo_awal=row["opening_value"],
             nilai_terima=row["receipts_value"], nilai_keluar=row["consumption_value"],
+            nilai_kedaluwarsa=row["expiry_value"],
             saldo_akhir=row["closing_value"]) for row in snapshot["categories"]]
         totals = {key: sum_decimals([row[key] for row in rekap_data]) for key in context["totals"]}
         context.update(report_data=snapshot["report_data"], report_metadata=snapshot["metadata"],

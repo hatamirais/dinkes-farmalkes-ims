@@ -415,19 +415,21 @@ The report tests exercise all four routes, HTML/Excel isolation, explicit denial
 staff capabilities, inactive links, superusers, and sidebar expansion/highlighting.
 ## Puskesmas inventory foundation verification
 
-Feature 2 staging now adds migration `puskesmas.0016_consumption_inventory`.
-Run migrations before serving. Public finalization and inventory-bound LPLPO
-submission are deliberately held by `require_expiry_integration()`; do not bypass
-it with configuration or direct private-service calls. Activation depends on
-verified #325 expiry integration. Legacy LPLPO remains compatible; adopting a
-January draft makes it inventory-bound and therefore subject to this submission
-gate. Review that consequence before enrolling operational documents.
+Inventory/expiry migrations are `puskesmas.0016_consumption_inventory`,
+`puskesmas.0017_puskesmas_expiry`, `lplpo.0018_puskesmas_expiry` and the formula
+help-text migration `lplpo.0019_expiry_formula_help`.
+Run migrations before serving. Public finalization/bound submission now use the
+expiry integration in code; there is no setting bypass. Remaining expired-by-
+cutoff journal quantity holds finalization until operator withdrawal in that
+period. This does not activate physical-count certification or Feature 3.
 
 Validate the real-ORM allocation, adoption, rollback, audit, source freshness,
 offline guards and PostgreSQL concurrency cases with:
 
 ```powershell
 .\scripts\run-django-test.ps1 -Target apps.puskesmas.test_consumption_inventory -KeepDb
+.\scripts\run-django-test.ps1 -Target apps.puskesmas.test_expiry -KeepDb
+.\scripts\run-django-test.ps1 -Target apps.core.tests.test_expiry_monitoring,apps.expired.tests,apps.recall.tests -KeepDb
 ```
 
 Also run existing inventory, consumption/report, LPLPO workflow/offline and URL
@@ -502,3 +504,12 @@ must use posted opening journal coverage even without LPLPO; outside coverage,
 historical calculations remain available and labelled. Never
 use the new incomplete projection for availability/shortage decisions. No direct
 database reset or manual stock/ledger writes are part of this workflow.
+
+
+Puskesmas expiry verification: exercise deliberate withdrawal, same-month expiry
+correction/VOID and consumption reallocation, stale/duplicate requests, concurrent
+expiry/consumption, complete rollback on shortage and locks on submitted/later
+periods. Verify original-price expiry values separately in HTML/print/Excel and
+bound LPLPO, including protected informational offline Q. Monitor GETs and warning
+threshold changes must never post. Use isolated ORM fixtures for mutations;
+browser checks with existing local accounts must not write real stock just for QA.

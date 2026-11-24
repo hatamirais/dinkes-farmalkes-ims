@@ -187,6 +187,7 @@
                 </a>
                 {% endif %}
                 {% endif %}
+                {% if can_view_puskesmas %}<a href="{% url 'puskesmas:expiry_list' %}" class="sidebar-link {% if 'expiry_' in request.resolver_match.url_name and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}" data-label="Kedaluwarsa Puskesmas" title="Kedaluwarsa Puskesmas"><i class="bi bi-calendar-x"></i><span>Kedaluwarsa Puskesmas</span></a>{% endif %}
                 {% if can_view_lplpo and request.user.role == 'PUSKESMAS' %}
                 <a href="{% url 'lplpo:lplpo_my_list' %}"
                     class="sidebar-link {% if request.resolver_match.app_name == 'lplpo' %}active{% endif %}"

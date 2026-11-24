@@ -2,10 +2,15 @@ from django.urls import path
 from . import views
 from . import inventory_views
 from . import consumption_views
+from . import expiry_views
 
 app_name = "puskesmas"
 
 urlpatterns = [
+    path("kedaluwarsa/", expiry_views.expiry_list, name="expiry_list"),
+    path("kedaluwarsa/buat/", expiry_views.expiry_create, name="expiry_create"),
+    path("kedaluwarsa/<int:pk>/", expiry_views.expiry_detail, name="expiry_detail"),
+    path("kedaluwarsa/<int:pk>/koreksi/", expiry_views.expiry_edit, name="expiry_edit"),
     path("persediaan/", consumption_views.inventory_report, name="inventory_report"),
     path("lplpo/<int:pk>/adopsi/", consumption_views.opening_adoption, name="opening_adoption"),
     path("pemakaian/<int:pk>/finalisasi/", consumption_views.consumption_finalize, name="consumption_finalize"),

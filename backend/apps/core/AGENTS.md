@@ -44,6 +44,9 @@ Workflow-specific issuance checkpoints, dates, migration metadata, and delete/vo
 
 ## Configuration Documentation
 
+- `expiry_monitoring.py` owns shared dated-batch display statuses and level predicates only. Callers supply authorized stock querysets and warning horizons; these helpers never authorize withdrawals or alter accounting cutoffs. ED day displays as critical; past ED displays as expired.
+- `form_fields.ItemBatchSelect` emits `data-item-id` for the shared item-to-batch JavaScript filter. Warehouse and facility forms must still validate item/batch membership server-side. Stock writers remain owned by their workflows.
+
 - CSV upload sampling uses an incremental UTF-8 decoder so a sample ending inside a multibyte character is valid. Owning import parsers must still decode/validate the full file and reject null bytes anywhere.
 
 - Keep `AUTH_USER_MODEL` explicit and `SECRET_KEY` environment-driven.

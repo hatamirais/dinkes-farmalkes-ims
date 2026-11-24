@@ -8,7 +8,7 @@ from django.db.models.functions import Coalesce
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from apps.core.decimal_validation import validate_finite_decimal
-from apps.recall.forms import StockByItemSelect
+from apps.core.form_fields import ItemBatchSelect as StockByItemSelect
 from apps.items.models import FundingSource, Item, Location
 from apps.stock.models import Stock
 

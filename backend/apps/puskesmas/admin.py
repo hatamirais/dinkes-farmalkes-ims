@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .expiry_models import PuskesmasExpiry, PuskesmasExpiryRevision, PuskesmasExpiryLine
 from .inventory_models import (
     PuskesmasInventoryAccount, PuskesmasOpeningVerification,
     PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
@@ -25,7 +26,8 @@ class PuskesmasRequestItemInline(admin.TabularInline):
                 PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
                 PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement,
                 PuskesmasConsumptionRevision, PuskesmasConsumptionAllocation,
-                PuskesmasConsumptionAudit, PuskesmasLPLPOInventoryBinding)
+                PuskesmasConsumptionAudit, PuskesmasLPLPOInventoryBinding,
+                PuskesmasExpiry, PuskesmasExpiryRevision, PuskesmasExpiryLine)
 class InventoryReadOnlyAdmin(admin.ModelAdmin):
     actions = None
 

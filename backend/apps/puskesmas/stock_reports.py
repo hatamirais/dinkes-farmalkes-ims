@@ -241,7 +241,7 @@ def legacy_stock(scoped_facilities, year, end_month, *, is_aggregate):
     return item_stock_map, report_metadata
 
 
-KINDS = ("opening", "receipts", "consumption", "closing")
+KINDS = ("opening", "receipts", "consumption", "expiry", "closing")
 
 
 def _legacy_values(facility_ids, year, start_month, end_month):
@@ -337,8 +337,8 @@ def stock_report_snapshot(facilities, year, start_month, end_month, *, is_aggreg
     metadata["has_inventory"] = bool(accounts)
     metadata["baseline_note"] += " Nilai historis memakai harga LPLPO per dokumen; rincian lapisan asli dan rekonsiliasi nilai mutasi tidak tersedia."
     if accounts:
-        metadata["source_description"] = "Stok Akhir Digital memakai jurnal saldo awal terverifikasi + penerimaan diposting − pemakaian difinalisasi untuk fasilitas yang tercakup. Fasilitas di luar cakupan memakai baseline LPLPO historis + penerimaan CONFIRMED − pemakaian rinci setelah baseline. Sumber dipilih per fasilitas, tanpa menghitung ganda."
-        metadata["baseline_note"] = "Pemilihan jurnal berdasarkan cakupan saldo awal, tidak memerlukan LPLPO. Nilai jurnal memakai harga asli tiap lapisan. Nilai historis tetap memakai harga LPLPO dan dapat berbeda dari rekonsiliasi mutasi. Integrasi kedaluwarsa belum aktif; saldo belum lengkap dan bukan hasil hitung fisik."
+        metadata["source_description"] = "Stok Akhir Digital memakai jurnal saldo awal terverifikasi + penerimaan diposting − pemakaian difinalisasi − kedaluwarsa diposting untuk fasilitas yang tercakup. Fasilitas di luar cakupan memakai baseline LPLPO historis + penerimaan CONFIRMED − pemakaian rinci setelah baseline. Sumber dipilih per fasilitas, tanpa menghitung ganda."
+        metadata["baseline_note"] = "Pemilihan jurnal berdasarkan cakupan saldo awal, tidak memerlukan LPLPO. Nilai jurnal memakai harga asli tiap lapisan. Nilai historis tetap memakai harga LPLPO dan dapat berbeda dari rekonsiliasi mutasi. Kedaluwarsa ditampilkan sebagai pengeluaran terpisah pada jurnal; mutasi historis kedaluwarsa di luar cakupan belum diketahui. Saldo bukan hasil hitung fisik."
     rincian = {}
     for row in rows:
         if row["closing_quantity"] is None:

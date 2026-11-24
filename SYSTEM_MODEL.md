@@ -2,7 +2,64 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
-## Puskesmas Feature 2 staging (2026-11-18)
+## Puskesmas expiry integration (2026-11-23)
+
+This section supersedes the historical Feature 2 staging gate below. Public
+consumption finalization and bound LPLPO submission now integrate explicit
+operator expiry withdrawals in code, without a setting bypass.
+
+Migration `puskesmas.0017_puskesmas_expiry` adds immutable `PuskesmasExpiry`
+(facility, UUID idempotency key, creator/time), `PuskesmasExpiryRevision`
+(number, fixed actual withdrawal date, reference/reason, digest, VOID, actor/time)
+and protected original-price layer lines. Inventory posting has exactly one
+source among opening, receipt, consumption, expiry or reversal; consumption
+revisions can reference the expiry that caused reallocation. Before expanding the
+source constraint, the local audit counted 2 postings and 0 invalid combinations.
+The expansion does not tighten historical validity; no applied migration changed.
+
+Routes under `/puskesmas/kedaluwarsa/`: list/dated-batch monitor, `buat/` confirmed
+posting, `<pk>/` retained detail/history/print and `<pk>/koreksi/` reasoned correction
+or VOID. Puskesmas permissions/module scope and facility isolation apply. Active
+own-facility PUSKESMAS and existing Super Admin helper can mutate; ADMIN_UMUM or
+module elevation alone cannot. The default 30-day viewing window is adjustable
+(1..365), never an automatic deduction trigger. No reviewer, warehouse deduction,
+central official number, disposal or physical-return certificate is introduced.
+
+Facility and warehouse monitors share `core.expiry_monitoring` display/level
+predicates and the expiry status partial; each retains its own authorized stock
+source and warning horizon (Puskesmas 30 days, IF 90 days). Puskesmas adds scoped
+category/search and allowlisted ordering. ED day displays as critical, independent
+of the accounting cutoff policy below. `core.form_fields.ItemBatchSelect` and the
+shared JavaScript filter support item-first batch selection in both workflows;
+facility forms validate item/layer membership server-side. Ledger writers,
+availability calculations and approval paths remain workflow-specific.
+
+`expiry.py` locks actor/module, facility, document/consumption and balances. It
+validates verified opening coverage, actual date (not future/before acquisition),
+known layer ED, whole quantity, original cost and projection/journal agreement.
+Corrections require the latest digest and a reason, append exact reversal and
+replacement/VOID, and retain the original date and all old evidence. Duplicate
+requests are idempotent; audit rows are transactional and logs emit on commit.
+
+The user approved same-month replay: restore finalized consumption, apply expiry
+replacement/VOID, reallocate FEFO as a linked new consumption revision and sync
+editable bound LPLPO/carries atomically. Any affected submitted LPLPO, later
+finalized month, shortage or unresolved expiry rolls everything back. Existing
+authorized LPLPO return paths remain mandatory; cross-period reopening is deferred.
+Remaining dated-journal quantity with ED on/before month end holds finalization,
+even zero use, until explicitly withdrawn in that period. Later-dated expiry
+cannot satisfy earlier coverage. No automatic write-off or expired allocation.
+Monthly allocation does not prove actual batch-use dates.
+
+Reports separate expiry and its reversals: closing = opening + receipts - medical
+consumption - expiry. `lplpo.0018_puskesmas_expiry` adds readonly
+`LPLPOItem.kedaluwarsa`, shown on bound edit/detail/print and included in live
+preview. Offline Q is appended information; the first 16 columns remain compatible
+and import recomputes protected quantities. Historical fallback cannot certify
+expiry outside journal coverage. Account readiness stays `FOUNDATION_INCOMPLETE`;
+physical stock opname, unsupported adjustments/returns and Feature 3 stay deferred.
+
+## Puskesmas Feature 2 staging (historical, 2026-11-18)
 
 This section supersedes the feature-1-only restrictions below. Operational
 consumption finalization and inventory-backed LPLPO submission remain closed:

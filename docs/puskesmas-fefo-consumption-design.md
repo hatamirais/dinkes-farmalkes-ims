@@ -1,6 +1,6 @@
 # Feature 2: Puskesmas FEFO consumption and inventory reporting
 
-Status: staged implementation completed locally; operational activation awaits verified expiry integration.
+Status: Feature 2 and Puskesmas expiry integration implemented locally; see section 20 for the current contract.
 Updated: 2026-11-23. Branch: `design/puskesmas-fefo-consumption`.
 Code baseline: `03df29523686d1b55128cdce475cd1103011414c`.
 
@@ -1194,3 +1194,72 @@ visibility under print media. No console errors or document overflow were seen;
 mobile initial-load screenshots were also checked. No real stock/adoption writes
 were performed. Browser plugin was unavailable; regular Playwright was used.
 Other browser engines and physical-printer output remain unverified.
+
+
+## 20. Puskesmas expiry implementation (2026-11-23)
+
+The user authorized implementation of #325 and explicitly chose automatic atomic
+same-month consumption reallocation after expiry corrections. This section
+supersedes the earlier closed activation gate; historical stages above are retained
+as decision evidence. Actual operator withdrawal is dated separately from month-end
+use, never automatically triggered by ED or a warning threshold. The 30-day default
+is an adjustable list filter, not an agreed mandatory disposal/withdrawal threshold.
+
+The implementation retains immutable expiry documents, original-cost line/revision
+snapshots, idempotent request keys, reasoned reversal/replacement/VOID and on-commit
+logs. Stored withdrawal dates are fixed. Same-month replay restores consumption,
+changes expiry and reallocates use in one transaction; affected submitted LPLPO,
+later finalized periods, shortage or unresolved expired stock abort all changes.
+Editable bound carries synchronize. No review route, warehouse mutation or physical
+disposal/return claim exists. Read/write authority remains facility-isolated.
+
+Unrecorded expired-by-cutoff quantities hold finalization (including zero use)
+until explicit withdrawal in that period; later-dated expiry is insufficient.
+This conservative policy never silently writes off or allocates expired stock.
+Public consumption finalization/bound submission now use this integration without
+an environment bypass. Reports and bound LPLPO distinguish expiry from medical
+use at original costs; offline information cannot override the journal. Physical
+stock completeness remains incomplete, and Feature 3/returns/annual reconciliation
+stay deferred. Details and reproduction targets are in the owning app guides.
+
+Local verification: 283 distinct tests passed (18 expiry, 32 consumption/inventory,
+41 opening/receipt foundation, 11 consumption views, 52 reports, 108 LPLPO workflow,
+16 offline-XLSX and 5 URL consistency). This includes same-month reversal/replay,
+transactional rollback, explicit-zero versus unresolved expiry, future-dated expiry
+coverage, cross-facility denials and expiry/consumption concurrency. Django system
+and migration-drift checks, CSS build/check and whitespace checks passed. Migrations
+were applied locally; LPLPO 0019 updates the closing-field formula help text.
+
+Playwright verified PUSKESMAS/ADMIN list/create surfaces on 127.0.0.1:8001 at
+1440×960 and 390×844: page identity, warning/page-size filters, facility selection,
+dynamic layer rows, initially unchecked confirmation and no document overflow or
+console errors. Screenshots were inspected. No real expiry/consumption posting
+was performed for browser QA; those mutations used the isolated PostgreSQL tests.
+The Browser plugin was unavailable. Other browser engines and physical printing
+remain unverified; this validation does not certify historical stock data.
+
+## 21. Shared IF expiry presentation (2026-11-23)
+
+The user authorized reuse after comparing IF expiry monitoring and stock posting.
+Shared code now owns dated-batch statuses/level filters, the status badge partial,
+and the item-to-batch choice widget/JavaScript filter. IF retains its warehouse
+query, 90-day horizon, reservation/submitted-document availability and approvals;
+Puskesmas retains its 30-day adjustable horizon and facility journal writer.
+The widget's former Recall import remains a compatibility alias.
+
+Puskesmas monitoring supports scoped categories, search and allowlisted sorting.
+Withdrawal rows choose a searchable item before its source batch/layer, including
+dynamically added rows and initialized corrections. Server validation rejects
+item/layer mismatch and unauthorized layers. Batch labels retain original price,
+funding and source. Critical display/filter includes ED day through 30 days ahead;
+this presentation does not change the monthly accounting hold or post stock.
+
+Local verification for this reuse: 110 distinct tests passed (22 Puskesmas expiry,
+1 shared display-boundary, 58 IF expiry and 29 Recall). System/migration-drift,
+CSS build/check and diff whitespace checks passed. Playwright on 127.0.0.1:8001
+verified PUSKESMAS and ADMIN at 1440×960 and 390×844: filter state, initial/dynamic
+item-to-batch selection, unchecked confirmation and no document overflow/console
+errors. ADMIN also exercised IF's critical filter. Screenshots were inspected.
+Browser plugin was unavailable; regular Playwright was used. No real stock writes
+were performed; posting/rollback tests used the isolated PostgreSQL test database.
+Other browser engines and actual disposal/physical stock remain unverified.

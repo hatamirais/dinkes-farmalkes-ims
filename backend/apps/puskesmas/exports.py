@@ -379,6 +379,10 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
         f"Saldo Akhir {year}\n(Rp)",
     ]
     col_widths = [6, 36, 20, 20, 20, 20]
+    include_expiry = bool(report_metadata and report_metadata.get("has_inventory"))
+    if include_expiry:
+        headers.append(f"Kedaluwarsa diposting {year}\n(Rp)")
+        col_widths.append(24)
     col_count = len(headers)
     last_col = get_column_letter(col_count)
 
@@ -411,6 +415,8 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
             Decimal(str(row.get("nilai_keluar", 0) or 0)),
             Decimal(str(row.get("saldo_akhir", 0) or 0)),
         ]
+        if include_expiry:
+            values.append(Decimal(str(row.get("nilai_kedaluwarsa", 0) or 0)))
         for col_idx, val in enumerate(values, 1):
             cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
@@ -433,6 +439,8 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
         (5, "nilai_keluar"),
         (6, "saldo_akhir"),
     ]
+    if include_expiry:
+        total_columns.append((7, "nilai_kedaluwarsa"))
     for col_idx, key in total_columns:
         c = ws.cell(row=row_num, column=col_idx)
         _set_decimal_text(c, totals.get(key, 0), decimal_places=12)

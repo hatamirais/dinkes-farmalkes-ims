@@ -138,6 +138,7 @@ class PuskesmasInventoryPosting(ImmutableRecord):
     receipt = models.OneToOneField("puskesmas.PuskesmasReceiptConfirmation", on_delete=models.PROTECT, null=True, blank=True, related_name="inventory_posting")
     consumption_revision = models.OneToOneField("puskesmas.PuskesmasConsumptionRevision", on_delete=models.PROTECT, null=True, blank=True, related_name="posting")
     reversal_of = models.OneToOneField("self", on_delete=models.PROTECT, null=True, blank=True, related_name="reversal")
+    expiry_revision = models.OneToOneField("puskesmas.PuskesmasExpiryRevision", on_delete=models.PROTECT, null=True, blank=True, related_name="posting")
     effective_date = models.DateField()
     recorded_at = models.DateTimeField(default=timezone.now, editable=False)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -146,10 +147,11 @@ class PuskesmasInventoryPosting(ImmutableRecord):
     class Meta:
         constraints = [models.CheckConstraint(
             condition=(
-                models.Q(opening__isnull=False, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=True)
-                | models.Q(opening__isnull=True, receipt__isnull=False, consumption_revision__isnull=True, reversal_of__isnull=True)
-                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=False, reversal_of__isnull=True)
-                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=False)
+                models.Q(opening__isnull=False, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=True, expiry_revision__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=False, consumption_revision__isnull=True, reversal_of__isnull=True, expiry_revision__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=False, reversal_of__isnull=True, expiry_revision__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=False, expiry_revision__isnull=True)
+                | models.Q(opening__isnull=True, receipt__isnull=True, consumption_revision__isnull=True, reversal_of__isnull=True, expiry_revision__isnull=False)
             ),
             name="pkinvposting_one_source",
         )]
@@ -206,6 +208,7 @@ class PuskesmasConsumptionRevision(ImmutableRecord):
     digest = models.CharField(max_length=64)
     snapshot = models.JSONField()
     reason = models.CharField(max_length=1000, blank=True)
+    expiry_revision = models.ForeignKey("puskesmas.PuskesmasExpiryRevision", on_delete=models.PROTECT, null=True, blank=True, related_name="consumption_revisions")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     recorded_at = models.DateTimeField(default=timezone.now, editable=False)
 

@@ -110,14 +110,13 @@ class ConsumptionInventoryTests(ConsumptionFixture, SecureClientDefaultsMixin, T
             with self.subTest(action=action), self.assertRaises(ValidationError):
                 action()
 
-    def test_public_finalization_and_http_remain_gated(self):
+    def test_public_finalization_and_http_are_idempotent_after_expiry_integration(self):
         digest = snapshot_digest(self.consumption, snapshot(self.consumption))
-        with self.assertRaisesMessage(ValidationError, "Integrasi modul kedaluwarsa"):
-            finalize_consumption(user=self.operator, consumption_id=self.consumption.pk, digest=digest)
+        revision = finalize_consumption(user=self.operator, consumption_id=self.consumption.pk, digest=digest)
         self.client.force_login(self.operator)
         response = self.client.post(reverse("puskesmas:consumption_finalize", args=[self.consumption.pk]), {"digest": digest}, follow=True)
-        self.assertContains(response, "Integrasi modul kedaluwarsa")
-        self.assertFalse(PuskesmasConsumptionRevision.objects.exists())
+        self.assertContains(response, "Pemakaian difinalisasi")
+        self.assertEqual(PuskesmasConsumptionRevision.objects.get().pk, revision.pk)
 
     def test_january_adoption_preserves_requests_and_blocks_submission(self):
         lplpo = LPLPO.objects.create(facility=self.facility, tahun=2026, bulan=1, created_by=self.operator)
@@ -130,7 +129,7 @@ class ConsumptionInventoryTests(ConsumptionFixture, SecureClientDefaultsMixin, T
         self.assertEqual(line.nilai_stok_awal, Decimal("3001.2345678900"))
         self.client.force_login(self.operator)
         response = self.client.post(reverse("lplpo:lplpo_submit", args=[lplpo.pk]), follow=True)
-        self.assertContains(response, "Integrasi modul kedaluwarsa")
+        self.assertContains(response, "Finalisasi pemakaian bulan ini")
         lplpo.refresh_from_db()
         self.assertEqual(lplpo.status, "DRAFT")
         response = self.client.get(reverse("lplpo:lplpo_edit", args=[lplpo.pk]))

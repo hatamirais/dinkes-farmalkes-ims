@@ -138,14 +138,14 @@ def inventory_workbook(rows, accounts, end, excluded_count, *, start=None, repor
     wb = Workbook()
     ws = wb.active
     ws.title = "Persediaan Puskesmas"
-    ws.append(["Batas laporan", str(end), "BELUM LENGKAP — integrasi kedaluwarsa belum aktif"])
+    ws.append(["Batas laporan", str(end), "BELUM LENGKAP — hanya mutasi tercatat; bukan hasil hitung fisik"])
     ws.append(["Fasilitas tanpa sumber saldo", excluded_count, "Awal interval", str(start or "")])
     ws.append(["Fasilitas", "Kode", "Barang", "Awal qty", "Awal nilai", "Terima qty", "Terima nilai",
-               "Pakai qty", "Pakai nilai", "Akhir qty", "Akhir nilai"])
+               "Pakai qty", "Pakai nilai", "Akhir qty", "Akhir nilai", "Kedaluwarsa qty", "Kedaluwarsa nilai"])
     for row in rows:
         ws.append([escape_xlsx_formula(row["facility_name"]), escape_xlsx_formula(row["item"].kode_barang),
             escape_xlsx_formula(row["item"].nama_barang)] + [format(row[f"{kind}_{unit}"], "f") if row[f"{kind}_{unit}"] is not None else "—"
-            for kind in ("opening", "receipts", "consumption", "closing") for unit in ("quantity", "value")])
+            for kind in ("opening", "receipts", "consumption", "closing", "expiry") for unit in ("quantity", "value")])
     detail = wb.create_sheet("Lapisan Harga Asli")
     detail.append(["Fasilitas", "Barang", "Lapisan", "Batch", "Kedaluwarsa", "Sumber", "Qty", "Harga asli", "Nilai"])
     for row in rows:
@@ -158,10 +158,10 @@ def inventory_workbook(rows, accounts, end, excluded_count, *, start=None, repor
     ws.freeze_panes = "D4"
     detail.freeze_panes = "D2"
     recap = wb.create_sheet("Rekap Nilai")
-    recap.append(["Kategori", "Saldo awal", "Penerimaan", "Pemakaian", "Saldo akhir"])
+    recap.append(["Kategori", "Saldo awal", "Penerimaan", "Pemakaian", "Saldo akhir", "Kedaluwarsa"])
     for entry in report_category_totals(rows):
         recap.append([escape_xlsx_formula(entry["name"])] + [format(entry[f"{kind}_value"], "f")
-            for kind in ("opening", "receipts", "consumption", "closing")])
+            for kind in ("opening", "receipts", "consumption", "closing", "expiry")])
     if report_metadata:
         from .exports import add_persediaan_source_sheet
         add_persediaan_source_sheet(wb, report_metadata, "Persediaan Puskesmas", end.year, "Rentang bulan")

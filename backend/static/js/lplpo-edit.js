@@ -12,7 +12,8 @@ function recalcRow(row) {
     var waktuKosong = getVal('[name*="waktu_kosong"]');
 
     var persediaan = stockAwal + penerimaan;
-    var stockKeseluruhan = persediaan - pemakaian;
+    var kedaluwarsa = getVal('.js-kedaluwarsa');
+    var stockKeseluruhan = persediaan - pemakaian - kedaluwarsa;
     var stockOptimum = pemakaian * 1.2;
     var requiredReplenishment = Math.max(stockOptimum - stockKeseluruhan, 0);
     var jumlahKebutuhan = requiredReplenishment + waktuKosong;

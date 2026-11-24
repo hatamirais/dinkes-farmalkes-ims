@@ -1,9 +1,4 @@
-"""Costed monthly consumption; operational activation awaits expiry integration.
-
-The private posting engine is exercised with real ORM records in tests. It is not
-an operational bypass: the public finalization/correction services fail closed
-until the separate expiry integration and policy are implemented and verified.
-"""
+"""Costed monthly consumption with explicit expiry withdrawals and corrections."""
 import calendar
 import hashlib
 import json
@@ -31,15 +26,12 @@ from .inventory_models import (
 from .models import PuskesmasConsumption, PuskesmasSubunit
 
 logger = logging.getLogger("core")
-EXPIRY_GATE_MESSAGE = (
-    "Finalisasi inventaris belum diaktifkan. Integrasi modul kedaluwarsa Puskesmas "
-    "harus diverifikasi terlebih dahulu. Draf tetap dapat disimpan."
-)
+EXPIRY_GATE_MESSAGE = "Selesaikan penarikan kedaluwarsa yang diketahui sebelum finalisasi. Pemakaian dialokasikan pada akhir bulan; ini bukan bukti tanggal penggunaan batch."
 
 
 def expiry_integration_ready():
-    # Deliberately no setting/checkbox bypass while #325 is unimplemented.
-    return False
+    # Code integration, not a setting/checkbox bypass or completeness claim.
+    return True
 
 
 def require_expiry_integration():
@@ -74,10 +66,11 @@ def audit(consumption, user, event, before, after):
     event_row = PuskesmasConsumptionAudit.objects.create(
         facility_id=consumption.facility_id, consumption_id_snapshot=consumption.pk,
         actor=user, event=event, before=before, after=after)
-    logger.info("puskesmas_consumption_revision", extra={
+    details = {
         "event": event, "audit_id": event_row.pk, "consumption_id": consumption.pk,
         "facility_id": consumption.facility_id, "actor_id": user.pk,
-    })
+    }
+    transaction.on_commit(lambda: logger.info("puskesmas_consumption_revision", extra=details))
 
 
 def assert_operator(user, facility, *, permission="puskesmas.change_puskesmasconsumption",
@@ -136,7 +129,8 @@ def _change_balance(balance, delta):
     balance.quantity = quantity
 
 
-def _post_revision_locked(*, consumption, user, data, reason="", expected_digest=None):
+def _post_revision_locked(*, consumption, user, data, reason="", expected_digest=None,
+                          expiry_revision=None, restored_previous=False):
     """Internal engine. Caller holds actor/facility/document locks in that order."""
     if not transaction.get_connection().in_atomic_block:
         raise RuntimeError("Consumption posting requires a locked transaction.")
@@ -151,8 +145,11 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
     data = _validate_snapshot(consumption, data)
     digest = snapshot_digest(consumption, data)
     previous = latest_revision(consumption)
-    if previous and previous.digest == digest:
+    if previous and previous.digest == digest and expiry_revision is None:
         return previous
+    if restored_previous and (not previous or expiry_revision is None or
+                              not hasattr(previous.posting, "reversal")):
+        raise ValidationError("Pemulihan revisi pemakaian tidak valid.")
     current = snapshot_digest(consumption, snapshot(consumption))
     if not previous and digest != current:
         raise ValidationError("Simpan draf pemakaian terlebih dahulu sebelum finalisasi.")
@@ -187,9 +184,20 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
     if any(balance.quantity != journal.get(balance.layer_id, Decimal(0)) for balance in balances):
         raise ValidationError("Proyeksi saldo berbeda dari jurnal; rekonsiliasi diperlukan.")
     original_movements = list(previous.posting.movements.all()) if previous else []
+    dated_journal = dict(PuskesmasInventoryMovement.objects.filter(layer_id__in=by_layer,
+        posting__effective_date__lte=effective).values("layer_id").annotate(total=Sum("quantity_delta"))
+        .values_list("layer_id", "total"))
+    if previous and not restored_previous:
+        for movement in original_movements:
+            dated_journal[movement.layer_id] = dated_journal.get(movement.layer_id, 0) - movement.quantity_delta
+    for balance in balances:
+        layer = balance.layer
+        if layer.expiry_date and layer.expiry_date <= effective and dated_journal.get(layer.pk, 0) > 0:
+            raise ValidationError(f"{layer.item}: batch {layer.batch_lot or '—'} kedaluwarsa {layer.expiry_date}; selesaikan aturan/alur kedaluwarsa dengan mencatat jumlah penarikan pada periode ini. Tidak ada pengurangan otomatis.")
     quantities = {key: balance.quantity for key, balance in by_layer.items()}
-    for movement in original_movements:
-        quantities[movement.layer_id] -= movement.quantity_delta
+    if not restored_previous:
+        for movement in original_movements:
+            quantities[movement.layer_id] -= movement.quantity_delta
     ordered = sorted(balances, key=lambda balance: (
         balance.layer.expiry_date is None, balance.layer.expiry_date or date.max,
         balance.layer.posting.effective_date, balance.layer.posting_id, balance.layer_id))
@@ -219,8 +227,8 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
     before = previous.snapshot if previous else snapshot(consumption)
     revision = PuskesmasConsumptionRevision.objects.create(consumption=consumption,
         number=previous.number + 1 if previous else 1, effective_date=effective,
-        digest=digest, snapshot=data, reason=reason, actor=user)
-    if previous:
+        digest=digest, snapshot=data, reason=reason, actor=user, expiry_revision=expiry_revision)
+    if previous and not restored_previous:
         reversal = PuskesmasInventoryPosting.objects.create(facility_id=consumption.facility_id,
             reversal_of=previous.posting, effective_date=effective, actor=user, digest=previous.digest)
         for movement in original_movements:

@@ -270,6 +270,8 @@ class LPLPOItem(models.Model):
         default=0,
         help_text="Filled by Puskesmas operator",
     )
+    kedaluwarsa = models.PositiveIntegerField(default=0, editable=False,
+        help_text="Inventory expiry withdrawal, separate from medical consumption")
     stock_gudang_puskesmas = models.PositiveIntegerField(
         default=0,
         help_text="Physical count of Puskesmas warehouse stock",
@@ -294,7 +296,7 @@ class LPLPOItem(models.Model):
     )
     stock_keseluruhan = models.IntegerField(
         default=0,
-        help_text="persediaan - pemakaian",
+        help_text="persediaan - pemakaian - kedaluwarsa",
     )
     stock_optimum = models.DecimalField(
         max_digits=12,
@@ -347,7 +349,7 @@ class LPLPOItem(models.Model):
             safe_int(self.stock_awal)
             + safe_int(self.penerimaan)
         )
-        self.stock_keseluruhan = self.persediaan - safe_int(self.pemakaian)
+        self.stock_keseluruhan = self.persediaan - safe_int(self.pemakaian) - safe_int(self.kedaluwarsa)
         # Stok optimum follows the consumption method: monthly usage plus a
         # 20 percent buffer, independent from the ending stock position.
         replenishment_basis = Decimal(safe_int(self.pemakaian))

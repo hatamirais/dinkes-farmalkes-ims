@@ -1,0 +1,29 @@
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms static %}
+{% block title %}{% if document %}Koreksi{% else %}Catat{% endif %} Kedaluwarsa Puskesmas{% endblock %}
+{% block page_title %}{% if document %}Koreksi{% else %}Catat{% endif %} Kedaluwarsa Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-workflow">
+    <div class="ims-alert ims-alert--warning mb-4">Tindakan ini mengurangi stok yang boleh digunakan, terpisah dari pemakaian medis. Pastikan batch, jumlah dan tanggal aktual penarikan. Penandaan tidak menyatakan barang sudah dimusnahkan atau dikembalikan.</div>
+    {% if not facility %}<form method="get" class="ims-panel mb-4"><div class="ims-panel-body"><label for="facility" class="ims-label">Pilih Puskesmas</label><select name="facility" id="facility" class="ims-control" required>{% for f in facilities %}<option value="{{ f.pk }}">{{ f.name }}</option>{% endfor %}</select><button type="submit" class="ims-btn ims-btn--primary mt-3">Muat lapisan</button></div></form>{% else %}
+    <p class="mb-4"><strong>{{ facility.name }}</strong>{% if document %} · Kedaluwarsa #{{ document.pk }}{% endif %}</p>
+    <form method="post" data-confirm-submit="Simpan penarikan/koreksi ini beserta perubahan laporan yang terdampak?">
+        {% csrf_token %}<input type="hidden" name="facility" value="{{ facility.pk }}">
+        {{ form.request_key }}{{ form.expected_digest }}
+        {% if form.non_field_errors %}<div class="ims-alert ims-alert--danger mb-4">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="ims-panel mb-4"><div class="ims-panel-body">
+            {% tailwind_field form.effective_date %}{% tailwind_field form.reference %}{% tailwind_field form.reason %}
+            {% if document %}<p class="text-muted mb-3">Tanggal dokumen tersimpan tetap. Koreksi mempertahankan revisi lama, membalik jurnal sebelumnya dan menghitung ulang pemakaian bulan yang sama secara atomik. Periode berikutnya yang final atau LPLPO yang diajukan akan menahan perubahan.</p>{% endif %}
+        </div></div>
+        {{ lines.management_form }}{{ lines.non_form_errors }}
+        <div id="expiry-lines">{% for line in lines %}<div class="ims-panel mb-3" data-item-batch-row><div class="ims-panel-body">{% tailwind_field line.item %}{% tailwind_field line.layer %}{% tailwind_field line.quantity %}{% tailwind_field line.DELETE %}</div></div>{% endfor %}</div>
+        <template id="expiry-empty-line"><div class="ims-panel mb-3" data-item-batch-row><div class="ims-panel-body">{% tailwind_field lines.empty_form.item %}{% tailwind_field lines.empty_form.layer %}{% tailwind_field lines.empty_form.quantity %}{% tailwind_field lines.empty_form.DELETE %}</div></div></template>
+        <button type="button" class="ims-btn ims-btn--neutral mb-4" id="add-expiry-line">Tambah lapisan</button>
+        <div class="ims-panel mb-4"><div class="ims-panel-body">{% tailwind_field form.confirmed %}</div></div>
+        <div class="flex flex-wrap gap-2"><button type="submit" class="ims-btn ims-btn--primary">Simpan dan kurangi stok</button>
+        {% if document %}<button type="submit" name="action" value="void" class="ims-btn ims-btn--danger">Batalkan penarikan dengan alasan</button>{% endif %}
+        <a class="ims-btn ims-btn--neutral" href="{% url 'puskesmas:expiry_list' %}?facility={{ facility.pk }}">Kembali</a></div>
+    </form>{% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/puskesmas-expiry.js' %}"></script>{% endblock %}

@@ -74,7 +74,7 @@
                                 {% if not lplpo.inventory_backed %}<th class="text-center" style="width:120px">Harga Satuan</th>{% endif %}
                                 <th class="text-center computed-cell" style="width:90px">Persediaan</th>
                                 <th class="text-center" style="width:90px">Pemakaian</th>
-                                <th class="text-center computed-cell" style="width:90px">Sisa Stok</th>
+                                {% if lplpo.inventory_backed %}<th class="text-center">Kedaluwarsa</th>{% endif %}<th class="text-center computed-cell" style="width:90px">Sisa Stok</th>
                                 <th class="text-center computed-cell" style="width:90px" title="Dihitung dari pemakaian periode ini ditambah buffer 20 persen.">Stok Optimum</th>
                                 <th class="text-center computed-cell" style="width:90px" title="Jumlah untuk mencapai stok optimum ditambah hari kosong pada periode ini.">Kebutuhan</th>
                                 <th class="text-center" style="width:50px">Hari Kosong</th>
@@ -125,7 +125,7 @@
                                     {{ f.pemakaian }}
                                     <div class="text-ims-xs text-muted">Dari pemakaian rinci</div>
                                 </td>
-                                <td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
+                                {% if lplpo.inventory_backed %}<td class="text-end">{{ li.kedaluwarsa }}<input type="hidden" class="js-kedaluwarsa" value="{{ li.kedaluwarsa }}"></td>{% endif %}<td class="text-end computed-cell js-stock-keseluruhan">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                                 <td class="text-end computed-cell js-stock-optimum">{{ li.stock_optimum|floatformat:"-2" }}</td>
                                 <td class="text-end computed-cell js-jumlah-kebutuhan">{{ li.jumlah_kebutuhan|floatformat:"-2" }}</td>
                                 <td>{{ f.waktu_kosong }}</td>

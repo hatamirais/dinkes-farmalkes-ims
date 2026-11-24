@@ -26,13 +26,13 @@ def period_rows(facility_ids, year, month, start_month=None):
     covered_ids = [account.facility_id for account in accounts]
     movements = PuskesmasInventoryMovement.objects.filter(
         posting__facility_id__in=covered_ids, posting__effective_date__lte=end
-    ).select_related("posting", "layer__item__satuan", "layer__item__kategori", "layer__posting", "layer__sumber_dana").order_by("pk")
+    ).select_related("posting__reversal_of", "layer__item__satuan", "layer__item__kategori", "layer__posting", "layer__sumber_dana").order_by("pk")
     for movement in movements:
         layer, posting = movement.layer, movement.posting
         key = (posting.facility_id, layer.item_id)
         if key not in rows:
             rows[key] = dict(facility_id=key[0], item=layer.item,
-                **{f"{kind}_{unit}": Decimal(0) for kind in ("opening", "receipts", "consumption", "closing")
+                **{f"{kind}_{unit}": Decimal(0) for kind in ("opening", "receipts", "consumption", "expiry", "closing")
                    for unit in ("quantity", "value")}, layers=[])
         row = rows[key]
         quantity = movement.quantity_delta
@@ -42,6 +42,8 @@ def period_rows(facility_ids, year, month, start_month=None):
             kind, sign = "opening", 1
         elif posting.receipt_id:
             kind, sign = "receipts", 1
+        elif posting.expiry_revision_id or (posting.reversal_of_id and posting.reversal_of.expiry_revision_id):
+            kind, sign = "expiry", -1
         else:
             kind, sign = "consumption", -1
         row[f"{kind}_quantity"] += sign * quantity
@@ -63,8 +65,8 @@ def category_totals(rows):
         category = row["item"].kategori
         name = category.name if category else "Lainnya"
         totals = categories.setdefault(name, {"name": name, **{
-            f"{kind}_value": Decimal(0) for kind in ("opening", "receipts", "consumption", "closing")}})
-        for kind in ("opening", "receipts", "consumption", "closing"):
+            f"{kind}_value": Decimal(0) for kind in ("opening", "receipts", "consumption", "expiry", "closing")}})
+        for kind in ("opening", "receipts", "consumption", "expiry", "closing"):
             key = f"{kind}_value"
             totals[key] = sum_decimals([totals[key], row[key]])
     return list(categories.values())
@@ -145,6 +147,9 @@ def sync_inventory_lplpo(lplpo):
         line.stock_awal = int(row["opening_quantity"]) if row else 0
         line.penerimaan = int(row["receipts_quantity"]) if row else 0
         line.pemakaian = int(row["consumption_quantity"]) if row else 0
+        line.kedaluwarsa = int(row["expiry_quantity"]) if row else 0
+        if not 0 <= line.kedaluwarsa <= 2147483647:
+            raise ValidationError("Total kedaluwarsa melebihi batas penyimpanan LPLPO.")
         line.penerimaan_auto_filled = True
         line.compute_fields()
         if line.pk:
@@ -152,7 +157,7 @@ def sync_inventory_lplpo(lplpo):
         else:
             line.save()
     if updated:
-        LPLPOItem.objects.bulk_update(updated, ["stock_awal", "penerimaan", "pemakaian",
+        LPLPOItem.objects.bulk_update(updated, ["stock_awal", "penerimaan", "pemakaian", "kedaluwarsa",
             "penerimaan_auto_filled", "persediaan", "stock_keseluruhan", "stock_optimum", "jumlah_kebutuhan"])
 
 

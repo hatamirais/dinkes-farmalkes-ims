@@ -207,6 +207,8 @@ def export_lplpo_workbook(lplpo_obj):
             line.permintaan_jumlah,
             line.permintaan_alasan,
         ]
+        if lplpo_obj.inventory_backed:
+            row_values.append(line.kedaluwarsa)
         for column_index, value in enumerate(row_values, start=1):
             cell_value = format_price_exact(value) if column_index == 7 else value
             cell = worksheet.cell(
@@ -227,9 +229,11 @@ def export_lplpo_workbook(lplpo_obj):
 
     column_widths = [18, 34, 10, 20, 12, 12, 14, 12, 12, 16, 14, 16, 14, 12, 16, 36]
     if lplpo_obj.inventory_backed:
+        worksheet.cell(row=HEADER_ROW, column=17, value="kedaluwarsa (informasi jurnal)")
+        worksheet.column_dimensions["Q"].width = 24
         # Preserve the versioned round-trip schema, but do not display/edit prices.
         worksheet.column_dimensions["G"].hidden = True
-        worksheet.cell(row=9, column=1, value="Saldo awal, penerimaan dan pemakaian berasal dari jurnal inventaris; jangan diubah.")
+        worksheet.cell(row=9, column=1, value="Saldo awal, penerimaan, pemakaian dan kedaluwarsa berasal dari jurnal inventaris. Kolom turunan/informasi dihitung ulang saat impor.")
     for column_index, width in enumerate(column_widths, start=1):
         worksheet.column_dimensions[get_column_letter(column_index)].width = width
 

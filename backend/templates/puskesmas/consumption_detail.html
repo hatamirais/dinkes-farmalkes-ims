@@ -25,7 +25,7 @@
         </div>
     </div>
 
-    <div class="ims-alert ims-alert--warning mb-4">{{ inventory_gate_message }}</div>
+    <div class="ims-alert ims-alert--warning mb-4">{{ inventory_gate_message }} <a href="{% url 'puskesmas:expiry_list' %}?facility={{ consumption.facility_id }}">Periksa kedaluwarsa</a></div>
     <p>Status inventaris: {% if inventory_revision %}Diposting · revisi {{ inventory_revision.number }}{% else %}Draf / belum diposting{% endif %}</p>
     <div class="ims-panel mb-4">
         <div class="ims-panel-body">

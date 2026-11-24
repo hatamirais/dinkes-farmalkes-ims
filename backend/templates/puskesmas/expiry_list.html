@@ -1,0 +1,41 @@
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms number_format %}
+{% block title %}Kedaluwarsa Puskesmas{% endblock %}
+{% block page_title %}Kedaluwarsa Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-workflow">
+    <p class="mb-4">Pantau batch bertanggal kedaluwarsa dan catat jumlah yang ditarik dari stok yang boleh digunakan. Penandaan dilakukan operator, tanpa persetujuan terpisah.</p>
+    <div class="ims-alert ims-alert--warning mb-4">Daftar ini memakai saldo jurnal yang tercatat, bukan hasil hitung fisik. Lewat tanggal ED atau masuk jendela peringatan tidak otomatis mengurangi stok. Penandaan bukan bukti pemusnahan atau pengembalian.</div>
+    <form method="get" class="ims-panel mb-4"><div class="ims-panel-body">
+        {% if facilities %}<label for="facility" class="ims-label">Puskesmas</label><select name="facility" id="facility" class="ims-control"><option value="">Semua fasilitas</option>{% for f in facilities %}<option value="{{ f.pk }}" {% if facility.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select>{% elif facility %}<input type="hidden" name="facility" value="{{ facility.pk }}">{% endif %}
+        <div class="ims-layout-row ims-layout-g-3">
+            <div class="ims-layout-col-md-4">{% tailwind_field form.q %}</div>
+            <div class="ims-layout-col-md-4">{% tailwind_field form.category %}</div>
+            <div class="ims-layout-col-md-4">{% tailwind_field form.level %}</div>
+            <div class="ims-layout-col-md-3">{% tailwind_field form.days %}</div>
+            <div class="ims-layout-col-md-3">{% tailwind_field form.page_size %}</div>
+            <div class="ims-layout-col-md-3">{% tailwind_field form.sort %}</div>
+            <div class="ims-layout-col-md-3">{% tailwind_field form.dir %}</div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3"><button class="ims-btn ims-btn--primary" type="submit">Tampilkan</button>
+        {% if can_manage %}<a class="ims-btn ims-btn--secondary" href="{% url 'puskesmas:expiry_create' %}{% if facility %}?facility={{ facility.pk }}{% endif %}">Catat penarikan</a>{% endif %}</div>
+    </div></form>
+    <div class="table-responsive ims-panel mb-4"><table class="table ims-table ims-table--ruled">
+        <caption class="text-start font-bold p-3">Batch dalam jendela peringatan — termasuk yang telah lewat ED</caption>
+        <thead><tr><th>Barang / fasilitas</th><th>Batch / sumber</th><th>ED / status</th><th>Saldo jurnal</th><th>Harga asli (Rp)</th></tr></thead>
+        <tbody>{% for row in rows %}<tr><td>{{ row.layer.item }}<br><small>{{ row.layer.posting.facility.name }}</small></td>
+            <td>{{ row.layer.batch_lot|default:"Tidak diketahui" }}<br>{{ row.layer.source_document_number|default:"Sumber tidak diketahui" }}<br>Lapisan #{{ row.layer.pk }}</td>
+            <td>{{ row.layer.expiry_date|date:"d/m/Y" }}<br>{% include "components/expiry/status.html" %}</td><td>{{ row.layer.balance.quantity|id_decimal:0 }}</td><td>{{ row.layer.unit_price|id_price_exact }}</td></tr>
+        {% empty %}<tr><td colspan="5">Tidak ada saldo batch yang tercatat dalam jendela ini. Hasil kosong bukan konfirmasi seluruh stok aman atau lengkap.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <nav class="ims-table-pagination flex flex-wrap gap-2 mb-4" aria-label="Halaman batch">
+        {% if rows.has_previous %}<a class="ims-page-link" href="?{{ pagination_query }}&amp;page={{ rows.previous_page_number }}">Sebelumnya</a>{% endif %}
+        <span>{{ rows.start_index }}–{{ rows.end_index }} dari {{ rows.paginator.count }} lapisan</span>
+        {% for n in page_range %}{% if n == rows.paginator.ELLIPSIS %}<span>{{ n }}</span>{% else %}<a class="ims-page-link" {% if n == rows.number %}aria-current="page"{% endif %} href="?{{ pagination_query }}&amp;page={{ n }}">{{ n }}</a>{% endif %}{% endfor %}
+        {% if rows.has_next %}<a class="ims-page-link" href="?{{ pagination_query }}&amp;page={{ rows.next_page_number }}">Berikutnya</a>{% endif %}
+    </nav>
+    <h2 class="font-bold mb-2">Dokumen penarikan — 50 terbaru</h2>
+    <div class="table-responsive ims-panel"><table class="table ims-table ims-table--ruled"><thead><tr><th>Dokumen</th><th>Fasilitas</th><th>Revisi terakhir</th><th>Dibuat</th></tr></thead>
+        <tbody>{% for doc in documents %}<tr><td><a href="{% url 'puskesmas:expiry_detail' doc.pk %}">Kedaluwarsa #{{ doc.pk }}</a></td><td>{{ doc.facility.name }}</td><td>{{ doc.last_number }}</td><td>{{ doc.created_at|date:"d/m/Y H:i" }}</td></tr>{% empty %}<tr><td colspan="4">Belum ada dokumen penarikan.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endblock %}

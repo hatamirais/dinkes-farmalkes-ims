@@ -28,19 +28,20 @@
     </div>{% endif %}
     {% if report_metadata %}{% include "puskesmas/partials/persediaan_source.html" %}{% endif %}
     {% if category_totals %}<div class="table-responsive mb-4"><table class="table ims-table ims-table--compact">
-        <thead><tr><th>Kategori</th><th>Nilai awal (Rp)</th><th>Penerimaan (Rp)</th><th>Pemakaian (Rp)</th><th>Nilai akhir (Rp)</th></tr></thead>
+        <thead><tr><th>Kategori</th><th>Nilai awal (Rp)</th><th>Penerimaan (Rp)</th><th>Pemakaian (Rp)</th><th>Kedaluwarsa diposting (Rp)</th><th>Nilai akhir (Rp)</th></tr></thead>
         <tbody>{% for total in category_totals %}<tr><td>{{ total.name }}</td>
         <td>{{ total.opening_value|id_decimal:2 }}</td><td>{{ total.receipts_value|id_decimal:2 }}</td>
-        <td>{{ total.consumption_value|id_decimal:2 }}</td><td>{{ total.closing_value|id_decimal:2 }}</td>
+        <td>{{ total.consumption_value|id_decimal:2 }}</td><td>{{ total.expiry_value|id_decimal:2 }}</td><td>{{ total.closing_value|id_decimal:2 }}</td>
         </tr>{% endfor %}</tbody></table></div>{% endif %}
     <div class="ims-panel"><div class="ims-panel-header">Rincian barang — jumlah dan nilai (Rp)</div>
         <div class="table-responsive"><table class="table ims-table ims-table--compact ims-table--ruled">
-            <thead><tr><th>Barang / fasilitas</th><th>Awal</th><th>Penerimaan</th><th>Pemakaian diposting</th><th>Akhir</th><th>Lapisan</th></tr></thead>
+            <thead><tr><th>Barang / fasilitas</th><th>Awal</th><th>Penerimaan</th><th>Pemakaian diposting</th><th>Kedaluwarsa diposting</th><th>Akhir</th><th>Lapisan</th></tr></thead>
             <tbody>{% for row in rows %}<tr>
                 <td><strong>{{ row.item.nama_barang }}</strong><br><small>{{ row.item.kode_barang }} · {{ row.facility_name }}<br>{{ row.source_label }}</small></td>
                 <td class="text-end">{% if row.is_inventory %}{{ row.opening_quantity|id_decimal:0 }}{% else %}—{% endif %}<br><small>{% if row.has_valuation %}Rp {{ row.opening_value|id_decimal:2 }}{% else %}Nilai belum tercakup{% endif %}</small></td>
                 <td class="text-end">{% if row.is_inventory %}{{ row.receipts_quantity|id_decimal:0 }}{% else %}—{% endif %}<br><small>{% if row.has_valuation %}Rp {{ row.receipts_value|id_decimal:2 }}{% else %}Nilai belum tercakup{% endif %}</small></td>
                 <td class="text-end">{% if row.is_inventory %}{{ row.consumption_quantity|id_decimal:0 }}{% else %}—{% endif %}<br><small>{% if row.has_valuation %}Rp {{ row.consumption_value|id_decimal:2 }}{% else %}Nilai belum tercakup{% endif %}</small></td>
+                <td class="text-end">{% if row.is_inventory %}{{ row.expiry_quantity|id_decimal:0 }}<br><small>Rp {{ row.expiry_value|id_decimal:2 }}</small>{% else %}Historis tidak tercakup{% endif %}</td>
                 <td class="text-end">{% if row.closing_quantity is None %}—{% else %}{{ row.closing_quantity|id_decimal:0 }}{% endif %}<br><small>{% if row.has_valuation %}Rp {{ row.closing_value|id_decimal:2 }}{% else %}Nilai belum tercakup{% endif %}</small></td>
                 <td>{% if row.is_inventory %}<details {% if print_mode %}open{% endif %}><summary>Harga asli</summary>
                     {% for detail in row.layers %}<div class="mb-2">
@@ -51,7 +52,7 @@
                         Nilai akhir: Rp {{ detail.value|id_decimal:2 }}
                     </div>{% endfor %}
                 </details>{% else %}Historis: harga LPLPO; rincian lapisan tidak tersedia.{% endif %}</td>
-            </tr>{% empty %}<tr><td colspan="6">Belum ada saldo persediaan yang tercakup pada periode ini. Hasil kosong tidak berarti stok nol.</td></tr>{% endfor %}</tbody>
+            </tr>{% empty %}<tr><td colspan="7">Belum ada saldo persediaan yang tercakup pada periode ini. Hasil kosong tidak berarti stok nol.</td></tr>{% endfor %}</tbody>
         </table></div>
     </div>
     {% if not print_mode %}<nav class="flex flex-wrap gap-2 mt-3 d-print-none" aria-label="Halaman persediaan">

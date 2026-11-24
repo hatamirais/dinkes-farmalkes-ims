@@ -14,6 +14,7 @@ from datetime import timedelta
 
 from apps.core.decorators import module_scope_required, perm_required
 from apps.core.models import DocumentNumberRule
+from apps.core.expiry_monitoring import expiry_display, expiry_levels, expiry_level_filter
 from apps.core.numbering import issue_document_number, void_document_number
 from apps.items.models import Location
 from apps.stock.models import Stock
@@ -223,10 +224,7 @@ def expired_alerts(request):
         queryset = queryset.filter(location_id=location)
 
     level = request.GET.get("level", "all").strip()
-    if level == "expired":
-        queryset = queryset.filter(expiry_date__lt=today)
-    elif level == "near":
-        queryset = queryset.filter(expiry_date__gte=today, expiry_date__lte=threshold)
+    queryset = queryset.filter(expiry_level_filter("expiry_date", level, today))
 
     pending_only = request.GET.get("pending", "1") == "1"
     if pending_only:
@@ -277,21 +275,13 @@ def expired_alerts(request):
 
     rows = []
     for stock in queryset:
-        days_to_expiry = (stock.expiry_date - today).days
-        if stock.expiry_date < today:
-            expiry_status = "expired"
-        elif days_to_expiry <= 30:
-            expiry_status = "near-critical"
-        else:
-            expiry_status = "near"
         rows.append(
             {
                 "stock": stock,
                 "available": stock.available_qty,
                 "pending_quantity": stock.pending_quantity,
                 "actionable": max(stock.actionable_quantity, 0),
-                "days_to_expiry": days_to_expiry,
-                "expiry_status": expiry_status,
+                **expiry_display(stock.expiry_date, today),
             }
         )
 
@@ -317,6 +307,7 @@ def expired_alerts(request):
             "locations": locations,
             "selected_location": location,
             "selected_level": level,
+            "expiry_levels": expiry_levels(90),
             "pending_only": pending_only,
             "selected_sort": sort,
             "selected_dir": direction,
