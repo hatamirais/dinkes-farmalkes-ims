@@ -208,8 +208,8 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
             layer = balance.layer
             if layer.item_id != entry["item_id"] or quantities[layer.pk] <= 0:
                 continue
-            # Until #325 defines the evidence path, do not silently choose whether
-            # undated monthly use may consume a batch already expired by month end.
+            # Monthly totals cannot prove pre-expiry use dates. Expired-by-cutoff
+            # stock requires explicit operator withdrawal before allocation.
             if layer.expiry_date is not None and layer.expiry_date <= effective:
                 raise ValidationError(f"{layer.item}: batch {layer.batch_lot or '—'} kedaluwarsa {layer.expiry_date}; aturan/alur kedaluwarsa perlu diselesaikan.")
             if layer.item.requires_expiry_date and layer.expiry_date is None:

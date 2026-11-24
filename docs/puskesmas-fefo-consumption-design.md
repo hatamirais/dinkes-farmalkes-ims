@@ -1,18 +1,20 @@
 # Feature 2: Puskesmas FEFO consumption and inventory reporting
 
 Status: Feature 2 and Puskesmas expiry integration implemented locally; see section 20 for the current contract.
-Updated: 2026-11-23. Branch: `design/puskesmas-fefo-consumption`.
+Updated: 2026-11-24. Branch: `design/puskesmas-fefo-consumption`.
 Code baseline: `03df29523686d1b55128cdce475cd1103011414c`.
 
 ## Scope at a glance
 
 **Feature 2 connects recorded monthly use to the facility inventory journal and
 original costs.** Feature 1 already supplies verified opening stock and linked IF
-receipts. Feature 2 designs how actual monthly Poli/Pustu use consumes those layers
+receipts. Feature 2 implements how reported monthly Poli/Pustu use consumes those layers
 using FEFO, preserves each allocation's quantity/cost, and feeds consistent
 quantity/value results into LPLPO and inventory reporting. Month-end accounting is
 agreed, as are editable drafts, explicit finalization, shortage holds and the LPLPO
-submission prerequisite. Expiry, correction/dependency and valuation details remain open.
+submission prerequisite. Sections 19–21 record the implemented reporting, expiry,
+correction/dependency and original-layer valuation contracts. Earlier planning
+sections retain historical proposals and open questions, superseded by that record.
 
 **Feature 3 is separate, deferred follow-up: Puskesmas Stock Opname and
 Reconciliation.** It will address physical counting, discrepancy investigation,
@@ -20,20 +22,24 @@ reviewed adjustments and the proposed opname prerequisite for LPLPO submission.
 See section 15 before starting the next feature. Do not expand feature 2 to build
 those counting/reconciliation screens or the mandatory opname gate.
 
-Neither feature has implementation authorization from this design discussion.
+Feature 2 and expiry implementation were subsequently authorized and completed;
+Feature 3 remains deferred and is not authorized for implementation.
 Feature 2 completion alone must not remove incomplete-coverage warnings or imply
 that physical stock has been verified.
 
 Separate expiry follow-up: [issue #325 — Plan a future Puskesmas expiry workflow](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/325).
-This records the possible future app/workflow for design discussion, not approved
-implementation scope. It does not resolve feature 2's open monthly FEFO expiry
-eligibility policy or remove expired quantity/value automatically.
+This was initially a separate future workflow and was subsequently authorized and
+implemented; see sections 20–21. The operator posts explicit withdrawals; expiry
+warnings never remove quantity/value automatically.
 
 Separate returns/transfers follow-up: [issue #326 — Plan Puskesmas stock returns to IF and transfers between facilities](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/326).
 The user explicitly deferred these physical movements outside Feature 2 on
 2026-11-18. This does not mean they never occur or that unsupported movements are
 covered by the inventory ledger. Design their source/destination accounting and
 operational workflow separately when that work starts.
+
+Historical planning context for the expiry integration follows. Where these
+proposals differ from the completed implementation, sections 20–21 take precedence.
 
 Feature 2 must explain expiry-related allocation exclusions to the operator:
 identify the affected item/layer/batch, expiry date, reporting cutoff, recorded

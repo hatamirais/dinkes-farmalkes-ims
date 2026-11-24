@@ -189,7 +189,7 @@ when no operator note is supplied. Manual rows require a note for unknown proven
 See the [decision record](puskesmas-opening-inventory-design.md) and
 [CSV contract](../backend/seed/README.md#puskesmas-initial-opening-csv-feature-1).
 
-## Puskesmas monthly consumption and inventory (staged)
+## Puskesmas monthly consumption and inventory
 
 Pemakaian Rinci retains editable monthly Poli/Pustu drafts and an audit trail.
 The new posting engine allocates actual monthly use at month end using FEFO and
