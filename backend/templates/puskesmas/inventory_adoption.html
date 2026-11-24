@@ -1,0 +1,20 @@
+{% extends "base_tailwind.html" %}
+{% block page_title %}Adopsi Saldo Awal Terverifikasi{% endblock %}
+{% block content %}
+<div class="ims-workflow">
+    <p>{{ lplpo.facility.name }} — {{ lplpo.period_display }}</p>
+    <div class="ims-alert ims-alert--warning mb-4">Konfirmasi mengganti saldo awal manual dengan inventaris terverifikasi.
+        Nilai sebelumnya dipertahankan dalam riwayat; permintaan dan alasan tetap disimpan.
+        LPLPO berbasis inventaris belum dapat diajukan sampai integrasi kedaluwarsa dan finalisasi pemakaian tersedia.</div>
+    <div class="table-responsive"><table class="table ims-table">
+        <thead><tr><th>Barang</th><th>Awal LPLPO</th><th>Awal terverifikasi</th></tr></thead>
+        <tbody>{% for row in comparison %}<tr><td>{{ row.item }}</td><td>{{ row.previous }}</td><td>{{ row.verified }}</td></tr>
+        {% empty %}<tr><td colspan="3">Saldo awal terverifikasi belum tersedia.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if can_adopt %}<form method="post">{% csrf_token %}
+        <input type="hidden" name="digest" value="{{ digest }}">
+        <button type="submit" class="ims-btn ims-btn--primary">Konfirmasi Adopsi</button>
+    </form>{% endif %}
+    <a href="{% url 'lplpo:lplpo_detail' lplpo.pk %}" class="ims-btn ims-btn--neutral">Kembali</a>
+</div>
+{% endblock %}

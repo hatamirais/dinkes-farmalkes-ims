@@ -274,9 +274,8 @@ def export_puskesmas_persediaan_excel(
 ):
     """Export Rincian Laporan Persediaan Puskesmas report to Excel.
 
-    Stock is the latest usable same-year LPLPO balance plus later CONFIRMED
-    receipt confirmations minus later detailed consumption, through the selected
-    end month. The source/coverage sheet uses the same metadata as HTML/print.
+    Stock uses the shared per-facility journal/historical snapshot. The
+    source/coverage sheet uses the same metadata as HTML/print.
     Batch/lot, expiry, funding source, and unit price are excluded from this report.
 
     Args:
@@ -348,6 +347,114 @@ def export_puskesmas_persediaan_excel(
         ws.cell(row=5, column=1).alignment = Alignment(wrap_text=True, vertical="top")
         ws.row_dimensions[5].height = 65
 
+    add_persediaan_source_sheet(wb, report_metadata, facility_name, year, period_label)
+
+    filename = f"Rincian_Laporan_Persediaan_{facility_name}_{year}_{period_label}.xlsx"
+    return _make_response(wb, filename)
+
+
+def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_label, facility_name, *, report_metadata=None):
+    """Export Rekap Laporan Persediaan Puskesmas to Excel.
+
+    Interval category summary using shared journal/historical valuation data.
+
+    Args:
+        rekap_data: list of dicts with keys:
+            kategori, saldo_awal, nilai_terima, nilai_keluar, saldo_akhir
+        totals: dict with grand total sums of the valuation fields
+        year: int
+        period_label: str
+        facility_name: str
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Rekap Persediaan"
+
+    headers = [
+        "No",
+        "Uraian",
+        f"Saldo Awal {year}\n(Rp)",
+        f"Nilai Terima {year}\n(Rp)",
+        f"Nilai Keluar {year}\n(Rp)",
+        f"Saldo Akhir {year}\n(Rp)",
+    ]
+    col_widths = [6, 36, 20, 20, 20, 20]
+    include_expiry = bool(report_metadata and report_metadata.get("has_inventory"))
+    if include_expiry:
+        headers.append(f"Kedaluwarsa diposting {year}\n(Rp)")
+        col_widths.append(24)
+    col_count = len(headers)
+    last_col = get_column_letter(col_count)
+
+    ws.merge_cells(f"A1:{last_col}1")
+    title_cell = ws.cell(
+        row=1, column=1,
+        value=_cell_value("REKAPITULASI LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS"),
+    )
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal="center")
+
+    ws.merge_cells(f"A2:{last_col}2")
+    period_cell = ws.cell(
+        row=2, column=1,
+        value=_cell_value(f"Fasilitas: {facility_name} | Tahun: {year} | Periode: {period_label}"),
+    )
+    period_cell.font = Font(bold=True, size=11)
+    period_cell.alignment = Alignment(horizontal="center")
+
+    _apply_header_row(ws, 4, headers, col_widths)
+    ws.row_dimensions[4].height = 30
+
+    row_num = 5
+    for idx, row in enumerate(rekap_data, 1):
+        values = [
+            idx,
+            row.get("kategori", "Lainnya"),
+            Decimal(str(row.get("saldo_awal", 0) or 0)),
+            Decimal(str(row.get("nilai_terima", 0) or 0)),
+            Decimal(str(row.get("nilai_keluar", 0) or 0)),
+            Decimal(str(row.get("saldo_akhir", 0) or 0)),
+        ]
+        if include_expiry:
+            values.append(Decimal(str(row.get("nilai_kedaluwarsa", 0) or 0)))
+        for col_idx, val in enumerate(values, 1):
+            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
+            cell.border = THIN_BORDER
+            if col_idx == 1:
+                cell.alignment = Alignment(horizontal="center")
+            elif col_idx >= 3:
+                _set_decimal_text(cell, val, decimal_places=12)
+        row_num += 1
+
+    # Totals row
+    for col_idx in range(1, col_count + 1):
+        cell = ws.cell(row=row_num, column=col_idx)
+        cell.font = Font(bold=True)
+        cell.fill = TOTAL_FILL
+        cell.border = THIN_BORDER
+    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
+    total_columns = [
+        (3, "saldo_awal"),
+        (4, "nilai_terima"),
+        (5, "nilai_keluar"),
+        (6, "saldo_akhir"),
+    ]
+    if include_expiry:
+        total_columns.append((7, "nilai_kedaluwarsa"))
+    for col_idx, key in total_columns:
+        c = ws.cell(row=row_num, column=col_idx)
+        _set_decimal_text(c, totals.get(key, 0), decimal_places=12)
+        c.font = Font(bold=True)
+
+    if report_metadata:
+        add_persediaan_source_sheet(wb, report_metadata, facility_name, year, period_label)
+
+    filename = f"Rekap_Persediaan_{facility_name}_{year}_{period_label}.xlsx"
+    return _make_response(wb, filename)
+
+
+
+def add_persediaan_source_sheet(wb, report_metadata, facility_name, year, period_label):
     source_sheet = wb.create_sheet("Sumber dan Cakupan")
     metadata_rows = [
         ("Fasilitas", facility_name),
@@ -384,9 +491,10 @@ def export_puskesmas_persediaan_excel(
         source_sheet.row_dimensions[row_index].height = 60 if isinstance(value, str) else 20
     coverage_header_row = len(metadata_rows) + 2
     _apply_header_row(source_sheet, coverage_header_row, [
-        "Fasilitas", "Baseline LPLPO", "Status baseline", "Rentang penyesuaian",
-        "Baris penerimaan CONFIRMED", "Baris pemakaian rinci",
-    ], [40, 28, 24, 55, 28, 28])
+        "Fasilitas", "Baseline saldo", "Status baseline", "Rentang penyesuaian",
+        "Baris penerimaan CONFIRMED (historis)", "Baris pemakaian rinci (historis)",
+        "Sumber saldo", "Dokumen saldo awal", "Cakupan pemakaian",
+    ], [40, 40, 24, 55, 28, 28, 40, 24, 70])
     for row_index, coverage in enumerate(report_metadata["coverage"], coverage_header_row + 1):
         has_baseline = bool(coverage["baseline_period"])
         values = [
@@ -394,104 +502,14 @@ def export_puskesmas_persediaan_excel(
             coverage["baseline_status"] or "—", coverage["adjustment_period"] or "—",
             coverage["receipt_row_count"] if has_baseline else "—",
             coverage["consumption_row_count"] if has_baseline else "—",
+            coverage.get("source_label", "LPLPO historis"), coverage.get("opening_id") or "—",
+            coverage.get("consumption_coverage", ""),
         ]
         for column, value in enumerate(values, 1):
-            source_sheet.cell(row=row_index, column=column, value=_cell_value(value)).alignment = Alignment(
+            source_sheet.cell(row=row_index, column=column, value=_cell_value(value if value is not None else "—")).alignment = Alignment(
                 wrap_text=True, vertical="top",
             )
-        _apply_border(source_sheet, row_index, 6)
+        _apply_border(source_sheet, row_index, 9)
         source_sheet.row_dimensions[row_index].height = 40
     source_sheet.freeze_panes = f"A{coverage_header_row + 1}"
-
-    filename = f"Rincian_Laporan_Persediaan_{facility_name}_{year}_{period_label}.xlsx"
-    return _make_response(wb, filename)
-
-
-def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_label, facility_name):
-    """Export Rekap Laporan Persediaan Puskesmas to Excel.
-
-    Year-to-date summary per category using LPLPO-derived valuation data.
-
-    Args:
-        rekap_data: list of dicts with keys:
-            kategori, saldo_awal, nilai_terima, nilai_keluar, saldo_akhir
-        totals: dict with grand total sums of the valuation fields
-        year: int
-        period_label: str
-        facility_name: str
-    """
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Rekap Persediaan"
-
-    headers = [
-        "No",
-        "Uraian",
-        f"Saldo Awal {year}\n(Rp)",
-        f"Nilai Terima {year}\n(Rp)",
-        f"Nilai Keluar {year}\n(Rp)",
-        f"Saldo Akhir {year}\n(Rp)",
-    ]
-    col_widths = [6, 36, 20, 20, 20, 20]
-    col_count = len(headers)
-    last_col = get_column_letter(col_count)
-
-    ws.merge_cells(f"A1:{last_col}1")
-    title_cell = ws.cell(
-        row=1, column=1,
-        value=_cell_value("REKAPITULASI LAPORAN PERSEDIAAN OBAT DAN PERBEKALAN KESEHATAN — PUSKESMAS"),
-    )
-    title_cell.font = Font(bold=True, size=14)
-    title_cell.alignment = Alignment(horizontal="center")
-
-    ws.merge_cells(f"A2:{last_col}2")
-    period_cell = ws.cell(
-        row=2, column=1,
-        value=_cell_value(f"Fasilitas: {facility_name} | Tahun: {year} | Periode: {period_label}"),
-    )
-    period_cell.font = Font(bold=True, size=11)
-    period_cell.alignment = Alignment(horizontal="center")
-
-    _apply_header_row(ws, 4, headers, col_widths)
-    ws.row_dimensions[4].height = 30
-
-    row_num = 5
-    for idx, row in enumerate(rekap_data, 1):
-        values = [
-            idx,
-            row.get("kategori", "Lainnya"),
-            Decimal(str(row.get("saldo_awal", 0) or 0)),
-            Decimal(str(row.get("nilai_terima", 0) or 0)),
-            Decimal(str(row.get("nilai_keluar", 0) or 0)),
-            Decimal(str(row.get("saldo_akhir", 0) or 0)),
-        ]
-        for col_idx, val in enumerate(values, 1):
-            cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
-            cell.border = THIN_BORDER
-            if col_idx == 1:
-                cell.alignment = Alignment(horizontal="center")
-            elif col_idx >= 3:
-                _set_decimal_text(cell, val, decimal_places=12)
-        row_num += 1
-
-    # Totals row
-    for col_idx in range(1, col_count + 1):
-        cell = ws.cell(row=row_num, column=col_idx)
-        cell.font = Font(bold=True)
-        cell.fill = TOTAL_FILL
-        cell.border = THIN_BORDER
-    ws.cell(row=row_num, column=2, value=_cell_value("TOTAL")).font = Font(bold=True)
-    total_columns = [
-        (3, "saldo_awal"),
-        (4, "nilai_terima"),
-        (5, "nilai_keluar"),
-        (6, "saldo_akhir"),
-    ]
-    for col_idx, key in total_columns:
-        c = ws.cell(row=row_num, column=col_idx)
-        _set_decimal_text(c, totals.get(key, 0), decimal_places=12)
-        c.font = Font(bold=True)
-
-    filename = f"Rekap_Persediaan_{facility_name}_{year}_{period_label}.xlsx"
-    return _make_response(wb, filename)
 

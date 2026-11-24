@@ -1,0 +1,4 @@
+{% if row.expiry_status == 'expired' %}<span class="ims-badge ims-badge--danger">Sudah kedaluwarsa</span>
+{% elif row.expiry_status == 'near-critical' %}<span class="ims-badge ims-badge--warning">{% if row.days_to_expiry == 0 %}Hari ED{% else %}Kritis ≤ 30 hari{% endif %}</span>
+{% else %}<span class="ims-badge ims-badge--info">Mendekati kedaluwarsa</span>{% endif %}
+<small>{{ row.days_to_expiry }} hari</small>

@@ -9,6 +9,10 @@
 <div class="ims-workflow ims-puskesmas ims-puskesmas-consumption-form">
     <form method="post" novalidate>
         {% csrf_token %}
+        {% if inventory_revision %}
+        {{ form.inventory_digest }}
+        {% tailwind_field form.correction_reason %}
+        {% endif %}
         <div class="ims-panel mb-4">
             <div class="ims-panel-header">
                 <h6 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Informasi Dokumen</h6>

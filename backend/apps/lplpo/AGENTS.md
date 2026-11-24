@@ -32,6 +32,8 @@ The create, edit, PIC review, and existing-document XLSX import screens use the 
 
 ## Creation And Carry-Forward
 
+- The manual and weighted-price rules below describe legacy, unbound documents. Inventory-bound documents use the Feature 2 contract below instead.
+
 - LPLPO creation for each Puskesmas facility is locked to the active server-calendar year.
 - Creation must be contiguous from January; users cannot skip months.
 - The next create action must always target the earliest missing month in that same year.
@@ -69,3 +71,13 @@ The create, edit, PIC review, and existing-document XLSX import screens use the 
 ## Print presentation
 
 Standalone print templates use the generated Tailwind stylesheet and scoped document rules in `static_src/css/print.css`. Preserve every data expression, source-layer identifier, quantity/price formatter, status/facility gate and signature branch. Print styles use named A4 pages and hide action toolbars; printing never mutates stock or changes workflow status.
+
+## Feature 2 inventory binding
+
+- A new January LPLPO automatically binds to an existing verified posted same-year opening. Existing editable January documents require the `/puskesmas/lplpo/<pk>/adopsi/` difference preview and digest-bound confirmation. Binding retains the previous values, opening, actor and time; it is protected from deletion. Submitted documents must follow existing authorized return paths first.
+- February onward inherits a bound previous document's opening link. `puskesmas.inventory_reporting.sync_inventory_lplpo` derives opening, receipts, consumption and monetary values from original-price journal layers; requests and unrelated operator inputs survive synchronization. Calls require atomic facility serialization. Draft consumption has no journal outflow and therefore does not reduce bound LPLPO.
+- Bound forms disable stock_awal/penerimaan/harga_satuan. The single-price column is hidden on edit/detail; stored legacy prices remain. Offline XLSX retains the compatible schema with hidden price column, and rejects changed locked source fields; held inactive catalog items remain valid for the existing document. No average price replaces layer valuation.
+- Submission requires matching finalized monthly consumption. The expiry integration is active in code: remaining expired-by-cutoff journal quantities block finalization until the operator records explicit withdrawals, including for zero-use months. No environment bypass or automatic deduction exists. Physical-count completeness remains separate.
+- Consumption corrections append reversal/replacement and synchronize editable bound LPLPO atomically; same-month submitted stages or later finalized consumption block correction. Ordinary bound-document deletion is rejected. Legacy unbound documents keep existing workflow and offline behavior.
+- Bound LPLPO has readonly journal-derived `kedaluwarsa` (migration 0018), distinct from `pemakaian`; closing subtracts both. Edit/detail/print show the expiry quantity and the JS preview includes it. Offline export appends informational Q without changing the compatible first 16 columns; import recomputes from saved source values. Stock optimum remains based on medical use only.
+- Reasoned expiry correction/VOID can atomically reverse/reallocate same-month finalized use and resynchronize editable bound carries. Any affected submitted LPLPO, later finalized consumption or unsupported stock holds the entire expiry change; existing authorized return paths remain mandatory.

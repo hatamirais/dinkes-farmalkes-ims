@@ -4,6 +4,9 @@ App-specific guidance for expired-stock and disposal workflows.
 
 ## Approval And Stock
 
+- Monitoring reuses `core.expiry_monitoring` and the shared expiry status partial, retaining the 90-day horizon, warehouse reservation/pending-document calculation and workflow permissions. The critical filter includes ED day through 30 days ahead; only dates before today display as expired. These labels never post stock.
+- Item/batch forms use `core.form_fields.ItemBatchSelect` (imported as `StockByItemSelect`) and the shared JavaScript filter. Puskesmas reuse is presentation only; warehouse verification, approval and ledger services remain separate.
+
 - Verification is restricted to superusers or role `ADMIN` / `KEPALA` with expired module scope `APPROVE`. Elevated scope alone does not authorize another role; an active Expired-specific Acting Kepala delegation is the only documented exception.
 - Delegated approval is re-resolved and locked in the workflow transaction and recorded atomically in `AuthorityExercise`.
 - Availability checks use `Stock.available_quantity`. Stock-changing checkpoints append ledger rows against the exact source-document layer.

@@ -3,25 +3,10 @@ from django.db.models import F
 from django.forms import inlineformset_factory
 
 from apps.core.decimal_validation import validate_finite_decimal
+from apps.core.form_fields import ItemBatchSelect as StockByItemSelect
 from apps.stock.models import Stock
 
 from .models import Recall, RecallItem
-
-
-class StockByItemSelect(forms.Select):
-    """Custom select widget that adds data-item-id to each option so JS can
-    filter stock batches by the selected item in the same row."""
-
-    def create_option(
-        self, name, value, label, selected, index, subindex=None, attrs=None
-    ):
-        option = super().create_option(
-            name, value, label, selected, index, subindex=subindex, attrs=attrs
-        )
-        instance = getattr(value, "instance", None)
-        if instance is not None and getattr(instance, "item_id", None):
-            option.setdefault("attrs", {})["data-item-id"] = str(instance.item_id)
-        return option
 
 
 class RecallForm(forms.ModelForm):

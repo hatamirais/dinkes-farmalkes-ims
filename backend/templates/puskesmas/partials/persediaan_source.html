@@ -5,6 +5,12 @@
         Periode: {{ period_label }} {{ form.year.value|unlocalize }} ·
         Posisi stok sampai akhir <strong>{{ report_metadata.period_end_label }}</strong>
     </div>
+    {% if report_metadata.has_inventory %}
+    <div class="ims-alert ims-alert--warning mb-2">
+        <strong>Belum lengkap.</strong> Saldo hanya mencakup mutasi yang dicatat, bukan hasil hitung fisik. Pastikan penarikan kedaluwarsa yang diketahui telah dicatat; angka kedaluwarsa hanya mencakup jurnal penarikan.
+        Pemakaian yang belum difinalisasi tidak dikurangkan dari jurnal; angka 0 diposting bukan bukti pemakaian nihil.
+    </div>
+    {% endif %}
     <div class="ims-alert ims-alert--info mb-2">
         <p>{{ report_metadata.source_description }}</p>
         <p class="text-ims-xs mt-2">{{ report_metadata.baseline_note }}</p>
@@ -23,7 +29,7 @@
     {% endif %}
     {% if report_metadata.missing_baseline_count %}
     <p class="ims-alert ims-alert--warning mb-2">
-        {{ report_metadata.missing_baseline_count }} fasilitas dilewati karena tidak memiliki baseline LPLPO yang dapat dipakai dalam tahun/periode terpilih.
+        {{ report_metadata.missing_baseline_count }} fasilitas dilewati karena tidak memiliki saldo awal terverifikasi yang mencakup periode atau baseline LPLPO yang dapat dipakai.
         Fasilitas tersebut ditandai di bawah; hasil ini belum mencakup seluruh fasilitas terpilih.
     </p>
     {% endif %}
@@ -34,30 +40,37 @@
             <thead class="ims-table-heading">
                 <tr>
                     <th>Fasilitas</th>
-                    <th>Baseline LPLPO</th>
+                    <th>Sumber / baseline saldo</th>
                     <th>Status baseline</th>
                     <th>Rentang penyesuaian</th>
-                    <th>Baris penerimaan CONFIRMED</th>
-                    <th>Baris pemakaian rinci</th>
+                    {% if report_metadata.legacy_count or not report_metadata.has_inventory %}
+                    <th>Baris penerimaan CONFIRMED (historis)</th>
+                    <th>Baris pemakaian rinci (historis)</th>
+                    {% endif %}
+                    <th>Cakupan pemakaian</th>
                 </tr>
             </thead>
             <tbody>
                 {% for coverage in report_metadata.coverage %}
                 <tr>
                     <td>{{ coverage.facility_name }}</td>
-                    <td>{{ coverage.baseline_period|default:"Dilewati: tanpa baseline" }}</td>
+                    <td><strong>{{ coverage.source_label }}</strong><br>{{ coverage.baseline_period|default:"Dilewati: tanpa baseline" }}
+                        {% if coverage.opening_id %}<br><a href="{% url 'puskesmas:opening_detail' coverage.opening_id %}?facility={{ coverage.facility_id }}">Dokumen saldo awal #{{ coverage.opening_id }}</a>{% endif %}</td>
                     <td>{{ coverage.baseline_status|default:"—" }}</td>
                     <td>{{ coverage.adjustment_period|default:"—" }}</td>
-                    <td>{% if coverage.baseline_period %}{{ coverage.receipt_row_count }}{% else %}—{% endif %}</td>
-                    <td>{% if coverage.baseline_period %}{{ coverage.consumption_row_count }}{% else %}—{% endif %}</td>
+                    {% if report_metadata.legacy_count or not report_metadata.has_inventory %}
+                    <td>{% if coverage.baseline_period %}{{ coverage.receipt_row_count|default_if_none:"—" }}{% else %}—{% endif %}</td>
+                    <td>{% if coverage.baseline_period %}{{ coverage.consumption_row_count|default_if_none:"—" }}{% else %}—{% endif %}</td>
+                    {% endif %}
+                    <td>{{ coverage.consumption_coverage }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <p class="text-muted text-ims-xs">
+    {% if report_metadata.legacy_count or not report_metadata.has_inventory %}<p class="text-muted text-ims-xs">
         Jumlah baris menunjukkan rincian sumber yang disertakan setelah baseline, bukan jumlah dokumen.
         Nilai 0 berarti tidak ada baris sumber dalam rentang penyesuaian; — berarti tidak dihitung tanpa baseline.
-    </p>
+    </p>{% endif %}
     {% endif %}
 </section>

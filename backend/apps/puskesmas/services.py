@@ -92,6 +92,11 @@ def sync_consumption_to_editable_lplpo(*, facility, bulan, tahun):
     if not lplpo:
         return None
 
+    if hasattr(lplpo, "inventory_binding"):
+        from .inventory_reporting import sync_inventory_lplpo
+        sync_inventory_lplpo(lplpo)
+        return lplpo
+
     pemakaian_data = get_consumption_for_facility_period(
         facility=facility,
         bulan=bulan,

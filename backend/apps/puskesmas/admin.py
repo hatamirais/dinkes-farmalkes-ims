@@ -1,8 +1,11 @@
 from django.contrib import admin
+from .expiry_models import PuskesmasExpiry, PuskesmasExpiryRevision, PuskesmasExpiryLine
 from .inventory_models import (
     PuskesmasInventoryAccount, PuskesmasOpeningVerification,
     PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
     PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement,
+    PuskesmasConsumptionRevision, PuskesmasConsumptionAllocation,
+    PuskesmasConsumptionAudit, PuskesmasLPLPOInventoryBinding,
 )
 from .models import (
     PuskesmasConsumption,
@@ -21,7 +24,10 @@ class PuskesmasRequestItemInline(admin.TabularInline):
 
 @admin.register(PuskesmasInventoryAccount, PuskesmasOpeningVerification,
                 PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,
-                PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement)
+                PuskesmasInventoryLayer, PuskesmasInventoryBalance, PuskesmasInventoryMovement,
+                PuskesmasConsumptionRevision, PuskesmasConsumptionAllocation,
+                PuskesmasConsumptionAudit, PuskesmasLPLPOInventoryBinding,
+                PuskesmasExpiry, PuskesmasExpiryRevision, PuskesmasExpiryLine)
 class InventoryReadOnlyAdmin(admin.ModelAdmin):
     actions = None
 
@@ -76,3 +82,13 @@ class PuskesmasConsumptionAdmin(admin.ModelAdmin):
     search_fields = ["facility__name"]
     readonly_fields = ["created_by", "updated_by"]
     inlines = [PuskesmasConsumptionEntryInline]
+    actions = None
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -80,6 +80,12 @@ def _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj):
     from apps.puskesmas.models import PuskesmasConsumption, PuskesmasReceiptConfirmation
     from apps.puskesmas.services import sync_consumption_to_editable_lplpo
 
+    if lplpo_obj.inventory_backed:
+        from apps.puskesmas.inventory_reporting import sync_inventory_lplpo
+        with transaction.atomic():
+            sync_inventory_lplpo(lplpo_obj)
+        return lplpo_obj
+
     has_confirmed_receipts = PuskesmasReceiptConfirmation.objects.filter(
         facility=lplpo_obj.facility,
         received_date__year=lplpo_obj.tahun,
@@ -629,6 +635,22 @@ def lplpo_create(request):
                     lplpo_items.append(li)
 
                 LPLPOItem.objects.bulk_create(lplpo_items)
+                if bulan == 1:
+                    from apps.puskesmas.inventory_models import PuskesmasOpeningVerification
+                    if PuskesmasOpeningVerification.objects.filter(facility=facility, year=tahun, status="POSTED").exists():
+                        from apps.puskesmas.inventory_reporting import adopt_opening, adoption_digest
+                        try:
+                            adopt_opening(user=request.user, lplpo_id=lplpo.pk, digest=adoption_digest(lplpo))
+                        except ValidationError as exc:
+                            transaction.set_rollback(True)
+                            form.add_error(None, exc)
+                            return render(request, "lplpo/lplpo_create.html", {"form": form})
+                elif prev_lplpo and prev_lplpo.inventory_backed:
+                    from apps.puskesmas.inventory_models import PuskesmasLPLPOInventoryBinding
+                    from apps.puskesmas.inventory_reporting import sync_inventory_lplpo
+                    PuskesmasLPLPOInventoryBinding.objects.create(lplpo=lplpo,
+                        opening=prev_lplpo.inventory_binding.opening, previous_values=[], actor=request.user)
+                    sync_inventory_lplpo(lplpo)
 
             if is_super_admin(request.user):
                 logger.info(
@@ -858,7 +880,7 @@ def lplpo_edit(request, pk):
                 obj = f.save(commit=False)
                 if has_consumption_source:
                     obj.pemakaian = pemakaian_data.get(obj.item_id, 0)
-                if obj.item_id in penerimaan_data:
+                if obj.item_id in penerimaan_data and not lplpo_obj.inventory_backed:
                     obj.penerimaan = penerimaan_data[obj.item_id]
                     obj.harga_satuan = harga_satuan_data.get(obj.item_id, obj.harga_satuan)
                     obj.penerimaan_auto_filled = True
@@ -884,6 +906,10 @@ def lplpo_edit(request, pk):
                         "penerimaan_auto_filled",
                     ],
                 )
+
+            if lplpo_obj.inventory_backed:
+                from apps.puskesmas.inventory_reporting import sync_inventory_lplpo
+                sync_inventory_lplpo(lplpo_obj)
 
             if is_super_admin(request.user):
                 logger.info(
@@ -1129,6 +1155,13 @@ def lplpo_submit(request, pk):
             request,
             "Hanya LPLPO berstatus Draft atau Ditolak yang dapat diajukan.",
         )
+        return redirect("lplpo:lplpo_detail", pk=pk)
+
+    from apps.puskesmas.inventory_reporting import assert_inventory_submission
+    try:
+        assert_inventory_submission(lplpo_obj)
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     zero_pemakaian_count = lplpo_obj.items.filter(pemakaian=0).count()
@@ -1684,6 +1717,7 @@ def lplpo_print_report(request):
 @login_required
 @perm_required("lplpo.delete_lplpo")
 @module_scope_required(ModuleAccess.Module.LPLPO, ModuleAccess.Scope.OPERATE)
+@serialize_facility_document("lplpo.LPLPO")
 def lplpo_delete(request, pk):
     """Delete a DRAFT LPLPO document."""
     _check_puskesmas_draft_action_access(request)
@@ -1708,6 +1742,9 @@ def lplpo_delete(request, pk):
         )
         return redirect("lplpo:lplpo_detail", pk=pk)
 
+    if lplpo_obj.inventory_backed:
+        messages.error(request, "LPLPO berbasis inventaris dan riwayat adopsinya harus dipertahankan.")
+        return redirect("lplpo:lplpo_detail", pk=pk)
     doc_number = lplpo_obj.document_number
     facility_id = lplpo_obj.facility_id
     if has_authority_exercise(lplpo_obj):

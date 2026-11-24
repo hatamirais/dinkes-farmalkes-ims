@@ -207,6 +207,8 @@ def export_lplpo_workbook(lplpo_obj):
             line.permintaan_jumlah,
             line.permintaan_alasan,
         ]
+        if lplpo_obj.inventory_backed:
+            row_values.append(line.kedaluwarsa)
         for column_index, value in enumerate(row_values, start=1):
             cell_value = format_price_exact(value) if column_index == 7 else value
             cell = worksheet.cell(
@@ -226,6 +228,12 @@ def export_lplpo_workbook(lplpo_obj):
                 cell.alignment = Alignment(horizontal="right")
 
     column_widths = [18, 34, 10, 20, 12, 12, 14, 12, 12, 16, 14, 16, 14, 12, 16, 36]
+    if lplpo_obj.inventory_backed:
+        worksheet.cell(row=HEADER_ROW, column=17, value="kedaluwarsa (informasi jurnal)")
+        worksheet.column_dimensions["Q"].width = 24
+        # Preserve the versioned round-trip schema, but do not display/edit prices.
+        worksheet.column_dimensions["G"].hidden = True
+        worksheet.cell(row=9, column=1, value="Saldo awal, penerimaan, pemakaian dan kedaluwarsa berasal dari jurnal inventaris. Kolom turunan/informasi dihitung ulang saat impor.")
     for column_index, width in enumerate(column_widths, start=1):
         worksheet.column_dimensions[get_column_letter(column_index)].width = width
 
@@ -317,12 +325,13 @@ def apply_lplpo_workbook_import(*, uploaded_file, lplpo_obj):
             raise ValidationError(
                 f"Baris {row_num}: item_code '{item_code}' tidak cocok dengan dokumen ini."
             )
-        if not line.item.is_active:
+        if not line.item.is_active and not lplpo_obj.inventory_backed:
             workbook.close()
             raise ValidationError(
                 f"Baris {row_num}: item '{item_code}' sudah tidak aktif."
             )
 
+        inventory_original = (line.stock_awal, line.penerimaan, line.harga_satuan)
         imported_stock_awal = _parse_integer_from_cell(
             row_cells[4].value,
             field_label=f"Baris {row_num} stock_awal",
@@ -356,6 +365,10 @@ def apply_lplpo_workbook_import(*, uploaded_file, lplpo_obj):
             workbook.close()
             raise
         line.harga_satuan = harga_satuan.quantize(PRICE_QUANT)
+        if lplpo_obj.inventory_backed and inventory_original != (
+                line.stock_awal, line.penerimaan, line.harga_satuan):
+            workbook.close()
+            raise ValidationError(f"Baris {row_num}: saldo awal, penerimaan dan harga berasal dari inventaris dan terkunci.")
         line.stock_gudang_puskesmas = _parse_integer_from_cell(
             row_cells[12].value,
             field_label=f"Baris {row_num} stock_gudang_puskesmas",

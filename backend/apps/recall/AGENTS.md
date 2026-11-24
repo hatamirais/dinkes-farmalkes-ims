@@ -4,6 +4,8 @@ App-specific guidance for the supplier-return workflow.
 
 ## Workflow And Stock
 
+- `StockByItemSelect` remains a compatibility import alias for `core.form_fields.ItemBatchSelect`; the shared widget emits item IDs for batch filtering. Recall availability, validation and stock checkpoints remain workflow-owned.
+
 - Recall availability checks use `Stock.available_quantity`, not physical quantity alone.
 - Batch selection follows FEFO and puts `expiry_date=NULL` last.
 - Stock mutation occurs only at the documented recall workflow checkpoint and appends ledger rows on the exact source-document layer.

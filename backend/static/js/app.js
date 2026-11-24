@@ -754,7 +754,7 @@ function initStockByItemFilter() {
         applyFilter();
     };
 
-    document.querySelectorAll('tr.formset-row').forEach(bindRow);
+    document.querySelectorAll('tr.formset-row, [data-item-batch-row]').forEach(bindRow);
 }
 
 /** Sidebar collapse toggle for desktop */

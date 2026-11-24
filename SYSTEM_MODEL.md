@@ -2,6 +2,135 @@
 
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
+## Puskesmas expiry integration (2026-11-23)
+
+This section supersedes the historical Feature 2 staging gate below. Public
+consumption finalization and bound LPLPO submission now integrate explicit
+operator expiry withdrawals in code, without a setting bypass.
+
+Migration `puskesmas.0017_puskesmas_expiry` adds immutable `PuskesmasExpiry`
+(facility, UUID idempotency key, creator/time), `PuskesmasExpiryRevision`
+(number, fixed actual withdrawal date, reference/reason, digest, VOID, actor/time)
+and protected original-price layer lines. Inventory posting has exactly one
+source among opening, receipt, consumption, expiry or reversal; consumption
+revisions can reference the expiry that caused reallocation. Before expanding the
+source constraint, the local audit counted 2 postings and 0 invalid combinations.
+The expansion does not tighten historical validity; no applied migration changed.
+
+Routes under `/puskesmas/kedaluwarsa/`: list/dated-batch monitor, `buat/` confirmed
+posting, `<pk>/` retained detail/history/print and `<pk>/koreksi/` reasoned correction
+or VOID. Puskesmas permissions/module scope and facility isolation apply. Active
+own-facility PUSKESMAS and existing Super Admin helper can mutate; ADMIN_UMUM or
+module elevation alone cannot. The default 30-day viewing window is adjustable
+(1..365), never an automatic deduction trigger. No reviewer, warehouse deduction,
+central official number, disposal or physical-return certificate is introduced.
+
+Facility and warehouse monitors share `core.expiry_monitoring` display/level
+predicates and the expiry status partial; each retains its own authorized stock
+source and warning horizon (Puskesmas 30 days, IF 90 days). Puskesmas adds scoped
+category/search and allowlisted ordering. ED day displays as critical, independent
+of the accounting cutoff policy below. `core.form_fields.ItemBatchSelect` and the
+shared JavaScript filter support item-first batch selection in both workflows;
+facility forms validate item/layer membership server-side. Ledger writers,
+availability calculations and approval paths remain workflow-specific.
+
+`expiry.py` locks actor/module, facility, document/consumption and balances. It
+validates verified opening coverage, actual date (not future/before acquisition),
+known layer ED, whole quantity, original cost and projection/journal agreement.
+Corrections require the latest digest and a reason, append exact reversal and
+replacement/VOID, and retain the original date and all old evidence. Duplicate
+requests are idempotent; audit rows are transactional and logs emit on commit.
+
+The user approved same-month replay: restore finalized consumption, apply expiry
+replacement/VOID, reallocate FEFO as a linked new consumption revision and sync
+editable bound LPLPO/carries atomically. Any affected submitted LPLPO, later
+finalized month, shortage or unresolved expiry rolls everything back. Existing
+authorized LPLPO return paths remain mandatory; cross-period reopening is deferred.
+
+Earlier consumption finalization/correction rejects net later-dated expiry
+movements on cutoff-eligible layers of the items being allocated. This prevents
+current projections from selecting incorrect historical FEFO layers and costs.
+Fully reversed/VOID withdrawals net to zero; zero-use months allocate nothing.
+Poli/Pustu deletion preserves protected historical allocations and returns the
+existing deactivate-instead instruction, even when no live entries remain.
+Remaining dated-journal quantity with ED on/before month end holds finalization,
+even zero use, until explicitly withdrawn in that period. Later-dated expiry
+cannot satisfy earlier coverage. No automatic write-off or expired allocation.
+Monthly allocation does not prove actual batch-use dates.
+
+Reports separate expiry and its reversals: closing = opening + receipts - medical
+consumption - expiry. `lplpo.0018_puskesmas_expiry` adds readonly
+`LPLPOItem.kedaluwarsa`, shown on bound edit/detail/print and included in live
+preview. Offline Q is appended information; the first 16 columns remain compatible
+and import recomputes protected quantities. Historical fallback cannot certify
+expiry outside journal coverage. Account readiness stays `FOUNDATION_INCOMPLETE`;
+physical stock opname, unsupported adjustments/returns and Feature 3 stay deferred.
+
+## Puskesmas Feature 2 staging (historical, 2026-11-18)
+
+This section supersedes the feature-1-only restrictions below. Operational
+consumption finalization and inventory-backed LPLPO submission remain closed:
+`puskesmas.consumption_inventory.expiry_integration_ready()` returns false until
+the separate Puskesmas expiry module (#325) is integrated and verified. There is
+no configuration bypass. Account readiness remains `FOUNDATION_INCOMPLETE`;
+monthly accounting does not prove physical stock or actual batch-use dates.
+
+Migration `puskesmas.0016_consumption_inventory` adds protected, immutable records:
+`PuskesmasConsumptionRevision` (document/revision number, digest, month-end date,
+snapshot, reason, actor/time), `PuskesmasConsumptionAllocation` (revision/layer/
+subunit, positive quantity and original price), `PuskesmasConsumptionAudit`
+(facility, retained consumption ID, event, before/after, actor/time), and
+`PuskesmasLPLPOInventoryBinding` (unique LPLPO, verified opening, previous values,
+actor/time). Posting now has exactly one source among opening, receipt,
+consumption revision or reversal-of-posting. Journal history remains append-only;
+only the locked service updates balance projections.
+
+The private consumption engine allocates at month end using expiry ascending,
+NULL last, acquisition date, posting ID and layer ID. It requires consecutive
+finalized months, including explicit zero-use revisions, supported posted
+receipts and journal/projection agreement. Shortage or unresolved expired-by-
+cutoff candidates hold the entire operation. Corrections append exact reversal
+and replacement at original costs with a mandatory reason and expected digest;
+old revisions/allocations survive. Submitted LPLPO or later finalized months block
+correction; new receipts dated at/before a finalized cutoff are held. Shared lock
+order is actor/module, facility, document/source then balances. Public mutation
+authority is active own-facility PUSKESMAS with permission/module scope or the
+existing Super Admin helper (including legacy ADMIN, never ADMIN_UMUM alone).
+Draft writes retain audit snapshots/logs; ordinary ORM edits/deletes/reparenting
+of finalized documents are rejected and Consumption Admin is read-only.
+
+New routes (Puskesmas namespace, trailing slash):
+
+- `/puskesmas/pemakaian/<pk>/finalisasi/`: CSRF POST, existing consumption rate
+  limit, permission/period/digest checks and expiry activation gate.
+- `/puskesmas/lplpo/<pk>/adopsi/`: editable January difference preview and explicit
+  digest-bound adoption of posted opening, preserving previous values and requests.
+- `/puskesmas/persediaan/`: read-only year/start_month/month interval report under
+  dedicated `puskesmas_reports` facility selection/aggregation rules; 25-row HTML
+  summaries with original-layer details, full print and three-sheet XLSX. Exact
+  Decimal export amounts are text. Missing accounts are excluded with coverage
+  warnings. January boundary opening is opening, not receipts.
+
+New January LPLPO auto-binds if a posted opening exists; later months inherit the
+binding. Existing January drafts require adoption; submitted history is retained.
+Bound quantities and values use the shared journal report service, preserve
+unrelated inputs, hide the single unit-price column and reject locked source
+overrides through forms/XLSX. Historical price data and unbound legacy behavior
+remain. Bound documents cannot be deleted. Persediaan/Rincian/Rekap share
+`stock_reports.stock_report_snapshot`, selecting journal per facility when verified
+opening covers the interval start, otherwise labelled historical LPLPO fallback.
+Selection does not require adoption; each URL retains its format without redirects.
+Custom-month filters and cross-links preserve intervals. HTML/print/XLSX share
+source/opening reference/cutoff and missing-finalization coverage; zero posted
+outflow is not proof of zero use. Mixed scopes never double-count sources.
+Historical values retain per-document LPLPO prices and their disclosed
+reconciliation limitations. The separate IF-facing stock snapshot remains a legacy
+LPLPO-based planning view, not complete journal availability.
+
+Physical opname/reconciliation (Feature 3), expiry (#325), returns/transfers
+(#326), purchases/donations and annual opening differences remain deferred.
+See `docs/puskesmas-fefo-consumption-design.md` and the owning app guides.
+
 ## Puskesmas inventory foundation (2026-11-11)
 
 The first-opening foundation is separate from warehouse Stock/Transaction and from
@@ -130,7 +259,7 @@ Verification sources: `backend/apps/*/models.py`, `backend/config/urls.py`, `bac
 
 ## 1) Domain Overview
 
-Healthcare IMS is a Django monolith with server-rendered templates. Warehouse inventory is tracked at batch/location granularity with append-only `stock.Transaction` movements. The separate Puskesmas foundation tracks facility-owned opening/receipt layers and movements; it does not yet post consumption or replace LPLPO-derived reports.
+Healthcare IMS is a Django monolith with server-rendered templates. Warehouse inventory is tracked at batch/location granularity with append-only `stock.Transaction` movements. Separate Puskesmas layers support opening/receipts and the staged Feature 2 consumption engine and bound reports described above; operational finalization remains gated by expiry integration.
 
 Core domains:
 
@@ -574,10 +703,10 @@ The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id
 
 - `reports`: Contains views, templates, and services for inventory, expiry, receiving, outbound, and document-numbering-history reporting with Excel export capabilities. Report HTML displays monetary amounts to two Indonesian decimal digits while Decimal calculations and Excel exports retain their existing precision. Numbering history reads the immutable `DocumentNumberIssue` ledger, including complete VOID reason/actor/time metadata with explicit unknown fallbacks, rather than inferring issuance from current workflow tables. The procurement receiving report includes `Receiving.contract.document_number` so realized receipts can be traced back to SPJ contracts. The combined outbound recap remains available on `/reports/pengeluaran/`; the distribution module exposes route-based variants for all distributions, `SPECIAL_REQUEST`, allocation origin (`allocation_id IS NOT NULL`), and `LPLPO` under `/distribution/report/*`. Reporting aggregates data from other apps. `reports.ReportPermission` is an unmanaged permission marker used to provision the `reports.view_reports` Django permission.
 - `stock` also exposes an Instalasi Farmasi-facing read-only `/stock/puskesmas-stock/` page that computes current Puskesmas stock from the latest usable yearly LPLPO baseline plus later same-year `CONFIRMED` receipt confirmations minus later same-year detailed consumption. The page is intentionally non-CRUD and hidden from `PUSKESMAS` role users.
-  The Puskesmas-side `Rincian Persediaan` report uses the same source model within the selected period: latest usable LPLPO up to the period end month, plus later same-year `CONFIRMED` receipt confirmations up to the period end month, minus later same-year detailed consumption up to the period end month. Facilities without a usable LPLPO baseline are skipped rather than using distribution-only fallback stock.
+  Outside verified inventory coverage, Puskesmas-side `Rincian Persediaan` retains this historical source model. Within coverage, Persediaan/Rincian/Rekap share original-layer journal accounting as described in the Feature 2 section; an LPLPO is not required.
   `Rincian Persediaan` labels the calculated balance `Stok Akhir Digital`. HTML/print and the Excel `Sumber dan Cakupan` sheet expose the selected facility, period-end month, each active scoped facility's baseline month/status and adjustment window, included receipt/consumption detail-row counts, and skipped-baseline coverage. Draft LPLPO is usable; rejected statuses are excluded. Quarter/semester filters select the ending-stock cutoff, not a movement-only start/end range. All-facility item balances are summed, so negative-row counts describe aggregated balances and can mask individual facility shortages. Numbering is continuous across categories. Valid empty Excel exports retain an explanation distinguishing missing baselines, no active facilities, or no resulting item rows; invalid filters remain HTML errors. Authorization, stock calculations, routes, and import formats are unchanged.
-  The Puskesmas-side rekap persediaan view now also aggregates valuation data from `lplpo.LPLPOItem.harga_satuan` into category-level summary rows.
-  The Puskesmas-side rincian/rekap persediaan filters use yearly, quarterly (`Triwulan I-IV`), and semester (`Semester I-II`) period selectors.
+  Historical Rekap fallback retains per-document `lplpo.LPLPOItem.harga_satuan` valuation; journal coverage uses original prices. Both aggregate categories through the shared snapshot.
+  Puskesmas-side Rincian/Rekap filters offer yearly, quarterly (`Triwulan I-IV`), semester (`Semester I-II`) and validated custom-month intervals with matching links to Persediaan.
 
 ### 4.12 Puskesmas
 

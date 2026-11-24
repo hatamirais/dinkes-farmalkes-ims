@@ -1,5 +1,5 @@
 {% extends "base_tailwind.html" %}
-{% load number_format l10n %}
+{% load number_format l10n tailwind_forms %}
 
 {% block title %}Rekap Laporan Persediaan Puskesmas — Healthcare IMS{% endblock %}
 {% block page_title %}Rekap Laporan Persediaan Puskesmas{% endblock %}
@@ -64,6 +64,8 @@
                         {{ form.period.label_tag }}
                         {{ form.period }}
                     </div>
+                    <div class="ims-layout-col-md-auto">{% tailwind_field form.start_month %}</div>
+                    <div class="ims-layout-col-md-auto">{% tailwind_field form.end_month %}</div>
                     {% if all_facilities %}
                     <div class="ims-layout-col-md-auto">
                         <label for="id_facility" class="ims-label">Fasilitas</label>
@@ -99,6 +101,11 @@
     </div>
 </div>
 
+{% if inventory_url %}<div class="flex flex-wrap gap-2 mb-4 d-print-none">
+    <a class="ims-btn ims-btn--neutral" href="{{ inventory_url }}">Lihat persediaan dan lapisan</a>
+    <a class="ims-btn ims-btn--neutral" href="{{ rincian_url }}">Rincian</a>
+    <a class="ims-btn ims-btn--neutral" href="{{ rekap_url }}">Rekap</a>
+</div>{% endif %}
 <!-- Print Header -->
 <div class="d-none d-print-block report-print-sheet">
     <div class="report-print-header">
@@ -130,19 +137,7 @@
 </div>
 
 <!-- Info Badge -->
-{% if rekap_data %}
-<div class="ims-layout-row mb-3 d-print-none">
-    <div class="ims-layout-col-12">
-        <div class="ims-alert ims-alert--info py-2 text-ims-xs mb-0">
-            <i class="bi bi-info-circle me-1"></i>
-            <strong>Saldo Awal</strong> memakai nilai stok awal LPLPO Januari. <strong>Nilai Terima</strong> dan <strong>Nilai Keluar</strong>
-            diakumulasi dari seluruh LPLPO yang tersedia pada
-            <strong>{{ period_label }} {{ form.year.value|unlocalize }}</strong>.
-            Rekap ini diringkas per <strong>kategori</strong> menggunakan <strong>harga satuan LPLPO</strong>: Januari diisi manual, bulan berikutnya mengikuti autofill nilai distribusi atau carry-forward bulan sebelumnya.
-        </div>
-    </div>
-</div>
-{% endif %}
+{% if report_metadata %}{% include "puskesmas/partials/persediaan_source.html" %}{% endif %}
 
 <!-- Facility label for scoped users -->
 {% if not all_facilities and facility %}
@@ -165,7 +160,7 @@
                                 <th style="width: 180px;">SALDO AWAL {{ form.year.value|unlocalize|default:"" }}</th>
                                 <th style="width: 180px;">NILAI TERIMA {{ form.year.value|unlocalize|default:"" }}</th>
                                 <th style="width: 180px;">NILAI KELUAR {{ form.year.value|unlocalize|default:"" }}</th>
-                                <th style="width: 180px;">SALDO AKHIR {{ form.year.value|unlocalize|default:"" }}</th>
+                                {% if report_metadata.has_inventory %}<th>KEDALUWARSA DIPOSTING (Rp)</th>{% endif %}<th style="width: 180px;">SALDO AKHIR {{ form.year.value|unlocalize|default:"" }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -177,12 +172,12 @@
                                     <td class="text-end">Rp {{ row.saldo_awal|id_decimal:2 }}</td>
                                     <td class="text-end">Rp {{ row.nilai_terima|id_decimal:2 }}</td>
                                     <td class="text-end">Rp {{ row.nilai_keluar|id_decimal:2 }}</td>
-                                    <td class="text-end">Rp {{ row.saldo_akhir|id_decimal:2 }}</td>
+                                    {% if report_metadata.has_inventory %}<td class="text-end">Rp {{ row.nilai_kedaluwarsa|id_decimal:2 }}</td>{% endif %}<td class="text-end">Rp {{ row.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="6" class="ims-report-empty text-muted py-4">
+                                <td colspan="{% if report_metadata.has_inventory %}7{% else %}6{% endif %}" class="ims-report-empty text-muted py-4">
                                     <i class="bi bi-inbox block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data untuk periode ini. Pastikan LPLPO Januari telah dibuat.
                                 </td>
@@ -197,7 +192,7 @@
                                 <td class="text-end">Rp {{ totals.saldo_awal|id_decimal:2 }}</td>
                                 <td class="text-end">Rp {{ totals.nilai_terima|id_decimal:2 }}</td>
                                 <td class="text-end">Rp {{ totals.nilai_keluar|id_decimal:2 }}</td>
-                                <td class="text-end">Rp {{ totals.saldo_akhir|id_decimal:2 }}</td>
+                                {% if report_metadata.has_inventory %}<td class="text-end">Rp {{ totals.nilai_kedaluwarsa|id_decimal:2 }}</td>{% endif %}<td class="text-end">Rp {{ totals.saldo_akhir|id_decimal:2 }}</td>
                             </tr>
                         </tfoot>
                         {% endif %}

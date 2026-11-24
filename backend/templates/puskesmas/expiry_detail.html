@@ -1,0 +1,22 @@
+{% extends "base_tailwind.html" %}
+{% load number_format %}
+{% block title %}Kedaluwarsa #{{ document.pk }}{% endblock %}
+{% block page_title %}Kedaluwarsa #{{ document.pk }}{% endblock %}
+{% block content %}
+<div class="ims-workflow ims-report">
+    <p>{{ document.facility.name }} · Tanggal penarikan {{ current.effective_date|date:"d/m/Y" }} · Revisi {{ current.number }} · {% if current.void %}<strong>Dibatalkan</strong>{% else %}Diposting{% endif %}</p>
+    <p class="ims-alert ims-alert--info mb-4">Pengeluaran ini terpisah dari pemakaian medis. Dokumen mencatat penarikan dari stok yang boleh digunakan, bukan bukti pemusnahan atau pengembalian.</p>
+    <div class="flex flex-wrap gap-2 mb-4 d-print-none">
+        {% if can_manage and not current.void %}<a class="ims-btn ims-btn--primary" href="{% url 'puskesmas:expiry_edit' document.pk %}">Koreksi / batalkan dengan alasan</a>{% endif %}
+        <button type="button" class="ims-btn ims-btn--neutral" data-action="print">Cetak</button><a class="ims-btn ims-btn--neutral" href="{% url 'puskesmas:expiry_list' %}?facility={{ document.facility_id }}">Kembali</a>
+    </div>
+    {% for rev in revisions %}<section class="ims-panel mb-4"><div class="ims-panel-body">
+        <h2 class="font-bold">Revisi {{ rev.number }} {% if rev.void %}— pembatalan{% endif %}</h2>
+        <p>{{ rev.actor }} · Dicatat {{ rev.recorded_at|date:"d/m/Y H:i" }} · Efektif {{ rev.effective_date|date:"d/m/Y" }}</p>
+        <p>Referensi: {{ rev.reference|default:"—" }}<br>Alasan: {{ rev.reason }}</p>
+        <div class="table-responsive"><table class="table ims-table ims-table--ruled"><thead><tr><th>Barang / lapisan</th><th>Batch / ED / sumber</th><th>Jumlah</th><th>Harga asli (Rp)</th><th>Nilai (Rp)</th></tr></thead>
+        <tbody>{% for line in rev.lines.all %}<tr><td>{{ line.layer.item }}<br>Lapisan #{{ line.layer_id }}</td><td>{{ line.layer.batch_lot|default:"Tidak diketahui" }} · {{ line.layer.expiry_date|date:"d/m/Y" }}<br>{{ line.layer.source_document_number|default:"Sumber tidak diketahui" }} · {{ line.layer.sumber_dana|default:"Dana tidak diketahui" }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price|id_price_exact }}</td><td>{{ line.cost|id_decimal:2 }}</td></tr>{% empty %}<tr><td colspan="5">Tidak ada pengeluaran baru pada revisi ini. Jurnal versi sebelumnya dibalik; seluruh riwayat dipertahankan.</td></tr>{% endfor %}</tbody></table></div>
+        {% for consumption in rev.consumption_revisions.all %}<p>Pemakaian bulan {{ consumption.consumption.bulan }}/{{ consumption.consumption.tahun }} dihitung ulang sebagai revisi {{ consumption.number }}.</p>{% endfor %}
+    </div></section>{% endfor %}
+</div>
+{% endblock %}

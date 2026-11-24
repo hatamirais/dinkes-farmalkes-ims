@@ -7,6 +7,31 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-24
+
+### Added
+
+- Added explicit month-end Puskesmas consumption finalization with FEFO allocation at each source layer's original price, shortage/coverage checks, immutable revisions, reasoned corrections, exact reversals, and audit logs. Editable monthly drafts do not deduct stock; missing months require explicit finalization even when use is zero.
+- Added verified opening-stock adoption into January LPLPO, automatic binding for new eligible January documents, journal-derived monthly quantities/values, and finalized-consumption checks before inventory-backed LPLPO submission. Existing editable January documents require a confirmed adoption preview; submitted history is preserved.
+- Added facility-isolated Kedaluwarsa Puskesmas monitoring and confirmed operator withdrawals, with original-price batch selection, revision history, reasoned correction/cancellation, and atomic same-month consumption reallocation. Remaining expired-by-cutoff quantities hold finalization; alerts never deduct stock automatically ([#325](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/325)).
+
+### Changed
+
+- Unified Persediaan, Rincian and Rekap Puskesmas reporting around one source calculation: verified opening/journal coverage takes precedence, historical LPLPO fallback remains labelled outside coverage, and facilities without either source are excluded rather than shown as zero. HTML, print and Excel preserve source coverage and original-cost layers; expiry outflows are distinct from medical use.
+- Hid the single unit-price column on inventory-backed LPLPO while retaining original-layer valuation and compatible offline workbooks. Bound source fields cannot be overwritten offline; legacy unbound documents retain their existing behavior.
+- Shared expiry status/filter helpers and item-to-batch selection between Instalasi Farmasi and Puskesmas without sharing stock writers or approval authority. Puskesmas monitoring adds category/search/sort controls and retains its adjustable 30-day default window.
+
+### Deployment
+
+- Apply Puskesmas migrations 0016–0017 and LPLPO migrations 0018–0019 before serving. Physical Stock Opname/reconciliation (Feature 3), returns/transfers, and annual reconciliation remain deferred; calculated inventory does not certify physical stock completeness.
+
+### Fixed
+
+- Synchronized finalized consumption corrections into editable legacy LPLPO that have not adopted inventory binding, so usage, closing stock and calculated needs cannot remain stale on submission.
+- Kept historical expiry quantities explicitly unknown in inventory Excel exports, preventing errors for historical-only and mixed journal/historical reports without displaying unsupported zero quantities.
+- Blocked historical FEFO finalization/correction when net later expiry withdrawals affect the layers being allocated, preserving period-specific valuation without silently replaying later periods. Fully reversed withdrawals do not hold allocation.
+- Returned the deactivate-instead message when retained consumption allocations protect a Poli/Pustu from deletion, preserving history after its last live entry has been corrected away.
+
 ## [2.2.0] - 2026-11-17
 
 ### Added

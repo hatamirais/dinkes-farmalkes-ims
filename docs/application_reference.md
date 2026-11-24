@@ -158,9 +158,9 @@ posting. Only verified data becomes inventory.
 
 Initialized facilities post confirmed linked receipts exactly once using issued
 distribution snapshots. Posted receipts cannot be directly changed/deleted.
-The new journal/projection does not yet include consumption: it is not current
-available stock, and January LPLPO/rincian/rekap calculations are unchanged.
-Annual reconciliation posting and correction screens remain deferred.
+Feature 2 adds the staged consumption/LPLPO integration described below. The
+journal is still incomplete and must not be treated as current available stock.
+Annual reconciliation posting remains deferred.
 The creator may use `Batalkan Pratinjau` on a draft, including an expired preview.
 After confirmation the application retains the rows with status `Dibatalkan` and
 records the cancellation actor/time. The operator can upload a fresh CSV. This
@@ -188,3 +188,61 @@ start blank; factual missing-source/candidate notes are added internally at impo
 when no operator note is supplied. Manual rows require a note for unknown provenance.
 See the [decision record](puskesmas-opening-inventory-design.md) and
 [CSV contract](../backend/seed/README.md#puskesmas-initial-opening-csv-feature-1).
+
+## Puskesmas monthly consumption and inventory
+
+Pemakaian Rinci retains editable monthly Poli/Pustu drafts and an audit trail.
+The new posting engine allocates actual monthly use at month end using FEFO and
+original layer costs. Corrections retain prior revisions and exact reversal/
+replacement movements. Shortage holds the whole finalization; submitted LPLPO
+and later finalized months prevent unsupported historical correction.
+
+New January LPLPO uses a posted verified opening automatically. Existing editable
+January LPLPO offers a difference preview and explicit adoption, retaining prior
+values and requests. Bound later months carry journal balances; derived quantities
+cannot be manually/offline overridden. The single harga_satuan column is hidden
+for bound documents, with historical prices retained. Legacy documents keep their
+existing behavior.
+
+Persediaan Puskesmas (`/puskesmas/persediaan/`) shows interval item quantities and
+values, expandable original-price layers and category totals under the existing
+dedicated report/facility policy. Print and Excel use the same journal accounting;
+Excel exact amounts are text to preserve precision. Facilities without a verified
+opening use labelled historical LPLPO fallback where available; facilities without
+either source are excluded with an explanation. Persediaan explores item/layer
+details, Rincian is the formal quantity report and Rekap is the category/value
+report. All share per-facility source selection and retain their own URLs. Journal
+coverage takes precedence without requiring LPLPO or adoption. Shared links
+preserve year/month interval/facility. Source/opening reference, cutoff and missing
+finalizations appear in HTML/print/Excel; finalized zero use differs from missing
+finalization. Historical values retain per-document LPLPO price semantics.
+
+Operational consumption finalization and bound submission now integrate the
+Puskesmas expiry module below. Reports remain incomplete for physical counts and
+unsupported adjustments/returns. See the [Feature 2 record](puskesmas-fefo-consumption-design.md).
+
+## Kedaluwarsa Puskesmas
+
+`/puskesmas/kedaluwarsa/` monitors dated facility stock using a selectable window
+(default 30 days). Alerts never deduct stock. Authorized own-facility operators
+and Super Admin explicitly select original-price layers, whole quantities and
+actual withdrawal date, give a reason and confirm posting without a reviewer.
+This removes stock from use as a separate expiry outflow; it does not certify
+physical disposal or return. Detail retains all revisions, costs, actors/times.
+
+The monitor reuses Instalasi Farmasi expiry labels and adds search, category,
+status, ordering and page-size controls. ED day is labelled `Hari ED` in the
+critical range (0–30 days); this label does not change monthly closing rules.
+Withdrawal entry uses the same searchable item-first batch selector as Instalasi
+Farmasi, including added rows. Batch choices show source, funding and exact
+original price. Puskesmas keeps its own facility journal and has no IF approval
+route; the shared controls do not share stock deductions.
+
+Reasoned correction/VOID preserves the original date and appends reversal and
+replacement. Same-month finalized consumption is recalculated and editable bound
+LPLPO/carries follow atomically. Submitted affected LPLPO, later finalized months,
+shortage or unresolved expiry holds the entire change. Remaining expired-by-cutoff
+journal quantities must be withdrawn explicitly before finalization, even zero
+use; no automatic write-off or expired allocation. Persediaan/Rekap/Excel separate
+expiry from medical use; bound LPLPO exposes readonly `kedaluwarsa` and subtracts
+it from closing. Physical discrepancies remain separate Stock Opname work.
