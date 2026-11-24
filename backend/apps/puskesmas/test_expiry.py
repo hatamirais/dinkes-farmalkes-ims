@@ -71,6 +71,47 @@ class ExpiryTests(ExpiryFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(list(rev.allocations.values_list("quantity", flat=True)), [7, 5])
         self.assertEqual(self.balances(), [0, 5])
 
+    def test_later_expiry_blocks_historical_finalization_until_voided(self):
+        later = self.withdraw(effective_date=date(2026, 2, 10))
+        before = PuskesmasInventoryMovement.objects.count()
+        digest = snapshot_digest(self.consumption, snapshot(self.consumption))
+        with self.assertRaisesMessage(ValidationError, "periode berikutnya"):
+            finalize_consumption(user=self.operator, consumption_id=self.consumption.pk, digest=digest)
+        self.assertFalse(self.consumption.inventory_revisions.exists())
+        self.assertEqual(PuskesmasInventoryMovement.objects.count(), before)
+        self.assertEqual(self.balances(), [7, 10])
+        self.withdraw(effective_date=date(2026, 2, 10), expiry_id=later.expiry_id,
+            expected_digest=later.digest, entries=[], void=True, reason="Penarikan dibatalkan setelah pemeriksaan")
+        revision = finalize_consumption(user=self.operator, consumption_id=self.consumption.pk, digest=digest)
+        self.assertEqual(list(revision.allocations.order_by("layer_id").values_list("quantity", flat=True)), [10, 2])
+        self.assertEqual(self.balances(), [0, 8])
+
+    def test_later_expiry_blocks_historical_consumption_correction_without_partial_writes(self):
+        previous = self.consume()
+        self.withdraw(effective_date=date(2026, 2, 10), entries=[dict(layer_id=self.layers[1].pk, quantity=3)])
+        before = PuskesmasInventoryMovement.objects.count()
+        data = snapshot(self.consumption)
+        data["entries"][0]["quantity"] = 8
+        with self.assertRaisesMessage(ValidationError, "periode berikutnya"):
+            finalize_consumption(user=self.operator, consumption_id=self.consumption.pk,
+                digest=snapshot_digest(self.consumption, snapshot(self.consumption)),
+                data=data, reason="Koreksi catatan poli")
+        self.assertEqual(self.consumption.inventory_revisions.get().pk, previous.pk)
+        self.assertFalse(hasattr(previous.posting, "reversal"))
+        self.assertEqual(self.consumption.entries.get().quantity, 12)
+        self.assertEqual(PuskesmasInventoryMovement.objects.count(), before)
+        self.assertEqual(self.balances(), [0, 5])
+
+    def test_later_expiry_does_not_distort_zero_use_month(self):
+        self.consumption.entries.all().delete()
+        self.withdraw(effective_date=date(2026, 2, 10))
+        revision = finalize_consumption(user=self.operator, consumption_id=self.consumption.pk,
+            digest=snapshot_digest(self.consumption, snapshot(self.consumption)))
+        self.assertFalse(revision.allocations.exists())
+        january = period_rows([self.facility.pk], 2026, 1)[0][0]
+        self.assertEqual((january["consumption_quantity"], january["closing_quantity"]), (0, 20))
+        self.assertEqual(self.balances(), [7, 10])
+
     def test_public_consumption_and_bound_submission_work_after_expiry(self):
         lplpo = LPLPO.objects.create(facility=self.facility, tahun=2026, bulan=1, created_by=self.operator)
         adopt_opening(user=self.operator, lplpo_id=lplpo.pk, digest=adoption_digest(lplpo))

@@ -46,6 +46,13 @@ replacement/VOID, reallocate FEFO as a linked new consumption revision and sync
 editable bound LPLPO/carries atomically. Any affected submitted LPLPO, later
 finalized month, shortage or unresolved expiry rolls everything back. Existing
 authorized LPLPO return paths remain mandatory; cross-period reopening is deferred.
+
+Earlier consumption finalization/correction rejects net later-dated expiry
+movements on cutoff-eligible layers of the items being allocated. This prevents
+current projections from selecting incorrect historical FEFO layers and costs.
+Fully reversed/VOID withdrawals net to zero; zero-use months allocate nothing.
+Poli/Pustu deletion preserves protected historical allocations and returns the
+existing deactivate-instead instruction, even when no live entries remain.
 Remaining dated-journal quantity with ED on/before month end holds finalization,
 even zero use, until explicitly withdrawn in that period. Later-dated expiry
 cannot satisfy earlier coverage. No automatic write-off or expired allocation.

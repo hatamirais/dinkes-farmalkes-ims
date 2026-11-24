@@ -110,6 +110,20 @@ class ConsumptionInventoryTests(ConsumptionFixture, SecureClientDefaultsMixin, T
             with self.subTest(action=action), self.assertRaises(ValidationError):
                 action()
 
+    def test_subunit_delete_preserves_historical_allocations_after_last_entry_is_replaced(self):
+        first = self.engine()
+        replacement = PuskesmasSubunit.objects.create(facility=self.facility, name="Poli pengganti",
+            subunit_type="TREATMENT_ROOM")
+        data = snapshot(self.consumption)
+        data["entries"][0].update(subunit_id=replacement.pk, quantity=8)
+        self.engine(data, reason="Koreksi poli pencatat")
+        self.assertFalse(self.subunit.consumption_entries.exists())
+        self.client.force_login(self.operator)
+        response = self.client.post(reverse("puskesmas:subunit_delete", args=[self.subunit.pk]), follow=True)
+        self.assertContains(response, "Nonaktifkan entri ini sebagai gantinya")
+        self.assertTrue(PuskesmasSubunit.objects.filter(pk=self.subunit.pk).exists())
+        self.assertEqual(first.allocations.filter(subunit=self.subunit).count(), 2)
+
     def test_http_finalized_correction_synchronizes_unbound_editable_lplpo_before_submit(self):
         lplpo = LPLPO.objects.create(facility=self.facility, tahun=2026, bulan=1, created_by=self.operator)
         line = LPLPOItem.objects.create(lplpo=lplpo, item=self.item, stock_awal=20,

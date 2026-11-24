@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Sum
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -791,7 +792,12 @@ def subunit_delete(request, pk):
 
     subunit_name = subunit.name
     facility_id = subunit.facility_id
-    subunit.delete()
+    try:
+        subunit.delete()
+    except ProtectedError:
+        messages.error(request,
+            "Poli/Pustu tidak dapat dihapus karena sudah dipakai pada data pemakaian. Nonaktifkan entri ini sebagai gantinya.")
+        return redirect("puskesmas:subunit_list")
     logger.info(
         "puskesmas_subunit_deleted",
         extra={

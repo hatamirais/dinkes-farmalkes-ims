@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from apps.items.models import Item
@@ -194,6 +194,16 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
         layer = balance.layer
         if layer.expiry_date and layer.expiry_date <= effective and dated_journal.get(layer.pk, 0) > 0:
             raise ValidationError(f"{layer.item}: batch {layer.batch_lot or '—'} kedaluwarsa {layer.expiry_date}; selesaikan aturan/alur kedaluwarsa dengan mencatat jumlah penarikan pada periode ini. Tidak ada pengurangan otomatis.")
+    # The live projection includes later withdrawals. Do not let those outflows
+    # choose this month's FEFO layers/costs; cross-period reallocation is deferred.
+    item_ids = {entry["item_id"] for entry in data["entries"]}
+    allocation_layers = [key for key, balance in by_layer.items() if balance.layer.item_id in item_ids]
+    later_expiry = PuskesmasInventoryMovement.objects.filter(layer_id__in=allocation_layers,
+        posting__effective_date__gt=effective).filter(
+            Q(posting__expiry_revision__isnull=False) |
+            Q(posting__reversal_of__expiry_revision__isnull=False))
+    if later_expiry.values("layer_id").annotate(total=Sum("quantity_delta")).exclude(total=0).exists():
+        raise ValidationError("Penarikan kedaluwarsa periode berikutnya memengaruhi lapisan barang ini. Selesaikan koreksi penarikan tersebut sebelum finalisasi/koreksi bulan ini; rekalkulasi lintas periode belum tersedia.")
     quantities = {key: balance.quantity for key, balance in by_layer.items()}
     if not restored_previous:
         for movement in original_movements:

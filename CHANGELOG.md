@@ -29,6 +29,8 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 - Synchronized finalized consumption corrections into editable legacy LPLPO that have not adopted inventory binding, so usage, closing stock and calculated needs cannot remain stale on submission.
 - Kept historical expiry quantities explicitly unknown in inventory Excel exports, preventing errors for historical-only and mixed journal/historical reports without displaying unsupported zero quantities.
+- Blocked historical FEFO finalization/correction when net later expiry withdrawals affect the layers being allocated, preserving period-specific valuation without silently replaying later periods. Fully reversed withdrawals do not hold allocation.
+- Returned the deactivate-instead message when retained consumption allocations protect a Poli/Pustu from deletion, preserving history after its last live entry has been corrected away.
 
 ## [2.2.0] - 2026-11-17
 
