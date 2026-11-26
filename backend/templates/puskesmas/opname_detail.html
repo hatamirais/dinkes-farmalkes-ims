@@ -1,0 +1,79 @@
+{% extends "base_tailwind.html" %}
+{% block title %}Stock Opname · {{ count.facility.name }}{% endblock %}
+{% block page_title %}Stock Opname Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-workflow ims-puskesmas">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div><h1 class="text-xl font-semibold">Stock Opname · {{ count.facility.name }}</h1>
+        <p>Batas {{ count.cutoff|date:"d/m/Y" }} · {{ revision.get_state_display }}</p></div>
+    <a href="{% url 'puskesmas:opname_list' %}">Daftar Stock Opname</a>
+</div>
+{% if comparison.barriers %}
+<div class="ims-alert ims-alert--warning mb-4">
+    <p>Perbandingan sementara</p>
+    <ul>{% for barrier in comparison.barriers %}<li>{{ barrier }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if revision.state != "COUNTING" and revision.comparison.digest != comparison.digest %}
+<p class="ims-alert ims-alert--warning mb-4">Jurnal berubah sejak penutupan. Tinjau hasil sebelum melanjutkan LPLPO.</p>
+{% endif %}
+<div class="ims-panel mb-4"><div class="ims-panel-body">
+    <h2 class="text-lg font-semibold mb-2">Cakupan lokasi</h2>
+    <ul>{% for location, observation in locations %}
+        <li>{{ location.name }} · {% if observation.confirmed %}{% if observation.lines %}Selesai dihitung{% else %}Stok nihil dikonfirmasi{% endif %}{% else %}Belum dikonfirmasi{% endif %}
+            {% if is_operator and revision.state == "COUNTING" %} · <a href="{% url 'puskesmas:opname_location' count.pk location.key %}">Isi hitungan</a>{% endif %}
+        </li>
+    {% endfor %}</ul>
+</div></div>
+<div class="ims-panel mb-4"><div class="ims-panel-body">
+    {% include "puskesmas/opname_comparison.html" %}
+    {% if comparison.usage.revision %}<p class="mt-2">Revisi pemakaian diposting #{{ comparison.usage.revision }}</p>
+    {% elif comparison.usage.reported %}<p class="mt-2">Pemakaian masih berupa draf dan belum mengurangi saldo jurnal.</p>{% endif %}
+    <details class="mt-3">
+        <summary>Saldo digital saat hitungan dimulai</summary>
+        <p>{{ count.created_at|date:"d/m/Y H:i" }}{% if count.initial_comparison.opening %} · Saldo awal #{{ count.initial_comparison.opening }}{% endif %}</p>
+        {% for barrier in count.initial_comparison.barriers %}<p>{{ barrier }}</p>{% endfor %}
+        <ul>{% for layer in count.initial_comparison.layers %}<li>{{ layer.name }} · {{ layer.batch|default:"—" }} · Lapisan #{{ layer.layer }} · {{ layer.quantity }} {{ layer.unit }} · Rp {{ layer.value }}</li>{% endfor %}</ul>
+    </details>
+    <details class="mt-3">
+        <summary>Lapisan jurnal dan harga asli</summary>
+        <div class="overflow-x-auto"><table class="table ims-table ims-table--compact ims-table--ruled mb-0">
+            <thead><tr><th>Lapisan</th><th>Barang</th><th>Batch</th><th>Sumber</th><th>Jumlah</th><th>Harga asli</th><th>Nilai</th></tr></thead>
+            <tbody>{% for layer in comparison.layers %}<tr><td>#{{ layer.layer }}</td><td>{{ layer.name }}</td>
+                <td>{{ layer.batch|default:"—" }}</td><td>{{ layer.source|default:"—" }}</td>
+                <td>{{ layer.quantity }}</td><td>{{ layer.price }}</td><td>{{ layer.value }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </details>
+    {{ form.non_field_errors }}{{ form.revision.errors }}{{ form.journal.errors }}
+    {% if can_close and not comparison.barriers %}
+    <form method="post" class="mt-3">{% csrf_token %}{{ form.revision }}{{ form.journal }}
+        <button type="submit" class="ims-btn ims-btn--primary">Tutup hasil hitung</button>
+    </form>
+    {% elif is_operator and has_open and not comparison.barriers %}
+    <p class="mt-3">Selisih memerlukan bukti atau peninjauan Gudang yang ditugaskan. LPLPO menunggu rekonsiliasi.</p>
+    {% endif %}
+</div></div>
+<div class="ims-panel mb-4"><div class="ims-panel-body">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <h2 class="text-lg font-semibold">Penyelidikan dan keputusan</h2>
+        {% if is_operator %}<a href="{% url 'puskesmas:opname_action' count.pk %}">Ajukan tindakan</a>{% endif %}
+    </div>
+    <ul>{% for note in notes %}<li>{{ note.recorded_at|date:"d/m/Y H:i" }} · {{ note.actor }} · {{ note.evidence }}</li>{% endfor %}</ul>
+    <ul>{% for action, can_decide in actions %}
+        <li>#{{ action.pk }} · {{ action.get_kind_display }} · {{ action.reason }} ·
+            {% if action.decision %}{% if action.decision.approved %}Disetujui{% else %}Ditolak{% endif %} oleh {{ action.decision.approver }}
+                {% if action.decision.posting_id %} · Jurnal #{{ action.decision.posting_id }}{% endif %}
+            {% elif can_decide %}<a href="{% url 'puskesmas:opname_decide' count.pk action.pk %}">Tinjau permintaan</a>
+            {% else %}Menunggu peninjau berwenang{% endif %}
+        </li>
+    {% empty %}<li>Belum ada permintaan tindakan.</li>{% endfor %}</ul>
+</div></div>
+{% if revisions %}
+<div class="ims-panel"><div class="ims-panel-body">
+    <h2 class="text-lg font-semibold mb-2">Riwayat penutupan</h2>
+    <ul>{% for entry in revisions %}<li><a href="{% url 'puskesmas:opname_print' count.pk entry.number %}">Cetak revisi {{ entry.number }}</a>
+        · {{ entry.get_state_display }} · {{ entry.actor_label }} · {{ entry.recorded_at|date:"d/m/Y H:i" }}</li>{% endfor %}</ul>
+</div></div>
+{% endif %}
+</div>
+{% endblock %}

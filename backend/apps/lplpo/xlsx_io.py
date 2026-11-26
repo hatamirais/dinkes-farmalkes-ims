@@ -4,7 +4,7 @@ import unicodedata
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Protection, Side
 from openpyxl.utils import get_column_letter
 
 from apps.core.decimal_validation import (
@@ -131,6 +131,10 @@ def _validate_no_formula(cell, *, field_label):
 
 
 def export_lplpo_workbook(lplpo_obj):
+    from apps.puskesmas.opname_lplpo import is_gated
+
+    physical_locked = is_gated(lplpo_obj.facility_id, lplpo_obj.tahun, lplpo_obj.bulan)
+    include_adjustment = lplpo_obj.has_opname_adjustments
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = WORKSHEET_TITLE
@@ -209,6 +213,8 @@ def export_lplpo_workbook(lplpo_obj):
         ]
         if lplpo_obj.inventory_backed:
             row_values.append(line.kedaluwarsa)
+        if include_adjustment:
+            row_values.append(line.penyesuaian_opname)
         for column_index, value in enumerate(row_values, start=1):
             cell_value = format_price_exact(value) if column_index == 7 else value
             cell = worksheet.cell(
@@ -217,6 +223,8 @@ def export_lplpo_workbook(lplpo_obj):
                 value=_cell_value(cell_value),
             )
             cell.border = THIN_BORDER
+            if physical_locked and column_index in (14, 15, 16):
+                cell.protection = Protection(locked=False)
             if column_index in {5, 6, 8, 9, 10, 13, 14, 15}:
                 cell.number_format = NUMBER_FORMAT
                 cell.alignment = Alignment(horizontal="right")
@@ -234,6 +242,12 @@ def export_lplpo_workbook(lplpo_obj):
         # Preserve the versioned round-trip schema, but do not display/edit prices.
         worksheet.column_dimensions["G"].hidden = True
         worksheet.cell(row=9, column=1, value="Saldo awal, penerimaan, pemakaian dan kedaluwarsa berasal dari jurnal inventaris. Kolom turunan/informasi dihitung ulang saat impor.")
+    if physical_locked:
+        worksheet.cell(row=9, column=1, value="Stok fisik gudang berasal dari Stock Opname. Isi hanya waktu kosong, jumlah dan alasan permintaan.")
+        worksheet.protection.sheet = True
+    if include_adjustment:
+        worksheet.cell(row=HEADER_ROW, column=18, value="penyesuaian opname (informasi jurnal)")
+        worksheet.column_dimensions["R"].width = 27
     for column_index, width in enumerate(column_widths, start=1):
         worksheet.column_dimensions[get_column_letter(column_index)].width = width
 
@@ -248,6 +262,9 @@ def export_lplpo_workbook(lplpo_obj):
 
 
 def apply_lplpo_workbook_import(*, uploaded_file, lplpo_obj):
+    from apps.puskesmas.opname_lplpo import is_gated
+
+    physical_locked = is_gated(lplpo_obj.facility_id, lplpo_obj.tahun, lplpo_obj.bulan)
     workbook = load_workbook(uploaded_file, data_only=False)
     try:
         worksheet = workbook[WORKSHEET_TITLE]
@@ -369,10 +386,14 @@ def apply_lplpo_workbook_import(*, uploaded_file, lplpo_obj):
                 line.stock_awal, line.penerimaan, line.harga_satuan):
             workbook.close()
             raise ValidationError(f"Baris {row_num}: saldo awal, penerimaan dan harga berasal dari inventaris dan terkunci.")
-        line.stock_gudang_puskesmas = _parse_integer_from_cell(
+        physical = _parse_integer_from_cell(
             row_cells[12].value,
             field_label=f"Baris {row_num} stock_gudang_puskesmas",
         )
+        if physical != line.stock_gudang_puskesmas and physical_locked:
+            workbook.close()
+            raise ValidationError(f"Baris {row_num}: stok fisik gudang berasal dari Stock Opname dan terkunci.")
+        line.stock_gudang_puskesmas = physical
         line.waktu_kosong = _parse_integer_from_cell(
             row_cells[13].value,
             field_label=f"Baris {row_num} waktu_kosong",

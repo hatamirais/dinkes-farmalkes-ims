@@ -513,3 +513,23 @@ periods. Verify original-price expiry values separately in HTML/print/Excel and
 bound LPLPO, including protected informational offline Q. Monitor GETs and warning
 threshold changes must never post. Use isolated ORM fixtures for mutations;
 browser checks with existing local accounts must not write real stock just for QA.
+## Puskesmas Stock Opname rollout
+
+Apply the LPLPO and Puskesmas migrations before serving the new routes.
+Configure Feature 3 facility authority in Django Admin under **Opname
+authorities** using the individual action fields. Count closure with open
+discrepancies requires a designated Gudang reviewer. Adjustment approval,
+receipt-correction approval and reopening additionally check the user's
+LPLPO module scope and independence from the requester.
+
+Activate a facility only after it has a verified opening, journal coverage
+for the chosen reporting month, and an inventory-bound LPLPO or supported
+January adoption/carry-forward path. Run the command from `backend/`.
+
+```powershell
+python manage.py activate_puskesmas_opname --facility-code <code> --year <year> --month <month> --actor <superuser-username>
+```
+
+The command checks readiness and records the first gated month. Review older
+or already-submitted documents before selecting it. Facilities awaiting
+activation continue with the existing LPLPO workflow.

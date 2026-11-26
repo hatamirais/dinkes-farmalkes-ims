@@ -1,0 +1,38 @@
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}Stock Opname Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-workflow ims-puskesmas">
+<h1 class="text-xl font-semibold mb-4">{{ title }}</h1>
+<div class="ims-panel"><div class="ims-panel-body">
+    {% if receipt %}<p class="mb-3"><a href="{% url 'puskesmas:receiving_detail' receipt.pk %}">Penerimaan {{ receipt }}</a></p>{% endif %}
+    {% if action %}
+        <dl class="mb-4">
+            <dt>Pengusul</dt><dd>{{ action.preparer }}</dd>
+            <dt>Revisi bukti</dt><dd>{{ action.revision.number }}</dd>
+            <dt>Alasan</dt><dd>{{ action.reason }}</dd>
+            <dt>Referensi</dt><dd>{{ action.reference }}</dd>
+            {% if action.expected_change %}<dt>Perubahan yang diminta</dt><dd>{{ action.expected_change }}</dd>{% endif %}
+            {% if action.add_location %}<dt>Lokasi tambahan</dt><dd>{{ action.add_location.name }}</dd>{% endif %}
+            {% if action.layer %}<dt>Lapisan dan jumlah</dt><dd>#{{ action.layer_id }} · {{ action.layer.item }} · {{ action.quantity }} · Rp {{ action.layer.unit_price }}</dd>{% endif %}
+            {% if action.revision.state != "COUNTING" %}<dt>Perbandingan awal</dt><dd><a href="{% url 'puskesmas:opname_print' count.pk action.revision.number %}">Bukti revisi {{ action.revision.number }}</a></dd>{% endif %}
+        </dl>
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+        <div class="grid gap-3 md:grid-cols-2">
+            {% for field in form.visible_fields %}{% tailwind_field field %}{% endfor %}
+        </div>
+        <div class="flex flex-wrap gap-3 mt-4">
+            <button class="ims-btn ims-btn--primary" type="submit">Simpan</button>
+            {% if location %}<a class="ims-btn ims-btn--secondary" href="{% url 'puskesmas:opname_location' count.pk location.key %}">Kembali</a>
+            {% elif count %}<a class="ims-btn ims-btn--secondary" href="{% url 'puskesmas:opname_detail' count.pk %}">Kembali</a>
+            {% else %}<a class="ims-btn ims-btn--secondary" href="{% url 'puskesmas:opname_list' %}">Kembali</a>{% endif %}
+        </div>
+    </form>
+</div></div>
+</div>
+{% endblock %}

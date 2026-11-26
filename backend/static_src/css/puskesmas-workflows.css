@@ -44,6 +44,14 @@
   .ims-puskesmas .ims-btn:focus-visible, .ims-puskesmas :is(input, select, textarea):focus-visible, .ims-puskesmas .table-responsive:focus-visible { outline: 2px solid var(--color-ims-focus); outline-offset: 2px; }
   .ims-puskesmas .table-responsive { border: 1px solid var(--color-ims-border); border-radius: var(--radius-ims-control); }
   .ims-puskesmas .ims-table { min-width: 760px; }
+  @media screen and (max-width: 639px) {
+    .ims-puskesmas .ims-table.ims-puskesmas-opname-comparison { min-width: 0; }
+    .ims-puskesmas .ims-puskesmas-opname-comparison :is(th, td) {
+      padding: 8px 4px;
+      white-space: normal;
+    }
+    .ims-puskesmas .ims-puskesmas-opname-comparison td { overflow-wrap: anywhere; }
+  }
   .ims-puskesmas .ims-table td { vertical-align: middle; }
   .ims-puskesmas-list .ims-table td[colspan] { text-align: left; padding-left: 12px; }
   .ims-puskesmas .ims-table-summary { background: var(--color-ims-surface-muted); }

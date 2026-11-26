@@ -165,7 +165,7 @@
                                 {% if not lplpo.inventory_backed %}<th class="text-end">Harga Satuan</th>{% endif %}
                                 <th class="text-end">Persediaan</th>
                                 <th class="text-end">Pemakaian</th>
-                                {% if lplpo.inventory_backed %}<th class="text-end">Kedaluwarsa</th>{% endif %}<th class="text-end">Sisa Stok</th>
+                                {% if lplpo.inventory_backed %}<th class="text-end">Kedaluwarsa</th>{% endif %}{% if lplpo.has_opname_adjustments %}<th class="text-end">Penyesuaian Opname</th>{% endif %}<th class="text-end">Sisa Stok</th>
                                 <th class="text-end">Stok Optimum</th>
                                 <th class="text-end">Kebutuhan</th>
                                 <th class="text-end">Diminta</th>
@@ -191,7 +191,7 @@
                                     {% if not lplpo.inventory_backed %}<td class="text-end">Rp {{ li.harga_satuan|id_price_exact }}</td>{% endif %}
                                     <td class="text-end text-info fw-semibold">{{ li.persediaan|floatformat:"0" }}</td>
                                     <td class="text-end">{{ li.pemakaian|floatformat:"0" }}</td>
-                                    {% if lplpo.inventory_backed %}<td class="text-end">{{ li.kedaluwarsa }}</td>{% endif %}<td class="text-end fw-semibold">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
+                                    {% if lplpo.inventory_backed %}<td class="text-end">{{ li.kedaluwarsa }}</td>{% endif %}{% if lplpo.has_opname_adjustments %}<td class="text-end">{{ li.penyesuaian_opname }}</td>{% endif %}<td class="text-end fw-semibold">{{ li.stock_keseluruhan|floatformat:"0" }}</td>
                                     <td class="text-end">{{ li.stock_optimum|floatformat:"-2" }}</td>
                                     <td class="text-end">{{ li.jumlah_kebutuhan|floatformat:"-2" }}</td>
                                     <td class="text-end">{{ li.permintaan_jumlah|floatformat:"0" }}</td>

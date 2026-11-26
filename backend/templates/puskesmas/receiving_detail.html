@@ -134,6 +134,11 @@
             <div class="ims-panel">
                 <div class="ims-panel-header"><h6 class="mb-0">Aksi</h6></div>
                 <div class="ims-panel-body grid gap-2">
+                    {% if opname_count and not locked_lplpo %}
+                    <a href="{% url 'puskesmas:receiving_opname_correction' receipt_confirmation.pk opname_count.pk %}" class="ims-btn ims-btn--secondary w-full">
+                        Ajukan koreksi kelebihan penerimaan
+                    </a>
+                    {% endif %}
                     {% if can_manage and not locked_lplpo %}
                     <a href="{% url 'puskesmas:receiving_edit' receipt_confirmation.pk %}" class="ims-btn ims-btn--secondary w-full" id="edit-btn">
                         <i class="bi bi-pencil me-1"></i>Edit

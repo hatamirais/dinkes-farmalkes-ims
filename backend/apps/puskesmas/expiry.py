@@ -43,6 +43,7 @@ def _reverse(posting, user, balances):
         PuskesmasInventoryMovement.objects.create(posting=reversal, layer_id=movement.layer_id,
             quantity_delta=-movement.quantity_delta, unit_price=movement.unit_price)
         _change_balance(balances[movement.layer_id], -movement.quantity_delta)
+    return reversal
 
 
 @transaction.atomic

@@ -1,0 +1,29 @@
+{% extends "base_tailwind.html" %}
+{% block title %}Stock Opname Puskesmas{% endblock %}
+{% block page_title %}Stock Opname Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-workflow ims-puskesmas">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h1 class="text-xl font-semibold">Stock Opname Puskesmas</h1>
+    {% if can_start %}<a class="ims-btn ims-btn--primary" href="{% url 'puskesmas:opname_start' %}">Mulai hitung</a>{% endif %}
+</div>
+<div class="ims-panel"><div class="overflow-x-auto">
+    <table class="table ims-table ims-table--compact ims-table--ruled mb-0">
+        <thead><tr><th>Puskesmas</th><th>Batas bulan</th><th></th></tr></thead>
+        <tbody>
+            {% for count in page %}
+            <tr><td>{{ count.facility.name }}</td><td>{{ count.cutoff|date:"d/m/Y" }}</td>
+                <td><a href="{% url 'puskesmas:opname_detail' count.pk %}">Lihat hitungan</a></td></tr>
+            {% empty %}<tr><td colspan="3">Belum ada Stock Opname.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div></div>
+{% if page.has_other_pages %}
+<nav class="flex gap-4 mt-3" aria-label="Halaman hasil">
+    {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Sebelumnya</a>{% endif %}
+    <span>Halaman {{ page.number }} dari {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Berikutnya</a>{% endif %}
+</nav>
+{% endif %}
+</div>
+{% endblock %}

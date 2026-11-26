@@ -1,0 +1,20 @@
+<h2 class="text-lg font-semibold mb-2">Perbandingan pada batas bulan</h2>
+<div class="overflow-x-auto" role="region" aria-label="Kuantitas digital dan fisik" tabindex="0">
+<table class="table ims-table ims-table--compact ims-table--ruled ims-puskesmas-opname-comparison mb-0">
+    <thead><tr><th>Barang</th><th>Batch / ED</th><th>Digital</th><th>Fisik</th><th>Selisih</th><th>Status</th></tr></thead>
+    <tbody>
+        {% for row in comparison.rows %}
+        <tr>
+            <td>{{ row.name }} <small>{{ row.unit }}</small></td>
+            <td>{{ row.batch|default:"—" }} / {{ row.expiry|default:"—" }}</td>
+            <td class="text-end">{{ row.expected }}</td><td class="text-end">{{ row.physical }}</td><td class="text-end">{{ row.delta }}</td>
+            <td>{% if row.open %}Selisih terbuka{% if can_note %} · <a href="{% url 'puskesmas:opname_case' count.pk row.key %}">Catat bukti</a>{% endif %}{% else %}Jumlah sesuai{% endif %}
+                {% if row.attribution_limited %}<br><small>Sumber fisik tidak dapat dibedakan per lapisan.</small>{% endif %}
+                {% if row.layer_mismatch %}<br><small>Atribusi lapisan belum sesuai.</small>{% endif %}
+                {% if row.damaged %}<br><small>{{ row.damaged }} rusak masih tercatat pada saldo.</small>{% endif %}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="6">Belum ada baris pembanding.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>

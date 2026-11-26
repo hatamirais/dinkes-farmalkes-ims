@@ -1,0 +1,35 @@
+{% load static %}
+<!doctype html>
+<html lang="id">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stock Opname · {{ count.facility.name }} · Revisi {{ revision.number }}</title>
+    <link rel="stylesheet" href="{% static 'css/app.tailwind.css' %}">
+</head>
+<body class="p-4 ims-workflow ims-report">
+    <h1 class="text-xl font-semibold">Stock Opname · {{ count.facility.name }}</h1>
+    <p>Batas akhir hari {{ count.cutoff|date:"d/m/Y" }} · Revisi {{ revision.number }} · {{ revision.get_state_display }}</p>
+    <p>Ditutup oleh {{ revision.actor_label }} pada {{ revision.recorded_at|date:"d/m/Y H:i" }}</p>
+    {% if revision.reason %}<p>{{ revision.reason }}</p>{% endif %}
+    <h2 class="text-lg font-semibold mt-4">Cakupan lokasi</h2>
+    <ul>{% for location, observation in locations %}<li>{{ location.name }} ·
+        {% if observation.confirmed %}{% if observation.lines %}{{ observation.lines|length }} baris{% else %}Stok nihil{% endif %}
+        {% else %}Belum dikonfirmasi{% endif %}</li>{% endfor %}</ul>
+    <div class="mt-4">{% include "puskesmas/opname_comparison.html" %}</div>
+    {% for location, observation in locations %}
+        {% if observation.lines %}
+        <section class="mt-4">
+            <h2 class="text-lg font-semibold">{{ location.name }}</h2>
+            <p>Waktu hitung {{ observation.counted_at }}{% if observation.evidence %} · {{ observation.evidence }}{% endif %}</p>
+            <table class="table ims-table ims-table--compact ims-table--ruled">
+                <thead><tr><th>Barang</th><th>Batch / ED</th><th>Fisik terhitung</th><th>Fisik pada batas</th><th>Kondisi</th></tr></thead>
+                <tbody>{% for line in observation.lines %}<tr>
+                    <td>{{ line.name }}</td><td>{{ line.batch|default:"—" }} / {{ line.expiry|default:"—" }}</td>
+                    <td>{{ line.observed }} {{ line.observed_unit }}</td><td>{{ line.cutoff_quantity }} {{ line.unit }}</td>
+                    <td>{{ line.condition_label }}{% if line.excluded_posting %} · ditarik pada jurnal #{{ line.excluded_posting }}{% endif %}</td>
+                </tr>{% endfor %}</tbody>
+            </table>
+        </section>
+        {% endif %}
+    {% endfor %}
+</body>
+</html>

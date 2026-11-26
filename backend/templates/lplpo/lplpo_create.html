@@ -30,6 +30,7 @@
                         {% if form.non_field_errors %}
                         <div class="ims-alert ims-alert--warning mb-3">
                             {{ form.non_field_errors }}
+                            {% if opname_required and can_view_puskesmas_opname %}<a href="{% url 'puskesmas:opname_list' %}">Buka Stock Opname Puskesmas</a>{% endif %}
                         </div>
                         {% endif %}
 

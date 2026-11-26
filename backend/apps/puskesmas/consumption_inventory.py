@@ -130,11 +130,18 @@ def _change_balance(balance, delta):
 
 
 def _post_revision_locked(*, consumption, user, data, reason="", expected_digest=None,
-                          expiry_revision=None, restored_previous=False):
+                          expiry_revision=None, receipt_correction=None, restored_previous=False):
     """Internal engine. Caller holds actor/facility/document locks in that order."""
     if not transaction.get_connection().in_atomic_block:
         raise RuntimeError("Consumption posting requires a locked transaction.")
-    assert_operator(user, consumption.facility)
+    if receipt_correction is None:
+        assert_operator(user, consumption.facility)
+    else:
+        from .opname import authority
+        if (receipt_correction.kind != "RECEIPT" or receipt_correction.count.facility_id != consumption.facility_id
+                or receipt_correction.preparer_id == user.pk
+                or not authority(user, consumption.facility_id, "correct_receipt", lock=True)):
+            raise PermissionDenied
     assert_period_mutable(consumption)
     effective = month_end(consumption.tahun, consumption.bulan)
     if effective > timezone.localdate():
@@ -145,9 +152,9 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
     data = _validate_snapshot(consumption, data)
     digest = snapshot_digest(consumption, data)
     previous = latest_revision(consumption)
-    if previous and previous.digest == digest and expiry_revision is None:
+    if previous and previous.digest == digest and expiry_revision is None and receipt_correction is None:
         return previous
-    if restored_previous and (not previous or expiry_revision is None or
+    if restored_previous and (not previous or (expiry_revision is None and receipt_correction is None) or
                               not hasattr(previous.posting, "reversal")):
         raise ValidationError("Pemulihan revisi pemakaian tidak valid.")
     current = snapshot_digest(consumption, snapshot(consumption))
@@ -190,6 +197,12 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
     if previous and not restored_previous:
         for movement in original_movements:
             dated_journal[movement.layer_id] = dated_journal.get(movement.layer_id, 0) - movement.quantity_delta
+    adjustment_filter = Q(posting__opname_action__kind="ADJUST") | Q(posting__reversal_of__opname_action__kind="ADJUST")
+    reductions = dict(PuskesmasInventoryMovement.objects.filter(
+        adjustment_filter, layer_id__in=by_layer, posting__effective_date=effective,
+    ).values("layer_id").annotate(total=Sum("quantity_delta")).values_list("layer_id", "total"))
+    for layer_id, delta in reductions.items():
+        dated_journal[layer_id] -= delta
     for balance in balances:
         layer = balance.layer
         if layer.expiry_date and layer.expiry_date <= effective and dated_journal.get(layer.pk, 0) > 0:
@@ -204,7 +217,13 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
             Q(posting__reversal_of__expiry_revision__isnull=False))
     if later_expiry.values("layer_id").annotate(total=Sum("quantity_delta")).exclude(total=0).exists():
         raise ValidationError("Penarikan kedaluwarsa periode berikutnya memengaruhi lapisan barang ini. Selesaikan koreksi penarikan tersebut sebelum finalisasi/koreksi bulan ini; rekalkulasi lintas periode belum tersedia.")
-    quantities = {key: balance.quantity for key, balance in by_layer.items()}
+    later_corrections = PuskesmasInventoryMovement.objects.filter(
+        adjustment_filter | Q(posting__opname_action__kind="RECEIPT"),
+        layer_id__in=allocation_layers, posting__effective_date__gt=effective,
+    )
+    if later_corrections.values("layer_id").annotate(total=Sum("quantity_delta")).exclude(total=0).exists():
+        raise ValidationError("Koreksi periode berikutnya memengaruhi lapisan; rekalkulasi lintas periode belum tersedia.")
+    quantities = {key: balance.quantity - reductions.get(key, 0) for key, balance in by_layer.items()}
     if not restored_previous:
         for movement in original_movements:
             quantities[movement.layer_id] -= movement.quantity_delta
@@ -235,9 +254,12 @@ def _post_revision_locked(*, consumption, user, data, reason="", expected_digest
         if needed:
             raise ValidationError(f"Barang #{entry['item_id']}: pemakaian {entry['quantity']}, kekurangan {needed}. Draf tetap tersedia.")
     before = previous.snapshot if previous else snapshot(consumption)
+    if any(quantities[layer_id] + delta < 0 for layer_id, delta in reductions.items()):
+        raise ValidationError("Alokasi ulang tidak menyisakan saldo untuk pengurangan hasil opname pada lapisan asli.")
     revision = PuskesmasConsumptionRevision.objects.create(consumption=consumption,
         number=previous.number + 1 if previous else 1, effective_date=effective,
-        digest=digest, snapshot=data, reason=reason, actor=user, expiry_revision=expiry_revision)
+        digest=digest, snapshot=data, reason=reason, actor=user, expiry_revision=expiry_revision,
+        receipt_correction=receipt_correction)
     if previous and not restored_previous:
         reversal = PuskesmasInventoryPosting.objects.create(facility_id=consumption.facility_id,
             reversal_of=previous.posting, effective_date=effective, actor=user, digest=previous.digest)

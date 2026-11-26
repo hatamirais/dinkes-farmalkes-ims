@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models import DecimalField, ExpressionWrapper, F, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.functional import cached_property
 
 from apps.core.decimal_validation import (
     PRICE_DECIMAL_PLACES,
@@ -61,11 +62,17 @@ def get_next_required_lplpo_period(facility, *, server_date=None):
     """
     Return the next contiguous month that must be created for a facility.
 
-    The sequence resets every active server-calendar year and always starts
-    from January. Any existing LPLPO in that year counts toward continuity,
-    regardless of workflow status.
+    The active-year sequence starts in January. A gated December can only
+    reconcile after its cutoff so finish it first after year rollover.
     """
     active_year = get_active_lplpo_year(server_date)
+    from apps.puskesmas.opname_lplpo import is_gated
+    previous_year = active_year - 1
+    if is_gated(facility.pk, previous_year, 12):
+        previous_months = set(LPLPO.objects.filter(facility=facility, tahun=previous_year)
+                              .values_list("bulan", flat=True))
+        if previous_months == set(range(1, 12)):
+            return previous_year, 12
     existing_months = set(
         LPLPO.objects.filter(facility=facility, tahun=active_year).values_list(
             "bulan", flat=True
@@ -94,6 +101,10 @@ class LPLPO(TimeStampedModel):
     @property
     def inventory_backed(self):
         return hasattr(self, "inventory_binding")
+
+    @cached_property
+    def has_opname_adjustments(self):
+        return self.inventory_backed and self.items.filter(penyesuaian_opname__gt=0).exists()
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -272,6 +283,8 @@ class LPLPOItem(models.Model):
     )
     kedaluwarsa = models.PositiveIntegerField(default=0, editable=False,
         help_text="Inventory expiry withdrawal, separate from medical consumption")
+    penyesuaian_opname = models.PositiveIntegerField(default=0, editable=False,
+        help_text="Net approved reductions for documented loss or damage")
     stock_gudang_puskesmas = models.PositiveIntegerField(
         default=0,
         help_text="Physical count of Puskesmas warehouse stock",
@@ -296,7 +309,7 @@ class LPLPOItem(models.Model):
     )
     stock_keseluruhan = models.IntegerField(
         default=0,
-        help_text="persediaan - pemakaian - kedaluwarsa",
+        help_text="persediaan - pemakaian - kedaluwarsa - penyesuaian opname",
     )
     stock_optimum = models.DecimalField(
         max_digits=12,
@@ -349,7 +362,10 @@ class LPLPOItem(models.Model):
             safe_int(self.stock_awal)
             + safe_int(self.penerimaan)
         )
-        self.stock_keseluruhan = self.persediaan - safe_int(self.pemakaian) - safe_int(self.kedaluwarsa)
+        self.stock_keseluruhan = (
+            self.persediaan - safe_int(self.pemakaian) - safe_int(self.kedaluwarsa)
+            - safe_int(self.penyesuaian_opname)
+        )
         # Stok optimum follows the consumption method: monthly usage plus a
         # 20 percent buffer, independent from the ending stock position.
         replenishment_basis = Decimal(safe_int(self.pemakaian))

@@ -1,5 +1,48 @@
 # SYSTEM_MODEL.md
 
+## Puskesmas Stock Opname and Reconciliation
+
+The monthly count workspace is under `/puskesmas/stock-opname/`. A
+`FacilityOpname` fixes the facility, month-end cutoff, initial journal and
+location roster. `OpnameRevision` retains observations and cutoff comparisons,
+including earlier printable closures. The current journal is compared by item,
+batch and expiry, preserving identified original-price layers. Confirmed empty
+locations, recorded unit conversions and documented movement timing are
+distinct from missing evidence. A closed count with discrepancies and a
+reconciled count have distinct states.
+
+`OpnameAuthority` records separate facility grants for count review, stock
+adjustment, posted-receipt correction and reopening. Count review with open
+discrepancies additionally requires role `GUDANG` and an independent reviewer.
+Posting and reopening require LPLPO module scope `OPERATE` or higher, the
+applicable facility grant and a different requester and approver. Grants are
+maintained by superusers in Django Admin. `OpnameAction` and `OpnameDecision`
+retain the request, evidence, actors, outcome and posting reference.
+
+Approved, evidenced loss/damage reductions affect an existing source-price
+layer at the month-end cutoff after finalized consumption. An exact reversal
+retains the original movement. A documented receipt overstatement uses the
+owning receiving correction path and original receipt date, line and cost,
+without editing the posted receipt. The same-month FEFO rerun is atomic and
+checks that prior approved loss or damage postings still fit their layers.
+Submitted affected LPLPO and later finalized consumption remain period guards.
+Reconciliation adjustments are classified separately from medical use and
+expiry; posted-receipt corrections reduce net receipts. These operations do
+not mutate Instalasi Farmasi stock.
+
+`OpnameActivation` sets the first gated month per facility after a verified
+opening, coverage and a supported inventory binding transition. From that
+month, create and submit/resubmit check current reconciled evidence under the
+facility mutex. `LPLPOOpnameLink` retains count-link history. Gated LPLPOs use
+the journal for digital stock and the linked count's comparable warehouse
+quantity for the physical warehouse field. Existing editable drafts in gated
+months need both bindings before submission. Reopening retains prior links and
+requires authorized return of affected submitted LPLPO where available.
+
+See the [Feature 3 design](docs/puskesmas-stock-opname-design.md) and the owning
+app guides for rollout and verification details. The Feature 2 sections below
+describe their original delivery.
+
 Canonical reference for current schema, route topology, permission model, and stock mutation behavior.
 
 ## Puskesmas expiry integration (2026-11-23)

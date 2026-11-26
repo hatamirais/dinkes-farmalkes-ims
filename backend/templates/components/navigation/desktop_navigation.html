@@ -198,6 +198,13 @@
                 {% endif %}
                 {% endif %}
 
+                {% if can_view_puskesmas_opname %}
+                <a href="{% url 'puskesmas:opname_list' %}"
+                    class="sidebar-link {% if request.resolver_match.app_name == 'puskesmas' and request.resolver_match.url_name|slice:':7' == 'opname_' %}active{% endif %}"
+                    data-label="Stock Opname Puskesmas" title="Stock Opname Puskesmas">
+                    <i class="bi bi-clipboard2-check"></i><span>Stock Opname Puskesmas</span>
+                </a>
+                {% endif %}
                 {% if can_view_puskesmas_reports %}
                 <a href="{% url 'puskesmas:inventory_report' %}"
                     class="sidebar-link {% if request.resolver_match.url_name == 'inventory_report' and request.resolver_match.app_name == 'puskesmas' %}active{% endif %}"
