@@ -189,6 +189,43 @@ class OpnameTests(OpnameFixture, SecureClientDefaultsMixin, TestCase):
         self.assertEqual(closed.comparison["warehouse"][str(self.item.pk)], 7)
         self.assertEqual(closed.observations["warehouse"]["lines"][-1]["cutoff_quantity"], 1)
 
+    def test_damaged_observation_cannot_authorize_the_same_reduction_twice(self):
+        layer = PuskesmasInventoryLayer.objects.order_by("pk").last()
+        healthy = self.observation(6)
+        damage = self.observation(2, layer=layer.pk, condition="DAMAGED")
+        count = self.count([healthy, damage])
+        case_key = current_revision(count).comparison["rows"][0]["key"]
+        first = self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=1)
+        first_posting = self.approve(count, first).posting
+
+        with self.assertRaises(ValidationError):
+            self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=2)
+        second = self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=1)
+        second_posting = self.approve(count, second).posting
+        with self.assertRaises(ValidationError):
+            self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=1)
+        layer.balance.refresh_from_db()
+        self.assertEqual(layer.balance.quantity, 6)
+
+        self.approve(count, self.request(count, "REVERSE", reverse_id=second.pk))
+        self.location(count, "warehouse", [healthy, {**damage, "observed": 1},
+            {**damage, "observed": 1, "excluded_posting": first_posting.pk}])
+        replacement = self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=1)
+        replacement_posting = self.approve(count, replacement).posting
+        self.assertNotEqual(replacement_posting.pk, second_posting.pk)
+        layer.balance.refresh_from_db()
+        self.assertEqual(layer.balance.quantity, 6)
+
+    def test_documented_shortage_reduction_does_not_consume_damage_evidence(self):
+        layer = PuskesmasInventoryLayer.objects.order_by("pk").last()
+        count = self.count([self.observation(5), self.observation(2, layer=layer.pk, condition="DAMAGED")])
+        case_key = current_revision(count).comparison["rows"][0]["key"]
+        loss = self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=1)
+        self.approve(count, loss)
+        damage = self.request(count, "ADJUST", case_key=case_key, layer_id=layer.pk, quantity=2)
+        self.approve(count, damage)
+        self.assertEqual(layer.balance.quantity, 5)
+
     def test_consumption_correction_rolls_back_when_approved_reduction_no_longer_fits(self):
         count = self.count([self.observation(7)])
         closed = self.close(count, self.verifier)

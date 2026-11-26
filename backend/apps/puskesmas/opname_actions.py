@@ -1,4 +1,5 @@
 """Authorized count reopening and layer-specific inventory corrections."""
+from collections import defaultdict
 from decimal import Decimal
 from uuid import UUID
 
@@ -45,7 +46,36 @@ def assert_period_mutable(count):
         raise ValidationError("Pemakaian periode berikutnya sudah difinalisasi.")
 
 
-def eligible_case(comparison, layer, case_key, quantity, *, kind):
+def _remaining_damage(count, revision, layer, observed):
+    if not observed:
+        return 0
+    recorded_withdrawals = defaultdict(int)
+    for location in revision.observations.values():
+        for line in location["lines"]:
+            if line["layer"] == layer.pk and line["excluded_posting"]:
+                recorded_withdrawals[line["excluded_posting"]] += line["cutoff_quantity"]
+
+    prior_adjustments = count.actions.filter(
+        kind=Kind.ADJUST, layer=layer, posting__isnull=False, posting__reversal__isnull=True,
+    ).select_related("revision", "posting")
+    outstanding = 0
+    for action in prior_adjustments:
+        prior_comparison = action.revision.comparison
+        prior_row = next((row for row in prior_comparison["rows"] if row["key"] == action.case_key), None)
+        if prior_row is None:
+            damage_applied = action.quantity
+        elif prior_comparison["digest"] == action.journal_digest:
+            prior_shortage = max(0, -Decimal(prior_row["delta"]))
+            damage_applied = max(0, action.quantity - prior_shortage)
+        else:
+            # The frozen observations still prove how much damage could have
+            # supported the posting, but the saved journal delta is stale.
+            damage_applied = min(action.quantity, prior_row["damaged_by_layer"].get(str(layer.pk), 0))
+        outstanding += max(0, damage_applied - recorded_withdrawals[action.posting.pk])
+    return max(0, observed - outstanding)
+
+
+def eligible_case(count, revision, comparison, layer, case_key, quantity, *, kind):
     key = (layer.item_id, layer.batch_lot, layer.expiry_date.isoformat() if layer.expiry_date else "")
     row = next((row for row in comparison["rows"] if row["key"] == case_key and row["item"] == layer.item_id), None)
     if not row or not row["open"]:
@@ -56,9 +86,16 @@ def eligible_case(comparison, layer, case_key, quantity, *, kind):
         if Decimal(row["delta"]) >= 0 and not row["layer_mismatch"]:
             raise ValidationError("Pilih selisih kekurangan atau atribusi lapisan yang belum sesuai.")
         return
-    maximum = max(0, -Decimal(row["delta"])) + row["damaged_by_layer"].get(str(layer.pk), 0)
-    if group_key(row) != key or quantity > maximum:
+    if group_key(row) != key:
         raise ValidationError("Pengurangan melebihi kekurangan terhitung pada barang dan batch ini.")
+    shortage = max(0, -Decimal(row["delta"]))
+    if quantity > shortage:
+        observed_damage = row["damaged_by_layer"].get(str(layer.pk), 0)
+        remaining_damage = _remaining_damage(count, revision, layer, observed_damage)
+        if quantity - shortage > remaining_damage:
+            raise ValidationError(
+                "Pengurangan melebihi kekurangan dan jumlah rusak yang belum disesuaikan pada lapisan ini."
+            )
 
 
 @transaction.atomic
@@ -105,7 +142,7 @@ def request_action(*, user, count_id, expected_revision, key, kind, reason, refe
                 raise ValidationError("Koreksi hanya tersedia untuk penerimaan diposting pada bulan hitung.")
         elif comparison["barriers"]:
             raise ValidationError(comparison["barriers"])
-        eligible_case(comparison, layer, case_key, quantity, kind=kind)
+        eligible_case(count, revision, comparison, layer, case_key, quantity, kind=kind)
     elif kind == Kind.REVERSE:
         original = count.actions.filter(pk=reverse_id, kind=Kind.ADJUST, decision__approved=True).first()
         if not original or hasattr(original.posting, "reversal"):
@@ -211,7 +248,7 @@ def decide_action(*, user, count_id, action_id, approve, reason=""):
         else:
             if comparison["barriers"]:
                 raise ValidationError(comparison["barriers"])
-            eligible_case(comparison, action.layer, action.case_key, action.quantity, kind=action.kind)
+            eligible_case(count, revision, comparison, action.layer, action.case_key, action.quantity, kind=action.kind)
             expected = next(row for row in comparison["layers"] if row["layer"] == action.layer_id)
             if action.quantity > Decimal(expected["quantity"]):
                 raise ValidationError("Jumlah melebihi saldo lapisan pada batas bulan.")
