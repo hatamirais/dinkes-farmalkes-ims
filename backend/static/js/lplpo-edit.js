@@ -13,7 +13,8 @@ function recalcRow(row) {
 
     var persediaan = stockAwal + penerimaan;
     var kedaluwarsa = getVal('.js-kedaluwarsa');
-    var stockKeseluruhan = persediaan - pemakaian - kedaluwarsa;
+    var penyesuaianOpname = getVal('.js-penyesuaian-opname');
+    var stockKeseluruhan = persediaan - pemakaian - kedaluwarsa - penyesuaianOpname;
     var stockOptimum = pemakaian * 1.2;
     var requiredReplenishment = Math.max(stockOptimum - stockKeseluruhan, 0);
     var jumlahKebutuhan = requiredReplenishment + waktuKosong;

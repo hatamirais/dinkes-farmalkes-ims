@@ -549,7 +549,7 @@ def lplpo_create(request):
                     if tahun != expected_year:
                         form.add_error(
                             "tahun",
-                            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {expected_year}.",
+                            f"Periode LPLPO berikutnya adalah {required_period}.",
                         )
                     if bulan != expected_month:
                         form.add_error(
@@ -568,6 +568,15 @@ def lplpo_create(request):
                         f"{format_lplpo_period_label(bulan, tahun)} sudah ada.",
                     )
                     return render(request, "lplpo/lplpo_create.html", {"form": form})
+
+                from apps.puskesmas.opname_lplpo import link_count, require_reconciled_count, supports_inventory_binding
+                try:
+                    count_revision = require_reconciled_count(facility.pk, tahun, bulan)
+                    if count_revision and not supports_inventory_binding(facility, tahun, bulan):
+                        raise ValidationError("LPLPO bulan Stock Opname harus terikat ke jurnal inventaris.")
+                except ValidationError as exc:
+                    form.add_error(None, exc)
+                    return render(request, "lplpo/lplpo_create.html", {"form": form, "opname_required": True})
 
                 lplpo = LPLPO.objects.create(
                     facility=facility,
@@ -635,22 +644,31 @@ def lplpo_create(request):
                     lplpo_items.append(li)
 
                 LPLPOItem.objects.bulk_create(lplpo_items)
+                opening_adopted = False
                 if bulan == 1:
                     from apps.puskesmas.inventory_models import PuskesmasOpeningVerification
                     if PuskesmasOpeningVerification.objects.filter(facility=facility, year=tahun, status="POSTED").exists():
                         from apps.puskesmas.inventory_reporting import adopt_opening, adoption_digest
                         try:
                             adopt_opening(user=request.user, lplpo_id=lplpo.pk, digest=adoption_digest(lplpo))
+                            opening_adopted = True
                         except ValidationError as exc:
                             transaction.set_rollback(True)
                             form.add_error(None, exc)
                             return render(request, "lplpo/lplpo_create.html", {"form": form})
-                elif prev_lplpo and prev_lplpo.inventory_backed:
+                if not opening_adopted and (bulan != 1 or count_revision) and prev_lplpo and prev_lplpo.inventory_backed:
                     from apps.puskesmas.inventory_models import PuskesmasLPLPOInventoryBinding
                     from apps.puskesmas.inventory_reporting import sync_inventory_lplpo
                     PuskesmasLPLPOInventoryBinding.objects.create(lplpo=lplpo,
                         opening=prev_lplpo.inventory_binding.opening, previous_values=[], actor=request.user)
                     sync_inventory_lplpo(lplpo)
+
+                try:
+                    link_count(lplpo, count_revision, request.user)
+                except ValidationError as exc:
+                    transaction.set_rollback(True)
+                    form.add_error(None, exc)
+                    return render(request, "lplpo/lplpo_create.html", {"form": form, "opname_required": True})
 
             if is_super_admin(request.user):
                 logger.info(
@@ -818,6 +836,8 @@ def lplpo_edit(request, pk):
         return denied
 
     lplpo_obj = _refresh_editable_lplpo_from_puskesmas_sources(lplpo_obj)
+    from apps.puskesmas.opname_lplpo import is_gated
+    physical_locked = is_gated(lplpo_obj.facility_id, lplpo_obj.tahun, lplpo_obj.bulan)
     items_qs = lplpo_obj.items.select_related(
         "item", "item__satuan", "item__kategori"
     ).order_by("item__kategori__sort_order", "item__nama_barang")
@@ -866,7 +886,7 @@ def lplpo_edit(request, pk):
         forms_data = []
         for li in items_qs:
             f = LPLPOItemPuskesmasForm(
-                request.POST, instance=li, prefix=f"item_{li.pk}"
+                request.POST, instance=li, prefix=f"item_{li.pk}", physical_locked=physical_locked,
             )
             if f.is_valid():
                 forms_data.append(f)
@@ -931,7 +951,7 @@ def lplpo_edit(request, pk):
         )
     else:
         forms_data = [
-            LPLPOItemPuskesmasForm(instance=li, prefix=f"item_{li.pk}")
+            LPLPOItemPuskesmasForm(instance=li, prefix=f"item_{li.pk}", physical_locked=physical_locked)
             for li in items_qs
         ]
     # Build (item, form) pairs grouped by category
@@ -1158,8 +1178,12 @@ def lplpo_submit(request, pk):
         return redirect("lplpo:lplpo_detail", pk=pk)
 
     from apps.puskesmas.inventory_reporting import assert_inventory_submission
+    from apps.puskesmas.opname_lplpo import link_count, require_reconciled_count
     try:
-        assert_inventory_submission(lplpo_obj)
+        with transaction.atomic():
+            count_revision = require_reconciled_count(lplpo_obj.facility_id, lplpo_obj.tahun, lplpo_obj.bulan)
+            assert_inventory_submission(lplpo_obj)
+            link_count(lplpo_obj, count_revision, request.user)
     except ValidationError as exc:
         messages.error(request, " ".join(exc.messages))
         return redirect("lplpo:lplpo_detail", pk=pk)

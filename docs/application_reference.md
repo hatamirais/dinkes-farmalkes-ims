@@ -221,6 +221,30 @@ Operational consumption finalization and bound submission now integrate the
 Puskesmas expiry module below. Reports remain incomplete for physical counts and
 unsupported adjustments/returns. See the [Feature 2 record](puskesmas-fefo-consumption-design.md).
 
+## Stock Opname dan Rekonsiliasi Puskesmas
+
+Buka **Stock Opname Puskesmas** di menu Puskesmas. Pilih bulan dan lokasi
+nonaktif yang masih menyimpan stok. Gudang, Poli aktif, dan Pustu aktif
+tercantum otomatis. Masukkan hasil hitung tiap lokasi dengan batch dan
+kedaluwarsa yang diketahui, lalu konfirmasi bahwa lokasi selesai dihitung.
+Lokasi tanpa stok tetap memerlukan konfirmasi.
+
+Perbandingan memakai batas akhir hari terakhir bulan laporan. Jika lokasi
+dihitung pada waktu yang berbeda, catat bukti mutasi yang menjelaskan jumlah
+stok pada tanggal batas. Catat bukti konversi jika satuan pengamatan berbeda
+dari satuan inventaris. Jumlah digital berasal dari jurnal fasilitas.
+
+Operator dapat menutup hitungan yang sesuai. Peninjau Gudang yang ditugaskan
+dapat menutup hitungan lengkap dengan selisih terbuka dan meninjau buktinya.
+Operator dapat mengajukan koreksi penerimaan, pengurangan akibat hilang atau
+rusak, atau pembukaan ulang. Masing-masing tindakan memerlukan persetujuan
+tersendiri. Riwayat revisi yang ditutup dapat dilihat dan dicetak.
+
+Mulai dari bulan aktivasi fasilitas, pembuatan dan pengajuan LPLPO memerlukan
+hitungan bulan yang sama yang sudah direkonsiliasi. Selisih terbuka tetap
+menghalangi proses. LPLPO memakai jumlah fisik bagian gudang dari Stock
+Opname. Rincian Poli dan Pustu tetap tercatat pada dokumen hitung.
+
 ## Kedaluwarsa Puskesmas
 
 `/puskesmas/kedaluwarsa/` monitors dated facility stock using a selectable window

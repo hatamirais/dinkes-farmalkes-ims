@@ -899,17 +899,19 @@ implementation or warehouse runtime changes were made in this follow-up.
 
 ## 15. Deferred feature 3: Puskesmas Stock Opname and Reconciliation
 
-Status: recorded follow-up, to design after feature 2; implementation not authorized.
+Status: first-release design decisions recorded in the
+[Feature 3 design](puskesmas-stock-opname-design.md).
+Implementation remains outside this planning work.
 This section supersedes any reading of section 14 that would add physical counting
 or a full discrepancy-resolution workflow to feature 2. Use a separate design and
 implementation branch when feature 3 starts; do not maintain a separate Puskesmas
 product fork or change application architecture merely because this work is separate.
 
-Business context to confirm: the user recalls that operators normally perform
-stock opname before filling the LPLPO Excel form. This is a working assumption,
-not a verified operational procedure or a settled monthly counting requirement.
+Reported operating practice: the user recalls that operators normally perform
+stock opname before filling the LPLPO Excel form. Field practice remains
+unverified. The monthly requirement below is an agreed Feature 3 rule.
 
-Proposed feature-3 responsibilities:
+First-release Feature 3 scope:
 
 Agreed scope addition (2026-11-18): investigate losses and damaged stock and post
 supported, evidenced adjustments through this reconciliation workflow. Do not
@@ -917,15 +919,84 @@ implement these adjustments in Feature 2 or classify them as medical use/expiry
 merely to make balances reconcile. Detailed review authority and accounting
 checkpoints remain part of Feature 3 design.
 
-- Whole-facility physical counting across warehouse, Poli and Pustu, with a clear
-  common cutoff and handling of movements during the counting session.
+The agreed first-release adjustment scope covers only evidenced reductions for
+loss or damage on identified existing layers at original cost. Surpluses stay
+open for investigation or correction through their owning workflow.
+Post these reductions at the month-end reconciliation cutoff after finalized
+monthly consumption, retaining any known incident date separately as evidence.
+If a later same-month recalculation would leave too little stock on the
+original layer for an approved reduction, roll back the correction and route
+the conflict for review. Otherwise retain the approved reduction as posted.
+The first release includes an audited correction path in Puskesmas receiving
+for documented quantity overstatements on existing posted receipt lines at
+their original prices and on their original layers. The original receipt and
+journal entries remain immutable, and corrections are separately linked in the
+journal. Understated quantities and errors in batch, price, source or receipt
+date stay open until their correction rules are agreed.
+The approver must have LPLPO module scope `OPERATE` or higher and explicit
+posted-receipt correction approval authority for the facility, and must be
+someone other than the correction preparer.
+If same-month consumption is finalized, the receipt correction and FEFO
+recalculation post atomically, retaining reported use and original costs.
+An affected submitted LPLPO, later finalized consumption or a failed
+recalculation blocks the whole change.
+
+- Whole-facility physical counting across warehouse, Poli and Pustu. The agreed
+  monthly cutoff is facility-local end-of-day on the last day of the reporting
+  month. Later entry is allowed. Counts taken before or after the cutoff need
+  documented intervening movements to reconcile to month-end.
+  Freeze the location roster and require the warehouse and every active Poli
+  and Pustu to confirm count completion or explicitly confirm zero stock.
+  Include inactive locations that still hold stock.
+  The first release supports monthly counts in the item's inventory unit.
+  Conversions require documented packaging or catalog evidence.
 - Comparison with feature-2 accounting balances, retaining reported use, counted
   quantity, expected balance and unexplained differences as distinct evidence.
 - Discrepancy investigation and authorized, evidenced layer-specific adjustments;
   no guessed prices, synthetic receipts or automatic conversion of loss into use.
+  A matching item, batch and expiry total can reconcile when physical units
+  cannot be distinguished by source document. Retain original layer valuations
+  and keep a difference open when it lacks evidence for a layer-level posting.
+  The facility operator gathers missing evidence, and cases needing
+  independent review go to the facility's designated `GUDANG` reviewer.
+  Stock Opname and LPLPO creation show the blocker and next eligible action.
 - Frozen count/review history, permissions/facility isolation and correction rules.
-- A decision on requiring completed/reconciled opname before LPLPO submission,
-  while potentially allowing draft preparation during reconciliation.
+  An authorized same-facility operator may close a complete count with current
+  cutoff evidence and no unresolved discrepancies.
+  A designated Instalasi Farmasi `GUDANG` reviewer may close a complete count
+  with open discrepancies for a facility they are authorized to cover, provided
+  they did not prepare it. Cases remain open and LPLPO creation stays blocked.
+  Adjustment approval requires LPLPO module scope `OPERATE` or higher and
+  explicit Feature 3 approval authority for the facility. The approver must
+  be independent of the adjustment preparer. Eligibility is role-independent.
+  Reopening a closed count requires LPLPO module scope `OPERATE` or higher,
+  explicit reopening authority for the facility and an approver other than
+  the requester. Prior count and comparison evidence is retained.
+  The request includes a reason, the affected count line, location or source
+  document reference, and the expected change.
+  An affected submitted LPLPO must go through its existing authorized return
+  workflow before reopening. An affected editable LPLPO stays editable and
+  cannot be submitted until a current reconciled count revision is linked.
+  Each closed revision has a frozen printable comparison and closure record.
+  Authorized users retain access to earlier revisions.
+- Agreed during Feature 3 planning: require the month's Stock Opname before
+  the Puskesmas operator creates that month's LPLPO, including its first draft.
+  The count must be closed and reconciled. An unresolved discrepancy blocks
+  creation even after count closure.
+  Populate the linked LPLPO's read-only physical-stock field from the
+  warehouse portion of the reconciled count. Stock Opname retains the
+  whole-facility count across warehouse, Poli and Pustu.
+  Activate per facility when its verified opening, journal coverage and a
+  supported transition to inventory-bound LPLPO are in place. Each gated
+  LPLPO uses the journal for its digital quantities. Facilities awaiting
+  coverage or a supported binding transition keep the existing workflow.
+  The first release uses January binding or adoption and monthly carry-forward.
+  The existing active-year LPLPO creation sequence still starts in January.
+  Apply the same reconciled-count requirement when authorized staff create
+  an LPLPO on the facility's behalf for a gated reporting month.
+  Existing drafts before the first gated month keep the existing workflow.
+  Existing drafts for gated months stay editable and need a linked current
+  reconciled count before submission.
 - Coordination with future annual January differences without re-adding opening
   stock or implementing annual posting merely because monthly counting exists.
 
@@ -937,7 +1008,8 @@ opname-based LPLPO submission gate. Consumption reversal/replacement remains a
 feature-2 design concern because posted consumption needs its own correction rules.
 
 Feature 2 holds consumption finalization on shortages while allowing draft saving;
-LPLPO submission requires finalized consumption, while its drafts remain allowed. Deferring
+inventory-bound LPLPO submission requires finalized consumption, while its drafts
+remain allowed. Legacy unbound submission retains its existing behavior. Deferring
 feature 3 does not establish reliable-balance readiness. Unsupported movements or unresolved gaps
 keep the affected balance incomplete. Do not add a manual quantity override as a
 temporary substitute for feature 3. A period's costed accounting result and its
@@ -960,16 +1032,13 @@ Handoff checklist after feature 2:
 1. Review the final implemented feature-2 posting, coverage, LPLPO and correction
    contracts; carry forward remaining limitations rather than assuming this draft
    was implemented in full.
-2. Confirm actual counting practices with an operator: timing, whole-facility scope,
-   granularity by batch/price layer, evidence, and whether counting is monthly or
-   only required for exceptions.
+2. Validate the agreed monthly counting fields against a recent operator
+   worksheet and the applicable SOP if available.
 3. Reuse the IF workflow pattern identified in section 14, remembering its current
    completion does not post stock adjustments; do not reuse warehouse ownership
    or permission assumptions for facility stock.
-4. Agree reviewer authority, discrepancy resolution, count cutoff, closure/reopening,
-   unknown-cost handling and LPLPO gate behavior before implementation.
-5. Create the dedicated feature-3 design/branch and define focused reconciliation,
-   valuation, facility-isolation and concurrency validation. No date is committed.
+4. Use the dedicated Feature 3 design for the agreed authority, count,
+   reconciliation and reopening rules and the planned implementation checks.
 
 ## 16. IF expiry workflow comparison and Puskesmas preparation
 

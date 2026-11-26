@@ -146,15 +146,13 @@ class LPLPOCreateForm(forms.Form):
         self.fields["tahun"].initial = active_year
         self.fields["tahun"].min_value = active_year
         self.fields["tahun"].max_value = active_year
-        self.fields["tahun"].error_messages["min_value"] = (
-            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {active_year}."
-        )
-        self.fields["tahun"].error_messages["max_value"] = (
-            f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {active_year}."
-        )
-        self.fields["tahun"].help_text = (
-            f"Tahun LPLPO terkunci ke tahun server aktif {active_year}."
-        )
+        year_message = f"LPLPO baru hanya dapat dibuat untuk tahun server aktif {active_year}."
+        self.fields["tahun"].help_text = f"Tahun LPLPO terkunci ke tahun server aktif {active_year}."
+        if active_year != get_active_lplpo_year():
+            year_message = f"Selesaikan periode {format_lplpo_period_label(next_month, active_year)} setelah Stock Opname."
+            self.fields["tahun"].help_text = year_message
+        self.fields["tahun"].error_messages["min_value"] = year_message
+        self.fields["tahun"].error_messages["max_value"] = year_message
 
         if next_month is None:
             self.fields["bulan"].choices = []
@@ -241,7 +239,7 @@ class LPLPOCreateForm(forms.Form):
 class LPLPOItemPuskesmasForm(forms.ModelForm):
     """Form for Puskesmas operator to fill their columns per item."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, physical_locked=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["stock_awal"].required = False
         if self.instance.pk and self.instance.lplpo.inventory_backed:
@@ -251,6 +249,14 @@ class LPLPOItemPuskesmasForm(forms.ModelForm):
         self.fields["pemakaian"].help_text = (
             "Pemakaian dihitung dari modul Pemakaian Rinci Puskesmas."
         )
+        self.fields["stock_gudang_puskesmas"].disabled = physical_locked
+
+    def clean_stock_gudang_puskesmas(self):
+        field = self.fields["stock_gudang_puskesmas"]
+        key = self.add_prefix("stock_gudang_puskesmas")
+        if field.disabled and key in self.data and field.to_python(self.data[key]) != self.instance.stock_gudang_puskesmas:
+            raise ValidationError("Stok fisik gudang berasal dari Stock Opname dan terkunci.")
+        return self.cleaned_data["stock_gudang_puskesmas"]
 
     def clean_stock_awal(self):
         value = self.cleaned_data.get("stock_awal")

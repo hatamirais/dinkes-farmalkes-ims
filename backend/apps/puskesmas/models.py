@@ -19,6 +19,7 @@ from apps.core.models import TimeStampedModel
 from .inventory_locking import ReceiptQuerySet, assert_receipt_mutable
 from .consumption_locking import ConsumptionQuerySet, assert_draft_write
 from .expiry_models import PuskesmasExpiry, PuskesmasExpiryRevision, PuskesmasExpiryLine
+from . import opname_models  # Register split workflow models with the app.
 from .inventory_models import (
     PuskesmasInventoryAccount, PuskesmasOpeningVerification,
     PuskesmasOpeningVerificationLine, PuskesmasInventoryPosting,

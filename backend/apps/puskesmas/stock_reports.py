@@ -9,7 +9,7 @@ from apps.lplpo.models import LPLPO, LPLPOItem, format_lplpo_period_label, get_i
 from .models import PuskesmasReceiptConfirmation, PuskesmasReceiptConfirmationItem, PuskesmasConsumptionEntry
 from apps.core.decimal_validation import multiply_decimals, sum_decimals
 from apps.items.models import Item
-from .inventory_reporting import period_rows, category_totals
+from .inventory_reporting import KINDS, period_rows, category_totals
 from .inventory_models import PuskesmasConsumptionRevision, PuskesmasOpeningVerification
 
 logger = logging.getLogger(__name__)
@@ -241,9 +241,6 @@ def legacy_stock(scoped_facilities, year, end_month, *, is_aggregate):
     return item_stock_map, report_metadata
 
 
-KINDS = ("opening", "receipts", "consumption", "expiry", "closing")
-
-
 def _legacy_values(facility_ids, year, start_month, end_month):
     """Retain historical per-document prices; never invent original-price layers."""
     values = {}
@@ -281,17 +278,19 @@ def stock_report_snapshot(facilities, year, start_month, end_month, *, is_aggreg
         facility_id, item_id = key[:2]
         legacy_by_key[(facility_id, item_id)] = dict(facility_id=facility_id, item=items[item_id],
             layers=[], closing_quantity=Decimal(quantity),
-            opening_quantity=None, receipts_quantity=None, consumption_quantity=None, expiry_quantity=None,
+            opening_quantity=None, receipts_quantity=None, consumption_quantity=None, expiry_quantity=None, adjustment_quantity=None,
             **{f"{kind}_value": None for kind in KINDS})
     for key, values in legacy_values.items():
         row = legacy_by_key.setdefault(key, dict(facility_id=key[0], item=items[key[1]], layers=[],
             closing_quantity=None, opening_quantity=None, receipts_quantity=None, consumption_quantity=None,
-            expiry_quantity=None))
+            expiry_quantity=None, adjustment_quantity=None))
         row.update(values)
     rows.extend(legacy_by_key.values())
     for row in rows:
         row["facility_name"] = by_id[row["facility_id"]].name
         row["is_inventory"] = row["facility_id"] in inventory_ids
+        if not row["is_inventory"]:
+            row["adjustment_value"] = None
         row["has_valuation"] = row["opening_value"] is not None
         row["source_label"] = "Jurnal saldo awal terverifikasi" if row["is_inventory"] else "LPLPO historis"
     rows.sort(key=lambda row: (row["item"].kategori.sort_order if row["item"].kategori else 9999,
@@ -336,9 +335,10 @@ def stock_report_snapshot(facilities, year, start_month, end_month, *, is_aggreg
     metadata["legacy_count"] = sum(bool(row["baseline_period"]) for row in metadata["coverage"] if not row["opening_id"])
     metadata["missing_finalization_count"] = sum(row.get("missing_month_count", 0) for row in metadata["coverage"])
     metadata["has_inventory"] = bool(accounts)
+    metadata["has_adjustments"] = any(row.get("adjustment_occurred") for row in rows)
     metadata["baseline_note"] += " Nilai historis memakai harga LPLPO per dokumen; rincian lapisan asli dan rekonsiliasi nilai mutasi tidak tersedia."
     if accounts:
-        metadata["source_description"] = "Stok Akhir Digital memakai jurnal saldo awal terverifikasi + penerimaan diposting − pemakaian difinalisasi − kedaluwarsa diposting untuk fasilitas yang tercakup. Fasilitas di luar cakupan memakai baseline LPLPO historis + penerimaan CONFIRMED − pemakaian rinci setelah baseline. Sumber dipilih per fasilitas, tanpa menghitung ganda."
+        metadata["source_description"] = "Stok Akhir Digital memakai jurnal saldo awal terverifikasi + penerimaan bersih − pemakaian difinalisasi − kedaluwarsa diposting − penyesuaian opname untuk fasilitas yang tercakup. Fasilitas di luar cakupan memakai baseline LPLPO historis + penerimaan CONFIRMED − pemakaian rinci setelah baseline. Sumber dipilih per fasilitas, tanpa menghitung ganda."
         metadata["baseline_note"] = "Pemilihan jurnal berdasarkan cakupan saldo awal, tidak memerlukan LPLPO. Nilai jurnal memakai harga asli tiap lapisan. Nilai historis tetap memakai harga LPLPO dan dapat berbeda dari rekonsiliasi mutasi. Kedaluwarsa ditampilkan sebagai pengeluaran terpisah pada jurnal; mutasi historis kedaluwarsa di luar cakupan belum diketahui. Saldo bukan hasil hitung fisik."
     rincian = {}
     for row in rows:

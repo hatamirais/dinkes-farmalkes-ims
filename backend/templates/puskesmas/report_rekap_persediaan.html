@@ -160,7 +160,7 @@
                                 <th style="width: 180px;">SALDO AWAL {{ form.year.value|unlocalize|default:"" }}</th>
                                 <th style="width: 180px;">NILAI TERIMA {{ form.year.value|unlocalize|default:"" }}</th>
                                 <th style="width: 180px;">NILAI KELUAR {{ form.year.value|unlocalize|default:"" }}</th>
-                                {% if report_metadata.has_inventory %}<th>KEDALUWARSA DIPOSTING (Rp)</th>{% endif %}<th style="width: 180px;">SALDO AKHIR {{ form.year.value|unlocalize|default:"" }}</th>
+                                {% if report_metadata.has_inventory %}<th>KEDALUWARSA DIPOSTING (Rp)</th>{% endif %}{% if report_metadata.has_adjustments %}<th>PENYESUAIAN OPNAME (Rp)</th>{% endif %}<th style="width: 180px;">SALDO AKHIR {{ form.year.value|unlocalize|default:"" }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -172,12 +172,12 @@
                                     <td class="text-end">Rp {{ row.saldo_awal|id_decimal:2 }}</td>
                                     <td class="text-end">Rp {{ row.nilai_terima|id_decimal:2 }}</td>
                                     <td class="text-end">Rp {{ row.nilai_keluar|id_decimal:2 }}</td>
-                                    {% if report_metadata.has_inventory %}<td class="text-end">Rp {{ row.nilai_kedaluwarsa|id_decimal:2 }}</td>{% endif %}<td class="text-end">Rp {{ row.saldo_akhir|id_decimal:2 }}</td>
+                                    {% if report_metadata.has_inventory %}<td class="text-end">Rp {{ row.nilai_kedaluwarsa|id_decimal:2 }}</td>{% endif %}{% if report_metadata.has_adjustments %}<td class="text-end">Rp {{ row.nilai_penyesuaian|id_decimal:2 }}</td>{% endif %}<td class="text-end">Rp {{ row.saldo_akhir|id_decimal:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="{% if report_metadata.has_inventory %}7{% else %}6{% endif %}" class="ims-report-empty text-muted py-4">
+                                <td colspan="{% if report_metadata.has_adjustments %}8{% elif report_metadata.has_inventory %}7{% else %}6{% endif %}" class="ims-report-empty text-muted py-4">
                                     <i class="bi bi-inbox block mb-2" style="font-size: 2rem;"></i>
                                     Tidak ada data untuk periode ini. Pastikan LPLPO Januari telah dibuat.
                                 </td>
@@ -192,7 +192,7 @@
                                 <td class="text-end">Rp {{ totals.saldo_awal|id_decimal:2 }}</td>
                                 <td class="text-end">Rp {{ totals.nilai_terima|id_decimal:2 }}</td>
                                 <td class="text-end">Rp {{ totals.nilai_keluar|id_decimal:2 }}</td>
-                                {% if report_metadata.has_inventory %}<td class="text-end">Rp {{ totals.nilai_kedaluwarsa|id_decimal:2 }}</td>{% endif %}<td class="text-end">Rp {{ totals.saldo_akhir|id_decimal:2 }}</td>
+                                {% if report_metadata.has_inventory %}<td class="text-end">Rp {{ totals.nilai_kedaluwarsa|id_decimal:2 }}</td>{% endif %}{% if report_metadata.has_adjustments %}<td class="text-end">Rp {{ totals.nilai_penyesuaian|id_decimal:2 }}</td>{% endif %}<td class="text-end">Rp {{ totals.saldo_akhir|id_decimal:2 }}</td>
                             </tr>
                         </tfoot>
                         {% endif %}

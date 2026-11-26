@@ -1,0 +1,42 @@
+{% extends "base_tailwind.html" %}
+{% load tailwind_forms %}
+{% block title %}{{ location.name }} · Stock Opname{% endblock %}
+{% block page_title %}Stock Opname Puskesmas{% endblock %}
+{% block content %}
+<div class="ims-workflow ims-puskesmas">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h1 class="text-xl font-semibold">{{ location.name }} · {{ count.cutoff|date:"F Y" }}</h1>
+    <a class="ims-btn ims-btn--primary" href="{% url 'puskesmas:opname_observation' count.pk location.key %}">Tambah hasil hitung</a>
+</div>
+<div class="ims-panel mb-4"><div class="overflow-x-auto">
+    <table class="table ims-table ims-table--compact ims-table--ruled mb-0">
+        <thead><tr><th>Barang</th><th>Batch / ED</th><th>Terhitung</th><th>Pada batas bulan</th><th></th></tr></thead>
+        <tbody>
+            {% for line in rows %}
+            <tr><td>{{ line.name }}</td><td>{{ line.batch|default:"—" }} / {{ line.expiry|default:"—" }}</td>
+                <td>{{ line.observed }} {{ line.observed_unit }} · {{ line.condition_label }}</td>
+                <td>{{ line.cutoff_quantity }} {{ line.unit }}{% if line.excluded_posting %} · bukti jurnal #{{ line.excluded_posting }}{% endif %}</td>
+                <td><div class="flex flex-wrap gap-2">
+                    <a href="{% url 'puskesmas:opname_observation_edit' count.pk location.key forloop.counter0 %}">Ubah</a>
+                    <form method="post" action="{% url 'puskesmas:opname_observation_edit' count.pk location.key forloop.counter0 %}">
+                        {% csrf_token %}<input type="hidden" name="revision" value="{{ revision.pk }}">
+                        <button name="action" value="delete" type="submit">Hapus baris</button>
+                    </form>
+                </div></td></tr>
+            {% empty %}<tr><td colspan="5">Belum ada hasil hitung.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div></div>
+<div class="ims-panel"><div class="ims-panel-body">
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}{{ form.revision }}{{ form.revision.errors }}
+        {% for field in form.visible_fields %}{% tailwind_field field %}{% endfor %}
+        <div class="flex flex-wrap gap-3 mt-3">
+            <button type="submit" class="ims-btn ims-btn--primary">Simpan lokasi</button>
+            <a href="{% url 'puskesmas:opname_detail' count.pk %}">Kembali</a>
+        </div>
+    </form>
+</div></div>
+</div>
+{% endblock %}

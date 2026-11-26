@@ -13,6 +13,8 @@ from .inventory_models import (
     PuskesmasLPLPOInventoryBinding,
 )
 
+KINDS = ("opening", "receipts", "consumption", "expiry", "adjustment", "closing")
+
 
 def period_rows(facility_ids, year, month, start_month=None):
     from .consumption_inventory import month_end
@@ -26,13 +28,14 @@ def period_rows(facility_ids, year, month, start_month=None):
     covered_ids = [account.facility_id for account in accounts]
     movements = PuskesmasInventoryMovement.objects.filter(
         posting__facility_id__in=covered_ids, posting__effective_date__lte=end
-    ).select_related("posting__reversal_of", "layer__item__satuan", "layer__item__kategori", "layer__posting", "layer__sumber_dana").order_by("pk")
+    ).select_related("posting__reversal_of__opname_action", "posting__opname_action",
+        "layer__item__satuan", "layer__item__kategori", "layer__posting", "layer__sumber_dana").order_by("pk")
     for movement in movements:
         layer, posting = movement.layer, movement.posting
         key = (posting.facility_id, layer.item_id)
         if key not in rows:
             rows[key] = dict(facility_id=key[0], item=layer.item,
-                **{f"{kind}_{unit}": Decimal(0) for kind in ("opening", "receipts", "consumption", "expiry", "closing")
+                **{f"{kind}_{unit}": Decimal(0) for kind in KINDS
                    for unit in ("quantity", "value")}, layers=[])
         row = rows[key]
         quantity = movement.quantity_delta
@@ -40,10 +43,13 @@ def period_rows(facility_ids, year, month, start_month=None):
         # Initial Jan-1 verification is the boundary, never January receipt income.
         if posting.effective_date < start or (posting.opening_id and posting.effective_date == start):
             kind, sign = "opening", 1
-        elif posting.receipt_id:
+        elif posting.receipt_id or (posting.opname_action_id and posting.opname_action.kind == "RECEIPT"):
             kind, sign = "receipts", 1
         elif posting.expiry_revision_id or (posting.reversal_of_id and posting.reversal_of.expiry_revision_id):
             kind, sign = "expiry", -1
+        elif posting.opname_action_id or (posting.reversal_of_id and posting.reversal_of.opname_action_id):
+            kind, sign = "adjustment", -1
+            row["adjustment_occurred"] = True
         else:
             kind, sign = "consumption", -1
         row[f"{kind}_quantity"] += sign * quantity
@@ -65,10 +71,11 @@ def category_totals(rows):
         category = row["item"].kategori
         name = category.name if category else "Lainnya"
         totals = categories.setdefault(name, {"name": name, **{
-            f"{kind}_value": Decimal(0) for kind in ("opening", "receipts", "consumption", "expiry", "closing")}})
-        for kind in ("opening", "receipts", "consumption", "expiry", "closing"):
+            f"{kind}_value": Decimal(0) for kind in KINDS}})
+        for kind in KINDS:
             key = f"{kind}_value"
-            totals[key] = sum_decimals([totals[key], row[key]])
+            if row.get(key) is not None:
+                totals[key] = sum_decimals([totals[key], row[key]])
     return list(categories.values())
 
 
@@ -140,6 +147,8 @@ def sync_inventory_lplpo(lplpo):
     rows, _ = period_rows([lplpo.facility_id], lplpo.tahun, lplpo.bulan)
     by_item = {row["item"].pk: row for row in rows}
     existing = {line.item_id: line for line in lplpo.items.all()}
+    count_link = lplpo.opname_links.select_related("revision").order_by("-pk").first()
+    warehouse = count_link.revision.comparison["warehouse"] if count_link else None
     updated = []
     for item_id in set(existing) | set(by_item):
         row = by_item.get(item_id)
@@ -148,8 +157,13 @@ def sync_inventory_lplpo(lplpo):
         line.penerimaan = int(row["receipts_quantity"]) if row else 0
         line.pemakaian = int(row["consumption_quantity"]) if row else 0
         line.kedaluwarsa = int(row["expiry_quantity"]) if row else 0
+        line.penyesuaian_opname = int(row["adjustment_quantity"]) if row else 0
+        if warehouse is not None:
+            line.stock_gudang_puskesmas = warehouse.get(str(item_id), 0)
         if not 0 <= line.kedaluwarsa <= 2147483647:
             raise ValidationError("Total kedaluwarsa melebihi batas penyimpanan LPLPO.")
+        if not 0 <= line.penyesuaian_opname <= 2147483647:
+            raise ValidationError("Total penyesuaian opname melebihi batas penyimpanan LPLPO.")
         line.penerimaan_auto_filled = True
         line.compute_fields()
         if line.pk:
@@ -158,6 +172,7 @@ def sync_inventory_lplpo(lplpo):
             line.save()
     if updated:
         LPLPOItem.objects.bulk_update(updated, ["stock_awal", "penerimaan", "pemakaian", "kedaluwarsa",
+            "penyesuaian_opname", "stock_gudang_puskesmas",
             "penerimaan_auto_filled", "persediaan", "stock_keseluruhan", "stock_optimum", "jumlah_kebutuhan"])
 
 
