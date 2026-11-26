@@ -251,7 +251,12 @@
                     </div>
                     <div class="ims-form-field">
                         <label for="resetPassword2" class="ims-label">Konfirmasi Password</label>
-                        <input type="password" name="password2" id="resetPassword2" class="ims-control" minlength="10" required>
+                        <div class="ims-user-password-group">
+                            <input type="password" name="password2" id="resetPassword2" class="ims-control" minlength="10" required>
+                            <button class="ims-user-password-action toggle-password" type="button" aria-label="Tampilkan atau sembunyikan konfirmasi password">
+                                <i class="bi bi-eye-slash" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
