@@ -7,6 +7,29 @@ The format is based on Keep a Changelog and follows Semantic Versioning (`MAJOR.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-26
+
+### Added
+
+- Added monthly Puskesmas Stock Opname for warehouse, Poli, and Pustu counts. Operators reconcile against the month-end journal, record discrepancies, and retain printable revisions. Facility-specific grants control independent review, adjustments, and reopening. [#328](https://github.com/hatamirais/dinkes-farmalkes-ims/pull/328)
+- Added approved loss and damage reductions at original layer cost and audited corrections for posted receipt overstatements. Receipt corrections can recalculate same-month FEFO allocations atomically while preserving the original receipt and journal.
+
+### Changed
+
+- Activated facilities require a current, reconciled count to create or submit LPLPO for a covered month. The linked count supplies the read-only warehouse physical quantity in LPLPO and Excel. Journal reports distinguish Stock Opname adjustments from consumption and expiry.
+
+### Fixed
+
+- Prevented repeated write-offs against the same count and stock layer by deducting prior unreversed write-offs from the remaining damage allowance.
+
+### Deployment
+
+- Apply Puskesmas migrations 0018–0019 and LPLPO migration 0020 before serving. Configure reviewer grants and activate eligible facilities individually. [Rollout guide](docs/developer_guide.md#puskesmas-stock-opname-rollout)
+
+### Known issues
+
+- Track unfinished gated months at year rollover and location confirmation before the month-end cutoff. [#329](https://github.com/hatamirais/dinkes-farmalkes-ims/issues/329)
+
 ## [2.3.0] - 2026-11-24
 
 ### Added
