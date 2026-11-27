@@ -5,8 +5,8 @@ from django.utils import timezone
 from datetime import timedelta
 
 from apps.core.decimal_validation import (
-    PRICE_DECIMAL_PLACES,
-    PRICE_MAX_DIGITS,
+    SOURCE_PRICE_DECIMAL_PLACES,
+    SOURCE_PRICE_MAX_DIGITS,
     multiply_decimals,
     validate_finite_decimal,
 )
@@ -48,8 +48,8 @@ class Stock(TimeStampedModel):
         help_text="Stock allocated for pending distributions",
     )
     unit_price = models.DecimalField(
-        max_digits=PRICE_MAX_DIGITS,
-        decimal_places=PRICE_DECIMAL_PLACES,
+        max_digits=SOURCE_PRICE_MAX_DIGITS,
+        decimal_places=SOURCE_PRICE_DECIMAL_PLACES,
         default=0,
     )
     sumber_dana = models.ForeignKey(
@@ -200,8 +200,8 @@ class Transaction(models.Model):
     )
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     unit_price = models.DecimalField(
-        max_digits=PRICE_MAX_DIGITS,
-        decimal_places=PRICE_DECIMAL_PLACES,
+        max_digits=SOURCE_PRICE_MAX_DIGITS,
+        decimal_places=SOURCE_PRICE_DECIMAL_PLACES,
         null=True,
         blank=True,
     )
@@ -323,8 +323,8 @@ class OpeningBalanceImportItem(models.Model):
     expiry_date = models.DateField(null=True, blank=True)
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     unit_price = models.DecimalField(
-        max_digits=PRICE_MAX_DIGITS,
-        decimal_places=PRICE_DECIMAL_PLACES,
+        max_digits=SOURCE_PRICE_MAX_DIGITS,
+        decimal_places=SOURCE_PRICE_DECIMAL_PLACES,
         default=0,
     )
     created_at = models.DateTimeField(auto_now_add=True)

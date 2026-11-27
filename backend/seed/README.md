@@ -235,7 +235,7 @@ Expected columns for admin-only opening balance import:
 - `quantity` (required; must be a finite decimal greater than `0`, with at most 12 digits and 2 decimal places)
 - `batch_lot` (optional on first import; auto-generated with document identity if blank; required when reimporting a posted opening-balance document)
 - `expiry_date` (optional only for items with `requires_expiry_date=0`; stored as `NULL` when blank for those items)
-- `unit_price` (optional; default `0`; cannot be negative, with at most 23 digits and 10 decimal places)
+- `unit_price` (optional; default `0`; cannot be negative, with up to 13 whole digits and 15 decimal places (28 total))
 
 Compatibility note: `receiving_date` is accepted as an alias for `effective_date` when converting older draft files, but use `effective_date` for new files.
 
@@ -341,7 +341,7 @@ Excel/LibreOffice, including manually added batches. Source-linked imports accep
 recorded identifier. A spreadsheet-converted batch such as `60125,01` cannot match
 the recorded `060125.01`. Validation identifies the field and both values so the
 operator can restore the source text. Prices accept decimal commas and an optional
-leading apostrophe. Finite value, precision and original source-price checks apply
+leading apostrophe. Unit prices support up to 13 whole digits and 15 decimal places. Finite value, precision and original source-price checks apply
 after removing the price text prefix.
 
 UTF-8 (optional BOM), comma/semicolon delimiter, maximum 5 MiB and 10,000 data rows.

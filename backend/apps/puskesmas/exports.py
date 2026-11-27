@@ -6,7 +6,12 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
-from apps.core.decimal_validation import multiply_decimals, sum_decimals
+from apps.core.decimal_validation import (
+    SOURCE_PRICE_DECIMAL_PLACES,
+    SOURCE_VALUE_DECIMAL_PLACES,
+    multiply_decimals,
+    sum_decimals,
+)
 from apps.core.xlsx_exports import escape_xlsx_formula
 
 
@@ -164,9 +169,9 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
                 cell.number_format = NUMBER_FORMAT
                 cell.alignment = Alignment(horizontal="right")
             elif col_idx == 8:
-                _set_decimal_text(cell, val, decimal_places=10)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
             elif col_idx == 11:
-                _set_decimal_text(cell, val, decimal_places=12)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
 
         total_qty += qty
         total_value = sum_decimals([total_value, total_price])
@@ -184,7 +189,7 @@ def export_puskesmas_penerimaan_excel(report_data, start_date, end_date, facilit
     qty_cell.alignment = Alignment(horizontal="right")
     qty_cell.font = Font(bold=True)
     val_cell = ws.cell(row=row_num, column=11, value=total_value)
-    _set_decimal_text(val_cell, total_value, decimal_places=12)
+    _set_decimal_text(val_cell, total_value, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
     val_cell.font = Font(bold=True)
 
     filename = f"Riwayat_Penerimaan_{facility_name}_{start_date}_{end_date}.xlsx"
@@ -429,7 +434,7 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
             if col_idx == 1:
                 cell.alignment = Alignment(horizontal="center")
             elif col_idx >= 3:
-                _set_decimal_text(cell, val, decimal_places=12)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
         row_num += 1
 
     # Totals row
@@ -451,7 +456,7 @@ def export_puskesmas_rekap_persediaan_excel(rekap_data, totals, year, period_lab
         total_columns.append((8, "nilai_penyesuaian"))
     for col_idx, key in total_columns:
         c = ws.cell(row=row_num, column=col_idx)
-        _set_decimal_text(c, totals.get(key, 0), decimal_places=12)
+        _set_decimal_text(c, totals.get(key, 0), decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
         c.font = Font(bold=True)
 
     if report_metadata:

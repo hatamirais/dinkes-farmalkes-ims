@@ -194,7 +194,7 @@ class AllocationItem(models.Model):
     )
     issued_batch_lot = models.CharField(max_length=100, blank=True)
     issued_expiry_date = models.DateField(null=True, blank=True)
-    issued_unit_price = models.DecimalField(max_digits=23, decimal_places=10, null=True, blank=True)
+    issued_unit_price = models.DecimalField(max_digits=28, decimal_places=15, null=True, blank=True)
     issued_sumber_dana = models.ForeignKey(
         'items.FundingSource',
         on_delete=models.PROTECT,

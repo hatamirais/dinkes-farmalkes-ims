@@ -1,6 +1,8 @@
 """Real ORM/client checks for inventory integrity; no mock stock or posting services."""
 import csv
+import hashlib
 import io
+import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from decimal import Decimal
@@ -76,6 +78,22 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         request.user = user
         return [entry for entry in nav_notifications(request)["nav_notification_items"]
                 if entry["label"] in {"Saldo Awal Puskesmas", "Saldo Awal Menunggu Verifikasi"}]
+
+    def test_opening_with_existing_price_digest_can_still_be_submitted(self):
+        opening = self.opening(rows=[self.row(price="0.0000000001")], submit=False)
+        line_fields = (
+            "line_key", "item_id", "quantity", "batch_lot", "expiry_date",
+            "sumber_dana_id", "source_document_number", "provenance_note",
+        )
+        line = opening.lines.values(*line_fields).get()
+        line["unit_price"] = Decimal("0.0000000001")
+        payload = [opening.facility_id, opening.year, opening.reference, opening.notes,
+                   opening.zero_stock, [line]]
+        digest = hashlib.sha256(json.dumps(payload, default=str, sort_keys=True).encode()).hexdigest()
+
+        submitted = submit_opening(user=self.operator, opening_id=opening.pk, digest=digest)
+
+        self.assertEqual(submitted.status, PuskesmasOpeningVerification.Status.SUBMITTED)
 
     def test_opening_notifications_follow_submission_review_and_active_facility(self):
         opening = self.opening(submit=False)
@@ -373,7 +391,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
             PuskesmasOpeningVerification.objects.filter(pk=submitted.pk).update(year=2025)
 
     def test_receipt_catchup_idempotent_and_price_never_revalued(self):
-        receipt, line, source = self.receipt()
+        receipt, line, source = self.receipt(price=Decimal("1250.987654321012345"))
         self.assertIsNone(post_receipt(receipt=receipt, user=self.operator))
         self.post()
         posting = post_receipt(receipt=receipt, user=self.operator)
@@ -381,7 +399,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
         source.issued_unit_price = Decimal("9999")
         source.save()
         self.assertEqual(post_receipt(receipt=receipt, user=self.operator).pk, posting.pk)
-        self.assertEqual(posting.layers.get().unit_price, Decimal("1250.9876543210"))
+        self.assertEqual(posting.layers.get().unit_price, Decimal("1250.987654321012345"))
         for operation in [lambda: receipt.save(), lambda: receipt.delete(), lambda: line.save(),
                           lambda: receipt.items.all().delete(), lambda: receipt.items.update(unit_price=1)]:
             with self.assertRaises(ValidationError):
@@ -500,7 +518,7 @@ class InventoryTests(InventoryFixture, SecureClientDefaultsMixin, TestCase):
             writer.writerow(["a", self.item.kode_barang, quantity, price, "", expiry, "", "", "Verified unknown provenance"])
             return output.getvalue()
         self.assertEqual(parse_csv(csv_text())[0]["unit_price"], Decimal("8893.31985"))
-        for quantity, price in [("NaN", "1"), ("Infinity", "1"), ("1.1", "1"), ("1", "-1"), ("1", "0.12345678901")]:
+        for quantity, price in [("NaN", "1"), ("Infinity", "1"), ("1.1", "1"), ("1", "-1"), ("1", "0.1234567890123456")]:
             with self.assertRaises(ValidationError):
                 parse_csv(csv_text(quantity, price))
         for value in [csv_text() + "\x00", csv_text(expiry="0999-01-01"), "wrong,header\n"]:

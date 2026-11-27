@@ -3,8 +3,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from apps.core.models import TimeStampedModel
 from apps.core.decimal_validation import (
-    PRICE_DECIMAL_PLACES,
-    PRICE_MAX_DIGITS,
+    SOURCE_PRICE_DECIMAL_PLACES,
+    SOURCE_PRICE_MAX_DIGITS,
     multiply_decimals,
 )
 
@@ -166,8 +166,8 @@ class DistributionItem(models.Model):
     issued_batch_lot = models.CharField(max_length=100, blank=True)
     issued_expiry_date = models.DateField(null=True, blank=True)
     issued_unit_price = models.DecimalField(
-        max_digits=PRICE_MAX_DIGITS,
-        decimal_places=PRICE_DECIMAL_PLACES,
+        max_digits=SOURCE_PRICE_MAX_DIGITS,
+        decimal_places=SOURCE_PRICE_DECIMAL_PLACES,
         null=True,
         blank=True,
     )

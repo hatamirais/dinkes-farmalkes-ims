@@ -1307,9 +1307,9 @@ class PengeluaranReportTests(TestCase):
 					"batch_lot": "=BATCH-01",
 					"expiry_date": None,
 					"sumber_dana": "=DAU",
-					"unit_price": Decimal("9999999999999.1234567891"),
+					"unit_price": Decimal("9999999999999.123456789123456"),
 					"quantity": Decimal("1.01"),
-					"total_price": Decimal("10099999999999.114691356991"),
+					"total_price": Decimal("10099999999999.11469135701469056"),
 				}
 			],
 			"2026-04-01",
@@ -1332,13 +1332,13 @@ class PengeluaranReportTests(TestCase):
 		self.assertEqual(sheet["F5"].value, "'=BATCH-01")
 		self.assertEqual(sheet["H5"].value, "'=DAU")
 		self.assertEqual(sheet["A2"].data_type, "s")
-		self.assertEqual(sheet["I5"].value, "9999999999999.1234567891")
+		self.assertEqual(sheet["I5"].value, "9999999999999.123456789123456")
 		self.assertEqual(sheet["J5"].value, 1.01)
-		self.assertEqual(sheet["K5"].value, "10099999999999.114691356991")
+		self.assertEqual(sheet["K5"].value, "10099999999999.11469135701469056")
 		self.assertEqual(sheet["I5"].data_type, "s")
 		self.assertEqual(sheet["J5"].data_type, "n")
 		self.assertEqual(sheet["K5"].data_type, "s")
-		self.assertEqual(sheet["K6"].value, "10099999999999.114691356991")
+		self.assertEqual(sheet["K6"].value, "10099999999999.11469135701469056")
 
 	def test_rekap_excel_preserves_negative_decimal_text_without_escape_prefix(self):
 		response = export_rekap_excel(

@@ -1371,7 +1371,7 @@ class OpeningBalanceImportAdminTests(TestCase):
             "document_number;effective_date;sumber_dana_code;location_code;item_code;"
             "quantity;batch_lot;expiry_date;unit_price\n"
             f"SALDO-AWAL-2026;01/01/2026;{self.funding.code};{self.location.code};"
-            f"{self.item.kode_barang};10;BATCH-001;01/01/2028;8893,31985\n"
+            f"{self.item.kode_barang};10;BATCH-001;01/01/2028;9999999999999,123456789123456\n"
         )
 
         response = self.client.post(
@@ -1382,7 +1382,7 @@ class OpeningBalanceImportAdminTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "CONFIRM IMPORT")
         self.assertContains(response, "CSV semicolon")
-        self.assertContains(response, "8.893,31985")
+        self.assertContains(response, "9.999.999.999.999,123456789123456")
         response = self.client.post(
             reverse("admin:stock_opening_balance_import_csv"),
             {"action": "confirm", "preview_token": response.context["preview_token"]},
@@ -1390,14 +1390,14 @@ class OpeningBalanceImportAdminTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         import_item = OpeningBalanceImportItem.objects.get()
-        self.assertEqual(import_item.unit_price, Decimal("8893.31985"))
+        self.assertEqual(import_item.unit_price, Decimal("9999999999999.123456789123456"))
         stock = Stock.objects.get(source_document_number="SALDO-AWAL-2026")
-        self.assertEqual(stock.unit_price, Decimal("8893.31985"))
+        self.assertEqual(stock.unit_price, Decimal("9999999999999.123456789123456"))
         transaction = Transaction.objects.get(
             reference_type=Transaction.ReferenceType.INITIAL_IMPORT,
             reference_id=OpeningBalanceImport.objects.get().pk,
         )
-        self.assertEqual(transaction.unit_price, Decimal("8893.31985"))
+        self.assertEqual(transaction.unit_price, Decimal("9999999999999.123456789123456"))
 
     def test_opening_balance_import_reports_multiple_preflight_errors(self):
         self.client.force_login(self.admin_user)
@@ -1652,22 +1652,22 @@ class OpeningBalanceImportAdminTests(TestCase):
         self.assertContains(response, "quantity maksimal 12 digit dan 2 angka desimal")
         self.assertFalse(OpeningBalanceImport.objects.exists())
 
-    def test_opening_balance_import_rejects_unit_price_integer_digit_overflow(self):
+    def test_opening_balance_import_rejects_unit_price_precision_overflow(self):
         self.client.force_login(self.admin_user)
-        csv_content = (
-            "document_number,effective_date,sumber_dana_code,location_code,item_code,"
-            "quantity,batch_lot,expiry_date,unit_price\n"
-            f"SALDO-AWAL-2026,01/01/2026,{self.funding.code},{self.location.code},"
-            f"{self.item.kode_barang},10,BATCH-001,01/01/2028,10000000000000.00\n"
-        )
-
-        response = self.client.post(
-            reverse("admin:stock_opening_balance_import_csv"),
-            {"csv_file": self._csv_upload(csv_content)},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "unit_price maksimal 23 digit dan 10 angka desimal")
+        for unit_price in ("10000000000000.00", "0.1234567891234567"):
+            with self.subTest(unit_price=unit_price):
+                csv_content = (
+                    "document_number,effective_date,sumber_dana_code,location_code,item_code,"
+                    "quantity,batch_lot,expiry_date,unit_price\n"
+                    f"SALDO-AWAL-2026,01/01/2026,{self.funding.code},{self.location.code},"
+                    f"{self.item.kode_barang},10,BATCH-001,01/01/2028,{unit_price}\n"
+                )
+                response = self.client.post(
+                    reverse("admin:stock_opening_balance_import_csv"),
+                    {"csv_file": self._csv_upload(csv_content)},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "unit_price maksimal 28 digit dan 15 angka desimal")
         self.assertFalse(OpeningBalanceImport.objects.exists())
 
     def test_opening_balance_import_rejects_existing_stock_unit_price_mismatch(self):

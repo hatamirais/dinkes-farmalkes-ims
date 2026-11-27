@@ -6,6 +6,11 @@ from django.core.exceptions import ValidationError
 PRICE_MAX_DIGITS = 23
 PRICE_DECIMAL_PLACES = 10
 PRICE_QUANT = Decimal("0.0000000001")
+
+# Keep the existing whole-digit range while preserving original layer prices.
+SOURCE_PRICE_MAX_DIGITS = 28
+SOURCE_PRICE_DECIMAL_PLACES = 15
+SOURCE_VALUE_DECIMAL_PLACES = SOURCE_PRICE_DECIMAL_PLACES + 2
 DECIMAL_CALCULATION_PRECISION = 60
 
 
@@ -92,7 +97,7 @@ def sum_decimals(values):
 
 
 def format_price_exact(value):
-    """Format a stored price with up to PRICE_DECIMAL_PLACES decimal places."""
+    """Format a stored price without rounding or insignificant trailing zeros."""
     if value in (None, ""):
         return ""
     decimal_value = validate_finite_decimal(value, field_label="Harga satuan")

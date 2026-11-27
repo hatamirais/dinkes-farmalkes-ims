@@ -21,7 +21,7 @@ from import_export.admin import ImportExportModelAdmin
 from import_export.widgets import ForeignKeyWidget, DateWidget
 
 from apps.core.admin_mixins import ImportGuideMixin
-from apps.core.decimal_validation import PRICE_DECIMAL_PLACES, PRICE_MAX_DIGITS
+from apps.core.decimal_validation import SOURCE_PRICE_DECIMAL_PLACES, SOURCE_PRICE_MAX_DIGITS
 from apps.core.upload_validation import validate_csv_upload
 from .models import (
     OpeningBalanceImport,
@@ -937,8 +937,8 @@ class StockAdmin(ImportGuideMixin, ImportExportModelAdmin):
                 row_num=row_num,
                 field_name="unit_price",
                 must_be_non_negative=True,
-                max_digits=PRICE_MAX_DIGITS,
-                decimal_places=PRICE_DECIMAL_PLACES,
+                max_digits=SOURCE_PRICE_MAX_DIGITS,
+                decimal_places=SOURCE_PRICE_DECIMAL_PLACES,
                 add_error=add_error,
             )
 
@@ -1346,8 +1346,8 @@ class StockAdmin(ImportGuideMixin, ImportExportModelAdmin):
                     row_num=row_num,
                     field_name="unit_price",
                     must_be_non_negative=True,
-                    max_digits=PRICE_MAX_DIGITS,
-                    decimal_places=PRICE_DECIMAL_PLACES,
+                    max_digits=SOURCE_PRICE_MAX_DIGITS,
+                    decimal_places=SOURCE_PRICE_DECIMAL_PLACES,
                 )
                 raw_batch_lot = row.get("batch_lot", "").strip()
                 if opening_balance and not raw_batch_lot:

@@ -929,7 +929,7 @@ class DistributionWorkflowTest(SecureClientDefaultsMixin, TestCase):
     # --- Distribute workflow (stock deduction + transaction) ---
 
     def test_distribute_deducts_stock_and_creates_transaction(self):
-        precise_price = Decimal("5000.1234567890")
+        precise_price = Decimal("5000.123456789123456")
         self.stock.unit_price = precise_price
         self.stock.save(update_fields=["unit_price", "updated_at"])
         dist = self._create_distribution(status=Distribution.Status.VERIFIED)
