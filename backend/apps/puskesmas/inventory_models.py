@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
 
-from apps.core.decimal_validation import PRICE_DECIMAL_PLACES, PRICE_MAX_DIGITS
+from apps.core.decimal_validation import SOURCE_PRICE_DECIMAL_PLACES, SOURCE_PRICE_MAX_DIGITS
 
 
 class ImmutableQuerySet(models.QuerySet):
@@ -116,7 +116,7 @@ class PuskesmasOpeningVerificationLine(ImmutableRecord):
     line_key = models.CharField(max_length=100)
     item = models.ForeignKey("items.Item", on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
-    unit_price = models.DecimalField(max_digits=PRICE_MAX_DIGITS, decimal_places=PRICE_DECIMAL_PLACES, null=True, blank=True)
+    unit_price = models.DecimalField(max_digits=SOURCE_PRICE_MAX_DIGITS, decimal_places=SOURCE_PRICE_DECIMAL_PLACES, null=True, blank=True)
     batch_lot = models.CharField(max_length=100, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
     sumber_dana = models.ForeignKey("items.FundingSource", on_delete=models.PROTECT, null=True, blank=True)
@@ -166,7 +166,7 @@ class PuskesmasInventoryLayer(ImmutableRecord):
     item = models.ForeignKey("items.Item", on_delete=models.PROTECT)
     batch_lot = models.CharField(max_length=100, blank=True, help_text="Kosong berarti tidak diketahui.")
     expiry_date = models.DateField(null=True, blank=True, help_text="Kosong hanya untuk barang tanpa kewajiban kedaluwarsa.")
-    unit_price = models.DecimalField(max_digits=PRICE_MAX_DIGITS, decimal_places=PRICE_DECIMAL_PLACES)
+    unit_price = models.DecimalField(max_digits=SOURCE_PRICE_MAX_DIGITS, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
     sumber_dana = models.ForeignKey("items.FundingSource", on_delete=models.PROTECT, null=True, blank=True)
     source_document_number = models.CharField(max_length=100, blank=True)
     provenance_note = models.CharField(max_length=1000, blank=True)
@@ -192,7 +192,7 @@ class PuskesmasInventoryMovement(ImmutableRecord):
     posting = models.ForeignKey(PuskesmasInventoryPosting, on_delete=models.PROTECT, related_name="movements")
     layer = models.ForeignKey(PuskesmasInventoryLayer, on_delete=models.PROTECT, related_name="movements")
     quantity_delta = models.DecimalField(max_digits=12, decimal_places=2)
-    unit_price = models.DecimalField(max_digits=PRICE_MAX_DIGITS, decimal_places=PRICE_DECIMAL_PLACES)
+    unit_price = models.DecimalField(max_digits=SOURCE_PRICE_MAX_DIGITS, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
 
     class Meta:
         constraints = [
@@ -228,7 +228,7 @@ class PuskesmasConsumptionAllocation(ImmutableRecord):
     layer = models.ForeignKey(PuskesmasInventoryLayer, on_delete=models.PROTECT, related_name="consumption_allocations")
     subunit = models.ForeignKey("puskesmas.PuskesmasSubunit", on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(max_digits=PRICE_MAX_DIGITS, decimal_places=PRICE_DECIMAL_PLACES)
+    unit_price = models.DecimalField(max_digits=SOURCE_PRICE_MAX_DIGITS, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
 
     @property
     def cost(self):

@@ -23,7 +23,7 @@ App-specific guidance for outbound distribution workflows.
 - Final distribution consumes both `quantity` and `reserved` together in one transaction-safe workflow step.
 - Verification reserves the selected stock batch per `DistributionItem`.
 - Step-back from `VERIFIED` and generated-LPLPO reversal release reservations for standalone distributions.
-- Final distribution clears the reservation while deducting physical stock.
+- Final distribution clears the reservation while deducting physical stock. Its issued-price snapshot and OUT ledger movement retain the source layer’s full unit-price precision.
 
 ## LPLPO Distributions
 

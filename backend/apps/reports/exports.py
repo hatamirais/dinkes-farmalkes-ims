@@ -6,7 +6,11 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, numbers
 from openpyxl.utils import get_column_letter
 
-from apps.core.decimal_validation import sum_decimals
+from apps.core.decimal_validation import (
+    SOURCE_PRICE_DECIMAL_PLACES,
+    SOURCE_VALUE_DECIMAL_PLACES,
+    sum_decimals,
+)
 from apps.core.xlsx_exports import escape_xlsx_formula
 
 
@@ -169,7 +173,7 @@ def export_rincian_excel(report_data, start_date, end_date):
             cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == 9:
-                _set_decimal_text(cell, val, decimal_places=10)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
             elif col_idx >= 10:
                 cell.number_format = PRECISE_DECIMAL_FORMAT
                 cell.alignment = Alignment(horizontal="right")
@@ -232,7 +236,7 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
             cell.fill = SD_HEADER_FILL
             cell.border = THIN_BORDER
             if col_idx >= 3:
-                _set_decimal_text(cell, val, decimal_places=12)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
         row_num += 1
 
         # Category rows
@@ -250,7 +254,7 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
                 cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
                 cell.border = THIN_BORDER
                 if col_idx >= 3:
-                    _set_decimal_text(cell, val, decimal_places=12)
+                    _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
                 elif col_idx == 1:
                     cell.alignment = Alignment(horizontal="center")
             row_num += 1
@@ -271,7 +275,7 @@ def export_rekap_excel(rekap_data, grand_totals, start_date, end_date):
         cell.fill = TOTAL_FILL
         cell.border = THIN_BORDER
         if col_idx >= 3:
-            _set_decimal_text(cell, val, decimal_places=12)
+            _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
         elif col_idx == 2:
             cell.alignment = Alignment(horizontal="center")
 
@@ -384,9 +388,9 @@ def _export_penerimaan_excel(report_data, start_date, end_date, title, filename_
             cell.border = THIN_BORDER
             # Last three cols are unit price, qty, and total value.
             if col_idx == col_count - 2:
-                _set_decimal_text(cell, val, decimal_places=10)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
             elif col_idx == col_count:
-                _set_decimal_text(cell, val, decimal_places=12)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
             elif col_idx == col_count - 1:
                 cell.number_format = IDR_FORMAT
                 cell.alignment = Alignment(horizontal="right")
@@ -408,7 +412,7 @@ def _export_penerimaan_excel(report_data, start_date, end_date, title, filename_
     qty_cell.number_format = IDR_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
     val_cell = ws.cell(row=row_num, column=col_count, value=total_value)
-    _set_decimal_text(val_cell, total_value, decimal_places=12)
+    _set_decimal_text(val_cell, total_value, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
 
     filename = f"{filename_prefix}_{start_date}_{end_date}.xlsx"
     return _make_response(wb, filename)
@@ -591,9 +595,9 @@ def export_pengeluaran_excel(
             cell = ws.cell(row=row_num, column=col_idx, value=_cell_value(val))
             cell.border = THIN_BORDER
             if col_idx == col_count - 2:
-                _set_decimal_text(cell, val, decimal_places=10)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
             elif col_idx == col_count:
-                _set_decimal_text(cell, val, decimal_places=12)
+                _set_decimal_text(cell, val, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
             elif col_idx == col_count - 1:
                 cell.number_format = IDR_FORMAT
                 cell.alignment = Alignment(horizontal="right")
@@ -614,7 +618,7 @@ def export_pengeluaran_excel(
     qty_cell.number_format = IDR_FORMAT
     qty_cell.alignment = Alignment(horizontal="right")
     val_cell = ws.cell(row=row_num, column=col_count, value=total_value)
-    _set_decimal_text(val_cell, total_value, decimal_places=12)
+    _set_decimal_text(val_cell, total_value, decimal_places=SOURCE_VALUE_DECIMAL_PLACES)
 
     safe_distribution_type = distribution_type_label.replace(' ', '_').replace('/', '_')
     filename = f"Laporan_Pengeluaran_{safe_distribution_type}_{start_date}_{end_date}.xlsx"

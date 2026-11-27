@@ -2,7 +2,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from apps.core.decimal_validation import PRICE_DECIMAL_PLACES, PRICE_MAX_DIGITS, multiply_decimals
+from apps.core.decimal_validation import SOURCE_PRICE_DECIMAL_PLACES, SOURCE_PRICE_MAX_DIGITS, multiply_decimals
 from .inventory_models import ImmutableRecord
 
 
@@ -37,7 +37,7 @@ class PuskesmasExpiryLine(ImmutableRecord):
     revision = models.ForeignKey(PuskesmasExpiryRevision, on_delete=models.PROTECT, related_name="lines")
     layer = models.ForeignKey("puskesmas.PuskesmasInventoryLayer", on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(max_digits=PRICE_MAX_DIGITS, decimal_places=PRICE_DECIMAL_PLACES)
+    unit_price = models.DecimalField(max_digits=SOURCE_PRICE_MAX_DIGITS, decimal_places=SOURCE_PRICE_DECIMAL_PLACES)
 
     @property
     def cost(self):

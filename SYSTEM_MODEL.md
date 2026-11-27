@@ -202,6 +202,11 @@ the existing LPLPO-derived reports. New model definitions live in
   delta and price snapshot; unique posting/layer. Feature 1 emits initial positive
   opening and receipt movements only. No consumption/reversal/annual posting UI.
 
+Puskesmas opening lines, inventory layers, movements, consumption allocations and
+expiry line price snapshots support 13 whole digits and 15 decimal places
+(`max_digits=28`, `decimal_places=15`). Existing opening digests retain their
+original price representation when the stored price fits the former scale.
+
 Routes (all in the Puskesmas namespace): `/puskesmas/saldo-awal/` list,
 `template/` facility/year-specific CSV download, `buat/` preparation/preview, `<pk>/` detail and POST-only
 submit/cancel-preview/reject/verify-and-post actions. Sidebar visibility follows preparation,
@@ -531,7 +536,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `stock.Stock` (`stock`):
   - FKs: `item`, `location`, `sumber_dana`, `receiving_ref` (nullable)
-  - Fields: `batch_lot`, `source_document_number`, `expiry_date` (nullable for non-expiring stock), `quantity`, `reserved`, `unit_price` (`max_digits=23`, `decimal_places=10`)
+  - Fields: `batch_lot`, `source_document_number`, `expiry_date` (nullable for non-expiring stock), `quantity`, `reserved`, `unit_price` (`max_digits=28`, `decimal_places=15`)
   - Semantics: `quantity` is physical stock, `reserved` is outbound stock already booked by active distribution documents, and `available_quantity = quantity - reserved` is the allocatable balance shown on LPLPO review, allocation, special-request, and stock summary surfaces
   - Unique: `uq_stock_batch` on `(item, location, batch_lot, sumber_dana, source_document_number)`
   - Checks: `quantity >= 0`, `reserved >= 0`
@@ -542,7 +547,7 @@ This section reflects model code in `backend/apps/*/models.py`.
   - Types: `IN`, `OUT`, `ADJUST`, `RETURN`
   - Reference types: `RECEIVING`, `DISTRIBUTION`, `ADJUSTMENT`, `INITIAL_IMPORT`, `RECALL`, `EXPIRED`, `TRANSFER`, `ALLOCATION`
   - FKs: `item`, `location`, `sumber_dana` (nullable), `user`
-  - Fields: `batch_lot`, `source_document_number`, `quantity`, `unit_price` (`max_digits=23`, `decimal_places=10`, nullable), `reference_type`, `reference_id`, `notes`, `created_at`
+  - Fields: `batch_lot`, `source_document_number`, `quantity`, `unit_price` (`max_digits=28`, `decimal_places=15`, nullable), `reference_type`, `reference_id`, `notes`, `created_at`
   - Indexes: `idx_trans_item_date`, `idx_trans_reference`, `idx_trans_source_doc`, `idx_trans_created`
   - Current workflows write `IN` and `OUT`; `RETURN` remains available in the enum but is not emitted by the main document flows verified on 2026-04-10
 
@@ -559,7 +564,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `stock.OpeningBalanceImportItem` (`opening_balance_import_items`):
   - FKs: `opening_balance`, `item`, `location`, `sumber_dana`
-  - Fields: `batch_lot`, `expiry_date`, `quantity`, `unit_price` (`max_digits=23`, `decimal_places=10`), `created_at`
+  - Fields: `batch_lot`, `expiry_date`, `quantity`, `unit_price` (`max_digits=28`, `decimal_places=15`), `created_at`
   - Created only by the Stock Admin opening-balance CSV import; rows are treated as immutable audit detail
 
 - `stock.StockTransfer` (`stock_transfers`):
@@ -655,7 +660,7 @@ This section reflects model code in `backend/apps/*/models.py`.
 
 - `distribution.DistributionItem` (`distribution_items`):
   - FKs: `distribution`, `item`, `stock` (nullable)
-  - Fields: `quantity_requested`, `quantity_approved` (nullable), `reserved_quantity`, `issued_batch_lot`, `issued_expiry_date`, `issued_unit_price` (`max_digits=23`, `decimal_places=10`, nullable), `notes`, `created_at`
+  - Fields: `quantity_requested`, `quantity_approved` (nullable), `reserved_quantity`, `issued_batch_lot`, `issued_expiry_date`, `issued_unit_price` (`max_digits=28`, `decimal_places=15`, nullable), `notes`, `created_at`
   - `reserved_quantity` stores how much stock is currently booked for that row so reservation release/reapply remains deterministic across edits, standalone reset/step-back, allocation step-back, delete, and final fulfillment
   - FKs also include `issued_sumber_dana` (nullable) to preserve the book-value source used when stock is distributed
 
@@ -763,7 +768,7 @@ The allocation wizard posts matrix cells as `alloc_<form_row_index>_<facility_id
 
 - `puskesmas.PuskesmasReceiptConfirmationItem` (`puskesmas_sbbk_items`):
   - FKs: `sbbk`, `item`, `distribution_item` (nullable FK to `distribution.DistributionItem`)
-  - Fields: `quantity`, `unit_price` (`max_digits=23`, `decimal_places=10`), `batch_lot`, `expiry_date`, `notes`, `created_at`
+  - Fields: `quantity`, `unit_price` (`max_digits=28`, `decimal_places=15`), `batch_lot`, `expiry_date`, `notes`, `created_at`
   - Behavior: linked operational rows are now copied directly from checked `distribution_item` source rows, one stored row per confirmed source line; duplicate/manual split rows remain possible only on legacy compatibility edits
   - Compatibility: legacy migrated rows may remain `distribution_item=NULL`; new operational rows are expected to carry source linkage
   - Derived usage: same-facility/month aggregates from `sbbk.status='CONFIRMED'` feed LPLPO `penerimaan` totals and weighted-average `harga_satuan` autofill
@@ -857,7 +862,7 @@ Operational mutation points (from app behavior and admin import logic):
   - `OpeningBalanceImportItem`
   - `Stock(source_document_number=<opening-balance source layer>, receiving_ref=NULL)` update/create
   - `Transaction(IN, source_document_number=<opening-balance source layer>, reference_type=INITIAL_IMPORT, reference_id=OpeningBalanceImport.pk)`
-- Opening balance CSV template download (`/admin/stock/stock/opening-balance/export-csv-template/`) returns `opening_balance_template.csv`. The importer accepts comma or semicolon delimiters, uses one consistent non-future `effective_date` per `document_number` for report classification, accepts `receiving_date` only as a compatibility alias, rejects populated `receiving_type` / `supplier_code` columns, rejects or serializes `document_number` collisions with receiving documents or non-opening-balance source-document claims, validates destination decimal precision before preview, rejects negative `unit_price`, accepts decimal-comma prices such as `8893,31985` and preserves up to 10 decimal places, generates blank batches with document identity on first import, rejects duplicate stock-layer rows in the same CSV, and rejects same-source-document collisions with different `expiry_date` or exact `unit_price`. Reimporting a posted opening-balance `document_number` is allowed for partial completion: rows whose exact stock-layer total already exists are skipped, higher totals for an existing layer post only the quantity delta, and new rows under the same document are posted to the existing `OpeningBalanceImport`; these reimport rows must provide `batch_lot` explicitly so row-number-based generated batches cannot drift across partial files. Legacy migrated receiving/opening-balance document-number collisions may reuse the posted opening-balance `document_number`; new rows remain on the migrated `OBI-...` source layer instead of the receiving layer.
+- Opening balance CSV template download (`/admin/stock/stock/opening-balance/export-csv-template/`) returns `opening_balance_template.csv`. The importer accepts comma or semicolon delimiters, uses one consistent non-future `effective_date` per `document_number` for report classification, accepts `receiving_date` only as a compatibility alias, rejects populated `receiving_type` / `supplier_code` columns, rejects or serializes `document_number` collisions with receiving documents or non-opening-balance source-document claims, validates destination decimal precision before preview, rejects negative `unit_price`, accepts decimal-comma prices such as `8893,31985` and preserves up to 15 decimal places and 13 whole digits, generates blank batches with document identity on first import, rejects duplicate stock-layer rows in the same CSV, and rejects same-source-document collisions with different `expiry_date` or exact `unit_price`. Reimporting a posted opening-balance `document_number` is allowed for partial completion: rows whose exact stock-layer total already exists are skipped, higher totals for an existing layer post only the quantity delta, and new rows under the same document are posted to the existing `OpeningBalanceImport`; these reimport rows must provide `batch_lot` explicitly so row-number-based generated batches cannot drift across partial files. Legacy migrated receiving/opening-balance document-number collisions may reuse the posted opening-balance `document_number`; new rows remain on the migrated `OBI-...` source layer instead of the receiving layer.
 - Reports classify dedicated opening-balance `INITIAL_IMPORT` rows by `effective_date`: rows effective on/before the report start count as `saldo_awal`, while rows effective after the start and within the report period count as `nilai_terima` so ending stock stays aligned with posted stock. Later-year opening balance is derived from the prior ledger balance and does not require re-import. Legacy unlinked `INITIAL_IMPORT` rows still use compatibility behavior: rows up to the report start date count as opening balance, and rows after the start date count as in-period received stock.
 - LPLPO approval/finalize creates a Distribution document mapped 1:1, marks the LPLPO `APPROVED`, and closes the LPLPO once the linked Distribution reaches `DISTRIBUTED`.
 - For generated LPLPO draft distributions, the preparation edit UI displays both requested and approved quantities for reference but locks those values and rejects added/deleted rows; users only assign batches and preparation metadata there.

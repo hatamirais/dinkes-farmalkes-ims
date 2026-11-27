@@ -16,7 +16,10 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from apps.core.decimal_validation import (
-    PRICE_MAX_DIGITS, PRICE_DECIMAL_PLACES, validate_decimal_precision,
+    PRICE_QUANT,
+    SOURCE_PRICE_DECIMAL_PLACES,
+    SOURCE_PRICE_MAX_DIGITS,
+    validate_decimal_precision,
 )
 from apps.core.csv_exports import escape_csv_formula
 from django.db.models import Q
@@ -58,8 +61,8 @@ def decimal_value(value, *, price=False):
         raise ValidationError("Angka tidak valid.") from exc
     if not result.is_finite():
         raise ValidationError("NaN dan Infinity tidak diperbolehkan.")
-    validate_decimal_precision(result, max_digits=PRICE_MAX_DIGITS if price else 12,
-                               decimal_places=PRICE_DECIMAL_PLACES if price else 2)
+    validate_decimal_precision(result, max_digits=SOURCE_PRICE_MAX_DIGITS if price else 12,
+                               decimal_places=SOURCE_PRICE_DECIMAL_PLACES if price else 2)
     if result < 0 or (not price and (result <= 0 or result != result.to_integral_value())):
         raise ValidationError("Jumlah harus bilangan bulat positif; harga tidak boleh negatif.")
     return result
@@ -194,7 +197,7 @@ def worksheet_rows(*, facility_id, year):
         seen.add(identity(snapshot))
         yield [f"DIST-{source.pk}", worksheet_text(source.item.kode_barang), source.item.nama_barang,
                source.item.satuan.name if source.item.satuan_id else "", "",
-               worksheet_text(str(source.issued_unit_price)) if source.issued_unit_price is not None else "",
+               worksheet_text(source_price_text(source.issued_unit_price)) if source.issued_unit_price is not None else "",
                worksheet_text(source.issued_batch_lot or ""), source.issued_expiry_date.isoformat() if source.issued_expiry_date else "",
                worksheet_text(source.issued_sumber_dana.code) if source.issued_sumber_dana_id else "",
                ""]
@@ -204,7 +207,7 @@ def worksheet_rows(*, facility_id, year):
             continue
         seen.add(identity(snapshot))
         yield [f"STOCK-{source.pk}", worksheet_text(source.item.kode_barang), source.item.nama_barang,
-               source.item.satuan.name if source.item.satuan_id else "", "", worksheet_text(str(source.unit_price)),
+               source.item.satuan.name if source.item.satuan_id else "", "", worksheet_text(source_price_text(source.unit_price)),
                worksheet_text(source.batch_lot), source.expiry_date.isoformat() if source.expiry_date else "",
                worksheet_text(source.sumber_dana.code), ""]
 
@@ -385,11 +388,19 @@ def parse_csv(decoded, *, facility_id=None, year=None):
     return rows
 
 
+def source_price_text(price):
+    """Keep the previous representation for prices that fit the old scale."""
+    previous_scale = price.quantize(PRICE_QUANT)
+    return str(previous_scale if previous_scale == price else price)
+
+
 def opening_digest(opening):
     lines = list(opening.lines.order_by("pk").values("line_key", "item_id", "quantity", "unit_price",
                 "batch_lot", "expiry_date", "sumber_dana_id", "source_document_number", "provenance_note", "source_distribution_item_id", "source_stock_id"))
-    # Keep historical digests stable for manually entered, unlinked documents.
+    # Keep historical digests stable across added links and wider price storage.
     for line in lines:
+        if line["unit_price"] is not None:
+            line["unit_price"] = source_price_text(line["unit_price"])
         if line["source_distribution_item_id"] is None:
             del line["source_distribution_item_id"]
         if line["source_stock_id"] is None:
@@ -612,7 +623,7 @@ def post_receipt(*, receipt, user):
             raise ValidationError("Kedaluwarsa penerimaan wajib diverifikasi.")
         # The protected warehouse link carries source identity, never today's price.
         source_number = source.stock.source_document_number if source.stock_id else ""
-        snapshots.append([line.pk, line.item_id, str(line.quantity), str(line.unit_price),
+        snapshots.append([line.pk, line.item_id, str(line.quantity), source_price_text(line.unit_price),
                           line.batch_lot, str(line.expiry_date), source.issued_sumber_dana_id, source_number])
     digest = hashlib.sha256(json.dumps([receipt.pk, str(receipt.received_date), snapshots]).encode()).hexdigest()
     posting = PuskesmasInventoryPosting.objects.create(facility=facility, receipt=receipt,
